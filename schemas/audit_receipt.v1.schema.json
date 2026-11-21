@@ -1,0 +1,165 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Foundation-0/aletheia/schemas/audit_receipt.v1.schema.json",
+  "title": "Aletheia Audit Receipt v1",
+  "description": "Machine-readable adversarial verification receipt produced by an independent Tomography Verifier (G_obs) and validated by `aletheia audit-check`.",
+  "type": "object",
+  "required": [
+    "schema",
+    "audit_id",
+    "target",
+    "verdict",
+    "oracle_class",
+    "novelty",
+    "repro_command",
+    "r4_parity",
+    "prior_art_checked",
+    "evidence"
+  ],
+  "properties": {
+    "schema": {
+      "const": "aletheia.audit_receipt.v1"
+    },
+    "audit_id": {
+      "type": "string",
+      "pattern": "^AUDIT-[0-9]{3}[A-Z]?$",
+      "description": "Sequential audit identifier (e.g. AUDIT-001, AUDIT-020R)."
+    },
+    "date": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+      "description": "UTC date (YYYY-MM-DD) when the audit completed."
+    },
+    "author": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Role or agent that authored the audited artifact."
+    },
+    "verifier": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Independent verifier role or agent identifier."
+    },
+    "target": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Audited artifact path, repository/PR, or theorem claim."
+    },
+    "verdict": {
+      "type": "string",
+      "enum": [
+        "VERIFIED",
+        "PARTIAL/FRAGILE",
+        "FALSIFIED",
+        "NOT_SHOWN",
+        "EXPOSED"
+      ]
+    },
+    "oracle_class": {
+      "type": "string",
+      "pattern": "^(exact|sampled|anchor)(\\s*\\+\\s*(exact|sampled|anchor))*$",
+      "description": "Primary verification oracle class (or '+'-joined combination of exact, sampled, anchor)."
+    },
+    "novelty": {
+      "type": "string",
+      "enum": [
+        "N0",
+        "N1",
+        "N2",
+        "N1/N2",
+        "N0/N1"
+      ],
+      "description": "Honest novelty classification (default N0 until full-text prior-art audit confirms N1 or N2)."
+    },
+    "gates_tested": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^(G[1-9]|R[1-5])$"
+      },
+      "uniqueItems": true
+    },
+    "repro_command": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Clean-room command reproducing the audit under isolated flags (-I -O -B -W error)."
+    },
+    "r4_parity": {
+      "type": "boolean",
+      "description": "True iff exit code and canonical output match across -I -B, -I -O -B, and -I -B -W error with zero bare asserts."
+    },
+    "prior_art_checked": {
+      "type": "boolean",
+      "description": "True iff full-text prior art and live peer PRs were inspected (mandatory true whenever novelty includes N2)."
+    },
+    "prior_art_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "canonical_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "mutants_killed": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "mutants_total": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "scope_limits": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "Explicit scope caveats (e.g. local arc vs global, uncompiled_source, high-SNR limit, ensemble vs single-shot)."
+    },
+    "evidence": {
+      "oneOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      ],
+      "description": "Concise factual audit evidence, counterexamples, and clean-room verifier script reference."
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "novelty": {
+            "enum": [
+              "N2",
+              "N1/N2"
+            ]
+          }
+        },
+        "required": [
+          "novelty"
+        ]
+      },
+      "then": {
+        "properties": {
+          "prior_art_checked": {
+            "const": true
+          }
+        }
+      }
+    }
+  ],
+  "additionalProperties": true
+}

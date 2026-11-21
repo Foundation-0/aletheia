@@ -1,0 +1,14 @@
+{
+  "name": "aletheia-research",
+  "version": "1.0.0",
+  "description": "The Aletheia Method (Portal-Driven Resonance & Adversarial Tomography) for Claude Code: rules, /aletheia command, portal-keeper and verifier-tomography subagents.",
+  "repository": "https://github.com/Foundation-0/aletheia",
+  "license": "Apache-2.0",
+  "commands": [
+    "commands/aletheia.md"
+  ],
+  "agents": [
+    "agents/portal-keeper.md",
+    "agents/verifier-tomography.md"
+  ]
+}
