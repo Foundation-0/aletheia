@@ -2,7 +2,7 @@
 `aletheia diagnose <expedition-dir> [--board <jsonl>]`: Quantitative Anti-Cave Relapse Detector.
 
 Scans `frontier_portals.md`, `AUDIT_LOG.md`, verification/probe scripts, and an optional
-swarm board JSONL feed to detect and score all 11 Cave-Shadow Anti-Patterns from The Aletheia Method:
+swarm board JSONL feed to detect and score all 12 Cave-Shadow Anti-Patterns from The Aletheia Method:
   1. Static-Map Trap (cartographer/portal-keeper parks after Round 1)
   2. Premature Dismissal Bias (strings of FALSIFIED/N0 without steelmanned repairs)
   3. Language Smuggling (buzzword density without executable operators/equations)
@@ -14,17 +14,17 @@ swarm board JSONL feed to detect and score all 11 Cave-Shadow Anti-Patterns from
   9. Finite-Sample / Support-Truncation Mirage (asymptotic claim from truncated/finite-M trajectories without cutoff check)
  10. Sparse-Collision Denominator Collapse (averaging sparse/filtered items by collision count c_j instead of global W)
  11. Unit-Gauge / Radix Fragility (unscaled raw-unit regularization or base-10/float-tolerance grading without gauge invariance)
+ 12. Trust-Boundary Shadow (trailing-newline `$` digest regexes, loose `json.loads` on ledgers, unbound escape hatches, or unverified ancestor permissions)
 """
 from __future__ import annotations
 
 import ast
-import json
 from pathlib import Path
 import re
 from typing import Any
 
 from .audit_check import SKIP_DIRS, validate_audit_log_markdown
-from .strict_io import require_ok
+from .strict_io import loads_strict_json, require_ok
 
 _BUZZWORDS = (
     "sheaf", "duality", "curvature", "emergence", "holonomy",
@@ -60,6 +60,9 @@ _UNIT_RADIX_FRAGILE_RE = re.compile(
     r"include_percentage\s*=\s*True)\b",
     re.IGNORECASE,
 )
+_TRAILING_NEWLINE_DIGEST_RE = re.compile(
+    r"re\.compile\(\s*r?['\"]\^(?:\(\?:sha256:\)\?|sha256:)?\[(?:0-9a-f(?:A-F)?|a-f(?:A-F)?0-9)\]\{(?:40|64)\}\$['\"]"
+)
 
 
 def _load_board_jsonl(board_path: Path | None) -> list[dict[str, Any]]:
@@ -72,7 +75,7 @@ def _load_board_jsonl(board_path: Path | None) -> list[dict[str, Any]]:
         if not s:
             continue
         try:
-            obj = json.loads(s)
+            obj = loads_strict_json(s, allow_float=True, require_object=False)
         except Exception as exc:
             raise ValueError(f"invalid JSONL on line {lineno} of {board_path}: {exc}") from exc
         if isinstance(obj, dict):
@@ -93,7 +96,7 @@ def diagnose_expedition(
     *,
     board_path: Path | None = None,
 ) -> dict[str, Any]:
-    """Run quantitative 11-pattern Cave-Shadow relapse diagnosis on an expedition directory."""
+    """Run quantitative 12-pattern Cave-Shadow relapse diagnosis on an expedition directory."""
     root = expedition_dir.resolve()
     require_ok(root.is_dir(), "EXPEDITION_DIR_NOT_FOUND", f"directory not found: {root}")
 
@@ -379,7 +382,7 @@ def diagnose_expedition(
             if any(part in SKIP_DIRS for part in jf.relative_to(root).parts):
                 continue
             try:
-                jobj = json.loads(jf.read_text(encoding="utf-8", errors="replace"))
+                jobj = loads_strict_json(jf.read_text(encoding="utf-8", errors="replace"), allow_float=True, require_object=False)
             except Exception:
                 continue
             if isinstance(jobj, dict):
@@ -422,7 +425,7 @@ def diagnose_expedition(
             if any(part in SKIP_DIRS for part in jf.relative_to(root).parts):
                 continue
             try:
-                jobj = json.loads(jf.read_text(encoding="utf-8", errors="replace"))
+                jobj = loads_strict_json(jf.read_text(encoding="utf-8", errors="replace"), allow_float=True, require_object=False)
             except Exception:
                 continue
             if isinstance(jobj, dict):
@@ -472,7 +475,7 @@ def diagnose_expedition(
             if any(part in SKIP_DIRS for part in jf.relative_to(root).parts):
                 continue
             try:
-                jobj = json.loads(jf.read_text(encoding="utf-8", errors="replace"))
+                jobj = loads_strict_json(jf.read_text(encoding="utf-8", errors="replace"), allow_float=True, require_object=False)
             except Exception:
                 continue
             if isinstance(jobj, dict):
@@ -510,7 +513,7 @@ def diagnose_expedition(
             if any(part in SKIP_DIRS for part in jf.relative_to(root).parts):
                 continue
             try:
-                jobj = json.loads(jf.read_text(encoding="utf-8", errors="replace"))
+                jobj = loads_strict_json(jf.read_text(encoding="utf-8", errors="replace"), allow_float=True, require_object=False)
             except Exception:
                 continue
             if isinstance(jobj, dict):
@@ -525,6 +528,54 @@ def diagnose_expedition(
         "status": _status_from_risk(r11),
         "evidence": ev11,
         "remediation": "Enforce Stage-B coordinate-free null-equivalence: standardize/scale-normalize features before regularization and grade mathematical equivalence over exact Q, never base-10/float64 heuristics.",
+    })
+
+    # ------------------------------------------------------------------
+    # 12. Trust-Boundary Shadow (CS-12, Round 6 warp-drive AUDIT-061R..065)
+    # ------------------------------------------------------------------
+    r12 = 0
+    ev12: list[str] = []
+    for d in py_scan_dirs:
+        if not d.is_dir():
+            continue
+        for pf in sorted(d.rglob("*.py")):
+            if any(part in SKIP_DIRS or part == "__pycache__" for part in pf.relative_to(root).parts):
+                continue
+            txt = pf.read_text(encoding="utf-8", errors="replace")
+            if _TRAILING_NEWLINE_DIGEST_RE.search(txt) is not None:
+                r12 += 60
+                ev12.append(
+                    f"{pf.relative_to(root)}: hex-digest regex uses `$` instead of `\\Z` (allows trailing-newline smuggling)"
+                )
+    for sub in ("probes", "synthesis"):
+        sp = root / sub
+        if not sp.is_dir():
+            continue
+        for jf in sorted(sp.rglob("*.json")):
+            if any(part in SKIP_DIRS for part in jf.relative_to(root).parts):
+                continue
+            try:
+                jobj = loads_strict_json(jf.read_text(encoding="utf-8", errors="replace"), allow_float=True, require_object=False)
+            except Exception:
+                continue
+            if isinstance(jobj, dict):
+                if (
+                    jobj.get("escape_hatch_bound") is False
+                    or jobj.get("strict_json_duplicate_keys_checked") is False
+                    or jobj.get("ancestor_dir_modes_checked") is False
+                ):
+                    r12 += 60
+                    ev12.append(
+                        f"{jf.relative_to(root)}: trust-boundary shadow (unbound escape hatch, unguarded JSON keys, or unchecked ancestor modes)"
+                    )
+    r12 = min(100, r12)
+    patterns.append({
+        "id": "CS-12",
+        "name": "Trust-Boundary Shadow",
+        "risk_score": r12,
+        "status": _status_from_risk(r12),
+        "evidence": ev12,
+        "remediation": "Use `\\A...\\Z` digest regexes, `loads_strict_json` (rejecting duplicate keys & NaN), cryptographic/policy binding on every escape hatch, and `--strict-ancestors` directory-mode verification.",
     })
 
     avg_risk = sum(p["risk_score"] for p in patterns) / len(patterns)

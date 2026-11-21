@@ -1,7 +1,7 @@
 # Aletheia Canonical Specification: Laws, Gates, Contracts, Oracles & Anti-Patterns
 
-**Specification Version:** `aletheia.spec.v1.3`  
-**Lineage:** Formalizes the Cave Expedition anti-shadow protocol (`verification/PROTOCOL.md`, v2), gate-contract architecture (`siliconcordat/loom#8` / `#9`), Wave 2 Symbiosis Rounds 1–3 (`AUDIT-023`–`AUDIT-039`), and Wave 2 Round 4 Ramanujan/Hawking & 8-Glyph Operator Calculus (`AUDIT-041`–`AUDIT-054`) into a domain-general open specification enforced programmatically by the `aletheia` v1.3 CLI (`audit-check`, `mutate`, `diagnose`, `ratchet`, `mde`, `calculus`).
+**Specification Version:** `aletheia.spec.v1.4`  
+**Lineage:** Formalizes the Cave Expedition anti-shadow protocol (`verification/PROTOCOL.md`, v2), gate-contract architecture (`siliconcordat/loom#8` / `#9`), Wave 2 Symbiosis Rounds 1–3 (`AUDIT-023`–`AUDIT-039`), Wave 2 Round 4 Ramanujan/Hawking & 8-Glyph Operator Calculus (`AUDIT-041`–`AUDIT-054`), and Wave 2 Round 6 `Moissanite-Labs/warp-drive` Trust-Boundary & Spectral Tomography (`AUDIT-061R`–`AUDIT-065`) into a domain-general open specification enforced programmatically by the `aletheia` v1.4 CLI (`audit-check`, `mutate`, `diagnose`, `ratchet`, `mde`, `calculus`).
 
 ---
 
@@ -72,9 +72,9 @@ Principle: *"A gate's verdict must never be movable by how the submission is wri
 
 ---
 
-## 5. The Eleven Cave-Shadow Anti-Patterns (`CS-01` – `CS-11`)
+## 5. The Twelve Cave-Shadow Anti-Patterns (`CS-01` – `CS-12`)
 
-Automated heuristics for these eleven failure modes are implemented in `aletheia diagnose`:
+Automated heuristics for these twelve failure modes are implemented in `aletheia diagnose`:
 
 | # | Anti-Pattern | Observable Symptom | Structural Remedy |
 |---|---|---|---|
@@ -89,10 +89,11 @@ Automated heuristics for these eleven failure modes are implemented in `aletheia
 | **9** | **Finite-Sample / Support-Truncation Mirage (`CS-09`)** | Claiming an infinite-horizon equilibrium or phase-transition law from finite-sample / top-$p$ / truncated trajectories without checking tail-mass extinction (`AUDIT-032` `N2`). | Test exact finite-$M$ / projective support-truncation cutoffs and verify tail survival before asserting asymptotic laws. |
 | **10** | **Sparse-Collision Denominator Collapse (`CS-10`)** | Aggregating sparse updates or filtered eval scores by local collision count $c_j$ (e.g. `scatter_reduce_("mean", include_self=False)`) or dropping invalid rows instead of dividing by fixed global $W$ (`AUDIT-039` `N2`, `AUDIT-037`). | Always normalize sparse/filtered aggregates over the fixed global denominator $W$ (`sum/W`) and penalize dropped/invalid rows explicitly. |
 | **11** | **Unit-Gauge / Radix Fragility (`CS-11`)** | Regularizing unscaled heterogeneous-unit features (e.g. raw `Ridge(alpha)` breaking under $10^9\times$ unit rescaling) or grading exact math via base-10/IEEE-754 heuristics (`100 == 1`, `10^17+1 == 10^17`, `AUDIT-039` `N2`, `AUDIT-036`). | Enforce Stage-B coordinate-free null-equivalence: gauge-normalize features before regularization and grade exact equivalence over $\mathbb{Q}$, never float64/radix heuristics. |
+| **12** | **Trust-Boundary Shadow (`CS-12`)** | Local refusal wrappers (`def _req`) hiding R5 survivors, hex-digest regexes ending in `$` instead of `\Z`, raw `json.loads` accepting duplicate keys / `NaN`, unbound escape hatches, or writable ancestor directories (`AUDIT-061R`–`065`, `v1.4`). | Auto-detect local refusal wrappers in `aletheia mutate`, enforce `\A...\Z` digest regexes, parse JSON/JSONL via `loads_strict_json`/`load_strict_jsonl_file`, bind escape hatches cryptographically to policy bounds, and verify `--strict-ancestors`. |
 
 ---
 
-## 6. v1.1–v1.3 Governance Extensions: Beyond-Language Perception, 8-Glyph Calculus, Plane-1 MDE, Ratchet & Lean 4 Gates
+## 6. v1.1–v1.4 Governance Extensions: Beyond-Language Perception, 8-Glyph Calculus, Plane-1 MDE, Ratchet & Trust-Boundary Gates
 
 1. **Beyond-Language, Beyond-Numerology Structural Perception (v1.2, `THEORY.md` §3.5):**
    - **Stage A (Label-Stripping):** Strip disciplinary nouns and base-10/coordinate numerology across candidate domains to perceive raw relational geometry, fiber eliminations, dualities, and obstructions.
@@ -105,10 +106,11 @@ Automated heuristics for these eleven failure modes are implemented in `aletheia
    - **Plane-2 Mechanical Obstruction (`plane2_oracle_compilation_forbidden: true`):** Verification oracles MUST NEVER be compiled into neural weights; Plane-2 weight adapters are strictly disposable caches subordinate to Plane-1 deterministic verification.
 4. **5-Gate Autonomous Ratchet Contract (`aletheia ratchet`, `AUDIT-026R` + `AUDIT-023`):**
    - Any automated hill-climbing or autoresearch loop running under Aletheia MUST enforce: (i) immutable Ring-0 evaluation harness lock, (ii) float-free canonical hash-chained receipts, (iii) AST-identity unchanged-baseline null rejection, (iv) Pre-Adaptation Goodhart Latch halt + blind portal re-entry preserving informative failed branches, and (v) a fixed-compute `CS-08` survival cap.
-5. **Hardened v1.3 Static Lean 4, Comparator, Manifest & Gate-8 Checks (`aletheia audit-check`, `AUDIT-028`–`049`):**
+5. **Hardened v1.4 Static Lean 4, Strict JSON/JSONL, Ancestor-Permission & R5 Wrapper Gates (`aletheia audit-check` & `aletheia mutate`, `AUDIT-028`–`065`):**
    - `--prereg-check` verifies strict topological plan-before-data ordering via git DAG ancestry (`LATEST(plan) < EARLIEST(data)`, rejecting same-commit bulk, post-hoc plan rewrites, typo masking, and dash-prefixed refs).
    - `--lean-audit` enforces char-literal `'"'` (`T-12`) & nested-comment-safe lexing, multiline `debug.skipKernelTC`, `sorryAx`, `Lean.ofReduceBool`, `Lean.trustCompiler`, declaration-scoped `partial` (zero `.partial` FPs), Lean 4.22 `(public|private|meta)? import` with repeatable accumulating `--allow-project-import` (`ALETHEIA-CLI-01` fixed in v1.3), `@[extern]`/`@[implemented_by]` hard escapes vs. `@[csimp]`/`ExistsImplication` review notices.
    - `--comparator-config` validates dual-kernel Comparator JSONs (`enable_nanoda: true`, permitted axioms, Spec $\not\to$ Proof isolation); `--pinned-manifest` verifies `CORE_MANIFEST.json` SHA-256 digests and `SafeVerify` 40-hex commit-SHA pins with path-traversal protection.
+   - `loads_strict_json` / `load_strict_jsonl_file` reject duplicate keys at every depth, non-RFC-8259 `NaN`/`Infinity`, and whitespace-only tampered JSONL ledgers (`WD-LEDGER-01`); `--strict-ancestors` (`verify_ancestor_dir_modes`) enforces canonical `0o022`-free permissions along the entire `/` through parent ancestor chain (`BYPASS-04`); `aletheia mutate` AST-detects local single-refusal helper wrappers (`_req`, `_fail_if`, `PR1-B4`).
 
 ---
 

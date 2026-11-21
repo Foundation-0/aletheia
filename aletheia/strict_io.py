@@ -86,6 +86,21 @@ def parse_strict_json_text(
     return obj
 
 
+def loads_strict_json(
+    raw_text: str,
+    *,
+    allow_float: bool = True,
+    require_object: bool = False,
+) -> Any:
+    """
+    Drop-in strict JSON loader (v1.4, reverse-extracted from warp-drive `server.py` & `WD-LEDGER-01`):
+      - Rejects duplicate keys at EVERY nesting depth via `object_pairs_hook`
+      - Rejects non-RFC-8259 `NaN`, `Infinity`, `-Infinity` via `parse_constant`
+      - Optionally rejects floats (`allow_float=False`) and non-object roots (`require_object=True`).
+    """
+    return parse_strict_json_text(raw_text, allow_float=allow_float, require_object=require_object)
+
+
 def load_strict_json_file(
     path: Path,
     *,
@@ -100,6 +115,40 @@ def load_strict_json_file(
     except UnicodeDecodeError as exc:
         raise AletheiaError("INVALID_UTF8", f"file {path} is not valid UTF-8: {exc}") from exc
     return parse_strict_json_text(text, allow_float=allow_float, require_object=require_object)
+
+
+def load_strict_jsonl_file(
+    path: Path,
+    *,
+    allow_float: bool = True,
+    require_object: bool = True,
+) -> list[Any]:
+    """
+    Strict line-delimited JSONL loader (v1.4, closes `WD-LEDGER-01`):
+      - Rejects CRLF line endings and invalid UTF-8
+      - Rejects whitespace-only non-empty tampered files (empty 0-byte file returns `[]`)
+      - Rejects blank interior lines, duplicate keys at any depth, and `NaN`/`Infinity`.
+    """
+    require_ok(path.is_file(), "FILE_NOT_FOUND", f"JSONL file not found: {path}")
+    raw = path.read_bytes()
+    require_ok(b"\r\n" not in raw, "CRLF_LINE_ENDINGS", f"CRLF line endings detected in {path}")
+    if len(raw) == 0:
+        return []
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise AletheiaError("INVALID_UTF8", f"file {path} is not valid UTF-8: {exc}") from exc
+    if len(text.strip()) == 0:
+        raise AletheiaError("JSONL_WHITESPACE_ONLY", f"whitespace-only non-empty JSONL file: {path}")
+    records: list[Any] = []
+    for lineno, line in enumerate(text.splitlines(), start=1):
+        if len(line.strip()) == 0:
+            raise AletheiaError("JSONL_BLANK_LINE", f"blank line at {path}:{lineno}")
+        try:
+            records.append(loads_strict_json(line, allow_float=allow_float, require_object=require_object))
+        except AletheiaError as exc:
+            raise AletheiaError(exc.code, f"{path}:{lineno}: {exc.message}") from exc
+    return records
 
 
 def personal_path_regexes() -> list[tuple[str, re.Pattern[str]]]:

@@ -37,7 +37,7 @@ Spawn 4–5 distinct roles using the templates in `prompts/`:
    (a) a foundational claim has already passed `VERIFIED` audit in `verification/AUDIT_LOG.md`, AND
    (b) an explicit obstruction or sharpness proof identifies a concrete higher-order object needed to break past it.
 3. **Obstruction Elevation:** When exact arithmetic or rigorous data refutes an initial conjecture, treat a proven impossibility/obstruction as a standalone publishable theorem or branch pivot—never as wasted work.
-4. **Anti-Cave Diagnostics:** Periodically run `python3 -m aletheia diagnose <WORKSPACE>` to detect relapse into any of the 11 Cave-Shadow anti-patterns (`CS-01`–`CS-11`).
+4. **Anti-Cave Diagnostics:** Periodically run `python3 -m aletheia diagnose <WORKSPACE>` to detect relapse into any of the 12 Cave-Shadow anti-patterns (`CS-01`–`CS-12`).
 
 ## Phase 3 — Closure, Verification & Compute Handoff
 1. Confirm every claim intended for publication carries a `VERIFIED` row in `verification/AUDIT_LOG.md` with honest `exact`/`sampled`/`anchor` oracle class, `N0`/`N1`/`N2` novelty tag (backed by full-text prior-art audit), and explicit scope limits.

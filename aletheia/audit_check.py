@@ -17,8 +17,10 @@ Checks:
 from __future__ import annotations
 
 import ast
+import os
 from pathlib import Path
 import re
+import stat
 import subprocess
 import sys
 from typing import Any, Sequence
@@ -27,6 +29,7 @@ from .strict_io import (
     AletheiaError,
     canonical_sha256_bytes,
     load_strict_json_file,
+    load_strict_jsonl_file,
     require_ok,
     scan_text_for_leaks,
 )
@@ -855,6 +858,92 @@ def run_r4_script_check(
     }
 
 
+def verify_ancestor_dir_modes(dir_modes: Sequence[tuple[str, int]]) -> dict[str, Any]:
+    """
+    Canonical Ancestor-Directory Permission Gate (v1.4, reverse-extracted from
+    `warp-drive` `harden-image-modes.sh` & `AUDIT-062R` `BYPASS-04`):
+      - Requires a non-empty sequence of `(canonical_abs_path, strict_int_mode)` pairs
+      - Rejects non-canonical paths (leading `//`, embedded `//`, `.`, `..`, trailing `/`,
+        NUL or newline characters, non-absolute paths, and duplicate path entries)
+      - Rejects non-`int` / `bool` modes and out-of-range modes outside `[0, 0o7777]`
+      - Rejects group/world-writable directories (`(mode & 0o022) != 0`) so unprivileged
+        actors cannot rename-swap read-only verifier or policy files
+      - Requires EVERY strict ancestor from `/` through parent to be explicitly present.
+    """
+    findings: list[dict[str, Any]] = []
+    if not isinstance(dir_modes, (list, tuple)) or len(dir_modes) == 0:
+        findings.append({"code": "EMPTY_DIR_MODES", "path": "", "message": "dir_modes must be a non-empty sequence"})
+        return {"passed": False, "checked_dirs": 0, "errors": [f["code"] for f in findings], "findings": findings}
+
+    seen_modes: dict[str, int] = {}
+    for idx, entry in enumerate(dir_modes):
+        if not isinstance(entry, (list, tuple)) or len(entry) != 2:
+            findings.append({"code": "INVALID_ENTRY", "path": f"[{idx}]", "message": "entry must be a (path, mode) pair"})
+            continue
+        path_str, mode = entry[0], entry[1]
+        if (
+            type(path_str) is not str
+            or not path_str.startswith("/")
+            or "\x00" in path_str
+            or "\n" in path_str
+            or "\r" in path_str
+            or (path_str != "/" and any(seg in ("", ".", "..") for seg in path_str.split("/")[1:]))
+        ):
+            findings.append({"code": "NON_CANONICAL_PATH", "path": repr(path_str), "message": "path must be canonical POSIX absolute path"})
+            continue
+        if type(mode) is not int or mode < 0 or mode > 0o7777:
+            findings.append({"code": "INVALID_MODE", "path": path_str, "message": f"mode must be exact int in [0, 0o7777], got {mode!r}"})
+            continue
+        if path_str in seen_modes:
+            findings.append({"code": "DUPLICATE_PATH", "path": path_str, "message": "duplicate directory path in ancestor chain"})
+            continue
+        seen_modes[path_str] = mode
+        if (mode & 0o022) != 0:
+            findings.append({
+                "code": "WRITABLE_ANCESTOR_MODE",
+                "path": path_str,
+                "mode_octal": oct(mode),
+                "message": f"directory {path_str} has group/world write bits set ({oct(mode)})",
+            })
+
+    for path_str in sorted(seen_modes):
+        if path_str == "/":
+            continue
+        if "/" not in seen_modes:
+            findings.append({"code": "MISSING_ANCESTOR", "path": "/", "message": f"root '/' missing for {path_str}"})
+        parts = path_str.split("/")[1:]
+        for depth in range(1, len(parts)):
+            ancestor = "/" + "/".join(parts[:depth])
+            if ancestor not in seen_modes:
+                findings.append({
+                    "code": "MISSING_ANCESTOR",
+                    "path": ancestor,
+                    "message": f"strict ancestor {ancestor} missing for {path_str}",
+                })
+
+    return {
+        "passed": len(findings) == 0,
+        "checked_dirs": len(seen_modes),
+        "errors": sorted({f["code"] for f in findings}),
+        "findings": findings,
+    }
+
+
+def audit_ancestor_dir_permissions(target_path: Path) -> dict[str, Any]:
+    """Inspect real filesystem permissions along the full canonical ancestor chain of `target_path`."""
+    resolved = target_path.resolve()
+    require_ok(resolved.exists(), "TARGET_NOT_FOUND", f"target path does not exist: {resolved}")
+    base_dir = resolved if resolved.is_dir() else resolved.parent
+    chain_paths = list(reversed([base_dir, *base_dir.parents]))
+    dir_modes: list[tuple[str, int]] = []
+    for d in chain_paths:
+        st = os.stat(d)
+        dir_modes.append((str(d), stat.S_IMODE(st.st_mode)))
+    res = verify_ancestor_dir_modes(dir_modes)
+    res["target"] = str(base_dir)
+    return res
+
+
 def run_audit_check(
     target_path: Path,
     *,
@@ -862,6 +951,7 @@ def run_audit_check(
     audit_log: Path | None = None,
     receipt: Path | None = None,
     strict_unseeded: bool = False,
+    strict_ancestors: bool = False,
     allow_bare_assert_in_tests: bool = False,
     isolated: bool = True,
     timeout: int = 120,
@@ -938,6 +1028,12 @@ def run_audit_check(
                 load_strict_json_file(p, allow_float=True, require_object=False)
             except AletheiaError as exc:
                 json_errors.append({"file": rel_str, "code": exc.code, "message": exc.message})
+        elif p.suffix.lower() == ".jsonl":
+            json_files_scanned += 1
+            try:
+                load_strict_jsonl_file(p, allow_float=True, require_object=False)
+            except AletheiaError as exc:
+                json_errors.append({"file": rel_str, "code": exc.code, "message": exc.message})
 
     # R4 3-mode script checks
     script_reports: list[dict[str, Any]] = []
@@ -1000,6 +1096,11 @@ def run_audit_check(
             data_commit=data_commit,
         )
 
+    # Optional v1.4 canonical ancestor-directory permission gate (--strict-ancestors)
+    ancestor_report: dict[str, Any] | None = None
+    if strict_ancestors:
+        ancestor_report = audit_ancestor_dir_permissions(root)
+
     failures: list[str] = []
     if crlf_files:
         failures.append(f"CRLF line endings in {len(crlf_files)} file(s)")
@@ -1029,6 +1130,8 @@ def run_audit_check(
         failures.append(f"pinned manifest verification errors ({len(manifest_report['errors'])})")
     if prereg_report is not None and not prereg_report["passed"]:
         failures.append(f"git-DAG preregistration check failed ({prereg_report['reason']})")
+    if ancestor_report is not None and not ancestor_report["passed"]:
+        failures.append(f"ancestor directory permission findings ({len(ancestor_report['findings'])})")
 
     passed = len(failures) == 0
     return {
@@ -1051,6 +1154,7 @@ def run_audit_check(
             "lean_files_checked": lean_report["files_checked"] if lean_report is not None else 0,
             "lean_findings_count": len(lean_report["findings"]) if lean_report is not None else 0,
             "lean_notices_count": len(lean_report["notices"]) if lean_report is not None else 0,
+            "ancestor_permission_findings_count": len(ancestor_report["findings"]) if ancestor_report is not None else 0,
         },
         "failures": failures,
         "crlf_files": crlf_files,
@@ -1067,4 +1171,5 @@ def run_audit_check(
         "comparator_config": comparator_report,
         "pinned_manifest": manifest_report,
         "prereg_check": prereg_report,
+        "ancestor_permissions": ancestor_report,
     }

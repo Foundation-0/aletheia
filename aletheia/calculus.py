@@ -27,7 +27,7 @@ import random
 from typing import Any, Callable
 import unicodedata
 
-from .strict_io import AletheiaError
+from .strict_io import AletheiaError, loads_strict_json
 
 
 class CalculusError(AletheiaError):
@@ -58,7 +58,7 @@ def canonical_json(obj: Any) -> str:
     return json.dumps(obj, sort_keys=True, separators=(",", ":"), allow_nan=False)
 
 
-GLYPH_REGISTRY_DATA: dict[str, Any] = json.loads(
+GLYPH_REGISTRY_DATA: dict[str, Any] = loads_strict_json(
     r"""{
   "schema": "aletheia.operator_calculus.glyph_registry.v1",
   "wave": "wave-2-round-4c",

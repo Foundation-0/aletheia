@@ -10,12 +10,18 @@ Safe under:
 """
 from __future__ import annotations
 
-__version__ = "1.3.0"
+__version__ = "1.4.0"
 
-from .strict_io import AletheiaError, parse_strict_json_text, load_strict_json_file
+from .strict_io import (
+    AletheiaError,
+    parse_strict_json_text,
+    loads_strict_json,
+    load_strict_json_file,
+    load_strict_jsonl_file,
+)
 from .scaffold import init_workspace
-from .audit_check import run_audit_check
-from .mutator import run_mutation_suite
+from .audit_check import run_audit_check, verify_ancestor_dir_modes, audit_ancestor_dir_permissions
+from .mutator import run_mutation_suite, discover_local_refusal_wrappers
 from .diagnose import diagnose_expedition
 from .handoff import validate_handoff_manifest, create_handoff_template
 from .installer import install_adapter
@@ -25,10 +31,15 @@ __all__ = [
     "__version__",
     "AletheiaError",
     "parse_strict_json_text",
+    "loads_strict_json",
     "load_strict_json_file",
+    "load_strict_jsonl_file",
     "init_workspace",
     "run_audit_check",
+    "verify_ancestor_dir_modes",
+    "audit_ancestor_dir_permissions",
     "run_mutation_suite",
+    "discover_local_refusal_wrappers",
     "diagnose_expedition",
     "validate_handoff_manifest",
     "create_handoff_template",

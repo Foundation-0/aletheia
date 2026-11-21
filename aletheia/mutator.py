@@ -108,12 +108,123 @@ def _is_main_guard(node: ast.If) -> bool:
     return False
 
 
+def _unwrap_bool_call(expr: ast.expr) -> ast.expr:
+    if (
+        isinstance(expr, ast.Call)
+        and isinstance(expr.func, ast.Name)
+        and expr.func.id == "bool"
+        and len(expr.args) == 1
+        and not expr.keywords
+    ):
+        return expr.args[0]
+    return expr
+
+
+def _is_param_name(expr: ast.expr, param_name: str) -> bool:
+    return isinstance(expr, ast.Name) and expr.id == param_name
+
+
+def _classify_wrapper_test(test: ast.expr, cond_param: str) -> str | None:
+    """
+    Classify the guard polarity of a single-refusal wrapper's `if <test>:` condition:
+      - `"require"` when truthy `cond_param` passes (mutating arg0 -> True neutralizes guard):
+          `if not cond:`, `if not bool(cond):`, `if cond is False:`, `if cond == False:`,
+          `if cond is not True:`, `if cond != True:`
+      - `"reject"` when truthy `cond_param` refuses (mutating arg0 -> False neutralizes guard):
+          `if cond:`, `if bool(cond):`, `if cond is True:`, `if cond == True:`
+    """
+    if isinstance(test, ast.UnaryOp) and isinstance(test.op, ast.Not):
+        if _is_param_name(_unwrap_bool_call(test.operand), cond_param):
+            return "require"
+    if _is_param_name(_unwrap_bool_call(test), cond_param):
+        return "reject"
+    if isinstance(test, ast.Compare) and len(test.ops) == 1 and len(test.comparators) == 1:
+        op = test.ops[0]
+        left = _unwrap_bool_call(test.left)
+        right = test.comparators[0]
+        if _is_param_name(left, cond_param) and isinstance(right, ast.Constant):
+            if isinstance(op, (ast.Is, ast.Eq)) and right.value is False:
+                return "require"
+            if isinstance(op, (ast.IsNot, ast.NotEq)) and right.value is True:
+                return "require"
+            if isinstance(op, (ast.Is, ast.Eq)) and right.value is True:
+                return "reject"
+    return None
+
+
+def _stmt_is_hard_refusal(body: list[ast.stmt]) -> bool:
+    """
+    Return True ONLY when an `if` body immediately raises an exception or exits
+    (`raise ...`, `sys.exit(...)`, or `exit(...)`). Excludes ordinary early-return
+    utilities such as `if not x: return None`.
+    """
+    if not body:
+        return False
+    first = body[0]
+    if isinstance(first, ast.Raise):
+        return True
+    if isinstance(first, ast.Expr) and isinstance(first.value, ast.Call):
+        fn = first.value.func
+        if isinstance(fn, ast.Attribute) and fn.attr == "exit" and isinstance(fn.value, ast.Name) and fn.value.id == "sys":
+            return True
+        if isinstance(fn, ast.Name) and fn.id == "exit":
+            return True
+    return False
+
+
+def discover_local_refusal_wrappers(tree: ast.Module) -> dict[str, str]:
+    """
+    AST pre-pass (v1.4, closes `PR1-B4` `_req` blind spot):
+    Discover local single-refusal helper functions whose guard body raises or exits
+    (e.g. `def _req(cond, ...): if not cond: raise ...` or `def _fail_if(bad, ...): if bad: raise ...`,
+    with optional docstring and optional trailing `return`), returning `{func_name: "require" | "reject"}`.
+    Ignores ordinary early-return utility helpers like `if not x: return None`.
+    """
+    wrappers: dict[str, str] = {}
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.FunctionDef):
+            continue
+        pos_params = list(node.args.posonlyargs) + list(node.args.args)
+        if not pos_params:
+            continue
+        cond_param = pos_params[0].arg
+        if cond_param in ("self", "cls"):
+            if len(pos_params) < 2:
+                continue
+            cond_param = pos_params[1].arg
+
+        stmts = list(node.body)
+        if (
+            stmts
+            and isinstance(stmts[0], ast.Expr)
+            and isinstance(stmts[0].value, ast.Constant)
+            and isinstance(stmts[0].value.value, str)
+        ):
+            stmts = stmts[1:]
+        if not stmts or len(stmts) > 2:
+            continue
+        first = stmts[0]
+        if not isinstance(first, ast.If) or first.orelse or not _stmt_is_hard_refusal(first.body):
+            continue
+        if len(stmts) == 2 and not isinstance(stmts[1], ast.Return):
+            continue
+
+        polarity = _classify_wrapper_test(first.test, cond_param)
+        if polarity is not None:
+            wrappers[node.name] = polarity
+    return wrappers
+
+
 def discover_mutant_sites(source: str, *, include_boundaries: bool = True) -> tuple[ast.Module, list[MutantSite]]:
     """Parse Python source and deterministically discover all R5 refusal-site & boundary mutants."""
     try:
         tree = ast.parse(source)
     except SyntaxError as exc:
         raise AletheiaError("MUTATOR_SYNTAX_ERROR", f"failed to parse target Python file: {exc}") from exc
+
+    wrapper_polarities: dict[str, str] = {name: "require" for name in _REQUIRE_FUNC_NAMES}
+    local_wrappers = discover_local_refusal_wrappers(tree)
+    wrapper_polarities.update(local_wrappers)
 
     all_nodes = list(ast.walk(tree))
     sites: list[MutantSite] = []
@@ -154,26 +265,29 @@ def discover_mutant_sites(source: str, *, include_boundaries: bool = True) -> tu
                                 extra_cmp_idx=op_i,
                             ))
 
-        # 2. `require*(cond, ...)` calls
+        # 2. `require*(cond, ...)` and auto-detected local refusal-wrapper calls
         elif isinstance(node, ast.Call):
             fn_name = None
             if isinstance(node.func, ast.Name):
                 fn_name = node.func.id
             elif isinstance(node.func, ast.Attribute):
                 fn_name = node.func.attr
-            if fn_name in _REQUIRE_FUNC_NAMES and len(node.args) >= 1:
+            polarity = wrapper_polarities.get(fn_name) if fn_name is not None else None
+            if polarity is not None and len(node.args) >= 1:
                 arg0 = node.args[0]
                 orig_arg = ast.unparse(arg0)
-                if orig_arg != "True":
+                neutral_literal = "True" if polarity == "require" else "False"
+                mutant_kind = "guard_require_call" if polarity == "require" else "guard_reject_call"
+                if orig_arg != neutral_literal:
                     idx_counter += 1
                     sites.append(MutantSite(
                         mutant_id=f"M{idx_counter:03d}",
-                        kind="guard_require_call",
+                        kind=mutant_kind,
                         lineno=node.lineno,
                         col_offset=node.col_offset,
                         node_index=node_idx,
                         original_src=f"{fn_name}({orig_arg}, ...)",
-                        mutated_src=f"{fn_name}(True, ...)",
+                        mutated_src=f"{fn_name}({neutral_literal}, ...)",
                     ))
                     if include_boundaries and isinstance(arg0, ast.Compare):
                         for op_i, op in enumerate(arg0.ops):
@@ -229,6 +343,9 @@ def apply_single_mutation(source: str, site: MutantSite) -> str:
     elif site.kind == "guard_require_call":
         require_ok(isinstance(node, ast.Call) and len(node.args) >= 1, "MUTANT_NODE_TYPE", "expected ast.Call")
         node.args[0] = ast.Constant(value=True)  # type: ignore[union-attr]
+    elif site.kind == "guard_reject_call":
+        require_ok(isinstance(node, ast.Call) and len(node.args) >= 1, "MUTANT_NODE_TYPE", "expected ast.Call")
+        node.args[0] = ast.Constant(value=False)  # type: ignore[union-attr]
     elif site.kind == "boundary_cmp_require":
         require_ok(isinstance(node, ast.Call) and isinstance(node.args[0], ast.Compare), "MUTANT_NODE_TYPE", "expected Call/Compare")
         cmp_node = node.args[0]  # type: ignore[union-attr]
@@ -288,7 +405,8 @@ def run_mutation_suite(
     target = script_path.resolve()
     require_ok(target.is_file(), "TARGET_SCRIPT_NOT_FOUND", f"script not found: {target}")
     source = target.read_text(encoding="utf-8")
-    _, sites = discover_mutant_sites(source, include_boundaries=include_boundaries)
+    tree, sites = discover_mutant_sites(source, include_boundaries=include_boundaries)
+    local_wrappers = sorted(discover_local_refusal_wrappers(tree).keys())
     if max_mutants > 0:
         sites = sites[:max_mutants]
     require_ok(len(sites) > 0, "NO_MUTANTS_DISCOVERED", f"no refusal/boundary guard sites found in {target}")
@@ -359,6 +477,7 @@ def run_mutation_suite(
         "passed": len(survivors) == 0,
         "target": str(target),
         "test_cmd": test_cmd,
+        "local_wrappers_detected": local_wrappers,
         "total_mutants": total,
         "killed": killed,
         "survived": len(survivors),

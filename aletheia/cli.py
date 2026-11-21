@@ -5,7 +5,7 @@ Subcommands:
   - init         Scaffold a non-colliding Aletheia research workspace
   - audit-check  Run automated R1-R5 hygiene, AST, 3-mode R4 parity, Lean 4, prereg & AUDIT_LOG checks
   - mutate       Run generic AST refusal-site mutation testing (R5, incl. dict-verdict & accumulator checkers)
-  - diagnose     Run quantitative 11-pattern Anti-Cave relapse diagnostics (CS-01..CS-11)
+  - diagnose     Run quantitative 12-pattern Anti-Cave relapse diagnostics (CS-01..CS-12)
   - handoff      Generate or validate portable `aletheia.compute_handoff.v1` manifests
   - install      Deploy Aletheia rules/skills/adapters to antigravity/claude-code/codex/cursor/gemini-cli/repo
   - ratchet      Run Aletheia Ratchet 5-gate demo or verify float-free hash-chained ratchet ledgers
@@ -95,8 +95,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_aud.add_argument("--audit-log", type=Path, default=None, help="Explicit path to AUDIT_LOG.md")
     p_aud.add_argument("--receipt", type=Path, default=None, help="Optional aletheia.audit_receipt.v1 JSON receipt")
     p_aud.add_argument("--strict-unseeded", action="store_true", help="Treat unseeded RNG calls as errors")
+    p_aud.add_argument("--strict-ancestors", action="store_true", help="Verify canonical 0o022-free permissions along all ancestor directories of target path")
     p_aud.add_argument("--no-isolated", action="store_true", help="Omit -I when running --scripts (for uninstalled cwd imports)")
-    p_aud.add_argument("--lean-audit", action="store_true", help="Run hardened v1.3 static Lean 4 audit on *.lean files")
+    p_aud.add_argument("--lean-audit", action="store_true", help="Run hardened v1.4 static Lean 4 audit on *.lean files")
     p_aud.add_argument("--allow-project-import", action="extend", nargs="+", default=[], help="Allow specific project Lean module prefixes under --lean-audit (repeatable)")
     p_aud.add_argument("--comparator-config", type=Path, default=None, help="Validate a Lean 4 Comparator JSON config (enable_nanoda & isolation)")
     p_aud.add_argument("--allow-no-nanoda", action="store_true", help="Downgrade missing/false enable_nanoda in --comparator-config to warning")
@@ -119,7 +120,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_mut.add_argument("--json", action="store_true", help="Emit JSON output")
 
     # 4. diagnose
-    p_diag = sub.add_parser("diagnose", help="Run quantitative 11-pattern Anti-Cave relapse detector (CS-01..CS-11)")
+    p_diag = sub.add_parser("diagnose", help="Run quantitative 12-pattern Anti-Cave relapse detector (CS-01..CS-12)")
     p_diag.add_argument("expedition_dir", type=Path, help="Expedition workspace directory")
     p_diag.add_argument("--board", type=Path, default=None, help="Optional swarm board JSONL file")
     p_diag.add_argument("--fail-on-warning", action="store_true", help="Return non-zero on WARNING as well as ALERT")
@@ -187,6 +188,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 audit_log=args.audit_log,
                 receipt=args.receipt,
                 strict_unseeded=args.strict_unseeded,
+                strict_ancestors=args.strict_ancestors,
                 isolated=not args.no_isolated,
                 timeout=args.timeout,
                 lean_audit=args.lean_audit,

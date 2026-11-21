@@ -75,7 +75,7 @@ class TestAletheiaCLI(unittest.TestCase):
                 diag["overall_status"] == "HEALTHY"
                 and diag["health_score"] == 100.0
                 and diag["alert_count"] == 0
-                and len(diag["patterns"]) == 11,
+                and len(diag["patterns"]) == 12,
                 f"fresh workspace self-triggered diagnose: {diag}",
             )
             rc_diag, out_diag, _ = _run_cli(["diagnose", str(ws), "--json"])
@@ -912,6 +912,255 @@ class TestAletheiaCLI(unittest.TestCase):
                 and st_obj["compressed_expedition_theorems"]["theorems_verified"] == 13
                 and len(st_obj["commutator_discovery_probes"]) == 6,
                 f"self-test payload incomplete: {st_obj}",
+            )
+
+    def test_14_v14_local_wrappers_strict_json_ancestors_and_cs12(self) -> None:
+        """v1.4: AST local refusal-wrapper detection, loads_strict_json/JSONL, --strict-ancestors, and CS-12."""
+        import os
+        import stat
+        from aletheia import (
+            __version__,
+            audit_ancestor_dir_permissions,
+            discover_local_refusal_wrappers,
+            load_strict_jsonl_file,
+            loads_strict_json,
+            verify_ancestor_dir_modes,
+        )
+        from aletheia.mutator import discover_mutant_sites, run_mutation_suite
+
+        _req(__version__ == "1.4.0", f"expected version 1.4.0, got {__version__}")
+
+        # 1. AST local refusal-wrapper auto-detection (`PR1-B4`: `_req`, `_fail_if`, `_guard_ret`)
+        with tempfile.TemporaryDirectory(prefix="aletheia_v14_") as td:
+            root = Path(td)
+            wrap_mod = root / "wrapped_gate.py"
+            wrap_src = (
+                "def _req(cond, code, msg):\n"
+                "    '''Local require wrapper.'''\n"
+                "    if not cond:\n"
+                "        raise ValueError(f'{code}: {msg}')\n\n"
+                "def _fail_if(bad, msg):\n"
+                "    if bad:\n"
+                "        raise ValueError(msg)\n\n"
+                "def _guard_ret(cond):\n"
+                "    if not bool(cond):\n"
+                "        raise ValueError('bad')\n"
+                "    return True\n\n"
+                "def normalize_opt(s):\n"
+                "    if not s:\n"
+                "        return None\n"
+                "    return s.strip()\n\n"
+                "def verify_x(x):\n"
+                "    _ = normalize_opt(' ok ')\n"
+                "    _req(type(x) is int, 'T', 'not int')\n"
+                "    _req(x >= 1, 'B', 'must be >= 1')\n"
+                "    _fail_if(x > 10, 'must be <= 10')\n"
+                "    _guard_ret(x != 5)\n"
+                "    return x\n"
+            )
+            write_lf_text(wrap_mod, wrap_src)
+            tree, sites = discover_mutant_sites(wrap_src, include_boundaries=True)
+            local_w = discover_local_refusal_wrappers(tree)
+            _req(
+                local_w == {"_req": "require", "_fail_if": "reject", "_guard_ret": "require"}
+                and "normalize_opt" not in local_w,
+                f"unexpected local wrappers detected (normalize_opt must be ignored): {local_w}",
+            )
+            _req(
+                not any("normalize_opt(" in s.original_src for s in sites),
+                f"ordinary early-return utility normalize_opt was falsely mutated: {sites}",
+            )
+            kinds = {s.kind for s in sites}
+            _req(
+                {"guard_require_call", "guard_reject_call", "boundary_cmp_require", "guard_if_reject"}.issubset(kinds),
+                f"missing expected mutant kinds: {kinds}",
+            )
+
+            # Test suite killing EVERY local-wrapper mutant & boundary (100%)
+            wrap_test_good = root / "test_wrapped_good.py"
+            write_lf_text(
+                wrap_test_good,
+                "import sys\nfrom pathlib import Path\nsys.path.insert(0, str(Path(__file__).resolve().parent))\n"
+                "from wrapped_gate import normalize_opt, verify_x\n"
+                "if normalize_opt('') is not None or normalize_opt(' a ') != 'a':\n    raise SystemExit(1)\n"
+                "if verify_x(1) != 1 or verify_x(10) != 10:\n    raise SystemExit(1)\n"
+                "for bad in (True, 0, 11, 5):\n"
+                "    try:\n        verify_x(bad)\n        raise SystemExit(2)\n"
+                "    except ValueError:\n        pass\n",
+            )
+            m_ok = run_mutation_suite(
+                wrap_mod,
+                "python3 -I -O -B test_wrapped_good.py",
+                work_root=root,
+                add_cwd=True,
+                include_boundaries=True,
+            )
+            _req(
+                m_ok["passed"]
+                and m_ok["survived"] == 0
+                and m_ok["total_mutants"] >= 10
+                and m_ok["local_wrappers_detected"] == ["_fail_if", "_guard_ret", "_req"],
+                f"local-wrapper 100% kill failed: {m_ok}",
+            )
+
+            # Weak test omitting `11` & `5` MUST leave surviving mutants on `_fail_if` and `_guard_ret`!
+            wrap_test_weak = root / "test_wrapped_weak.py"
+            write_lf_text(
+                wrap_test_weak,
+                "import sys\nfrom pathlib import Path\nsys.path.insert(0, str(Path(__file__).resolve().parent))\n"
+                "from wrapped_gate import verify_x\n"
+                "if verify_x(1) != 1:\n    raise SystemExit(1)\n",
+            )
+            m_weak = run_mutation_suite(
+                wrap_mod,
+                "python3 -I -O -B test_wrapped_weak.py",
+                work_root=root,
+                add_cwd=True,
+                include_boundaries=True,
+            )
+            _req(not m_weak["passed"] and m_weak["survived"] >= 4, f"weak test should leave local-wrapper survivors: {m_weak}")
+
+            # 2. Strict duplicate-key + no-NaN JSON/JSONL loaders (`loads_strict_json`, `load_strict_jsonl_file`)
+            _req(loads_strict_json('{"a": [1, 2], "b": "ok"}') == {"a": [1, 2], "b": "ok"}, "valid strict json failed")
+            _req(loads_strict_json("[1, 2, 3]") == [1, 2, 3], "strict json list root failed")
+            for bad_json, exp_code in (
+                ('{"a": 1, "a": 2}', "JSON_DUPLICATE_KEY"),
+                ('{"outer": {"x": 1, "x": 2}}', "JSON_DUPLICATE_KEY"),
+                ('{"v": NaN}', "JSON_CONSTANT_FORBIDDEN"),
+                ('{"v": Infinity}', "JSON_CONSTANT_FORBIDDEN"),
+                ('{"v": -Infinity}', "JSON_CONSTANT_FORBIDDEN"),
+            ):
+                try:
+                    loads_strict_json(bad_json)
+                    raise AssertionError(f"bad JSON accepted: {bad_json}")
+                except AletheiaError as exc:
+                    _req(exc.code == exp_code, f"wrong error code for {bad_json}: {exc.code} != {exp_code}")
+
+            try:
+                loads_strict_json('{"x": 1.5}', allow_float=False)
+                raise AssertionError("float accepted when allow_float=False")
+            except AletheiaError as exc:
+                _req(exc.code == "JSON_FLOAT_FORBIDDEN", f"wrong float code: {exc.code}")
+
+            # Strict JSONL: clean, empty 0-byte, whitespace-only tamper, duplicate-key line, NaN line
+            jl_ok = root / "clean.jsonl"
+            write_lf_text(jl_ok, '{"seq": 1, "ok": true}\n{"seq": 2, "ok": true}\n')
+            _req(len(load_strict_jsonl_file(jl_ok)) == 2, "clean jsonl failed")
+
+            jl_empty = root / "empty.jsonl"
+            jl_empty.write_bytes(b"")
+            _req(load_strict_jsonl_file(jl_empty) == [], "0-byte jsonl should return []")
+
+            jl_ws = root / "ws_tamper.jsonl"
+            write_lf_text(jl_ws, "   \n\t\n")
+            try:
+                load_strict_jsonl_file(jl_ws)
+                raise AssertionError("whitespace-only jsonl accepted")
+            except AletheiaError as exc:
+                _req(exc.code == "JSONL_WHITESPACE_ONLY", f"wrong ws jsonl code: {exc.code}")
+
+            jl_dup_dir = root / "jl_dup_dir"
+            write_lf_text(jl_dup_dir / "ledger.jsonl", '{"seq": 1, "reason": "evil", "reason": "ok"}\n')
+            r_jldup = run_audit_check(jl_dup_dir)
+            _req(
+                not r_jldup["passed"]
+                and any(e["code"] == "JSON_DUPLICATE_KEY" for e in r_jldup["json_errors"]),
+                f"audit-check missed duplicate key in .jsonl: {r_jldup}",
+            )
+
+            # 3. Canonical ancestor-directory permission gate (`verify_ancestor_dir_modes`, `--strict-ancestors`)
+            good_chain = [("/", 0o755), ("/etc", 0o755), ("/etc/warp", 0o750), ("/etc/warp/keys", 0o700)]
+            r_anc_ok = verify_ancestor_dir_modes(good_chain)
+            _req(r_anc_ok["passed"] and r_anc_ok["checked_dirs"] == 4, f"good ancestor chain failed: {r_anc_ok}")
+
+            bad_chains: list[tuple[Any, str]] = [
+                ([], "EMPTY_DIR_MODES"),
+                ([("/", 0o755), ("//etc", 0o755)], "NON_CANONICAL_PATH"),
+                ([("/", 0o755), ("/etc/../etc", 0o755)], "NON_CANONICAL_PATH"),
+                ([("/", 0o755), ("/etc/./warp", 0o755)], "NON_CANONICAL_PATH"),
+                ([("/", 0o755), ("/etc/warp/", 0o755)], "NON_CANONICAL_PATH"),
+                ([("/", 0o755), ("/etc\x00/warp", 0o755)], "NON_CANONICAL_PATH"),
+                ([("/", 0o755), ("/etc", False)], "INVALID_MODE"),
+                ([("/", 0o755), ("/etc", -1)], "INVALID_MODE"),
+                ([("/", 0o755), ("/etc", 0o10000)], "INVALID_MODE"),
+                ([("/", 0o755), ("/etc", 0o755), ("/etc", 0o750)], "DUPLICATE_PATH"),
+                ([("/", 0o755), ("/etc", 0o775)], "WRITABLE_ANCESTOR_MODE"),
+                ([("/", 0o755), ("/tmp", 0o1777)], "WRITABLE_ANCESTOR_MODE"),
+                ([("/", 0o755), ("/etc/warp/keys", 0o700)], "MISSING_ANCESTOR"),
+                ([("/etc", 0o755)], "MISSING_ANCESTOR"),
+            ]
+            for ch, exp_err in bad_chains:
+                r_bad_anc = verify_ancestor_dir_modes(ch)
+                _req(
+                    not r_bad_anc["passed"] and exp_err in r_bad_anc["errors"],
+                    f"ancestor gate missed {exp_err} on {ch!r}: {r_bad_anc}",
+                )
+
+            # Live CLI `--strict-ancestors`: world-writable 0o777 subdir MUST fail closed (rc=1)
+            writable_dir = root / "world_writable"
+            writable_dir.mkdir(mode=0o777)
+            os.chmod(writable_dir, 0o777)
+            write_lf_text(writable_dir / "note.txt", "ok\n")
+            rc_sa, out_sa, _ = _run_cli(["audit-check", str(writable_dir), "--strict-ancestors", "--json"])
+            sa_obj = loads_strict_json(out_sa, require_object=True)
+            _req(
+                rc_sa == 1
+                and not sa_obj["passed"]
+                and "WRITABLE_ANCESTOR_MODE" in sa_obj["ancestor_permissions"]["errors"],
+                f"--strict-ancestors failed to reject 0o777 dir: {sa_obj}",
+            )
+
+            # Real filesystem audit on CLI_ROOT matches actual stat bits
+            repo_anc = audit_ancestor_dir_permissions(CLI_ROOT)
+            all_anc_clean = all(
+                (stat.S_IMODE(os.stat(d).st_mode) & 0o022) == 0
+                for d in [CLI_ROOT.resolve(), *CLI_ROOT.resolve().parents]
+            )
+            _req(repo_anc["passed"] == all_anc_clean, f"live ancestor audit disagreed with os.stat: {repo_anc}")
+
+            # 4. CS-12 (`Trust-Boundary Shadow`) in `aletheia diagnose` (isolated .py regex vs .json flag workspaces!)
+            ws12_py = root / "cs12_py_only"
+            init_workspace(ws12_py, domain="systems")
+            write_lf_text(
+                ws12_py / "probes" / "systems" / "cert_re.py",
+                "import re\nSHA256_RE = re.compile(r'^[0-9a-f]{64}$')\n",
+            )
+            rc_d12p, out_d12p, _ = _run_cli(["diagnose", str(ws12_py), "--json"])
+            d12p = loads_strict_json(out_d12p, require_object=True)
+            by_id12p = {p["id"]: p for p in d12p["patterns"]}
+            _req(
+                rc_d12p == 1 and len(d12p["patterns"]) == 12 and by_id12p["CS-12"]["status"] == "ALERT",
+                f"CS-12 .py-only `$` regex did not ALERT: {by_id12p.get('CS-12')}",
+            )
+
+            # Positive control: `\A...\Z` regex in .py MUST remain CS-12 CLEAR!
+            ws12_ok = root / "cs12_py_clean"
+            init_workspace(ws12_ok, domain="systems")
+            write_lf_text(
+                ws12_ok / "probes" / "systems" / "cert_re_ok.py",
+                "import re\nSHA256_RE = re.compile(r'\\A[0-9a-f]{64}\\Z')\n",
+            )
+            rc_d12ok, out_d12ok, _ = _run_cli(["diagnose", str(ws12_ok), "--json"])
+            d12ok = loads_strict_json(out_d12ok, require_object=True)
+            by_id12ok = {p["id"]: p for p in d12ok["patterns"]}
+            _req(
+                rc_d12ok == 0 and by_id12ok["CS-12"]["status"] == "CLEAR",
+                f"clean \\A...\\Z regex falsely tripped CS-12: {by_id12ok.get('CS-12')}",
+            )
+
+            # Isolated .json-only CS-12 workspace
+            ws12_json = root / "cs12_json_only"
+            init_workspace(ws12_json, domain="systems")
+            write_lf_text(
+                ws12_json / "probes" / "systems" / "gate_flags.json",
+                json.dumps({"escape_hatch_bound": False}) + "\n",
+            )
+            rc_d12j, out_d12j, _ = _run_cli(["diagnose", str(ws12_json), "--json"])
+            d12j = loads_strict_json(out_d12j, require_object=True)
+            by_id12j = {p["id"]: p for p in d12j["patterns"]}
+            _req(
+                rc_d12j == 1 and by_id12j["CS-12"]["status"] == "ALERT",
+                f"CS-12 .json-only poison did not ALERT: {by_id12j.get('CS-12')}",
             )
 
 
