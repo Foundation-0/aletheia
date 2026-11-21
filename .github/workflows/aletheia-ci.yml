@@ -50,10 +50,13 @@ jobs:
             --work-root tests \
             --json
 
-      - name: Verify portable compute handoff template & dry-run installers
+      - name: Verify portable compute handoff template, v1.1 ratchet/mde demos & dry-run installers
         run: |
+          python3 -I -O -B -W error -m aletheia ratchet --demo --json
+          python3 -I -O -B -W error -m aletheia mde --manifest --json
+          python3 -I -O -B -W error -m aletheia mde --demo --json
           python3 -I -O -B -W error -m aletheia handoff /tmp/ci_handoff.json --init-template --json
           python3 -I -O -B -W error -m aletheia handoff /tmp/ci_handoff.json --json
-          for tgt in antigravity claude-code codex cursor repo; do
+          for tgt in antigravity claude-code codex cursor gemini-cli repo; do
             python3 -I -O -B -W error -m aletheia install --target "$tgt" --dry-run --json
           done

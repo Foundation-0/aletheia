@@ -86,11 +86,20 @@ A cross-domain bridge is admissible **only** when it exhibits:
 3. **An exact algebraic identity or quantitative closure defect** $\|\Phi \circ T_A - T_B \circ \Phi\| \le \varepsilon$ beating matched-dimension random null maps.
 4. **Non-trivial predictive transfer**—a bound, bifurcation, stability signature, or obstruction moved from $A$ to $B$ that $B$ did not previously possess.
 
-In the Cave Expedition, enforcing this discipline revealed an **Eight-Way Exact Schur-Complement Unification**: eliminating fast, internal, nuisance, moment, or quotient fibers yielded exact quadratic block-elimination equations across spectral rank certification, Stieltjes–Hankel moment hierarchies, cellular-sheaf lattice elasticity, tropical quotient peeling, relativistic AeST gravity Hamiltonians, $16\times 16$ GKSL Lindblad quantum decoherence, 8D $E_8$ spinor-fold Loewner monotonicity, and Kigami fractal resistance renormalization. None of those links rested on metaphor; every single one was verified as an exact rational or symbolic identity.
+In the Cave Expedition, enforcing this discipline revealed an **Eight-Way Exact Schur-Complement Unification** in Wave 1—and **expanded to a Ten-Way Exact Schur-Complement Unification in Wave 2** ([`evidence/symbiosis-wave2-case-study.md`](evidence/symbiosis-wave2-case-study.md)): eliminating fast, internal, nuisance, moment, quotient, blind-Jacobian-nullspace, or grounded-Laplacian fibers yielded exact quadratic block-elimination equations across spectral rank certification, Stieltjes–Hankel moment hierarchies, cellular-sheaf lattice elasticity, tropical quotient peeling, relativistic AeST gravity Hamiltonians, $16\times 16$ GKSL Lindblad quantum decoherence, 8D $E_8$ spinor-fold Loewner monotonicity, Kigami fractal resistance renormalization, `heedle` Singular-$G_{kk}$ Haynsworth–Schur blind-subspace neural drift (`AUDIT-025`/`027`), and `ahrazzle/soko` grounded-Laplacian effective resistance (`AUDIT-029`). None of those links rested on metaphor; every single one was verified as an exact rational or symbolic identity.
 
 ---
 
-## 5. Epistemic Honesty: Oracle Classes & Novelty Accounting
+## 5. Omnidirectional Symbiotic Evolution (Self-Improving Epistemics)
+
+A discovery framework that is never tested against hostile, independent real-world codebases risks becoming its own cave. **Wave 2 Symbiosis** proved that applying Aletheia outward across 30+ external repositories creates a **second-order resonance loop** that upgrades Aletheia itself:
+- Running `aletheia mutate` v1.0 live against `ahrazzle/soko`'s security auditors (`AUDIT-029`) exposed two real blind spots in Aletheia's own AST mutator (repo-local imports under `-I` and dict-verdict / finding-accumulator refusal sites)—directly driving `aletheia/mutator.py` v1.1.
+- Auditing `Moissanite-Labs/weft-loom#38` (`AUDIT-023` `N2`) uncovered a **Double-Significant Compute-Leakage Simpson's Paradox** (where unbounded-compute format-escape CoT replies invert a statistically significant fast-channel winner)—adding **`CS-08`** to Aletheia's relapse taxonomy and fixed-compute survival caps to `aletheia ratchet`.
+- Inspecting `Moissanite-Labs/siliquant` (`AUDIT-028`), `MDE`/`mde#8`/`abios` (`AUDIT-027`), and 13 agentic research harnesses (`AUDIT-026R`) fed mechanical `git merge-base` Gate-8 preregistration, hardened static Lean 4 stock-`Init` auditing, Plane-1 `zone-canon-v0` deterministic manifests, and the 5-gate anti-Goodhart `aletheia ratchet` back into the core stdlib CLI.
+
+---
+
+## 6. Epistemic Honesty: Oracle Classes & Novelty Accounting
 
 Truth and novelty are independent predicates:
 - **Gates 1–8 establish Soundness** (tagged strictly by oracle class: `exact`, `sampled`, or `anchor`).
@@ -103,6 +112,6 @@ Every claim defaults to **`N0`** until compared against the **full text** of pri
 ## Further Reading
 
 - **Formal Specification:** [`spec/LAWS_AND_GATES.md`](spec/LAWS_AND_GATES.md)
-- **Empirical Evidence:** [`evidence/cave-expedition-case-study.md`](evidence/cave-expedition-case-study.md)
+- **Empirical Evidence:** [`evidence/cave-expedition-case-study.md`](evidence/cave-expedition-case-study.md) & [`evidence/symbiosis-wave2-case-study.md`](evidence/symbiosis-wave2-case-study.md)
 - **Executable 3-Second Demonstration:** [`examples/worked_resonance_cycle/README.md`](examples/worked_resonance_cycle/README.md)
 - **Domain Adaptation Packs (6 Disciplines):** [`domains/README.md`](domains/README.md)

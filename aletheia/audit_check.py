@@ -268,6 +268,234 @@ def validate_audit_receipt_json(path: Path) -> dict[str, Any]:
     return {"path": str(path), "valid": len(errors) == 0, "errors": errors}
 
 
+# ---------------------------------------------------------------------------
+# v1.1 Static Stock-Init Lean 4 Auditor (hardened against AUDIT-029 T-10..T-12)
+# ---------------------------------------------------------------------------
+
+def _strip_lean4_comments_and_literals(source: str) -> str:
+    """Char-literal-safe and nested-block-comment-safe Lean 4 stripper preserving line count."""
+    out: list[str] = []
+    i = 0
+    n = len(source)
+    depth = 0
+    in_str = False
+    while i < n:
+        ch = source[i]
+        nxt = source[i + 1] if i + 1 < n else ""
+        if depth > 0:
+            if ch == "/" and nxt == "-":
+                depth += 1
+                out.append("  ")
+                i += 2
+            elif ch == "-" and nxt == "/":
+                depth -= 1
+                out.append("  ")
+                i += 2
+            else:
+                out.append("\n" if ch == "\n" else " ")
+                i += 1
+            continue
+        if in_str:
+            if ch == "\\" and i + 1 < n:
+                out.append("  ")
+                i += 2
+            elif ch == '"':
+                in_str = False
+                out.append(" ")
+                i += 1
+            else:
+                out.append("\n" if ch == "\n" else " ")
+                i += 1
+            continue
+        if ch == "/" and nxt == "-":
+            depth = 1
+            out.append("  ")
+            i += 2
+        elif ch == "-" and nxt == "-":
+            while i < n and source[i] != "\n":
+                out.append(" ")
+                i += 1
+        elif ch == '"':
+            in_str = True
+            out.append(" ")
+            i += 1
+        elif ch == "'":
+            # Lean 4 char literals ('"', '\n', 'a') without disturbing identifier primes x'
+            if i + 2 < n and source[i + 1] != "\\" and source[i + 2] == "'":
+                out.append("   ")
+                i += 3
+            elif i + 3 < n and source[i + 1] == "\\" and source[i + 3] == "'":
+                out.append("    ")
+                i += 4
+            else:
+                out.append(ch)
+                i += 1
+        else:
+            out.append(ch)
+            i += 1
+    return "".join(out)
+
+
+def audit_lean4_source(source: str, *, allow_non_init_imports: bool = False) -> dict[str, Any]:
+    """
+    Hardened static Lean 4 auditor (AUDIT-029 T-10..T-12):
+      - Flags `sorry`, `admit`, `axiom`, `unsafe`, `partial`, `native_decide`
+      - Flags single-line and multiline `@[... extern | implemented_by | csimp ...]` trust escapes
+      - Flags non-Init/Std imports (e.g. `import Mathlib`) unless `allow_non_init_imports=True`
+    """
+    cleaned = _strip_lean4_comments_and_literals(source)
+    findings: list[dict[str, Any]] = []
+    line_rules: tuple[tuple[str, str], ...] = (
+        (r"\bsorry\b", "LEAN4_SORRY"),
+        (r"\badmit\b", "LEAN4_ADMIT"),
+        (r"\baxiom\b", "LEAN4_AXIOM"),
+        (r"\bunsafe\b", "LEAN4_UNSAFE"),
+        (r"\bpartial\b", "LEAN4_PARTIAL"),
+        (r"\bnative_decide\b", "LEAN4_NATIVE_DECIDE"),
+    )
+    for lineno, line in enumerate(cleaned.splitlines(), start=1):
+        for pat, code in line_rules:
+            if re.search(pat, line):
+                findings.append({"line": lineno, "code": code, "excerpt": line.strip()[:80]})
+        if not allow_non_init_imports:
+            m_imp = re.match(r"^\s*import\s+([A-Za-z0-9_.]+)", line)
+            if m_imp is not None:
+                mod = m_imp.group(1)
+                root_pkg = mod.split(".")[0]
+                if root_pkg not in ("Init", "Std"):
+                    findings.append({"line": lineno, "code": "LEAN4_NON_INIT_IMPORT", "excerpt": mod})
+
+    # Multiline attribute trust-escape check: @[ ... extern | implemented_by | csimp ... ]
+    for m_attr in re.finditer(r"@\[[^\]]*\b(extern|implemented_by|csimp)\b[^\]]*\]", cleaned, flags=re.DOTALL):
+        lineno = cleaned[: m_attr.start()].count("\n") + 1
+        findings.append({"line": lineno, "code": "LEAN4_ATTR_TRUST_ESCAPE", "excerpt": m_attr.group(1)})
+
+    return {"clean": len(findings) == 0, "findings": findings}
+
+
+def audit_lean4_directory(root: Path, *, allow_non_init_imports: bool = False) -> dict[str, Any]:
+    """Scan all `.lean` files under `root` with the hardened static Lean 4 auditor."""
+    lean_files = [root] if root.is_file() and root.suffix == ".lean" else [
+        p for p in sorted(root.rglob("*.lean"))
+        if not any(part in SKIP_DIRS for part in p.relative_to(root).parts)
+    ]
+    all_findings: list[dict[str, Any]] = []
+    for lf in lean_files:
+        rel = lf.name if root.is_file() else str(lf.relative_to(root))
+        res = audit_lean4_source(lf.read_text(encoding="utf-8", errors="replace"), allow_non_init_imports=allow_non_init_imports)
+        for f in res["findings"]:
+            all_findings.append({"file": rel, **f})
+    return {
+        "files_checked": len(lean_files),
+        "clean": len(all_findings) == 0,
+        "findings": all_findings,
+    }
+
+
+# ---------------------------------------------------------------------------
+# v1.1 Git-DAG Preregistration Check (Gate 8, inspired by siliquant)
+# ---------------------------------------------------------------------------
+
+def verify_preregistration_git_dag(
+    repo_root: Path,
+    *,
+    plan_commit: str | None = None,
+    data_commit: str | None = None,
+    plan_path: str = "cartography/frontier_portals.md",
+    data_path: str = "verification/AUDIT_LOG.md",
+) -> dict[str, Any]:
+    """
+    Mechanical Gate 8 preregistration check (strict git ancestor: `plan != data` and
+    `git merge-base --is-ancestor <plan> <data>`).
+    When explicit commits are omitted, locates the LATEST commit touching `plan_path` and
+    the EARLIEST commit introducing `data_path`, closing HARKing/post-hoc plan rewrites,
+    typo-commit masking, and same-commit bulk bundling.
+    """
+    root = repo_root.resolve()
+    def _git(args: list[str]) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(["git", "-C", str(root), *args], capture_output=True, text=True, check=False)
+
+    in_git = _git(["rev-parse", "--is-inside-work-tree"])
+    if in_git.returncode != 0:
+        return {"checked": False, "passed": False, "reason": "not a git repository", "plan_commit": None, "data_commit": None}
+
+    p_sha = plan_commit
+    d_sha = data_commit
+    if p_sha is None:
+        # LATEST commit touching plan_path (prevents post-hoc plan rewrite after data!)
+        r_p = _git(["log", "--topo-order", "-n", "1", "--format=%H", "--", plan_path])
+        lines = [ln.strip() for ln in r_p.stdout.splitlines() if ln.strip()]
+        p_sha = lines[0] if lines else None
+    if d_sha is None:
+        # EARLIEST commit introducing data_path (prevents masking HARKing behind later typo edits!)
+        r_d = _git(["log", "--topo-order", "--reverse", "--format=%H", "--", data_path])
+        lines = [ln.strip() for ln in r_d.stdout.splitlines() if ln.strip()]
+        d_sha = lines[0] if lines else None
+
+    if not p_sha or not d_sha:
+        return {
+            "checked": True,
+            "passed": False,
+            "reason": f"missing git history for plan ({plan_path!r}) or data ({data_path!r})",
+            "plan_commit": p_sha,
+            "data_commit": d_sha,
+        }
+
+    if p_sha.startswith("-") or d_sha.startswith("-"):
+        return {
+            "checked": True,
+            "passed": False,
+            "reason": "invalid commit ref starting with '-'",
+            "plan_commit": p_sha,
+            "data_commit": d_sha,
+        }
+
+    # Resolve canonical 40-hex commit SHAs before strict inequality check
+    rp_res = _git(["rev-parse", "--verify", f"{p_sha}^{{commit}}"])
+    rd_res = _git(["rev-parse", "--verify", f"{d_sha}^{{commit}}"])
+    if rp_res.returncode != 0 or rd_res.returncode != 0:
+        return {
+            "checked": True,
+            "passed": False,
+            "reason": "unresolvable plan_commit or data_commit ref",
+            "plan_commit": p_sha,
+            "data_commit": d_sha,
+        }
+    p_canon = rp_res.stdout.strip()
+    d_canon = rd_res.stdout.strip()
+
+    if p_canon == d_canon:
+        return {
+            "checked": True,
+            "passed": False,
+            "reason": "plan and data share the same commit (strict preregistration requires plan strictly before data)",
+            "plan_commit": p_canon,
+            "data_commit": d_canon,
+        }
+
+    # In auto-discovery mode (data_commit omitted), verify no ancestor-or-self of plan_commit touched data_path
+    if data_commit is None:
+        pre_data = _git(["rev-list", "-n", "1", p_canon, "--", data_path])
+        if pre_data.returncode == 0 and pre_data.stdout.strip():
+            return {
+                "checked": True,
+                "passed": False,
+                "reason": "data_path already existed at or before latest plan commit",
+                "plan_commit": p_canon,
+                "data_commit": pre_data.stdout.strip(),
+            }
+
+    anc = _git(["merge-base", "--is-ancestor", p_canon, d_canon])
+    is_strict_anc = (anc.returncode == 0)
+    return {
+        "checked": True,
+        "passed": is_strict_anc,
+        "reason": "plan commit is a verified strict git ancestor of earliest data/audit commit" if is_strict_anc else "plan commit is NOT a strict ancestor of earliest data/audit commit",
+        "plan_commit": p_canon,
+        "data_commit": d_canon,
+    }
+
+
 def run_r4_script_check(
     script_path: Path,
     *,
@@ -343,6 +571,10 @@ def run_audit_check(
     allow_bare_assert_in_tests: bool = False,
     isolated: bool = True,
     timeout: int = 120,
+    lean_audit: bool = False,
+    prereg_check: bool = False,
+    plan_commit: str | None = None,
+    data_commit: str | None = None,
 ) -> dict[str, Any]:
     """Run complete Aletheia R1-R5 & Gate 1-9 audit check on `target_path`."""
     root = target_path.resolve()
@@ -437,6 +669,20 @@ def run_audit_check(
     if receipt is not None:
         receipt_report = validate_audit_receipt_json(receipt)
 
+    # Optional v1.1 static Lean 4 audit
+    lean_report: dict[str, Any] | None = None
+    if lean_audit:
+        lean_report = audit_lean4_directory(root)
+
+    # Optional v1.1 git-DAG preregistration check
+    prereg_report: dict[str, Any] | None = None
+    if prereg_check:
+        prereg_report = verify_preregistration_git_dag(
+            root if root.is_dir() else root.parent,
+            plan_commit=plan_commit,
+            data_commit=data_commit,
+        )
+
     failures: list[str] = []
     if crlf_files:
         failures.append(f"CRLF line endings in {len(crlf_files)} file(s)")
@@ -458,6 +704,10 @@ def run_audit_check(
         failures.append(f"AUDIT_LOG validation errors ({len(audit_log_report['errors'])})")
     if receipt_report is not None and not receipt_report["valid"]:
         failures.append(f"audit receipt validation errors ({len(receipt_report['errors'])})")
+    if lean_report is not None and not lean_report["clean"]:
+        failures.append(f"Lean 4 static audit findings ({len(lean_report['findings'])})")
+    if prereg_report is not None and not prereg_report["passed"]:
+        failures.append(f"git-DAG preregistration check failed ({prereg_report['reason']})")
 
     passed = len(failures) == 0
     return {
@@ -477,6 +727,8 @@ def run_audit_check(
             "json_error_count": len(json_errors),
             "r4_scripts_checked": len(script_reports),
             "r4_scripts_passed": sum(1 for sr in script_reports if sr["passed"]),
+            "lean_files_checked": lean_report["files_checked"] if lean_report is not None else 0,
+            "lean_findings_count": len(lean_report["findings"]) if lean_report is not None else 0,
         },
         "failures": failures,
         "crlf_files": crlf_files,
@@ -489,4 +741,6 @@ def run_audit_check(
         "r4_scripts": script_reports,
         "audit_log": audit_log_report,
         "audit_receipt": receipt_report,
+        "lean_audit": lean_report,
+        "prereg_check": prereg_report,
     }

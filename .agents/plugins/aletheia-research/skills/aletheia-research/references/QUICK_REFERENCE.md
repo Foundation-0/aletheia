@@ -18,15 +18,16 @@ Compact cheat-sheet for agents running **The Aletheia Method** (`https://github.
   - `N1`: Hardened repair, sharpened boundary/counterexample, or concrete empirical falsification.
   - `N2`: Genuinely new verified theorem, exact certificate, constructive obstruction, or cross-domain operator unification absent from checked full-text prior art.
 
-## 3. The 7 Cave-Shadow Anti-Patterns (Flagged by `aletheia diagnose`)
+## 3. The 8 Cave-Shadow Anti-Patterns (Flagged by `aletheia diagnose`)
 
-1. **Static-Map Trap:** Cartographer/Portal-Keeper parks after Round 1 instead of re-entering portals on probe anomalies.
-2. **Premature Dismissal Bias:** String of `FALSIFIED`/`N0` reports with zero steelmanned/repaired versions tested.
-3. **Language Smuggling:** Shared vocabulary ("sheaf", "duality", "emergence") claimed as unity with no executable map or defect.
-4. **Substitution Shadow:** Testing a simplified synthetic proxy instead of the actual upstream equation or dataset.
-5. **Glass Gate:** Validation checks built with bare `assert`s (stripped under `-O`), loose R3 parsing (`"007"`, `bool`, floats), or untested reject branches surviving R5 mutation.
-6. **Local-Optimum Closure:** Treating a sharpness wall or counterexample as termination instead of elevating the obstruction into a theorem or spawning the next-order invariant.
-7. **Provenance Inflation:** Calling a Draft PR "merged", `uncompiled_source` "machine-checked", or a local arc "global."
+1. **Static-Map Trap (`CS-01`):** Cartographer/Portal-Keeper parks after Round 1 instead of re-entering portals on probe anomalies.
+2. **Premature Dismissal Bias (`CS-02`):** String of `FALSIFIED`/`N0` reports with zero steelmanned/repaired versions tested.
+3. **Language Smuggling (`CS-03`):** Shared vocabulary ("sheaf", "duality", "emergence") claimed as unity with no executable map or defect.
+4. **Substitution Shadow (`CS-04`):** Testing a simplified synthetic proxy instead of the actual upstream equation or dataset.
+5. **Glass Gate (`CS-05`):** Validation checks built with bare `assert`s (stripped under `-O`), loose R3 parsing (`"007"`, `bool`, floats), or untested reject branches surviving R5 mutation.
+6. **Local-Optimum Closure (`CS-06`):** Treating a sharpness wall or counterexample as termination instead of elevating the obstruction into a theorem or spawning the next-order invariant.
+7. **Provenance Inflation (`CS-07`):** Calling a Draft PR "merged", `uncompiled_source` "machine-checked", or a local arc "global."
+8. **Compute-Leakage Simpson's Paradox (`CS-08`):** Comparing arms by round count without a fixed compute/token survival cap, letting slow format-breaking CoT escapes invert the true fixed-budget winner (`AUDIT-023` `N2`).
 
 ## 4. R1–R5 Gate Contracts & R4 Parity Command
 

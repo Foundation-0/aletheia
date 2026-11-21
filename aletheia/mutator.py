@@ -50,21 +50,52 @@ class MutantSite:
     extra_cmp_idx: int = -1
 
 
+_REFUSAL_STR_PREFIXES = ("REJECTED", "FAIL", "FALSIFIED", "INVALID", "EXPOSED", "DENIED")
+_ACCUMULATOR_HINTS = ("finding", "error", "issue", "viol", "problem", "failure", "reason", "defect", "reject")
+
+
 def _stmt_is_refusal(body: list[ast.stmt]) -> bool:
-    """Return True if an `if` body immediately refuses (raise, sys.exit, or return False/None)."""
+    """
+    Return True if an `if` body immediately refuses or records a verification refusal:
+      1. `raise ...` or `sys.exit(...)` / `exit(...)`
+      2. `return False` or `return None`
+      3. Dict-verdict rejection: `return {"admissible": False, ...}` or `"REJECTED_*"` / `"FAIL"` / `"INVALID"`
+      4. Constructor-verdict rejection: `return Verdict(..., False)` / `return Verdict(ok=False)`
+      5. Finding-accumulator refusal: `findings.append(...)`, `errors.append(...)`, `violations.append(...)`, etc.
+    """
     if not body:
         return False
     first = body[0]
     if isinstance(first, ast.Raise):
         return True
     if isinstance(first, ast.Return):
-        if isinstance(first.value, ast.Constant) and (first.value.value is False or first.value.value is None):
+        val = first.value
+        if isinstance(val, ast.Constant) and (val.value is False or val.value is None):
             return True
+        if isinstance(val, ast.Dict):
+            for v_node in val.values:
+                if isinstance(v_node, ast.Constant) and (
+                    v_node.value is False
+                    or (isinstance(v_node.value, str) and v_node.value.upper().startswith(_REFUSAL_STR_PREFIXES))
+                ):
+                    return True
+        if isinstance(val, ast.Call):
+            if any(isinstance(a, ast.Constant) and a.value is False for a in val.args):
+                return True
+            if any(isinstance(kw.value, ast.Constant) and kw.value.value is False for kw in val.keywords):
+                return True
     if isinstance(first, ast.Expr) and isinstance(first.value, ast.Call):
         fn = first.value.func
         if isinstance(fn, ast.Attribute) and fn.attr == "exit" and isinstance(fn.value, ast.Name) and fn.value.id == "sys":
             return True
         if isinstance(fn, ast.Name) and fn.id == "exit":
+            return True
+        if (
+            isinstance(fn, ast.Attribute)
+            and fn.attr in ("append", "extend", "add")
+            and isinstance(fn.value, ast.Name)
+            and any(tok in fn.value.id.lower() for tok in _ACCUMULATOR_HINTS)
+        ):
             return True
     return False
 
@@ -212,20 +243,26 @@ def apply_single_mutation(source: str, site: MutantSite) -> str:
     return mutated
 
 
-def _prepare_cmd(test_cmd: str, target_rel: str) -> list[str]:
+def _prepare_cmd(test_cmd: str, target_rel: str, *, add_cwd: bool = False) -> list[str]:
     """
     Parse `--test-cmd`, expanding `{target}` to `target_rel`, and normalizing bare
-    `python` / `python3` invocations to `sys.executable -I -O -B` for strict R4 parity!
+    `python` / `python3` invocations to `sys.executable -I -O -B` for strict R4 parity.
+    When `add_cwd=True`, omits `-I` (keeping `-O -B` and `-s` no-user-site) so repo-local
+    imports like `python3 -m unittest tests/...` resolve inside the isolated temp work_root.
     """
     expanded = test_cmd.replace("{target}", target_rel)
     parts = shlex.split(expanded)
     require_ok(len(parts) > 0, "EMPTY_TEST_CMD", "test_cmd cannot be empty")
     if parts[0] in ("python", "python3"):
         rest = parts[1:]
-        # Ensure -I -O -B are active unless already supplied
         flags: list[str] = []
-        if "-I" not in rest:
-            flags.append("-I")
+        if add_cwd:
+            # Strip -I if user omitted it; keep -s (no user site-packages), -O, -B so cwd stays on sys.path[0]
+            if "-s" not in rest and "-I" not in rest:
+                flags.append("-s")
+        else:
+            if "-I" not in rest:
+                flags.append("-I")
         if "-O" not in rest:
             flags.append("-O")
         if "-B" not in rest:
@@ -242,6 +279,7 @@ def run_mutation_suite(
     max_mutants: int = 100,
     timeout: int = 30,
     include_boundaries: bool = True,
+    add_cwd: bool = False,
 ) -> dict[str, Any]:
     """
     Run AST refusal-site mutation testing against `script_path` in an isolated temporary workspace.
@@ -271,7 +309,7 @@ def run_mutation_suite(
             ignore=shutil.ignore_patterns(".git", "__pycache__", "*.pyc", ".venv", "venv"),
         )
         tmp_target = tmp_root / rel_target
-        cmd = _prepare_cmd(test_cmd, str(rel_target))
+        cmd = _prepare_cmd(test_cmd, str(rel_target), add_cwd=add_cwd)
 
         # 1. Verify unmutated baseline passes!
         base_proc = subprocess.run(cmd, cwd=str(tmp_root), capture_output=True, timeout=timeout, check=False)

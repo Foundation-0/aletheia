@@ -2,7 +2,7 @@
 `aletheia diagnose <expedition-dir> [--board <jsonl>]`: Quantitative Anti-Cave Relapse Detector.
 
 Scans `frontier_portals.md`, `AUDIT_LOG.md`, verification/probe scripts, and an optional
-swarm board JSONL feed to detect and score all 7 Cave-Shadow Anti-Patterns from The Aletheia Method:
+swarm board JSONL feed to detect and score all 8 Cave-Shadow Anti-Patterns from The Aletheia Method:
   1. Static-Map Trap (cartographer/portal-keeper parks after Round 1)
   2. Premature Dismissal Bias (strings of FALSIFIED/N0 without steelmanned repairs)
   3. Language Smuggling (buzzword density without executable operators/equations)
@@ -10,6 +10,7 @@ swarm board JSONL feed to detect and score all 7 Cave-Shadow Anti-Patterns from 
   5. Glass Gate (bare asserts, float epsilon cutoffs in exact checks, missing R4 parity)
   6. Local-Optimum Closure (sharpness walls / obstructions terminating without elevation)
   7. Provenance Inflation (merged vs Draft PR, uncompiled Lean claimed verified, N2 without prior art)
+  8. Compute-Leakage Simpson's Paradox (unbounded-budget / format-breaking CoT inversion without survival cap)
 """
 from __future__ import annotations
 
@@ -32,6 +33,11 @@ _PROXY_HINT_RE = re.compile(r"\b(?:synthetic\s+proxy|toy\s+stub|mock\s+matrix|pl
 _OBSTRUCTION_RE = re.compile(r"\b(?:sharpness\s+wall|obstruction|counterexample|no-go|impossib)\b", re.IGNORECASE)
 _ELEVATION_RE = re.compile(r"\b(?:theorem|higher[- ]moment|spawn|branch|elevat|new\s+invariant|generaliz)\b", re.IGNORECASE)
 _PORTAL_HEADING_RE = re.compile(r"^#{1,3}\s+Portal\s+[0-9A-Za-z]+", re.MULTILINE)
+_COMPUTE_LEAK_RE = re.compile(
+    r"\b(?:unbounded\s+(?:compute|budget|retries|wall[- ]clock)|no\s+wall[- ]clock\s+cap|"
+    r"format[- ]breaking\s+cot\s+escape|unbounded\s+cot\s+scratchpad|compute[- ]leakage\s+confound)\b",
+    re.IGNORECASE,
+)
 
 
 def _load_board_jsonl(board_path: Path | None) -> list[dict[str, Any]]:
@@ -65,7 +71,7 @@ def diagnose_expedition(
     *,
     board_path: Path | None = None,
 ) -> dict[str, Any]:
-    """Run quantitative 7-pattern Cave-Shadow relapse diagnosis on an expedition directory."""
+    """Run quantitative 8-pattern Cave-Shadow relapse diagnosis on an expedition directory."""
     root = expedition_dir.resolve()
     require_ok(root.is_dir(), "EXPEDITION_DIR_NOT_FOUND", f"directory not found: {root}")
 
@@ -319,6 +325,58 @@ def diagnose_expedition(
         "status": _status_from_risk(r7),
         "evidence": ev7,
         "remediation": "Enforce Law 4: distinguish Draft PR vs merged, uncompiled_source vs compiler-checked, and cite full-text prior art for every N2.",
+    })
+
+    # ------------------------------------------------------------------
+    # 8. Compute-Leakage Simpson's Paradox (CS-08, Wave 2 AUDIT-023)
+    # ------------------------------------------------------------------
+    r8 = 0
+    ev8: list[str] = []
+    mitigation_tokens = ("fixed-compute", "fixed compute", "survival cap", "avoid", "never", "repaired", "caught", "anti-pattern", "prevent")
+    for mf in [audit_log_path] + md_files:
+        if not mf.is_file():
+            continue
+        for lineno, line in enumerate(mf.read_text(encoding="utf-8", errors="replace").splitlines(), start=1):
+            if _COMPUTE_LEAK_RE.search(line) is not None:
+                low = line.lower()
+                if any(tok in low for tok in mitigation_tokens):
+                    continue
+                r8 += 50
+                ev8.append(f"{mf.relative_to(root)}:{lineno}: possible unbounded-compute / format-breaking CoT confound")
+    for m in board_msgs:
+        txt = str(m.get("text", ""))
+        if _COMPUTE_LEAK_RE.search(txt) is not None and not any(tok in txt.lower() for tok in mitigation_tokens):
+            r8 += 40
+            ev8.append(f"board seq {m.get('seq', '?')}: unbounded-compute confound reported without fixed-compute cap")
+    # Also scan structured benchmark JSONs under probes/ & synthesis/ for explicit Simpson inversion without cap
+    for sub in ("probes", "synthesis"):
+        sp = root / sub
+        if not sp.is_dir():
+            continue
+        for jf in sorted(sp.rglob("*.json")):
+            if any(part in SKIP_DIRS for part in jf.relative_to(root).parts):
+                continue
+            try:
+                jobj = json.loads(jf.read_text(encoding="utf-8", errors="replace"))
+            except Exception:
+                continue
+            if isinstance(jobj, dict):
+                fw = jobj.get("fixed_compute_winner")
+                uw = jobj.get("unbounded_winner")
+                cap_ok = jobj.get("fixed_compute_cap_enforced")
+                if fw is not None and uw is not None and fw != uw and cap_ok is not True:
+                    r8 += 60
+                    ev8.append(
+                        f"{jf.relative_to(root)}: Simpson reversal (fixed_compute_winner={fw!r} != unbounded_winner={uw!r}) without fixed_compute_cap_enforced=true"
+                    )
+    r8 = min(100, r8)
+    patterns.append({
+        "id": "CS-08",
+        "name": "Compute-Leakage Simpson's Paradox",
+        "risk_score": r8,
+        "status": _status_from_risk(r8),
+        "evidence": ev8,
+        "remediation": "Enforce fixed-compute wall-clock survival caps alongside round counts; never compare unbounded format-breaking CoT retries against capped baselines.",
     })
 
     avg_risk = sum(p["risk_score"] for p in patterns) / len(patterns)

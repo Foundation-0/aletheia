@@ -18,7 +18,7 @@ Apply **The Aletheia Method** (*Portal-Driven Resonance & Adversarial Tomography
 ## Mandatory Execution & Hygiene Gates
 
 - **Single-Agent Cycle:** Strictly separate four phases: **Portal** (`frontier_portals.md`) $\to$ **Probe** (executable against real upstream equations/data, zero proxy substitution) $\to$ **Tomography** (clean-room independent audit + `AUDIT_LOG.md`) $\to$ **Resonance** (re-enter portals with every surprise or obstruction).
-- **CLI Verification:** Run `python3 -m aletheia audit-check .` and `python3 -m aletheia diagnose .` before publishing; run `python3 -m aletheia mutate <verifier.py> --test-cmd "<cmd>"` to verify R5 refusal-site coverage.
+- **CLI Verification (v1.1):** Run `python3 -m aletheia audit-check .` (`--lean-audit`, `--prereg-check`) and `python3 -m aletheia diagnose .` (`CS-01`–`CS-08`) before publishing; run `python3 -m aletheia mutate <script.py> --test-cmd "<cmd>"` (`--add-cwd`, dict/accumulator guards) for R5; use `aletheia ratchet` & `aletheia mde` for 5-gate loops and Plane-1 manifests.
 - **Publishing Discipline:** Never merge to upstream default branches without explicit approval. Open clean **Draft PRs** with zero CRLF, zero personal paths, zero secrets, and zero `__pycache__` artifacts.
 
 ## Repository Guides

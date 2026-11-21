@@ -390,6 +390,239 @@ class TestAletheiaCLI(unittest.TestCase):
         with self.assertRaises(AletheiaError):
             parse_strict_json_text('{"a": 0.5}', allow_float=False, require_object=True)
 
+    def test_08_mutator_v11_dict_verdict_accumulator_and_add_cwd(self) -> None:
+        """v1.1 R5 upgrade (AUDIT-029): detect & kill dict-verdict and accumulator refusal sites + --add-cwd."""
+        with tempfile.TemporaryDirectory(prefix="aletheia_t_m11_") as td:
+            root = Path(td)
+            # Checker combining dict-verdict return AND finding-accumulator append (v1.0 found 0 sites!)
+            write_lf_text(
+                root / "checker_pkg.py",
+                "def audit_val(x: int) -> dict:\n"
+                "    findings = []\n"
+                "    if x < 0:\n"
+                "        findings.append('NEGATIVE_VALUE')\n"
+                "    if x > 10:\n"
+                "        return {'admissible': False, 'status': 'REJECTED_OVERFLOW'}\n"
+                "    return {'admissible': len(findings) == 0, 'findings': findings}\n",
+            )
+            write_lf_text(
+                root / "test_checker_pkg.py",
+                "import unittest\n"
+                "from checker_pkg import audit_val\n"
+                "class T(unittest.TestCase):\n"
+                "    def test_bounds(self):\n"
+                "        if not audit_val(0)['admissible']:\n"
+                "            raise RuntimeError('0 must pass')\n"
+                "        if not audit_val(10)['admissible']:\n"
+                "            raise RuntimeError('10 must pass')\n"
+                "        if audit_val(-1)['admissible']:\n"
+                "            raise RuntimeError('-1 must fail')\n"
+                "        if audit_val(11)['admissible']:\n"
+                "            raise RuntimeError('11 must fail')\n",
+            )
+            # Without --add-cwd, `-I` strips cwd so `python3 -m unittest test_checker_pkg` would fail;
+            # WITH --add-cwd, repo-local unittest runs cleanly and kills 4/4 mutants (2 guards + 2 boundaries)!
+            rc, out, _ = _run_cli([
+                "mutate", str(root / "checker_pkg.py"),
+                "--test-cmd", "python3 -m unittest test_checker_pkg",
+                "--work-root", str(root),
+                "--add-cwd",
+                "--json",
+            ])
+            _req(rc == 0, f"mutator v1.1 --add-cwd failed: rc={rc} out={out}")
+            parsed = json.loads(out)
+            _req(parsed["total_mutants"] == 4 and parsed["killed"] == 4 and parsed["survived"] == 0,
+                 f"expected 4/4 mutants killed on dict+accumulator checker, got {parsed}")
+
+    def test_09_diagnose_cs08_compute_leakage_simpson(self) -> None:
+        """v1.1 CS-08 (AUDIT-023): detect unbounded-compute / format-breaking CoT Simpson's Paradox."""
+        with tempfile.TemporaryDirectory(prefix="aletheia_t_cs08_") as td:
+            root = Path(td)
+            ws = root / "simpson_ws"
+            init_workspace(ws, domain="dynamics")
+            # Inject an unmitigated Simpson reversal JSON under probes/dynamics/
+            write_lf_text(
+                ws / "probes" / "dynamics" / "repair_eval.json",
+                json.dumps({
+                    "fixed_compute_winner": "Arm_C_true_sign",
+                    "unbounded_winner": "Arm_D_sign_flipped",
+                    "fixed_compute_cap_enforced": False,
+                }, indent=2) + "\n",
+            )
+            rc, out, _ = _run_cli(["diagnose", str(ws), "--json"])
+            _req(rc == 1, f"CS-08 Simpson poison should return rc=1, got {rc}")
+            diag = json.loads(out)
+            cs08 = [p for p in diag["patterns"] if p["id"] == "CS-08"][0]
+            _req(cs08["status"] == "ALERT" and cs08["risk_score"] >= 50, f"CS-08 did not ALERT: {cs08}")
+
+    def test_10_ratchet_demo_and_ledger_verification(self) -> None:
+        """v1.1 `aletheia ratchet`: 4-regime demo + strict float-free hash-chained ledger verification."""
+        rc, out, _ = _run_cli(["ratchet", "--demo", "--json"])
+        _req(rc == 0, f"ratchet --demo failed: rc={rc} out={out}")
+        data = json.loads(out)
+        _req(
+            data["status"] == "PASS"
+            and data["regime_1_goodhart_latch"]["latch_step"]["decision"] == "LATCH_HALT"
+            and data["regime_2_noise_and_ast_identity"]["ratchet_false_keeps"] == 0
+            and data["regime_3_cs08_compute_cap"]["capped_valid_arm"]["admitted"] is True
+            and data["regime_3_cs08_compute_cap"]["unbounded_cot_escape_arm"]["admitted"] is False
+            and data["regime_4_ring0_and_ledger"]["ring0_tamper_blocked"] is True,
+            f"ratchet demo invariant mismatch: {data}",
+        )
+        # Verify valid ledger file and reject tampered ledger file
+        from aletheia.ratchet import build_ratchet_record, ast_canonical_digest
+        with tempfile.TemporaryDirectory(prefix="aletheia_t_rl_") as td:
+            root = Path(td)
+            r0 = build_ratchet_record(
+                step=0, prev_hash="sha256:" + "0" * 64, decision="KEEP",
+                ast_sha256=ast_canonical_digest("x = 1\n"), wall_ms=500,
+                proxy_num=0, proxy_den=1, outside_num=0, outside_den=1, note="ok",
+            )
+            good_f = root / "good.jsonl"
+            write_lf_text(good_f, json.dumps(r0, separators=(",", ":")) + "\n")
+            rc_v, out_v, _ = _run_cli(["ratchet", "--verify-ledger", str(good_f), "--json"])
+            _req(rc_v == 0 and json.loads(out_v)["valid"] is True, f"valid ledger failed: {out_v}")
+
+            bad_r0 = dict(r0)
+            bad_r0["wall_ms"] = 99999
+            bad_f = root / "tampered.jsonl"
+            write_lf_text(bad_f, json.dumps(bad_r0, separators=(",", ":")) + "\n")
+            rc_b, _, _ = _run_cli(["ratchet", "--verify-ledger", str(bad_f), "--json"])
+            _req(rc_b == 2, f"tampered ledger should fail with rc=2, got {rc_b}")
+
+    def test_11_mde_cli_and_lean4_prereg_audit(self) -> None:
+        """v1.1 `aletheia mde` + `audit-check --lean-audit` (T-10..T-12) + `--prereg-check`."""
+        rc_m, out_m, _ = _run_cli(["mde", "--manifest", "--json"])
+        _req(rc_m == 0 and json.loads(out_m)["plane2_oracle_compilation_forbidden"] is True, f"mde --manifest failed: {out_m}")
+        rc_d, out_d, _ = _run_cli(["mde", "--demo", "--json"])
+        _req(rc_d == 0, f"mde --demo failed: {out_d}")
+        d_mde = json.loads(out_d)
+        _req(
+            d_mde["zone_canon_vectors"]["accept_passed"] == 7
+            and d_mde["zone_canon_vectors"]["reject_blocked"] == 10
+            and d_mde["self_audit_blocked"] is True
+            and d_mde["sym2p_tamper_blocked"] is True,
+            f"mde --demo check failed: {d_mde}",
+        )
+
+        # Static Lean 4 auditor: clean stock-Init with char literal `'"'` passes; T-10..T-12 escapes fail!
+        with tempfile.TemporaryDirectory(prefix="aletheia_t_lean_") as td:
+            root = Path(td)
+            clean_dir = root / "lean_ok"
+            write_lf_text(
+                clean_dir / "Ok.lean",
+                "import Init\n/- block comment mentioning sorry and unsafe -/\n"
+                "def quoteChar : Char := '\"'\ntheorem id_ok (x' : Nat) : x' = x' := rfl\n",
+            )
+            r_ok = run_audit_check(clean_dir, lean_audit=True)
+            _req(r_ok["passed"] and r_ok["lean_audit"]["files_checked"] == 1, f"clean Lean 4 failed: {r_ok}")
+
+            bad_dir = root / "lean_bad"
+            write_lf_text(
+                bad_dir / "Bad.lean",
+                "import Mathlib.Data.Rat.Basic\nunsafe def u : Nat := 0\n"
+                "partial def p : Nat := p\n@[\n  implemented_by u\n]\ndef q : Nat := 1\n",
+            )
+            r_bad = run_audit_check(bad_dir, lean_audit=True)
+            codes = {f["code"] for f in r_bad["lean_audit"]["findings"]}
+            _req(
+                not r_bad["passed"]
+                and {"LEAN4_NON_INIT_IMPORT", "LEAN4_UNSAFE", "LEAN4_PARTIAL", "LEAN4_ATTR_TRUST_ESCAPE"}.issubset(codes),
+                f"Lean 4 bypasses missed: {codes}",
+            )
+
+            # Mechanical git-DAG --prereg-check (plan commit ancestor of data commit)
+            import subprocess
+            gdir = root / "git_prereg"
+            gdir.mkdir()
+            def _g(*args: str) -> str:
+                p = subprocess.run(["git", "-C", str(gdir), *args], capture_output=True, text=True, check=True)
+                return p.stdout.strip()
+            _g("init")
+            _g("config", "user.email", "test@example.invalid")
+            _g("config", "user.name", "Test")
+            write_lf_text(gdir / "cartography" / "frontier_portals.md", "# Plan\n")
+            _g("add", ".")
+            _g("commit", "-m", "plan")
+            c_plan = _g("rev-parse", "HEAD")
+            write_lf_text(
+                gdir / "verification" / "AUDIT_LOG.md",
+                "| Audit ID | Date | Author | Target | Gates | Oracle | Novelty | Verdict | Evidence |\n"
+                "|---|---|---|---|---|---|---|---|---|\n"
+                "| **AUDIT-001** | 2026-11-20 | a | t | G1 | exact | N1 | **VERIFIED** | ok |\n",
+            )
+            _g("add", ".")
+            _g("commit", "-m", "audit")
+            c_data = _g("rev-parse", "HEAD")
+            r_pre_ok = run_audit_check(gdir, prereg_check=True)
+            r_pre_inv = run_audit_check(gdir, prereg_check=True, plan_commit=c_data, data_commit=c_plan)
+            r_pre_same = run_audit_check(gdir, prereg_check=True, plan_commit=c_plan, data_commit=c_plan)
+            _req(r_pre_ok["passed"] and r_pre_ok["prereg_check"]["passed"] is True, f"valid prereg failed: {r_pre_ok}")
+            _req(not r_pre_inv["passed"] and r_pre_inv["prereg_check"]["passed"] is False, f"inverted prereg not caught: {r_pre_inv}")
+            _req(not r_pre_same["passed"] and r_pre_same["prereg_check"]["passed"] is False, f"same-commit prereg bypass not caught: {r_pre_same}")
+
+            # Bypass B regression: rewriting plan AFTER data commit MUST fail default --prereg-check!
+            write_lf_text(gdir / "cartography" / "frontier_portals.md", "# Rewritten Plan After Seeing Data\n")
+            _g("add", ".")
+            _g("commit", "-m", "post-hoc plan rewrite")
+            r_pre_bypass_b = run_audit_check(gdir, prereg_check=True)
+            _req(not r_pre_bypass_b["passed"] and r_pre_bypass_b["prereg_check"]["passed"] is False,
+                 f"post-hoc plan rewrite bypass B not caught: {r_pre_bypass_b}")
+
+            # Bypass A & C regression: separate repo with data first -> plan second -> data typo edit third
+            gdir2 = root / "git_prereg_hark"
+            gdir2.mkdir()
+            def _g2(*args: str) -> str:
+                p = subprocess.run(["git", "-C", str(gdir2), *args], capture_output=True, text=True, check=True)
+                return p.stdout.strip()
+            _g2("init")
+            _g2("config", "user.email", "test@example.invalid")
+            _g2("config", "user.name", "Test")
+            write_lf_text(
+                gdir2 / "verification" / "AUDIT_LOG.md",
+                "| Audit ID | Date | Author | Target | Gates | Oracle | Novelty | Verdict | Evidence |\n"
+                "|---|---|---|---|---|---|---|---|---|\n"
+                "| **AUDIT-001** | 2026-11-20 | a | t | G1 | exact | N1 | **VERIFIED** | ok |\n",
+            )
+            _g2("add", ".")
+            _g2("commit", "-m", "data first")
+            write_lf_text(gdir2 / "cartography" / "frontier_portals.md", "# HARKed Plan\n")
+            _g2("add", ".")
+            _g2("commit", "-m", "harked plan second")
+            write_lf_text(
+                gdir2 / "verification" / "AUDIT_LOG.md",
+                "| Audit ID | Date | Author | Target | Gates | Oracle | Novelty | Verdict | Evidence |\n"
+                "|---|---|---|---|---|---|---|---|---|\n"
+                "| **AUDIT-001** | 2026-11-20 | a | t | G1 | exact | N1 | **VERIFIED** | ok typo fix |\n",
+            )
+            _g2("add", ".")
+            _g2("commit", "-m", "data typo edit third")
+            r_pre_bypass_a = run_audit_check(gdir2, prereg_check=True)
+            _req(not r_pre_bypass_a["passed"] and r_pre_bypass_a["prereg_check"]["passed"] is False,
+                 f"data->plan->typo HARKing bypass A not caught: {r_pre_bypass_a}")
+
+            # Bypass C regression: plan + data bundled in single commit MUST fail!
+            gdir3 = root / "git_prereg_bulk"
+            gdir3.mkdir()
+            def _g3(*args: str) -> str:
+                p = subprocess.run(["git", "-C", str(gdir3), *args], capture_output=True, text=True, check=True)
+                return p.stdout.strip()
+            _g3("init")
+            _g3("config", "user.email", "test@example.invalid")
+            _g3("config", "user.name", "Test")
+            write_lf_text(gdir3 / "cartography" / "frontier_portals.md", "# Plan\n")
+            write_lf_text(
+                gdir3 / "verification" / "AUDIT_LOG.md",
+                "| Audit ID | Date | Author | Target | Gates | Oracle | Novelty | Verdict | Evidence |\n"
+                "|---|---|---|---|---|---|---|---|---|\n"
+                "| **AUDIT-001** | 2026-11-20 | a | t | G1 | exact | N1 | **VERIFIED** | ok |\n",
+            )
+            _g3("add", ".")
+            _g3("commit", "-m", "bulk commit")
+            r_pre_bypass_c = run_audit_check(gdir3, prereg_check=True)
+            _req(not r_pre_bypass_c["passed"] and r_pre_bypass_c["prereg_check"]["passed"] is False,
+                 f"bulk single-commit bypass C not caught: {r_pre_bypass_c}")
+
 
 if __name__ == "__main__":
     unittest.main()

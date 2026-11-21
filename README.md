@@ -51,7 +51,7 @@ cd aletheia
 python3 -I -O -B -W error examples/worked_resonance_cycle/run_demo.py
 ```
 
-### 2. Run the Zero-Dependency `aletheia` CLI & Self-Test Suite
+### 2. Run the Zero-Dependency `aletheia` v1.1 CLI & Self-Test Suite
 
 ```bash
 # Run directly without installing (or: pip install -e .)
@@ -60,14 +60,21 @@ PYTHONPATH=. python3 -m aletheia --help
 # Scaffold a new expedition workspace
 PYTHONPATH=. python3 -m aletheia init /tmp/my-expedition --domain physics
 
-# Audit any repo/expedition for R4 parity, bare asserts, CRLF, leaks, and AUDIT_LOG integrity
-PYTHONPATH=. python3 -m aletheia audit-check .
+# Audit any repo/expedition for R4 parity, bare asserts, CRLF, leaks, and hardened stock-Init Lean 4 purity
+# (Add --prereg-check inside a git-tracked expedition workspace to enforce git-DAG plan-before-data ancestry)
+PYTHONPATH=. python3 -m aletheia audit-check . --lean-audit
 
-# Run AST-based R5 refusal-site mutation testing on any verifier script
-PYTHONPATH=. python3 -m aletheia mutate path/to/verifier.py --test-cmd "python3 -I -O -B path/to/tests.py"
+# Run AST-based R5 refusal-site mutation testing (v1.1: supports --work-root/--add-cwd, dict verdicts & accumulators)
+PYTHONPATH=. python3 -m aletheia mutate path/to/verifier.py --work-root . --test-cmd "python3 -I -O -B path/to/tests.py"
 
-# Diagnose Cave-Shadow relapse patterns in an active expedition
+# Diagnose all 8 Cave-Shadow relapse patterns (CS-01..CS-08, incl. Compute-Leakage Simpson's Paradox)
 PYTHONPATH=. python3 -m aletheia diagnose /tmp/my-expedition
+
+# Run the 5-gate anti-Goodhart, noise-immune, CS-08-capped autonomous ratchet demo (AUDIT-026R + AUDIT-023)
+PYTHONPATH=. python3 -m aletheia ratchet --demo
+
+# Run Plane-1 zone-canon-v0 manifest pinning, causal audit DAG & abios SYM-2P/2.0-rcp bridge (AUDIT-027)
+PYTHONPATH=. python3 -m aletheia mde --demo
 
 # Run Aletheia's own self-verification suite across all 3 R4 modes
 python3 -I -B tests/run_all.py && python3 -I -O -B tests/run_all.py && python3 -I -B -W error tests/run_all.py
@@ -99,10 +106,11 @@ aletheia/
 ├── CONTRIBUTING.md                            # Contributing Domain Packs, Oracles, Platform Adapters & Case Studies
 ├── pyproject.toml                             # Zero-dependency PEP 621 Python 3 stdlib package config
 ├── spec/
-│   └── LAWS_AND_GATES.md                      # Canonical specification: 5 Laws, 9 Gates, R1–R5, Oracles, N0–N2, 7 Anti-Patterns
+│   └── LAWS_AND_GATES.md                      # Canonical v1.1 spec: 5 Laws, 9 Gates, R1–R5, CS-01..CS-08, Plane-1 MDE & Ratchet
 ├── evidence/
-│   └── cave-expedition-case-study.md          # Complete empirical case study (Pass 1 vs Pass 2+, 5 chains, AUDIT-001..021)
-├── aletheia/                                  # Executable Python 3 stdlib CLI (init, audit-check, mutate, diagnose, handoff, install)
+│   ├── cave-expedition-case-study.md          # Wave 1 empirical case study (Pass 1 vs Pass 2+, 5 chains, AUDIT-001..021)
+│   └── symbiosis-wave2-case-study.md          # Wave 2 omnidirectional symbiosis across 30+ repos & v1.0->v1.1 evolution (AUDIT-023..029+)
+├── aletheia/                                  # Executable Python 3 stdlib CLI v1.1 (init, audit-check, mutate, diagnose, ratchet, mde, handoff, install)
 ├── tests/                                     # Self-verifying stdlib test & R5 mutation suite (tests/run_all.py)
 ├── examples/
 │   └── worked_resonance_cycle/                # 3-second zero-float executable demo of a full Aletheia breakthrough cycle

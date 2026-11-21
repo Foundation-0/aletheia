@@ -3,11 +3,13 @@ Command-line interface for The Aletheia Method (`aletheia` / `python3 -m alethei
 
 Subcommands:
   - init         Scaffold a non-colliding Aletheia research workspace
-  - audit-check  Run automated R1-R5 hygiene, AST, 3-mode R4 parity, and AUDIT_LOG checks
-  - mutate       Run generic AST refusal-site mutation testing (R5)
-  - diagnose     Run quantitative 7-pattern Anti-Cave relapse diagnostics
+  - audit-check  Run automated R1-R5 hygiene, AST, 3-mode R4 parity, Lean 4, prereg & AUDIT_LOG checks
+  - mutate       Run generic AST refusal-site mutation testing (R5, incl. dict-verdict & accumulator checkers)
+  - diagnose     Run quantitative 8-pattern Anti-Cave relapse diagnostics (CS-01..CS-08)
   - handoff      Generate or validate portable `aletheia.compute_handoff.v1` manifests
   - install      Deploy Aletheia rules/skills/adapters to antigravity/claude-code/codex/cursor/gemini-cli/repo
+  - ratchet      Run Aletheia Ratchet 5-gate demo or verify float-free hash-chained ratchet ledgers
+  - mde          Emit/verify Plane-1 `zone-canon-v0` Aletheia-MDE manifests, lineage DAGs & SYM-2P packets
 """
 from __future__ import annotations
 
@@ -22,7 +24,9 @@ from .audit_check import run_audit_check
 from .diagnose import diagnose_expedition
 from .handoff import create_handoff_template, validate_handoff_manifest
 from .installer import VALID_TARGETS, install_adapter
+from .mde import build_aletheia_mde_manifest, run_mde_demo, verify_lineage_dag_file
 from .mutator import run_mutation_suite
+from .ratchet import run_ratchet_demo, verify_ratchet_ledger_file
 from .scaffold import init_workspace
 from .strict_io import AletheiaError
 
@@ -79,13 +83,17 @@ def build_parser() -> argparse.ArgumentParser:
     p_init.add_argument("--json", action="store_true", help="Emit JSON output")
 
     # 2. audit-check
-    p_aud = sub.add_parser("audit-check", help="Run automated R1-R5 hygiene, AST, R4 parity & AUDIT_LOG checks")
+    p_aud = sub.add_parser("audit-check", help="Run automated R1-R5 hygiene, AST, R4 parity, Lean 4, prereg & AUDIT_LOG checks")
     p_aud.add_argument("path", type=Path, help="Directory or file to audit")
     p_aud.add_argument("--scripts", nargs="*", default=[], type=Path, help="Verifier scripts to run across 3 R4 modes")
     p_aud.add_argument("--audit-log", type=Path, default=None, help="Explicit path to AUDIT_LOG.md")
     p_aud.add_argument("--receipt", type=Path, default=None, help="Optional aletheia.audit_receipt.v1 JSON receipt")
     p_aud.add_argument("--strict-unseeded", action="store_true", help="Treat unseeded RNG calls as errors")
     p_aud.add_argument("--no-isolated", action="store_true", help="Omit -I when running --scripts (for uninstalled cwd imports)")
+    p_aud.add_argument("--lean-audit", action="store_true", help="Run hardened stock-Init static Lean 4 audit on *.lean files")
+    p_aud.add_argument("--prereg-check", action="store_true", help="Verify Gate 8 git-DAG plan-before-data ancestor ordering")
+    p_aud.add_argument("--plan-commit", default=None, help="Explicit plan commit SHA for --prereg-check")
+    p_aud.add_argument("--data-commit", default=None, help="Explicit data/audit commit SHA for --prereg-check")
     p_aud.add_argument("--timeout", type=int, default=120, help="Per-mode script timeout in seconds")
     p_aud.add_argument("--json", action="store_true", help="Emit JSON output")
 
@@ -94,13 +102,14 @@ def build_parser() -> argparse.ArgumentParser:
     p_mut.add_argument("script", type=Path, help="Python file containing trust-path guards")
     p_mut.add_argument("--test-cmd", required=True, help="Test command (supports {target} placeholder)")
     p_mut.add_argument("--work-root", type=Path, default=None, help="Workspace root directory to copy into tempdir")
+    p_mut.add_argument("--add-cwd", action="store_true", help="Keep work_root on sys.path (uses -s -O -B instead of -I) for repo-local unittest imports")
     p_mut.add_argument("--max-mutants", type=int, default=100, help="Maximum mutant sites to execute")
     p_mut.add_argument("--timeout", type=int, default=30, help="Per-mutant test timeout in seconds")
     p_mut.add_argument("--no-boundaries", action="store_true", help="Only mutate if/require guard deletion (skip boundary flips)")
     p_mut.add_argument("--json", action="store_true", help="Emit JSON output")
 
     # 4. diagnose
-    p_diag = sub.add_parser("diagnose", help="Run quantitative 7-pattern Anti-Cave relapse detector")
+    p_diag = sub.add_parser("diagnose", help="Run quantitative 8-pattern Anti-Cave relapse detector (CS-01..CS-08)")
     p_diag.add_argument("expedition_dir", type=Path, help="Expedition workspace directory")
     p_diag.add_argument("--board", type=Path, default=None, help="Optional swarm board JSONL file")
     p_diag.add_argument("--fail-on-warning", action="store_true", help="Return non-zero on WARNING as well as ALERT")
@@ -123,6 +132,21 @@ def build_parser() -> argparse.ArgumentParser:
     p_ins.add_argument("--dry-run", action="store_true", help="Preview installation without writing files")
     p_ins.add_argument("--force", action="store_true", help="Overwrite existing files")
     p_ins.add_argument("--json", action="store_true", help="Emit JSON output")
+
+    # 7. ratchet (v1.1)
+    p_rat = sub.add_parser("ratchet", help="Run Aletheia Ratchet 5-gate demo or verify a hash-chained ratchet ledger")
+    rat_grp = p_rat.add_mutually_exclusive_group(required=True)
+    rat_grp.add_argument("--demo", action="store_true", help="Run deterministic 4-regime Aletheia Ratchet showcase")
+    rat_grp.add_argument("--verify-ledger", type=Path, default=None, help="Verify a float-free zone-canon-v0 ratchet JSONL ledger")
+    p_rat.add_argument("--json", action="store_true", help="Emit JSON output")
+
+    # 8. mde (v1.1)
+    p_mde = sub.add_parser("mde", help="Emit/verify Plane-1 zone-canon-v0 Aletheia-MDE manifests, lineage DAGs & SYM-2P packets")
+    mde_grp = p_mde.add_mutually_exclusive_group(required=True)
+    mde_grp.add_argument("--manifest", action="store_true", help="Emit canonical zone-canon-v0 aletheia-mde-manifest/v0.1")
+    mde_grp.add_argument("--verify-dag", type=Path, default=None, help="Verify a Plane-1 causal audit lineage JSONL DAG")
+    mde_grp.add_argument("--demo", action="store_true", help="Run full zone-canon-v0 + lineage DAG + SYM-2P/2.0-rcp demo")
+    p_mde.add_argument("--json", action="store_true", help="Emit JSON output")
 
     return parser
 
@@ -147,6 +171,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                 strict_unseeded=args.strict_unseeded,
                 isolated=not args.no_isolated,
                 timeout=args.timeout,
+                lean_audit=args.lean_audit,
+                prereg_check=args.prereg_check,
+                plan_commit=args.plan_commit,
+                data_commit=args.data_commit,
             )
             _emit(res, as_json)
             return 0 if res["passed"] else 1
@@ -159,6 +187,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 max_mutants=args.max_mutants,
                 timeout=args.timeout,
                 include_boundaries=not args.no_boundaries,
+                add_cwd=args.add_cwd,
             )
             _emit(res, as_json)
             return 0 if res["passed"] else 1
@@ -194,6 +223,24 @@ def main(argv: Sequence[str] | None = None) -> int:
                 dry_run=args.dry_run,
                 force=args.force,
             )
+            _emit(res, as_json)
+            return 0
+
+        if args.command == "ratchet":
+            if args.demo:
+                res = run_ratchet_demo()
+            else:
+                res = verify_ratchet_ledger_file(args.verify_ledger)
+            _emit(res, as_json)
+            return 0
+
+        if args.command == "mde":
+            if args.manifest:
+                res = build_aletheia_mde_manifest()
+            elif args.demo:
+                res = run_mde_demo()
+            else:
+                res = verify_lineage_dag_file(args.verify_dag)
             _emit(res, as_json)
             return 0
 

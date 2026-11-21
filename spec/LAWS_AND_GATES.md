@@ -1,7 +1,7 @@
 # Aletheia Canonical Specification: Laws, Gates, Contracts, Oracles & Anti-Patterns
 
-**Specification Version:** `aletheia.spec.v1`  
-**Lineage:** Formalizes the Cave Expedition anti-shadow protocol (`verification/PROTOCOL.md`, v2) and gate-contract architecture (`siliconcordat/loom#8` / `#9`) into a domain-general open specification enforced programmatically by the `aletheia` CLI (`aletheia audit-check`, `aletheia mutate`, `aletheia diagnose`).
+**Specification Version:** `aletheia.spec.v1.1`  
+**Lineage:** Formalizes the Cave Expedition anti-shadow protocol (`verification/PROTOCOL.md`, v2), gate-contract architecture (`siliconcordat/loom#8` / `#9`), and Wave 2 Symbiosis upgrades (`AUDIT-023`–`AUDIT-029`) into a domain-general open specification enforced programmatically by the `aletheia` CLI (`audit-check`, `mutate`, `diagnose`, `ratchet`, `mde`).
 
 ---
 
@@ -72,23 +72,37 @@ Principle: *"A gate's verdict must never be movable by how the submission is wri
 
 ---
 
-## 5. The Seven Cave-Shadow Anti-Patterns
+## 5. The Eight Cave-Shadow Anti-Patterns (`CS-01` – `CS-08`)
 
-Automated heuristics for these seven failure modes are implemented in `aletheia diagnose`:
+Automated heuristics for these eight failure modes are implemented in `aletheia diagnose`:
 
 | # | Anti-Pattern | Observable Symptom | Structural Remedy |
 |---|---|---|---|
-| **1** | **Static-Map Trap** | Portal Keeper / literature agent posts `[done]` in Round 1 and never re-enters raw sources. | Keep Portal Keeper active; trigger source re-entry on every probe anomaly or wall. |
-| **2** | **Premature Dismissal Bias** | Multiple `FALSIFIED` / `N0` verdicts with zero repaired/steelmanned formulations tested. | Invoke Law 2: require an explicit steelman statement & exact test before closing a thread. |
-| **3** | **Language Smuggling** | Cross-domain prose claims (*"both are sheaves/dualities"*) with no typed intertwining map or defect metric. | Enforce Gate 5: require explicit typed objects, operator identity, and quantitative transfer. |
-| **4** | **Substitution Shadow** | Verifier certifies a simplified synthetic proxy matrix/dataset instead of the real upstream target. | Import and execute against the actual target equations, datasets, or live upstream code. |
-| **5** | **Glass Gate** | Bare `assert`s on trust paths, `1e-12` float cutoffs for exact claims, unseeded RNGs, or `0` must-fail controls. | Enforce R1–R5 (`aletheia audit-check` + `aletheia mutate` + exact arithmetic / null hierarchy). |
-| **6** | **Local-Optimum Closure** | Stopping when hitting a sharpness wall or impossibility boundary instead of turning it into a theorem or next branch. | Elevate exact obstructions to theorems or spawn a branch supplying the proven missing invariant. |
-| **7** | **Provenance Inflation** | Claiming "merged", "machine-checked", or `N2` without merge, compiler execution, or full-text prior-art verification. | Enforce strict standing tags (`Draft PR`, `uncompiled_source`, local-vs-global scope, default `N0`). |
+| **1** | **Static-Map Trap (`CS-01`)** | Portal Keeper / literature agent posts `[done]` in Round 1 and never re-enters raw sources. | Keep Portal Keeper active; trigger source re-entry on every probe anomaly or wall. |
+| **2** | **Premature Dismissal Bias (`CS-02`)** | Multiple `FALSIFIED` / `N0` verdicts with zero repaired/steelmanned formulations tested. | Invoke Law 2: require an explicit steelman statement & exact test before closing a thread. |
+| **3** | **Language Smuggling (`CS-03`)** | Cross-domain prose claims (*"both are sheaves/dualities"*) with no typed intertwining map or defect metric. | Enforce Gate 5: require explicit typed objects, operator identity, and quantitative transfer. |
+| **4** | **Substitution Shadow (`CS-04`)** | Verifier certifies a simplified synthetic proxy matrix/dataset instead of the real upstream target. | Import and execute against the actual target equations, datasets, or live upstream code. |
+| **5** | **Glass Gate (`CS-05`)** | Bare `assert`s on trust paths, `1e-12` float cutoffs for exact claims, unseeded RNGs, or `0` must-fail controls. | Enforce R1–R5 (`aletheia audit-check` + `aletheia mutate` v1.1 covering dict-verdicts & accumulators). |
+| **6** | **Local-Optimum Closure (`CS-06`)** | Stopping when hitting a sharpness wall or impossibility boundary instead of turning it into a theorem or next branch. | Elevate exact obstructions to theorems or spawn a branch supplying the proven missing invariant. |
+| **7** | **Provenance Inflation (`CS-07`)** | Claiming "merged", "machine-checked", or `N2` without merge, compiler execution, or full-text prior-art verification. | Enforce strict standing tags (`Draft PR`, `uncompiled_source`, local-vs-global scope, default `N0`). |
+| **8** | **Compute-Leakage Simpson's Paradox (`CS-08`)** | Comparing arms by round count without a fixed compute/token survival cap, allowing slow format-breaking CoT escapes to invert the true fixed-budget winner (`AUDIT-023` `N2`). | Enforce fixed wall-clock/token survival caps alongside round counts; report paired fast-channel and escape-channel outcomes separately. |
 
 ---
 
-## 6. Machine-Readable Schemas
+## 6. v1.1 Governance Extensions: Plane-1 MDE & 5-Gate Ratchet Contracts
+
+1. **Plane-1 MDE Contract (`aletheia mde`, `AUDIT-027`):**
+   - An Aletheia expedition may be packaged unconditionally as a **Plane-1 Model Domain Expansion (MDE)** using deterministic `zone-canon-v0` manifest IDs, dyadic integer zone scales, content-addressed causal `AUDIT-XXX` lineage DAGs enforcing **`author != verifier`** and Hard Veto #2 contested-head halts, and compact `abios`-compatible `SYM-2P/2.0-rcp` wire packets.
+   - **Plane-2 Mechanical Obstruction (`plane2_oracle_compilation_forbidden: true`):** Verification oracles MUST NEVER be compiled into neural weights; Plane-2 weight adapters are strictly disposable caches subordinate to Plane-1 deterministic verification.
+2. **5-Gate Autonomous Ratchet Contract (`aletheia ratchet`, `AUDIT-026R` + `AUDIT-023`):**
+   - Any automated hill-climbing or autoresearch loop running under Aletheia MUST enforce: (i) immutable Ring-0 evaluation harness lock, (ii) float-free canonical hash-chained receipts, (iii) AST-identity unchanged-baseline null rejection, (iv) Pre-Adaptation Goodhart Latch halt + blind portal re-entry preserving informative failed branches, and (v) a fixed-compute `CS-08` survival cap.
+3. **Mechanical Gate-8 & Static Lean 4 Verification (`aletheia audit-check`, `AUDIT-028` + `AUDIT-029`):**
+   - `--prereg-check` verifies plan-before-data ordering mechanically via git ancestry (`git merge-base --is-ancestor`).
+   - `--lean-audit` statically checks `.lean` files against stock-`Init` purity and blocks `sorry`, `axiom`, `unsafe`, `partial`, multiline attribute escapes, and non-`Init` imports.
+
+---
+
+## 7. Machine-Readable Schemas
 
 Formal JSON Schemas (`draft/2020-12`) corresponding to this specification reside in [`../schemas/`](../schemas/):
 - [`schemas/audit_receipt.v1.schema.json`](../schemas/audit_receipt.v1.schema.json)
