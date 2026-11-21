@@ -17,9 +17,9 @@ Apply **The Aletheia Method** (*Portal-Driven Resonance & Adversarial Tomography
 
 ## Mandatory Execution & Hygiene Gates
 
-- **Beyond-Language, Beyond-Numerology Perception (v1.2):** Strip disciplinary labels and base-10/coordinate numerology (*Stage A*), then compress relational silhouettes into coordinate-, unit-, and radix-free exact invariants or zero-residual null-equivalences (*Stage B*, `THEORY.md` §3.5) verified under independent basis/scale invariance tests.
+- **Beyond-Language & 8-Glyph Operator Calculus (v1.3):** Strip disciplinary nouns & numerology (*Stage A*), compress silhouettes into coordinate-free exact invariants (*Stage B*, `THEORY.md` §3.5–3.6), and express cross-domain laws in the verified 8-glyph calculus (`⧄ ⧅ ⦷ ⟠ ⧇ ⦺ ⩩ ⫩`; `0 / 227,540` Lean 4 collisions).
 - **Single-Agent Cycle:** Strictly separate four phases: **Portal** (`frontier_portals.md`) $\to$ **Probe** (executable against real upstream equations/data, zero proxy substitution) $\to$ **Tomography** (clean-room independent audit + `AUDIT_LOG.md`) $\to$ **Resonance** (re-enter portals with every surprise or obstruction).
-- **CLI Verification (v1.2):** Run `python3 -m aletheia audit-check .` (`--lean-audit`, `--allow-project-import`, `--comparator-config`, `--pinned-manifest`, `--prereg-check`) and `python3 -m aletheia diagnose .` (`CS-01`–`CS-11`) before publishing; run `python3 -m aletheia mutate <script.py> --test-cmd "<cmd>"` (`--add-cwd`, dict/accumulator guards) for R5; use `aletheia ratchet` & `aletheia mde` for 5-gate loops and Plane-1 manifests.
+- **CLI Verification (v1.3):** Run `python3 -m aletheia audit-check .` (`--lean-audit`, repeatable `--allow-project-import`, `--comparator-config`, `--pinned-manifest`, `--prereg-check`), `python3 -m aletheia diagnose .` (`CS-01`–`CS-11`), and `python3 -m aletheia calculus [--list|--eval EXPR|--self-test]`; run `aletheia mutate` for R5 and `aletheia ratchet`/`mde` for 5-gate loops & Plane-1 manifests.
 - **Publishing Discipline:** Never merge to upstream default branches without explicit approval. Open clean **Draft PRs** with zero CRLF, zero personal paths, zero secrets, and zero `__pycache__` artifacts.
 
 ## Repository Guides

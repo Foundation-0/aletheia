@@ -43,7 +43,22 @@ Compact cheat-sheet for agents running **The Aletheia Method** (`https://github.
   ```
 - **R5 Refusal-Site Isolation:** Every guard has a must-fail fixture; single-site mutation testing (`aletheia mutate`) targets 100% kill rate.
 
-## 5. Key Repository Paths
+## 5. 8-Glyph Exact Operator Calculus (v1.3 — `aletheia calculus`)
+
+Audited across `227,540` Lean 4 files (`0` collisions, all Unicode `Sm`), executable in exact $\mathbb{Q}/\mathbb{Z}$ via `python3 -m aletheia calculus [--list | --eval EXPR | --self-test] [--json]`:
+
+| Glyph | ASCII | Operator | Meaning |
+|---|---|---|---|
+| `⧄` (`U+29C4`) | `\|/\|` | Schur Pushforward | $M_{AA} - M_{AB}M_{BB}^+M_{BA}$ (`SF-01`) |
+| `⧅` (`U+29C5`) | `\|\\\|` | Dark-Mode Shadow | $(\ker M_{BB}, M_{AB}|_{\ker}, \dim_{\mathrm{dark}}, r_{\mathrm{cross}})$ |
+| `⦷` (`U+29B7`) | `(||)` | Holonomy Unmasking | $(L^\chi \mathbin{⧄} I) - (L \mathbin{⧄} I)$ |
+| `⟠` (`U+27E0`) | `<=>` | Observer Equalizer | Reynolds / Mellin regulator-net invariant (`SF-07`) |
+| `⧇` (`U+29C7`) | `[o]` | Cohom. Obstruction | $\|\omega_{\mathrm{harm}}\|_w^2 / \|\omega\|_w^2 \in [0,1]\cap\mathbb{Q}$ (`SF-05`) |
+| `⦺` (`U+29BA`) | `(+-0)` | Krein Inertia | Exact $(n_+, n_0, n_-)$ (and `⦺_+`, `⦺_0`, `⦺_-`) |
+| `⩩` (`U+2A69`) | `=#=` | Exact Null-Equiv | $X - Y = 0$ identically (forbids floats; `CS-11`) |
+| `⫩` (`U+2AE9`) | `_|T` | R5 Refusal Gate | $T(x) \land \forall m \in M(x), \neg T(m)$ (`SF-04`) |
+
+## 6. Key Repository Paths
 
 - Role prompts: [prompts/coordinator.md](../../../../../../prompts/coordinator.md), [prompts/portal-keeper.md](../../../../../../prompts/portal-keeper.md), [prompts/domain-probe.md](../../../../../../prompts/domain-probe.md), [prompts/synthesizer.md](../../../../../../prompts/synthesizer.md), [prompts/verifier-tomography.md](../../../../../../prompts/verifier-tomography.md), [prompts/peer-weaver.md](../../../../../../prompts/peer-weaver.md)
 - Domain packs: [domains/README.md](../../../../../../domains/README.md)

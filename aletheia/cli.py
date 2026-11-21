@@ -10,6 +10,7 @@ Subcommands:
   - install      Deploy Aletheia rules/skills/adapters to antigravity/claude-code/codex/cursor/gemini-cli/repo
   - ratchet      Run Aletheia Ratchet 5-gate demo or verify float-free hash-chained ratchet ledgers
   - mde          Emit/verify Plane-1 `zone-canon-v0` Aletheia-MDE manifests, lineage DAGs & SYM-2P packets
+  - calculus     List, evaluate, or self-test the 8-glyph Aletheia Operator Calculus
 """
 from __future__ import annotations
 
@@ -21,6 +22,7 @@ from typing import Any, Sequence
 
 from . import __version__
 from .audit_check import run_audit_check
+from .calculus import eval_calculus_expression, list_glyphs, run_calculus_self_test
 from .diagnose import diagnose_expedition
 from .handoff import create_handoff_template, validate_handoff_manifest
 from .installer import VALID_TARGETS, install_adapter
@@ -36,16 +38,20 @@ def _emit(payload: dict[str, Any], as_json: bool) -> None:
         print(json.dumps(payload, indent=2, sort_keys=False))
         return
     # Concise human-readable summary
-    status = payload.get("status") or payload.get("overall_status") or "OK"
+    status = payload.get("status") or payload.get("overall_status") or payload.get("verdict") or "OK"
     print(f"[aletheia] status={status}")
     for key, val in payload.items():
-        if key in ("status", "overall_status", "results", "patterns", "files", "r4_scripts"):
+        if key in ("status", "overall_status", "verdict", "results", "patterns", "files", "r4_scripts", "glyphs"):
             continue
         if isinstance(val, (str, int, float, bool)):
             print(f"  {key}: {val}")
     if "summary" in payload and isinstance(payload["summary"], dict):
         for k, v in payload["summary"].items():
             print(f"  {k}: {v}")
+    if "glyphs" in payload and isinstance(payload["glyphs"], list):
+        print("  operator glyphs (0 / 227,540 Lean 4 collisions):")
+        for g in payload["glyphs"]:
+            print(f"    - {g['id']} {g['codepoint']} ({g['ascii_fallback']}): {g['name']}")
     if "failures" in payload and payload["failures"]:
         print("  failures:")
         for f in payload["failures"]:
@@ -90,8 +96,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_aud.add_argument("--receipt", type=Path, default=None, help="Optional aletheia.audit_receipt.v1 JSON receipt")
     p_aud.add_argument("--strict-unseeded", action="store_true", help="Treat unseeded RNG calls as errors")
     p_aud.add_argument("--no-isolated", action="store_true", help="Omit -I when running --scripts (for uninstalled cwd imports)")
-    p_aud.add_argument("--lean-audit", action="store_true", help="Run hardened v1.2 static Lean 4 audit on *.lean files")
-    p_aud.add_argument("--allow-project-import", nargs="*", default=[], help="Allow specific project Lean module prefixes under --lean-audit")
+    p_aud.add_argument("--lean-audit", action="store_true", help="Run hardened v1.3 static Lean 4 audit on *.lean files")
+    p_aud.add_argument("--allow-project-import", action="extend", nargs="+", default=[], help="Allow specific project Lean module prefixes under --lean-audit (repeatable)")
     p_aud.add_argument("--comparator-config", type=Path, default=None, help="Validate a Lean 4 Comparator JSON config (enable_nanoda & isolation)")
     p_aud.add_argument("--allow-no-nanoda", action="store_true", help="Downgrade missing/false enable_nanoda in --comparator-config to warning")
     p_aud.add_argument("--pinned-manifest", type=Path, default=None, help="Verify a CORE_MANIFEST.json (SHA-256) or SafeVerify (commit SHA) manifest")
@@ -151,6 +157,14 @@ def build_parser() -> argparse.ArgumentParser:
     mde_grp.add_argument("--verify-dag", type=Path, default=None, help="Verify a Plane-1 causal audit lineage JSONL DAG")
     mde_grp.add_argument("--demo", action="store_true", help="Run full zone-canon-v0 + lineage DAG + SYM-2P/2.0-rcp demo")
     p_mde.add_argument("--json", action="store_true", help="Emit JSON output")
+
+    # 9. calculus (v1.3 — AUDIT-051 8-glyph operator calculus)
+    p_calc = sub.add_parser("calculus", help="List, evaluate, or self-test the 8-glyph Aletheia Operator Calculus")
+    calc_grp = p_calc.add_mutually_exclusive_group(required=True)
+    calc_grp.add_argument("--list", action="store_true", help="List the verified 8-glyph operator registry (Unicode Sm & ASCII fallbacks)")
+    calc_grp.add_argument("--eval", dest="eval_expr", default=None, metavar="EXPR", help="Evaluate a pure-Q Unicode or ASCII operator-calculus expression")
+    calc_grp.add_argument("--self-test", action="store_true", help="Run 8-glyph registry verification, 13 compressed theorems & 6 commutator probes")
+    p_calc.add_argument("--json", action="store_true", help="Emit zero-float JSON output")
 
     return parser
 
@@ -249,6 +263,19 @@ def main(argv: Sequence[str] | None = None) -> int:
                 res = run_mde_demo()
             else:
                 res = verify_lineage_dag_file(args.verify_dag)
+            _emit(res, as_json)
+            return 0
+
+        if args.command == "calculus":
+            if args.list:
+                res = list_glyphs()
+                _emit(res, as_json)
+                return 0 if res["passed"] else 1
+            if args.self_test:
+                res = run_calculus_self_test()
+                _emit(res, as_json)
+                return 0 if res["passed"] else 1
+            res = eval_calculus_expression(args.eval_expr)
             _emit(res, as_json)
             return 0
 

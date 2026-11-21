@@ -1,7 +1,7 @@
 # Aletheia Canonical Specification: Laws, Gates, Contracts, Oracles & Anti-Patterns
 
-**Specification Version:** `aletheia.spec.v1.2`  
-**Lineage:** Formalizes the Cave Expedition anti-shadow protocol (`verification/PROTOCOL.md`, v2), gate-contract architecture (`siliconcordat/loom#8` / `#9`), Wave 2 Symbiosis Rounds 1–2 (`AUDIT-023`–`AUDIT-034R`), and Wave 2 Round 3 10-Lab Formal Math & Beyond-Language Tomography (`AUDIT-035`–`AUDIT-039`) into a domain-general open specification enforced programmatically by the `aletheia` v1.2 CLI (`audit-check`, `mutate`, `diagnose`, `ratchet`, `mde`).
+**Specification Version:** `aletheia.spec.v1.3`  
+**Lineage:** Formalizes the Cave Expedition anti-shadow protocol (`verification/PROTOCOL.md`, v2), gate-contract architecture (`siliconcordat/loom#8` / `#9`), Wave 2 Symbiosis Rounds 1–3 (`AUDIT-023`–`AUDIT-039`), and Wave 2 Round 4 Ramanujan/Hawking & 8-Glyph Operator Calculus (`AUDIT-041`–`AUDIT-054`) into a domain-general open specification enforced programmatically by the `aletheia` v1.3 CLI (`audit-check`, `mutate`, `diagnose`, `ratchet`, `mde`, `calculus`).
 
 ---
 
@@ -92,19 +92,22 @@ Automated heuristics for these eleven failure modes are implemented in `aletheia
 
 ---
 
-## 6. v1.1–v1.2 Governance Extensions: Beyond-Language Perception, Plane-1 MDE, Ratchet & 4-Lab Lean 4 Gates
+## 6. v1.1–v1.3 Governance Extensions: Beyond-Language Perception, 8-Glyph Calculus, Plane-1 MDE, Ratchet & Lean 4 Gates
 
 1. **Beyond-Language, Beyond-Numerology Structural Perception (v1.2, `THEORY.md` §3.5):**
    - **Stage A (Label-Stripping):** Strip disciplinary nouns and base-10/coordinate numerology across candidate domains to perceive raw relational geometry, fiber eliminations, dualities, and obstructions.
    - **Stage B (Coordinate-Free Null-Equivalence):** Compress silhouettes into basis-, unit-, and radix-invariant exact invariants (`residual == 0`, exact integer inertia, projective invariants, R5 refusal witnesses) verified by independent clean-room oracles.
-2. **Plane-1 MDE Contract (`aletheia mde`, `AUDIT-027`):**
+2. **8-Glyph Exact Operator Calculus (`aletheia calculus`, v1.3, `AUDIT-051`):**
+   - Standardized zero-collision Unicode `Sm` notation (`0 / 227,540` Lean 4 corpus hits) with 1-to-1 pure-$\mathbb{Q}/\mathbb{Z}$ executable semantics and ASCII fallbacks: `⧄` (`|/|`, Schur pushforward), `⧅` (`|\|`, dark-mode shadow), `⦷` (`(||)`, holonomy unmasking), `⟠` (`<=>`, observer-net equalizer), `⧇` (`[o]`, cohomological obstruction), `⦺` (`(+-0)`, Krein inertia), `⩩` (`=#=`, exact null-equivalence forbidding floats), and `⫩` (`_|T`, R5 refusal-verified gate).
+   - Executable via `aletheia calculus [--list | --eval EXPR | --self-test] [--json]`, certifying 13 compressed theorems and 6 commutator probes (`C1`–`C6`) with zero floats.
+3. **Plane-1 MDE Contract (`aletheia mde`, `AUDIT-027`):**
    - An Aletheia expedition may be packaged unconditionally as a **Plane-1 Model Domain Expansion (MDE)** using deterministic `zone-canon-v0` manifest IDs, dyadic integer zone scales, content-addressed causal `AUDIT-XXX` lineage DAGs enforcing **`author != verifier`** and Hard Veto #2 contested-head halts, and compact `abios`-compatible `SYM-2P/2.0-rcp` wire packets.
    - **Plane-2 Mechanical Obstruction (`plane2_oracle_compilation_forbidden: true`):** Verification oracles MUST NEVER be compiled into neural weights; Plane-2 weight adapters are strictly disposable caches subordinate to Plane-1 deterministic verification.
-3. **5-Gate Autonomous Ratchet Contract (`aletheia ratchet`, `AUDIT-026R` + `AUDIT-023`):**
+4. **5-Gate Autonomous Ratchet Contract (`aletheia ratchet`, `AUDIT-026R` + `AUDIT-023`):**
    - Any automated hill-climbing or autoresearch loop running under Aletheia MUST enforce: (i) immutable Ring-0 evaluation harness lock, (ii) float-free canonical hash-chained receipts, (iii) AST-identity unchanged-baseline null rejection, (iv) Pre-Adaptation Goodhart Latch halt + blind portal re-entry preserving informative failed branches, and (v) a fixed-compute `CS-08` survival cap.
-4. **Hardened v1.2 Static Lean 4, Comparator, Manifest & Gate-8 Checks (`aletheia audit-check`, `AUDIT-028`–`039`):**
+5. **Hardened v1.3 Static Lean 4, Comparator, Manifest & Gate-8 Checks (`aletheia audit-check`, `AUDIT-028`–`049`):**
    - `--prereg-check` verifies strict topological plan-before-data ordering via git DAG ancestry (`LATEST(plan) < EARLIEST(data)`, rejecting same-commit bulk, post-hoc plan rewrites, typo masking, and dash-prefixed refs).
-   - `--lean-audit` (v1.2) enforces char-literal `'"'` (`T-12`) & nested-comment-safe lexing, multiline `debug.skipKernelTC`, `sorryAx`, `Lean.ofReduceBool`, `Lean.trustCompiler`, declaration-scoped `partial` (zero `.partial` FPs), Lean 4.22 `(public|private|meta)? import` with `--allow-project-import`, `@[extern]`/`@[implemented_by]` hard escapes vs. `@[csimp]`/`ExistsImplication` review notices.
+   - `--lean-audit` enforces char-literal `'"'` (`T-12`) & nested-comment-safe lexing, multiline `debug.skipKernelTC`, `sorryAx`, `Lean.ofReduceBool`, `Lean.trustCompiler`, declaration-scoped `partial` (zero `.partial` FPs), Lean 4.22 `(public|private|meta)? import` with repeatable accumulating `--allow-project-import` (`ALETHEIA-CLI-01` fixed in v1.3), `@[extern]`/`@[implemented_by]` hard escapes vs. `@[csimp]`/`ExistsImplication` review notices.
    - `--comparator-config` validates dual-kernel Comparator JSONs (`enable_nanoda: true`, permitted axioms, Spec $\not\to$ Proof isolation); `--pinned-manifest` verifies `CORE_MANIFEST.json` SHA-256 digests and `SafeVerify` 40-hex commit-SHA pins with path-traversal protection.
 
 ---

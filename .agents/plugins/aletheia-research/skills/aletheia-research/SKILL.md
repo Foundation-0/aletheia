@@ -56,15 +56,16 @@ When working without a swarm, run four explicit phases rather than blending crit
 
 ---
 
-## 3. Executable CLI Workflow (v1.2)
+## 3. Executable CLI Workflow (v1.3)
 
 ```bash
 python3 -m aletheia init my-expedition --domain physics
-python3 -m aletheia audit-check my-expedition --lean-audit --json  # supports --allow-project-import, --comparator-config, --pinned-manifest, --prereg-check
+python3 -m aletheia audit-check my-expedition --lean-audit --json  # supports repeatable --allow-project-import, --comparator-config, --pinned-manifest, --prereg-check
 python3 -m aletheia mutate path/to/verifier.py --work-root . --test-cmd "python3 -I -O -B path/to/test.py"
 python3 -m aletheia diagnose my-expedition        # checks CS-01..CS-11 (incl. truncation mirages, collision denominators & unit/radix fragility)
 python3 -m aletheia ratchet --demo              # 5-gate anti-Goodhart, noise-immune, CS-08-capped ratchet
 python3 -m aletheia mde --demo                  # Plane-1 zone-canon-v0 manifest, causal DAG & SYM-2P/2.0-rcp
+python3 -m aletheia calculus --list --json      # 8-glyph exact operator calculus (⧄ ⧅ ⦷ ⟠ ⧇ ⦺ ⩩ ⫩; --eval EXPR, --self-test)
 python3 -m aletheia handoff manifests/wave2.json --init-template
 ```
 

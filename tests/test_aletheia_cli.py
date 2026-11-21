@@ -806,6 +806,114 @@ class TestAletheiaCLI(unittest.TestCase):
             for cid in ("CS-09", "CS-10", "CS-11"):
                 _req(by_id[cid]["status"] == "ALERT", f"{cid} did not ALERT: {by_id[cid]}")
 
+    def test_13_v13_cli_extend_and_operator_calculus(self) -> None:
+        """v1.3: ALETHEIA-CLI-01 repeatable --allow-project-import + 8-glyph `aletheia calculus` CLI."""
+        with tempfile.TemporaryDirectory(prefix="aletheia_v13_") as td:
+            root = Path(td)
+
+            # 1. ALETHEIA-CLI-01 regression: repeated --allow-project-import A --allow-project-import B accumulates BOTH
+            lean_dir = root / "lean_multi"
+            write_lf_text(
+                lean_dir / "Multi.lean",
+                "\n".join([
+                    "import Init.Data.Nat.Basic",
+                    "import AlphaPkg.Core",
+                    "import BetaPkg.Aux",
+                    "theorem ok : 1 + 1 = 2 := rfl",
+                ]) + "\n",
+            )
+            rc_rep, out_rep, err_rep = _run_cli([
+                "audit-check", str(lean_dir), "--lean-audit",
+                "--allow-project-import", "AlphaPkg",
+                "--allow-project-import", "BetaPkg",
+                "--json",
+            ])
+            _req(rc_rep == 0, f"repeated --allow-project-import should accumulate both prefixes: rc={rc_rep} out={out_rep} err={err_rep}")
+            rep_obj = parse_strict_json_text(out_rep)
+            _req(
+                rep_obj["passed"]
+                and rep_obj["lean_audit"]["clean"]
+                and len(rep_obj["lean_audit"]["findings"]) == 0,
+                f"expected clean lean audit: {rep_obj}",
+            )
+
+            # Single flag with multiple prefixes must also continue to work
+            rc_multi, out_multi, _ = _run_cli([
+                "audit-check", str(lean_dir), "--lean-audit",
+                "--allow-project-import", "AlphaPkg", "BetaPkg",
+                "--json",
+            ])
+            _req(rc_multi == 0 and parse_strict_json_text(out_multi)["passed"], "multi-arg --allow-project-import failed")
+
+            # Negative control: omitting BetaPkg must fail closed on BetaPkg.Aux
+            rc_one, out_one, _ = _run_cli([
+                "audit-check", str(lean_dir), "--lean-audit",
+                "--allow-project-import", "AlphaPkg",
+                "--json",
+            ])
+            one_obj = parse_strict_json_text(out_one)
+            _req(
+                rc_one == 1
+                and not one_obj["passed"]
+                and any(
+                    f["code"] == "LEAN4_NON_INIT_IMPORT" and "BetaPkg.Aux" in f["excerpt"]
+                    for f in one_obj["lean_audit"]["findings"]
+                ),
+                f"omitted BetaPkg must fail closed on BetaPkg.Aux: {one_obj}",
+            )
+
+            # 2. `aletheia calculus --list --json` (strict zero-float JSON)
+            rc_ls, out_ls, err_ls = _run_cli(["calculus", "--list", "--json"])
+            _req(rc_ls == 0, f"calculus --list failed: rc={rc_ls} err={err_ls}")
+            ls_obj = parse_strict_json_text(out_ls, allow_float=False)
+            _req(ls_obj["passed"] is True and ls_obj["glyph_count"] == 8, f"unexpected list payload: {ls_obj}")
+            _req(
+                ls_obj["collision_audit"]["lean4_corpus_files_scanned"] == 227540
+                and ls_obj["collision_audit"]["lean4_hits_across_selected_glyphs"] == 0,
+                f"unexpected collision audit: {ls_obj['collision_audit']}",
+            )
+            glyph_chars = [g["glyph"] for g in ls_obj["glyphs"]]
+            _req(glyph_chars == ["⧄", "⧅", "⦷", "⟠", "⧇", "⦺", "⩩", "⫩"], f"glyph order mismatch: {glyph_chars}")
+
+            # 3. `aletheia calculus --eval EXPR --json` (Unicode & ASCII parity + exact arithmetic)
+            eval_pairs = [
+                ("⦺(L_odd ⦷ chi1) ⩩ (1, 2, 1)", "(+-0)(L_odd (||) chi1) =#= (1, 2, 1)", "bool", True),
+                ("N1 ⟠ G_mult ⩩ -1/12", "N1 <=> G_mult =#= -1/12", "bool", True),
+                ("(M ⧄ D) ⧄ C_after_D ⩩ M ⧄ (D | C)", "(M |/| D) |/| C_after_D =#= M |/| (D | C)", "bool", True),
+                ("1/2 + 1/3", "1/2 + 1/3", "rational", "5/6"),
+                ("1/2 ⩩ 1/3", "1/2 =#= 1/3", "bool", False),
+            ]
+            for u_expr, a_expr, exp_type, exp_val in eval_pairs:
+                rc_u, out_u, err_u = _run_cli(["calculus", "--eval", u_expr, "--json"])
+                rc_a, out_a, err_a = _run_cli(["calculus", "--eval", a_expr, "--json"])
+                _req(rc_u == 0 and rc_a == 0, f"eval failed for {u_expr!r}/{a_expr!r}: {err_u} {err_a}")
+                obj_u = parse_strict_json_text(out_u, allow_float=False)
+                obj_a = parse_strict_json_text(out_a, allow_float=False)
+                _req(
+                    obj_u["value_type"] == exp_type and obj_u["value"] == exp_val
+                    and obj_a["value_type"] == exp_type and obj_a["value"] == exp_val,
+                    f"eval mismatch for {u_expr!r}: u={obj_u}, a={obj_a}",
+                )
+
+            # Negative controls on `--eval`: float literal, empty string, unbound identifier must fail with rc=2
+            for bad_expr, exp_code in [("0.5 + 0.5", "LEX_ERR"), ("   ", "EMPTY_EXPRESSION"), ("no_such_var ⩩ 0", "UNBOUND_VAR")]:
+                rc_b, out_b, _ = _run_cli(["calculus", "--eval", bad_expr, "--json"])
+                _req(rc_b == 2, f"bad expr {bad_expr!r} should exit rc=2, got {rc_b}")
+                err_obj = parse_strict_json_text(out_b, allow_float=False)
+                _req(err_obj["status"] == "ERROR" and err_obj["code"] == exp_code, f"bad error payload: {err_obj}")
+
+            # 4. `aletheia calculus --self-test --json` (strict zero-float JSON, 13 theorems, 6/6 commutator probes)
+            rc_st, out_st, err_st = _run_cli(["calculus", "--self-test", "--json"])
+            _req(rc_st == 0, f"calculus --self-test failed: rc={rc_st} err={err_st}")
+            st_obj = parse_strict_json_text(out_st, allow_float=False)
+            _req(
+                st_obj["passed"] is True
+                and st_obj["verdict"] == "ALETHEIA_OPERATOR_CALCULUS_ALL_LAWS_VERIFIED"
+                and st_obj["compressed_expedition_theorems"]["theorems_verified"] == 13
+                and len(st_obj["commutator_discovery_probes"]) == 6,
+                f"self-test payload incomplete: {st_obj}",
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

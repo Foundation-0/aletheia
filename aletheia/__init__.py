@@ -10,7 +10,7 @@ Safe under:
 """
 from __future__ import annotations
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 
 from .strict_io import AletheiaError, parse_strict_json_text, load_strict_json_file
 from .scaffold import init_workspace
@@ -19,6 +19,7 @@ from .mutator import run_mutation_suite
 from .diagnose import diagnose_expedition
 from .handoff import validate_handoff_manifest, create_handoff_template
 from .installer import install_adapter
+from .calculus import list_glyphs, eval_calculus_expression, run_calculus_self_test
 
 __all__ = [
     "__version__",
@@ -32,4 +33,7 @@ __all__ = [
     "validate_handoff_manifest",
     "create_handoff_template",
     "install_adapter",
+    "list_glyphs",
+    "eval_calculus_expression",
+    "run_calculus_self_test",
 ]

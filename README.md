@@ -1,6 +1,6 @@
 # Aletheia — Portal-Driven Scientific Discovery & Adversarial Verification Framework
 
-> **Alētheia** (ἀλήθεια — *unconcealment*, stepping out of Plato's cave): an open, domain-general scientific discovery methodology, zero-dependency Python 3 CLI (`v1.2.0`), multi-platform agent adapter suite, and formal verification standard for human researchers and AI research swarms.
+> **Alētheia** (ἀλήθεια — *unconcealment*, stepping out of Plato's cave): an open, domain-general scientific discovery methodology, zero-dependency Python 3 CLI (`v1.3.0`), multi-platform agent adapter suite, and formal verification standard for human researchers and AI research swarms.
 >
 > **Law-4 Prior-Art & Naming Disambiguation:** Google DeepMind independently publishes a proprietary Gemini-Deep-Think mathematical proving agent named *Aletheia* (`google-deepmind/superhuman@9b620a9`, `aletheia/README.md` / `Aletheia.pdf`). **`Foundation-0/aletheia` is completely orthogonal:** an open-source (Apache-2.0), model-agnostic, zero-dependency anti-Cave research methodology, Beyond-Language coordinate-free protocol, and R1–R5 adversarial verification CLI.
 
@@ -54,7 +54,7 @@ cd aletheia
 python3 -I -O -B -W error examples/worked_resonance_cycle/run_demo.py
 ```
 
-### 2. Run the Zero-Dependency `aletheia` v1.2 CLI & Self-Test Suite
+### 2. Run the Zero-Dependency `aletheia` v1.3 CLI & Self-Test Suite
 
 ```bash
 # Run directly without installing (or: pip install -e .)
@@ -63,9 +63,9 @@ PYTHONPATH=. python3 -m aletheia --help
 # Scaffold a new expedition workspace
 PYTHONPATH=. python3 -m aletheia init /tmp/my-expedition --domain physics
 
-# Audit any repo/expedition for R4 parity, bare asserts, CRLF, leaks, and hardened v1.2 Lean 4 purity
-# (v1.2 adds --allow-project-import, --comparator-config, --pinned-manifest, multiline debug.skipKernelTC,
-#  Lean 4.22 public/private/meta imports, .partial non-FP, and strict Gate-8 --prereg-check)
+# Audit any repo/expedition for R4 parity, bare asserts, CRLF, leaks, and hardened v1.3 Lean 4 purity
+# (repeatable --allow-project-import A --allow-project-import B, --comparator-config, --pinned-manifest,
+#  multiline debug.skipKernelTC, Lean 4.22 public/private/meta imports, .partial non-FP, and Gate-8 --prereg-check)
 PYTHONPATH=. python3 -m aletheia audit-check . --lean-audit
 
 # Run AST-based R5 refusal-site mutation testing (supports --work-root/--add-cwd, dict verdicts & accumulators)
@@ -79,6 +79,11 @@ PYTHONPATH=. python3 -m aletheia ratchet --demo
 
 # Run Plane-1 zone-canon-v0 manifest pinning, causal audit DAG & abios SYM-2P/2.0-rcp bridge (AUDIT-027)
 PYTHONPATH=. python3 -m aletheia mde --demo
+
+# Run the verified 8-Glyph Aletheia Operator Calculus (⧄ ⧅ ⦷ ⟠ ⧇ ⦺ ⩩ ⫩; 0 / 227,540 Lean 4 collisions, AUDIT-051)
+PYTHONPATH=. python3 -m aletheia calculus --list --json
+PYTHONPATH=. python3 -m aletheia calculus --eval "⦺(L_odd ⦷ chi1) ⩩ (1, 2, 1)" --json
+PYTHONPATH=. python3 -m aletheia calculus --self-test --json
 
 # Run Aletheia's own self-verification suite across all 3 R4 modes
 python3 -I -B tests/run_all.py && python3 -I -O -B tests/run_all.py && python3 -I -B -W error tests/run_all.py
@@ -110,12 +115,13 @@ aletheia/
 ├── CONTRIBUTING.md                            # Contributing Domain Packs, Oracles, Platform Adapters & Case Studies
 ├── pyproject.toml                             # Zero-dependency PEP 621 Python 3 stdlib package config
 ├── spec/
-│   └── LAWS_AND_GATES.md                      # Canonical v1.2 spec: 5 Laws, 9 Gates, R1–R5, CS-01..CS-11, Beyond-Language, MDE & Ratchet
+│   └── LAWS_AND_GATES.md                      # Canonical v1.3 spec: 5 Laws, 9 Gates, R1–R5, CS-01..CS-11, Beyond-Language, 8-Glyph Calculus, MDE & Ratchet
 ├── evidence/
 │   ├── cave-expedition-case-study.md          # Wave 1 empirical case study (Pass 1 vs Pass 2+, 5 chains, AUDIT-001..021)
 │   ├── symbiosis-wave2-case-study.md          # Wave 2 Rounds 1–2 symbiosis across 30+ repos & v1.0->v1.1 (AUDIT-023..034R)
-│   └── symbiosis-round3-10labs-case-study.md  # Wave 2 Round 3 10-lab epistemic web, Beyond-Language & v1.2 (AUDIT-035..039)
-├── aletheia/                                  # Executable Python 3 stdlib CLI v1.2 (init, audit-check, mutate, diagnose, ratchet, mde, handoff, install)
+│   ├── symbiosis-round3-10labs-case-study.md  # Wave 2 Round 3 10-lab epistemic web, Beyond-Language & v1.2 (AUDIT-035..039)
+│   └── symbiosis-round4-ramanujan-hawking-case-study.md  # Wave 2 Round 4 Ramanujan/Hawking, Operator Calculus & v1.3 (AUDIT-041..054)
+├── aletheia/                                  # Executable Python 3 stdlib CLI v1.3 (init, audit-check, mutate, diagnose, ratchet, mde, calculus, handoff, install)
 ├── tests/                                     # Self-verifying stdlib test & R5 mutation suite (tests/run_all.py)
 ├── examples/
 │   └── worked_resonance_cycle/                # 3-second zero-float executable demo of a full Aletheia breakthrough cycle
@@ -137,8 +143,10 @@ aletheia/
 
 ## Related Repositories
 
-- **[`Foundation-0/cave-expedition`](https://github.com/Foundation-0/cave-expedition)** — Complete empirical archive of the inaugural expedition (`cartography/`, `peer-web/`, `verification/checks/check_001`–`check_014`, `AUDIT_LOG.md`, and Wave 2+ compute handoff).
+- **[`Foundation-0/cave-expedition`](https://github.com/Foundation-0/cave-expedition)** — Complete empirical archive of the inaugural expedition (`cartography/`, `peer-web/`, `verification/checks/`, `AUDIT_LOG.md`, and Wave 2+ compute handoff).
 - **[`Foundation-0/spectral-inertia`](https://github.com/Foundation-0/spectral-inertia)** — Flagship standalone theorem & certifier package (`AUDIT-002`, `014`, `015R`, `016R`) born directly from Aletheia's Chain 1 resonance cycle.
+- **[`Foundation-0/hawking`](https://github.com/Foundation-0/hawking/pull/1)** — Exact zero-float horizon Schur/Krein, $p$-adic BTZ, MDR, and confirmed `N2` Boundary Double-Schur / Surgical-Severing suite (`AUDIT-041`–`043`, `047R`).
+- **[`Foundation-0/ramanujan`](https://github.com/Foundation-0/ramanujan/pull/1)** — Zero-dependency exact verification suite for Ramanujan graphs, mock modular shadows, $PGL(2,\mathbb{Q}[[q]])$ / Mellin equalizers, and cross-org synthesis (`AUDIT-044`–`046`, `048R`).
 
 ---
 
