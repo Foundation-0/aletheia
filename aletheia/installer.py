@@ -103,13 +103,15 @@ def _collect_tree(src_dir: Path, dest_prefix: str = "") -> list[tuple[str, str]]
 
 def _build_install_plan(target: str, repo_root: Path | None) -> list[tuple[str, str]]:
     """Return deterministic list of (relative_path_under_dest, content) for target platform."""
+    from . import __version__
+
     if target == "antigravity":
         if repo_root is not None and (repo_root / ".agents" / "plugins" / "aletheia-research").is_dir():
             return _collect_tree(repo_root / ".agents" / "plugins" / "aletheia-research")
         plugin_json = json.dumps(
             {
                 "name": "aletheia-research",
-                "version": "1.0.0",
+                "version": __version__,
                 "description": "The Aletheia Method: Portal-Driven Resonance & Adversarial Tomography",
                 "homepage": "https://github.com/Foundation-0/aletheia",
                 "rules": ["rules/AGENTS.md"],
@@ -138,7 +140,7 @@ def _build_install_plan(target: str, repo_root: Path | None) -> list[tuple[str, 
         c_plugin = json.dumps(
             {
                 "name": "aletheia-research",
-                "version": "1.0.0",
+                "version": __version__,
                 "description": "The Aletheia Method adapter for Claude Code",
                 "homepage": "https://github.com/Foundation-0/aletheia",
             },

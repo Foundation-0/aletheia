@@ -10,7 +10,7 @@ Safe under:
 """
 from __future__ import annotations
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 
 from .strict_io import AletheiaError, parse_strict_json_text, load_strict_json_file
 from .scaffold import init_workspace

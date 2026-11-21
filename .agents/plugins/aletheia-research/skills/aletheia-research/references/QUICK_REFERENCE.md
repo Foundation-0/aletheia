@@ -18,7 +18,7 @@ Compact cheat-sheet for agents running **The Aletheia Method** (`https://github.
   - `N1`: Hardened repair, sharpened boundary/counterexample, or concrete empirical falsification.
   - `N2`: Genuinely new verified theorem, exact certificate, constructive obstruction, or cross-domain operator unification absent from checked full-text prior art.
 
-## 3. The 8 Cave-Shadow Anti-Patterns (Flagged by `aletheia diagnose`)
+## 3. The 11 Cave-Shadow Anti-Patterns (Flagged by `aletheia diagnose`)
 
 1. **Static-Map Trap (`CS-01`):** Cartographer/Portal-Keeper parks after Round 1 instead of re-entering portals on probe anomalies.
 2. **Premature Dismissal Bias (`CS-02`):** String of `FALSIFIED`/`N0` reports with zero steelmanned/repaired versions tested.
@@ -28,6 +28,9 @@ Compact cheat-sheet for agents running **The Aletheia Method** (`https://github.
 6. **Local-Optimum Closure (`CS-06`):** Treating a sharpness wall or counterexample as termination instead of elevating the obstruction into a theorem or spawning the next-order invariant.
 7. **Provenance Inflation (`CS-07`):** Calling a Draft PR "merged", `uncompiled_source` "machine-checked", or a local arc "global."
 8. **Compute-Leakage Simpson's Paradox (`CS-08`):** Comparing arms by round count without a fixed compute/token survival cap, letting slow format-breaking CoT escapes invert the true fixed-budget winner (`AUDIT-023` `N2`).
+9. **Finite-Sample / Support-Truncation Mirage (`CS-09`):** Claiming asymptotic laws from finite-$M$ / top-$p$ truncated trajectories without tail-mass extinction checks (`AUDIT-032` `N2`).
+10. **Sparse-Collision Denominator Collapse (`CS-10`):** Averaging sparse updates or filtered evals by collision count $c_j$ (`scatter_reduce_("mean", include_self=False)`) instead of global denominator $W$ (`AUDIT-039` `N2`, `AUDIT-037`).
+11. **Unit-Gauge / Radix Fragility (`CS-11`):** Unscaled raw-unit regularization or base-10/float64 math grading without coordinate-free gauge/radix invariance (`AUDIT-039` `N2`, `AUDIT-036`).
 
 ## 4. R1–R5 Gate Contracts & R4 Parity Command
 

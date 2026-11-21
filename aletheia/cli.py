@@ -5,7 +5,7 @@ Subcommands:
   - init         Scaffold a non-colliding Aletheia research workspace
   - audit-check  Run automated R1-R5 hygiene, AST, 3-mode R4 parity, Lean 4, prereg & AUDIT_LOG checks
   - mutate       Run generic AST refusal-site mutation testing (R5, incl. dict-verdict & accumulator checkers)
-  - diagnose     Run quantitative 8-pattern Anti-Cave relapse diagnostics (CS-01..CS-08)
+  - diagnose     Run quantitative 11-pattern Anti-Cave relapse diagnostics (CS-01..CS-11)
   - handoff      Generate or validate portable `aletheia.compute_handoff.v1` manifests
   - install      Deploy Aletheia rules/skills/adapters to antigravity/claude-code/codex/cursor/gemini-cli/repo
   - ratchet      Run Aletheia Ratchet 5-gate demo or verify float-free hash-chained ratchet ledgers
@@ -90,7 +90,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_aud.add_argument("--receipt", type=Path, default=None, help="Optional aletheia.audit_receipt.v1 JSON receipt")
     p_aud.add_argument("--strict-unseeded", action="store_true", help="Treat unseeded RNG calls as errors")
     p_aud.add_argument("--no-isolated", action="store_true", help="Omit -I when running --scripts (for uninstalled cwd imports)")
-    p_aud.add_argument("--lean-audit", action="store_true", help="Run hardened stock-Init static Lean 4 audit on *.lean files")
+    p_aud.add_argument("--lean-audit", action="store_true", help="Run hardened v1.2 static Lean 4 audit on *.lean files")
+    p_aud.add_argument("--allow-project-import", nargs="*", default=[], help="Allow specific project Lean module prefixes under --lean-audit")
+    p_aud.add_argument("--comparator-config", type=Path, default=None, help="Validate a Lean 4 Comparator JSON config (enable_nanoda & isolation)")
+    p_aud.add_argument("--allow-no-nanoda", action="store_true", help="Downgrade missing/false enable_nanoda in --comparator-config to warning")
+    p_aud.add_argument("--pinned-manifest", type=Path, default=None, help="Verify a CORE_MANIFEST.json (SHA-256) or SafeVerify (commit SHA) manifest")
     p_aud.add_argument("--prereg-check", action="store_true", help="Verify Gate 8 git-DAG plan-before-data ancestor ordering")
     p_aud.add_argument("--plan-commit", default=None, help="Explicit plan commit SHA for --prereg-check")
     p_aud.add_argument("--data-commit", default=None, help="Explicit data/audit commit SHA for --prereg-check")
@@ -109,7 +113,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_mut.add_argument("--json", action="store_true", help="Emit JSON output")
 
     # 4. diagnose
-    p_diag = sub.add_parser("diagnose", help="Run quantitative 8-pattern Anti-Cave relapse detector (CS-01..CS-08)")
+    p_diag = sub.add_parser("diagnose", help="Run quantitative 11-pattern Anti-Cave relapse detector (CS-01..CS-11)")
     p_diag.add_argument("expedition_dir", type=Path, help="Expedition workspace directory")
     p_diag.add_argument("--board", type=Path, default=None, help="Optional swarm board JSONL file")
     p_diag.add_argument("--fail-on-warning", action="store_true", help="Return non-zero on WARNING as well as ALERT")
@@ -172,6 +176,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                 isolated=not args.no_isolated,
                 timeout=args.timeout,
                 lean_audit=args.lean_audit,
+                allow_project_imports=args.allow_project_import,
+                comparator_config=args.comparator_config,
+                require_nanoda=not args.allow_no_nanoda,
+                pinned_manifest=args.pinned_manifest,
                 prereg_check=args.prereg_check,
                 plan_commit=args.plan_commit,
                 data_commit=args.data_commit,

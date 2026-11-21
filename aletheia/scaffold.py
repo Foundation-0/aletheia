@@ -65,15 +65,17 @@ def _frontier_portals_markdown(domain: str) -> str:
 
 **Owner:** `portal-keeper` (active continuously across all probe cycles — never park after Round 1!)
 
-## Portal Discipline (Laws 1, 2, 5)
+## Portal Discipline (Laws 1, 2, 5 & Beyond-Language Structural Perception)
 1. Treat raw sources, failed drafts, and numerical coincidences as **portals**, not finished papers.
-2. Separate prototype bugs from underlying mathematical/scientific structures: write down the **strongest repaired formulation** before testing or dismissing.
-3. Whenever any probe hits an anomaly, counterexample, or sharpness wall, re-enter raw sources, elevate exact obstructions into theorems or spawn a follow-up branch, and append a new resonance portal below.
+2. **Stage A (Label-Stripping):** Strip disciplinary nouns and base-10/coordinate numerology to perceive raw relational geometry, dualities, fixed points, and obstructions.
+3. **Stage B (Coordinate-Free Null-Equivalence):** Compress each silhouette into a unit-free, basis-free, radix-free exact invariant or provable obstruction before testing.
+4. Separate prototype bugs from underlying mathematical/scientific structures: write down the **strongest repaired formulation** before testing or dismissing, and elevate exact obstructions into a theorem or spawn a follow-up branch.
 
 ---
 
 ## Portal 1 — Initial Steelmanned Entry Point (Replace with First Concrete Portal)
 - **Raw source / trigger:** `<exact read-only source reference>`
+- **Coordinate-free structural signature:** `<basis/unit/radix-invariant object, e.g., Schur complement, PGL(2), exact inertia>`
 - **Prototype friction to separate:** `<implementation bugs or missing guards>`
 - **Steelmanned exact hypothesis:** `<typed objects, explicit operator/equation, falsification criterion>`
 - **Target probe & oracle class:** `probes/{domain}/` (`exact` / `sampled` / `anchor`)

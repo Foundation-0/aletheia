@@ -269,8 +269,58 @@ def validate_audit_receipt_json(path: Path) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# v1.1 Static Stock-Init Lean 4 Auditor (hardened against AUDIT-029 T-10..T-12)
+# v1.2 Hardened Static Lean 4 Auditor + Comparator & Pinned-Manifest Gates
+# (AUDIT-029 T-10..T-12 + Round-3 4-lab tomography: AUDIT-035/036/038R)
 # ---------------------------------------------------------------------------
+
+STANDARD_LEAN4_AXIOMS: frozenset[str] = frozenset(
+    {"propext", "Classical.choice", "Quot.sound"}
+)
+
+_LEAN4_SHA40_RE = re.compile(r"\A[0-9a-fA-F]{40}\Z")
+_LEAN4_SHA256_RE = re.compile(r"\A(?:sha256:)?[0-9a-fA-F]{64}\Z")
+_LEAN4_MOD_NAME_RE = re.compile(r"\A[A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+)*\Z")
+
+_LEAN4_HARD_LINE_RULES: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r"\bsorry\b"), "LEAN4_SORRY"),
+    (re.compile(r"\badmit\b"), "LEAN4_ADMIT"),
+    (re.compile(r"(?<!\.)\baxiom\b"), "LEAN4_AXIOM"),
+    (re.compile(r"(?<!\.)\bunsafe\b"), "LEAN4_UNSAFE"),
+    (re.compile(r"\bnative_decide\b"), "LEAN4_NATIVE_DECIDE"),
+    (re.compile(r"\bsorryAx\b"), "LEAN4_SORRY_AX"),
+    (re.compile(r"\bLean\.ofReduceBool\b|\bofReduceBool\b"), "LEAN4_OF_REDUCE_BOOL"),
+    (re.compile(r"\bLean\.trustCompiler\b|\btrustCompiler\b"), "LEAN4_TRUST_COMPILER"),
+)
+
+# Declaration-scoped `partial` across single or multiple lines (zero FP on dot-projections like `SmoothShell.partial`)
+_LEAN4_PARTIAL_DECL_RE = re.compile(
+    r"(?<!\.)\bpartial\s+(?:def|instance|abbrev)\b", flags=re.DOTALL
+)
+
+# Multiline skipKernelTC check (catches `set_option\n debug.skipKernelTC\n true` and bare `debug.skipKernelTC`)
+_LEAN4_SKIP_KERNEL_TC_RE = re.compile(
+    r"\bdebug\s*\.\s*skipKernelTC\b", flags=re.DOTALL
+)
+
+# Lean 4.22 module-aware import regex (supports single-line & multiline `public\n import Foo`)
+_LEAN4_IMPORT_FULL_RE = re.compile(
+    r"(?:^|\n)[ \t]*(?:(?:public|private|meta)\s+)*import\s+([A-Za-z0-9_.]+)", flags=re.DOTALL
+)
+
+# Unsound attribute trust escapes vs kernel-proved `@[csimp]` compiler rewrite notice
+_LEAN4_HARD_ATTR_RE = re.compile(
+    r"@\[[^\]]*\b(extern|implemented_by)\b[^\]]*\]", flags=re.DOTALL
+)
+_LEAN4_CSIMP_ATTR_RE = re.compile(
+    r"@\[[^\]]*\b(csimp)\b[^\]]*\]", flags=re.DOTALL
+)
+
+# Anti-vacuity notices (DeepMind formal-conjectures STATEMENTS.md & ExistsImplicationLinter)
+_LEAN4_VACUOUS_THM_RE = re.compile(
+    r"^\s*(?:private\s+|protected\s+)?(?:theorem|lemma)\s+[A-Za-z0-9_.']+\b[^:\n]*:\s*(?:False\s*(?:→|->)|True\s*:=)"
+)
+_LEAN4_EXISTS_IMP_RE = re.compile(r"∃[^,\n]+,\s*(?!.*(?:∀|∧))[^,\n]*(?:→|->)")
+
 
 def _strip_lean4_comments_and_literals(source: str) -> str:
     """Char-literal-safe and nested-block-comment-safe Lean 4 stripper preserving line count."""
@@ -336,59 +386,303 @@ def _strip_lean4_comments_and_literals(source: str) -> str:
     return "".join(out)
 
 
-def audit_lean4_source(source: str, *, allow_non_init_imports: bool = False) -> dict[str, Any]:
+def audit_lean4_source(
+    source: str,
+    *,
+    allow_non_init_imports: bool = False,
+    allow_project_imports: Sequence[str] = (),
+    allowed_axioms: frozenset[str] = frozenset(),
+    forbidden_import_prefixes: Sequence[str] = (),
+) -> dict[str, Any]:
     """
-    Hardened static Lean 4 auditor (AUDIT-029 T-10..T-12):
-      - Flags `sorry`, `admit`, `axiom`, `unsafe`, `partial`, `native_decide`
-      - Flags single-line and multiline `@[... extern | implemented_by | csimp ...]` trust escapes
-      - Flags non-Init/Std imports (e.g. `import Mathlib`) unless `allow_non_init_imports=True`
+    Hardened v1.2 static Lean 4 auditor (AUDIT-029 + Round-3 4-lab tomography):
+      - Flags `sorry`, `admit`, `axiom`, `unsafe`, `native_decide`, `sorryAx`,
+        `Lean.ofReduceBool`, `Lean.trustCompiler`, and multiline `debug.skipKernelTC`
+      - Scopes `partial` to declarations (`partial def|instance|abbrev`) to avoid `.partial` FPs
+      - Flags multiline `@[... extern | implemented_by ...]` as hard escapes and separates
+        kernel-proved `@[csimp]` rewrites + `ExistsImplication` / vacuous signatures as notices
+      - Parses Lean 4.22 `(public|private|meta)? import` with optional `allow_project_imports`
+        and `forbidden_import_prefixes` (enforcing Spec -/-> Proof isolation)
     """
     cleaned = _strip_lean4_comments_and_literals(source)
     findings: list[dict[str, Any]] = []
-    line_rules: tuple[tuple[str, str], ...] = (
-        (r"\bsorry\b", "LEAN4_SORRY"),
-        (r"\badmit\b", "LEAN4_ADMIT"),
-        (r"\baxiom\b", "LEAN4_AXIOM"),
-        (r"\bunsafe\b", "LEAN4_UNSAFE"),
-        (r"\bpartial\b", "LEAN4_PARTIAL"),
-        (r"\bnative_decide\b", "LEAN4_NATIVE_DECIDE"),
-    )
-    for lineno, line in enumerate(cleaned.splitlines(), start=1):
-        for pat, code in line_rules:
-            if re.search(pat, line):
-                findings.append({"line": lineno, "code": code, "excerpt": line.strip()[:80]})
-        if not allow_non_init_imports:
-            m_imp = re.match(r"^\s*import\s+([A-Za-z0-9_.]+)", line)
-            if m_imp is not None:
-                mod = m_imp.group(1)
-                root_pkg = mod.split(".")[0]
-                if root_pkg not in ("Init", "Std"):
-                    findings.append({"line": lineno, "code": "LEAN4_NON_INIT_IMPORT", "excerpt": mod})
+    notices: list[dict[str, Any]] = []
+    imports: list[str] = []
 
-    # Multiline attribute trust-escape check: @[ ... extern | implemented_by | csimp ... ]
-    for m_attr in re.finditer(r"@\[[^\]]*\b(extern|implemented_by|csimp)\b[^\]]*\]", cleaned, flags=re.DOTALL):
+    for lineno, line in enumerate(cleaned.splitlines(), start=1):
+        for pat, code in _LEAN4_HARD_LINE_RULES:
+            if pat.search(line):
+                if code == "LEAN4_AXIOM" and allowed_axioms:
+                    m_ax = re.search(r"(?<!\.)\baxiom\s+([A-Za-z0-9_.']+)", line)
+                    if m_ax is not None and m_ax.group(1) in allowed_axioms:
+                        notices.append(
+                            {
+                                "line": lineno,
+                                "code": "LEAN4_DOCUMENTED_CONDITIONAL_AXIOM",
+                                "excerpt": m_ax.group(1),
+                            }
+                        )
+                        continue
+                findings.append({"line": lineno, "code": code, "excerpt": line.strip()[:100]})
+
+        if _LEAN4_VACUOUS_THM_RE.search(line):
+            notices.append(
+                {"line": lineno, "code": "LEAN4_VACUOUS_SIGNATURE_NOTICE", "excerpt": line.strip()[:100]}
+            )
+
+        if _LEAN4_EXISTS_IMP_RE.search(line):
+            notices.append(
+                {"line": lineno, "code": "LEAN4_EXISTS_IMPLICATION_NOTICE", "excerpt": line.strip()[:100]}
+            )
+
+    # Full-buffer Lean 4.22 module-aware import scan (handles multiline `public\n import Foo`)
+    for m_imp in _LEAN4_IMPORT_FULL_RE.finditer(cleaned):
+        mod = m_imp.group(1)
+        lineno = cleaned[: m_imp.start(1)].count("\n") + 1
+        imports.append(mod)
+        for pref in forbidden_import_prefixes:
+            if mod == pref or mod.startswith(pref + "."):
+                findings.append(
+                    {"line": lineno, "code": "LEAN4_FORBIDDEN_CHALLENGE_IMPORT", "excerpt": mod}
+                )
+        if not allow_non_init_imports:
+            root_pkg = mod.split(".")[0]
+            is_allowed_proj = any(
+                mod == p or mod.startswith(p + ".") for p in allow_project_imports
+            )
+            if root_pkg not in ("Init", "Std") and not is_allowed_proj:
+                findings.append({"line": lineno, "code": "LEAN4_NON_INIT_IMPORT", "excerpt": mod})
+
+    # Multiline declaration-scoped `partial` check (`partial\n def ...`, zero FP on `.partial`)
+    for m_part in _LEAN4_PARTIAL_DECL_RE.finditer(cleaned):
+        lineno = cleaned[: m_part.start()].count("\n") + 1
+        findings.append({"line": lineno, "code": "LEAN4_PARTIAL", "excerpt": " ".join(m_part.group(0).split())[:100]})
+
+    # Multiline debug.skipKernelTC check
+    for m_sk in _LEAN4_SKIP_KERNEL_TC_RE.finditer(cleaned):
+        lineno = cleaned[: m_sk.start()].count("\n") + 1
+        findings.append({"line": lineno, "code": "LEAN4_SKIP_KERNEL_TC", "excerpt": "debug.skipKernelTC"})
+
+    # Multiline attribute trust-escape check: @[ ... extern | implemented_by ... ]
+    for m_attr in _LEAN4_HARD_ATTR_RE.finditer(cleaned):
         lineno = cleaned[: m_attr.start()].count("\n") + 1
         findings.append({"line": lineno, "code": "LEAN4_ATTR_TRUST_ESCAPE", "excerpt": m_attr.group(1)})
 
-    return {"clean": len(findings) == 0, "findings": findings}
+    # Kernel-proved @[csimp] rewrite notice
+    for m_cs in _LEAN4_CSIMP_ATTR_RE.finditer(cleaned):
+        lineno = cleaned[: m_cs.start()].count("\n") + 1
+        notices.append({"line": lineno, "code": "LEAN4_CSIMP_REWRITE_NOTICE", "excerpt": m_cs.group(1)})
+
+    return {"clean": len(findings) == 0, "findings": findings, "notices": notices, "imports": imports}
 
 
-def audit_lean4_directory(root: Path, *, allow_non_init_imports: bool = False) -> dict[str, Any]:
-    """Scan all `.lean` files under `root` with the hardened static Lean 4 auditor."""
+def audit_lean4_directory(
+    root: Path,
+    *,
+    allow_non_init_imports: bool = False,
+    allow_project_imports: Sequence[str] = (),
+    allowed_axioms: frozenset[str] = frozenset(),
+    forbidden_import_prefixes: Sequence[str] = (),
+) -> dict[str, Any]:
+    """Scan all `.lean` files under `root` with the hardened v1.2 static Lean 4 auditor."""
     lean_files = [root] if root.is_file() and root.suffix == ".lean" else [
         p for p in sorted(root.rglob("*.lean"))
         if not any(part in SKIP_DIRS for part in p.relative_to(root).parts)
     ]
     all_findings: list[dict[str, Any]] = []
+    all_notices: list[dict[str, Any]] = []
     for lf in lean_files:
         rel = lf.name if root.is_file() else str(lf.relative_to(root))
-        res = audit_lean4_source(lf.read_text(encoding="utf-8", errors="replace"), allow_non_init_imports=allow_non_init_imports)
+        res = audit_lean4_source(
+            lf.read_text(encoding="utf-8", errors="replace"),
+            allow_non_init_imports=allow_non_init_imports,
+            allow_project_imports=allow_project_imports,
+            allowed_axioms=allowed_axioms,
+            forbidden_import_prefixes=forbidden_import_prefixes,
+        )
         for f in res["findings"]:
             all_findings.append({"file": rel, **f})
+        for n in res["notices"]:
+            all_notices.append({"file": rel, **n})
     return {
         "files_checked": len(lean_files),
         "clean": len(all_findings) == 0,
         "findings": all_findings,
+        "notices": all_notices,
+    }
+
+
+def validate_comparator_config(
+    config_path: Path,
+    *,
+    lean_root: Path | None = None,
+    require_nanoda: bool = True,
+    allow_extra_axioms: frozenset[str] = frozenset(),
+) -> dict[str, Any]:
+    """
+    Validate a Lean 4 Comparator JSON config (OpenAI / Anthropic / DeepMind standard):
+      - Verifies challenge_module, solution_module, non-empty theorem_names, permitted_axioms
+      - Enforces `enable_nanoda: true` (independent second Rust kernel) when `require_nanoda=True`
+      - If `lean_root` is provided, confirms both files exist and solution never imports challenge
+    """
+    data = load_strict_json_file(config_path, allow_float=False, require_object=True)
+    errors: list[str] = []
+    warnings: list[str] = []
+
+    chl_mod = data.get("challenge_module")
+    sol_mod = data.get("solution_module")
+    thms = data.get("theorem_names")
+    axioms = data.get("permitted_axioms")
+    enable_nanoda = data.get("enable_nanoda")
+
+    if not isinstance(chl_mod, str) or not _LEAN4_MOD_NAME_RE.match(chl_mod):
+        errors.append("INVALID_OR_MISSING_CHALLENGE_MODULE")
+    if not isinstance(sol_mod, str) or not _LEAN4_MOD_NAME_RE.match(sol_mod):
+        errors.append("INVALID_OR_MISSING_SOLUTION_MODULE")
+    if not isinstance(thms, list) or not thms or any(not isinstance(t, str) or not t.strip() for t in thms):
+        errors.append("EMPTY_OR_INVALID_THEOREM_NAMES")
+    if not isinstance(axioms, list) or any(not isinstance(a, str) for a in axioms):
+        errors.append("INVALID_PERMITTED_AXIOMS")
+    else:
+        allowed_all = STANDARD_LEAN4_AXIOMS | allow_extra_axioms
+        extra = sorted(a for a in axioms if a not in allowed_all)
+        if extra:
+            errors.append(f"UNDECLARED_NONSTANDARD_AXIOMS:{','.join(extra)}")
+
+    if enable_nanoda is not True:
+        msg = f"NANODA_DISABLED_OR_OMITTED:{enable_nanoda!r}"
+        if require_nanoda:
+            errors.append(msg)
+        else:
+            warnings.append(msg)
+
+    if (
+        lean_root is not None
+        and isinstance(chl_mod, str)
+        and isinstance(sol_mod, str)
+        and _LEAN4_MOD_NAME_RE.match(chl_mod) is not None
+        and _LEAN4_MOD_NAME_RE.match(sol_mod) is not None
+    ):
+        root_res = lean_root.resolve()
+        chl_path = (root_res / Path(*chl_mod.split(".")).with_suffix(".lean")).resolve()
+        sol_path = (root_res / Path(*sol_mod.split(".")).with_suffix(".lean")).resolve()
+        if not chl_path.is_relative_to(root_res):
+            errors.append(f"CHALLENGE_PATH_OUTSIDE_ROOT:{chl_mod}")
+        elif not chl_path.is_file():
+            errors.append(f"MISSING_CHALLENGE_FILE:{chl_path.name}")
+        if not sol_path.is_relative_to(root_res):
+            errors.append(f"SOLUTION_PATH_OUTSIDE_ROOT:{sol_mod}")
+        elif not sol_path.is_file():
+            errors.append(f"MISSING_SOLUTION_FILE:{sol_path.name}")
+        else:
+            sol_audit = audit_lean4_source(
+                sol_path.read_text(encoding="utf-8", errors="replace"),
+                allow_non_init_imports=True,
+                allowed_axioms=allow_extra_axioms,
+                forbidden_import_prefixes=(chl_mod,),
+            )
+            if not sol_audit["clean"]:
+                for f in sol_audit["findings"]:
+                    errors.append(f"SOLUTION_AUDIT:{f['code']}@L{f['line']}")
+
+    return {"path": str(config_path), "passed": len(errors) == 0, "errors": errors, "warnings": warnings}
+
+
+def validate_pinned_manifest(manifest_path: Path, *, root: Path | None = None) -> dict[str, Any]:
+    """
+    Validate a cryptographic pinning manifest (`CORE_MANIFEST.json` SHA-256 spec pinning
+    from DeepMind/cryptids OR `SafeVerify` 40-hex commit-SHA manifest from Mistral/FLTEval).
+    """
+    data = load_strict_json_file(manifest_path, allow_float=True, require_object=True)
+    base_dir = (root if root is not None else manifest_path.parent).resolve()
+    errors: list[str] = []
+    files_verified = 0
+    commits_verified = 0
+
+    # Format 1: file SHA-256 map (`files: {rel_path: sha256}` or `entries: [{path, sha256}]`)
+    if "files" in data:
+        files_map = data["files"]
+        if not isinstance(files_map, dict):
+            errors.append("INVALID_FILES_SECTION_TYPE")
+        else:
+            for rel, expected in files_map.items():
+                if not isinstance(rel, str) or not isinstance(expected, str) or not _LEAN4_SHA256_RE.match(expected):
+                    errors.append(f"INVALID_FILE_HASH_ENTRY:{rel!r}")
+                    continue
+                target = (base_dir / rel).resolve()
+                if not target.is_relative_to(base_dir):
+                    errors.append(f"PINNED_FILE_OUTSIDE_ROOT:{rel}")
+                    continue
+                if not target.is_file():
+                    errors.append(f"PINNED_FILE_MISSING:{rel}")
+                    continue
+                actual = canonical_sha256_bytes(target.read_bytes())
+                want = expected.split(":", 1)[-1].lower()
+                if actual != want:
+                    errors.append(f"PINNED_FILE_SHA256_MISMATCH:{rel}")
+                else:
+                    files_verified += 1
+
+    if "entries" in data:
+        entries = data["entries"]
+        if not isinstance(entries, list):
+            errors.append("INVALID_ENTRIES_SECTION_TYPE")
+        else:
+            for idx, entry in enumerate(entries):
+                if not isinstance(entry, dict):
+                    errors.append(f"INVALID_ENTRY_TYPE:{idx}")
+                    continue
+                rel = entry.get("path")
+                expected = entry.get("sha256")
+                if not isinstance(rel, str) or not isinstance(expected, str) or not _LEAN4_SHA256_RE.match(expected):
+                    errors.append(f"INVALID_ENTRY_SPEC:{idx}")
+                    continue
+                target = (base_dir / rel).resolve()
+                if not target.is_relative_to(base_dir):
+                    errors.append(f"PINNED_FILE_OUTSIDE_ROOT:{rel}")
+                    continue
+                if not target.is_file():
+                    errors.append(f"PINNED_FILE_MISSING:{rel}")
+                    continue
+                actual = canonical_sha256_bytes(target.read_bytes())
+                want = expected.split(":", 1)[-1].lower()
+                if actual != want:
+                    errors.append(f"PINNED_FILE_SHA256_MISMATCH:{rel}")
+                else:
+                    files_verified += 1
+
+    # Format 2: SafeVerify / toolchain commit-SHA pinning (`commit` / `rev` / `pins: {name: {commit/rev}}`)
+    for top_key in ("commit", "rev", "source_commit"):
+        if top_key in data:
+            val = data[top_key]
+            if not isinstance(val, str) or not _LEAN4_SHA40_RE.match(val):
+                errors.append(f"INVALID_COMMIT_SHA:{top_key}")
+            else:
+                commits_verified += 1
+
+    if "pins" in data:
+        pins = data["pins"]
+        if not isinstance(pins, dict):
+            errors.append("INVALID_PINS_SECTION_TYPE")
+        else:
+            for pname, pobj in pins.items():
+                sha_val = pobj if isinstance(pobj, str) else (
+                    pobj.get("commit") or pobj.get("rev") if isinstance(pobj, dict) else None
+                )
+                if not isinstance(sha_val, str) or not _LEAN4_SHA40_RE.match(sha_val):
+                    errors.append(f"INVALID_PIN_COMMIT_SHA:{pname}")
+                else:
+                    commits_verified += 1
+
+    if files_verified == 0 and commits_verified == 0 and not errors:
+        errors.append("EMPTY_PINNED_MANIFEST")
+
+    return {
+        "path": str(manifest_path),
+        "passed": len(errors) == 0,
+        "files_verified": files_verified,
+        "commits_verified": commits_verified,
+        "errors": errors,
     }
 
 
@@ -572,6 +866,10 @@ def run_audit_check(
     isolated: bool = True,
     timeout: int = 120,
     lean_audit: bool = False,
+    allow_project_imports: Sequence[str] = (),
+    comparator_config: Path | None = None,
+    require_nanoda: bool = True,
+    pinned_manifest: Path | None = None,
     prereg_check: bool = False,
     plan_commit: str | None = None,
     data_commit: str | None = None,
@@ -669,10 +967,29 @@ def run_audit_check(
     if receipt is not None:
         receipt_report = validate_audit_receipt_json(receipt)
 
-    # Optional v1.1 static Lean 4 audit
+    # Optional v1.2 static Lean 4 audit
     lean_report: dict[str, Any] | None = None
     if lean_audit:
-        lean_report = audit_lean4_directory(root)
+        lean_report = audit_lean4_directory(
+            root, allow_project_imports=allow_project_imports
+        )
+
+    # Optional v1.2 Comparator JSON check (enable_nanoda + Spec -/-> Proof isolation)
+    comparator_report: dict[str, Any] | None = None
+    if comparator_config is not None:
+        comparator_report = validate_comparator_config(
+            comparator_config,
+            lean_root=(root if root.is_dir() else root.parent),
+            require_nanoda=require_nanoda,
+        )
+
+    # Optional v1.2 cryptographic manifest check (CORE_MANIFEST.json / SafeVerify SHA pins)
+    manifest_report: dict[str, Any] | None = None
+    if pinned_manifest is not None:
+        manifest_report = validate_pinned_manifest(
+            pinned_manifest,
+            root=(root if root.is_dir() else root.parent),
+        )
 
     # Optional v1.1 git-DAG preregistration check
     prereg_report: dict[str, Any] | None = None
@@ -706,6 +1023,10 @@ def run_audit_check(
         failures.append(f"audit receipt validation errors ({len(receipt_report['errors'])})")
     if lean_report is not None and not lean_report["clean"]:
         failures.append(f"Lean 4 static audit findings ({len(lean_report['findings'])})")
+    if comparator_report is not None and not comparator_report["passed"]:
+        failures.append(f"Comparator config validation errors ({len(comparator_report['errors'])})")
+    if manifest_report is not None and not manifest_report["passed"]:
+        failures.append(f"pinned manifest verification errors ({len(manifest_report['errors'])})")
     if prereg_report is not None and not prereg_report["passed"]:
         failures.append(f"git-DAG preregistration check failed ({prereg_report['reason']})")
 
@@ -729,6 +1050,7 @@ def run_audit_check(
             "r4_scripts_passed": sum(1 for sr in script_reports if sr["passed"]),
             "lean_files_checked": lean_report["files_checked"] if lean_report is not None else 0,
             "lean_findings_count": len(lean_report["findings"]) if lean_report is not None else 0,
+            "lean_notices_count": len(lean_report["notices"]) if lean_report is not None else 0,
         },
         "failures": failures,
         "crlf_files": crlf_files,
@@ -742,5 +1064,7 @@ def run_audit_check(
         "audit_log": audit_log_report,
         "audit_receipt": receipt_report,
         "lean_audit": lean_report,
+        "comparator_config": comparator_report,
+        "pinned_manifest": manifest_report,
         "prereg_check": prereg_report,
     }

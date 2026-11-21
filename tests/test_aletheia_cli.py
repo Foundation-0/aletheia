@@ -72,11 +72,19 @@ class TestAletheiaCLI(unittest.TestCase):
             _req(ho["valid"], f"scaffolded handoff manifest invalid: {ho}")
             diag = diagnose_expedition(ws)
             _req(
-                diag["overall_status"] == "HEALTHY" and diag["alert_count"] == 0,
+                diag["overall_status"] == "HEALTHY"
+                and diag["health_score"] == 100.0
+                and diag["alert_count"] == 0
+                and len(diag["patterns"]) == 11,
                 f"fresh workspace self-triggered diagnose: {diag}",
             )
             rc_diag, out_diag, _ = _run_cli(["diagnose", str(ws), "--json"])
-            _req(rc_diag == 0 and json.loads(out_diag)["overall_status"] == "HEALTHY", f"CLI diagnose failed: {rc_diag} {out_diag}")
+            _req(
+                rc_diag == 0
+                and json.loads(out_diag)["overall_status"] == "HEALTHY"
+                and json.loads(out_diag)["health_score"] == 100.0,
+                f"CLI diagnose failed: {rc_diag} {out_diag}",
+            )
 
     def test_02_audit_check_r1_to_r4_must_fail_controls(self) -> None:
         # 1. Clean self-audit of the aletheia CLI staging tree itself!
@@ -622,6 +630,181 @@ class TestAletheiaCLI(unittest.TestCase):
             r_pre_bypass_c = run_audit_check(gdir3, prereg_check=True)
             _req(not r_pre_bypass_c["passed"] and r_pre_bypass_c["prereg_check"]["passed"] is False,
                  f"bulk single-commit bypass C not caught: {r_pre_bypass_c}")
+
+    def test_12_v12_lean4_hardening_manifests_and_cs09_to_cs11(self) -> None:
+        """v1.2: T-12 + multiline skipKernelTC + Lean 4.22 public import + .partial non-FP + Comparator/Manifest + CS-09..11."""
+        from aletheia.audit_check import audit_lean4_source, validate_comparator_config, validate_pinned_manifest
+        from aletheia.strict_io import canonical_sha256_bytes
+
+        # 1. T-12 char quote '"' before multiline debug.skipKernelTC + multiline partial\n def + axiom + sorryAx/ofReduceBool/trustCompiler
+        evasive = (
+            "def q : Char := '\"'\n"
+            "set_option\n  debug.skipKernelTC\n  true in\n"
+            "partial\n  def inf_loop (n : Nat) : Nat := inf_loop n\n"
+            "axiom bogus : False\n"
+            "def a := sorryAx\n"
+            "def b := Lean.ofReduceBool\n"
+            "def c := Lean.trustCompiler\n"
+            "public\n  import Mathlib.Data.Rat.Basic\n"
+        )
+        res_ev = audit_lean4_source(evasive, allow_non_init_imports=False)
+        codes_ev = {f["code"] for f in res_ev["findings"]}
+        _req(
+            not res_ev["clean"]
+            and {
+                "LEAN4_SKIP_KERNEL_TC",
+                "LEAN4_PARTIAL",
+                "LEAN4_AXIOM",
+                "LEAN4_SORRY_AX",
+                "LEAN4_OF_REDUCE_BOOL",
+                "LEAN4_TRUST_COMPILER",
+                "LEAN4_NON_INIT_IMPORT",
+            }.issubset(codes_ev),
+            f"v1.2 Lean 4 escapes missed: {codes_ev}",
+        )
+
+        # 2. Zero false positives on dot-projection `.partial` + `@[csimp]` notice + project imports + ExistsImplication
+        clean_v12 = (
+            "public import Init.Core\n"
+            "private import MyProj.Spec\n"
+            "theorem SmoothShell.partial (hv : Nat) : hv = hv := rfl\n"
+            "def step := hv.partial (1, 0)\n"
+            "@[csimp] theorem exec_eq : True := trivial\n"
+            "theorem vac : ∃ x : Nat, x = 0 → x = 1 := ⟨1, by omega⟩\n"
+        )
+        res_ok = audit_lean4_source(clean_v12, allow_non_init_imports=False, allow_project_imports=("MyProj",))
+        notice_codes = {n["code"] for n in res_ok["notices"]}
+        _req(
+            res_ok["clean"]
+            and "LEAN4_CSIMP_REWRITE_NOTICE" in notice_codes
+            and "LEAN4_EXISTS_IMPLICATION_NOTICE" in notice_codes,
+            f"v1.2 clean Lean 4 failed or missed notices: {res_ok}",
+        )
+
+        # 3. Lean 4.22 `public import` forbidden challenge module caught + Comparator enable_nanoda + Pinned Manifest
+        with tempfile.TemporaryDirectory(prefix="aletheia_t_v12_") as td:
+            root = Path(td)
+            write_lf_text(root / "Chl.lean", "theorem main : True := by sorry\n")
+            write_lf_text(root / "SolGood.lean", "theorem main : True := trivial\n")
+            write_lf_text(root / "SolCheat.lean", "public import Chl\ntheorem main : True := Chl.main\n")
+
+            cfg_good = root / "comp_good.json"
+            write_lf_text(
+                cfg_good,
+                json.dumps({
+                    "challenge_module": "Chl",
+                    "solution_module": "SolGood",
+                    "theorem_names": ["main"],
+                    "permitted_axioms": ["propext", "Classical.choice", "Quot.sound"],
+                    "enable_nanoda": True,
+                }) + "\n",
+            )
+            _req(validate_comparator_config(cfg_good, lean_root=root, require_nanoda=True)["passed"], "good comparator failed")
+
+            cfg_no_nanoda = root / "comp_nonanoda.json"
+            write_lf_text(
+                cfg_no_nanoda,
+                json.dumps({
+                    "challenge_module": "Chl",
+                    "solution_module": "SolGood",
+                    "theorem_names": ["main"],
+                    "permitted_axioms": ["propext", "Classical.choice", "Quot.sound"],
+                    "enable_nanoda": False,
+                }) + "\n",
+            )
+            r_nn = validate_comparator_config(cfg_no_nanoda, lean_root=root, require_nanoda=True)
+            _req(not r_nn["passed"], f"enable_nanoda=false must fail strict comparator check: {r_nn}")
+
+            cfg_cheat = root / "comp_cheat.json"
+            write_lf_text(
+                cfg_cheat,
+                json.dumps({
+                    "challenge_module": "Chl",
+                    "solution_module": "SolCheat",
+                    "theorem_names": ["main"],
+                    "permitted_axioms": ["propext", "Classical.choice", "Quot.sound"],
+                    "enable_nanoda": True,
+                }) + "\n",
+            )
+            r_ch = validate_comparator_config(cfg_cheat, lean_root=root, require_nanoda=True)
+            _req(not r_ch["passed"] and any("LEAN4_FORBIDDEN_CHALLENGE_IMPORT" in e for e in r_ch["errors"]),
+                 f"public import of challenge module not caught: {r_ch}")
+
+            # AUDIT-040 regression #2: absolute-path escape in solution_module MUST fail!
+            outside_clean = root.parent / "outside_clean_aletheia_test.lean"
+            write_lf_text(outside_clean, "theorem main : True := trivial\n")
+            try:
+                cfg_abs = root / "comp_abs.json"
+                write_lf_text(
+                    cfg_abs,
+                    json.dumps({
+                        "challenge_module": "Chl",
+                        "solution_module": str(outside_clean.with_suffix("")),
+                        "theorem_names": ["main"],
+                        "permitted_axioms": ["propext", "Classical.choice", "Quot.sound"],
+                        "enable_nanoda": True,
+                    }) + "\n",
+                )
+                r_abs = validate_comparator_config(cfg_abs, lean_root=root, require_nanoda=True)
+                _req(not r_abs["passed"] and "INVALID_OR_MISSING_SOLUTION_MODULE" in r_abs["errors"],
+                     f"absolute-path solution_module escape not caught: {r_abs}")
+            finally:
+                outside_clean.unlink(missing_ok=True)
+
+            # Pinned manifest: CORE_MANIFEST.json (SHA-256) + SafeVerify (40-hex commit SHA) + path traversal block
+            sol_sha = canonical_sha256_bytes((root / "SolGood.lean").read_bytes())
+            mf_good = root / "CORE_MANIFEST.json"
+            write_lf_text(
+                mf_good,
+                json.dumps({"files": {"SolGood.lean": sol_sha}, "pins": {"SafeVerify": {"commit": "a" * 40}}}) + "\n",
+            )
+            r_mf_ok = validate_pinned_manifest(mf_good, root=root)
+            _req(r_mf_ok["passed"] and r_mf_ok["files_verified"] == 1 and r_mf_ok["commits_verified"] == 1, f"good manifest failed: {r_mf_ok}")
+
+            mf_bad = root / "BAD_MANIFEST.json"
+            write_lf_text(
+                mf_bad,
+                json.dumps({"files": {"SolGood.lean": "0" * 64, "../escape.txt": sol_sha}, "pins": {"SafeVerify": {"commit": "short"}}}) + "\n",
+            )
+            r_mf_bad = validate_pinned_manifest(mf_bad, root=root)
+            _req(not r_mf_bad["passed"] and len(r_mf_bad["errors"]) == 3, f"tampered manifest not fully caught: {r_mf_bad}")
+
+            # AUDIT-040 regression #3: valid commit + wrong-typed files/entries/pins MUST fail closed!
+            mf_corrupt = root / "CORRUPT_TYPES_MANIFEST.json"
+            write_lf_text(
+                mf_corrupt,
+                json.dumps({"commit": "a" * 40, "files": "corrupted", "entries": "corrupted", "pins": "corrupted"}) + "\n",
+            )
+            r_mf_corrupt = validate_pinned_manifest(mf_corrupt, root=root)
+            _req(
+                not r_mf_corrupt["passed"]
+                and {"INVALID_FILES_SECTION_TYPE", "INVALID_ENTRIES_SECTION_TYPE", "INVALID_PINS_SECTION_TYPE"}.issubset(
+                    set(r_mf_corrupt["errors"])
+                ),
+                f"corrupt section types not caught: {r_mf_corrupt}",
+            )
+
+            # 4. Diagnose CS-09, CS-10 (both Python scatter_reduce_ mean & JSON), CS-11
+            ws = root / "cs_v12_ws"
+            init_workspace(ws, domain="dynamics")
+            write_lf_text(
+                ws / "probes" / "dynamics" / "demo_bug.py",
+                "def agg(t, idx, src):\n    return t.scatter_reduce_('mean', idx, src, include_self=False)\n",
+            )
+            write_lf_text(
+                ws / "probes" / "dynamics" / "eval_flags.json",
+                json.dumps({
+                    "asymptotic_claim": True,
+                    "finite_sample_checked": False,
+                    "unit_gauge_invariant": False,
+                }) + "\n",
+            )
+            rc_d, out_d, _ = _run_cli(["diagnose", str(ws), "--json"])
+            _req(rc_d == 1, f"CS-09..11 poison should return rc=1, got {rc_d}")
+            d_obj = json.loads(out_d)
+            by_id = {p["id"]: p for p in d_obj["patterns"]}
+            for cid in ("CS-09", "CS-10", "CS-11"):
+                _req(by_id[cid]["status"] == "ALERT", f"{cid} did not ALERT: {by_id[cid]}")
 
 
 if __name__ == "__main__":

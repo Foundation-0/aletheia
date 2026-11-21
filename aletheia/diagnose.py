@@ -2,7 +2,7 @@
 `aletheia diagnose <expedition-dir> [--board <jsonl>]`: Quantitative Anti-Cave Relapse Detector.
 
 Scans `frontier_portals.md`, `AUDIT_LOG.md`, verification/probe scripts, and an optional
-swarm board JSONL feed to detect and score all 8 Cave-Shadow Anti-Patterns from The Aletheia Method:
+swarm board JSONL feed to detect and score all 11 Cave-Shadow Anti-Patterns from The Aletheia Method:
   1. Static-Map Trap (cartographer/portal-keeper parks after Round 1)
   2. Premature Dismissal Bias (strings of FALSIFIED/N0 without steelmanned repairs)
   3. Language Smuggling (buzzword density without executable operators/equations)
@@ -11,6 +11,9 @@ swarm board JSONL feed to detect and score all 8 Cave-Shadow Anti-Patterns from 
   6. Local-Optimum Closure (sharpness walls / obstructions terminating without elevation)
   7. Provenance Inflation (merged vs Draft PR, uncompiled Lean claimed verified, N2 without prior art)
   8. Compute-Leakage Simpson's Paradox (unbounded-budget / format-breaking CoT inversion without survival cap)
+  9. Finite-Sample / Support-Truncation Mirage (asymptotic claim from truncated/finite-M trajectories without cutoff check)
+ 10. Sparse-Collision Denominator Collapse (averaging sparse/filtered items by collision count c_j instead of global W)
+ 11. Unit-Gauge / Radix Fragility (unscaled raw-unit regularization or base-10/float-tolerance grading without gauge invariance)
 """
 from __future__ import annotations
 
@@ -30,12 +33,31 @@ _BUZZWORDS = (
 _OPERATOR_MARKERS = re.compile(r"(=|:=|->|\\to|\\ge|\\le|\\equiv|def\s+\w+|\.py\b|check_[0-9]+|```)")
 _FLOAT_CUTOFF_RE = re.compile(r"(?:1e-(?:9|10|11|12|13|14|15)|math\.isclose|np\.allclose|eigvalsh)")
 _PROXY_HINT_RE = re.compile(r"\b(?:synthetic\s+proxy|toy\s+stub|mock\s+matrix|placeholder\s+model)\b", re.IGNORECASE)
-_OBSTRUCTION_RE = re.compile(r"\b(?:sharpness\s+wall|obstruction|counterexample|no-go|impossib)\b", re.IGNORECASE)
-_ELEVATION_RE = re.compile(r"\b(?:theorem|higher[- ]moment|spawn|branch|elevat|new\s+invariant|generaliz)\b", re.IGNORECASE)
+_OBSTRUCTION_RE = re.compile(r"\b(?:sharpness\s+wall|obstructions?|counterexamples?|no-go|impossib\w*)\b", re.IGNORECASE)
+_ELEVATION_RE = re.compile(r"\b(?:theorems?|higher[- ]moment|spawn\w*|branch(?:es)?|elevat\w*|new\s+invariants?|generaliz\w*)\b", re.IGNORECASE)
 _PORTAL_HEADING_RE = re.compile(r"^#{1,3}\s+Portal\s+[0-9A-Za-z]+", re.MULTILINE)
 _COMPUTE_LEAK_RE = re.compile(
     r"\b(?:unbounded\s+(?:compute|budget|retries|wall[- ]clock)|no\s+wall[- ]clock\s+cap|"
     r"format[- ]breaking\s+cot\s+escape|unbounded\s+cot\s+scratchpad|compute[- ]leakage\s+confound)\b",
+    re.IGNORECASE,
+)
+_TRUNCATION_MIRAGE_RE = re.compile(
+    r"\b(?:top[- ]p\s+truncation\s+mirage|finite[- ]sample\s+mirage|"
+    r"asymptotic\s+fixed\s+point\s+from\s+finite\s+sample|tail[- ]mass\s+extinction\s+ignored)\b",
+    re.IGNORECASE,
+)
+_SCATTER_MEAN_RE = re.compile(
+    r"scatter_reduce_\s*\(\s*['\"]mean['\"][^)]*include_self\s*=\s*False",
+    re.DOTALL,
+)
+_COLLISION_DENOM_RE = re.compile(
+    r"\b(?:divide\s+by\s+collision\s+count|sparse[- ]collision\s+denominator\s+collapse|"
+    r"dropped\s+invalid\s+denominator)\b",
+    re.IGNORECASE,
+)
+_UNIT_RADIX_FRAGILE_RE = re.compile(
+    r"\b(?:unscaled\s+raw[- ]unit\s+ridge|unit[- ]gauge\s+fragil|radix[- ]dependent\s+grad|"
+    r"include_percentage\s*=\s*True)\b",
     re.IGNORECASE,
 )
 
@@ -71,7 +93,7 @@ def diagnose_expedition(
     *,
     board_path: Path | None = None,
 ) -> dict[str, Any]:
-    """Run quantitative 8-pattern Cave-Shadow relapse diagnosis on an expedition directory."""
+    """Run quantitative 11-pattern Cave-Shadow relapse diagnosis on an expedition directory."""
     root = expedition_dir.resolve()
     require_ok(root.is_dir(), "EXPEDITION_DIR_NOT_FOUND", f"directory not found: {root}")
 
@@ -377,6 +399,132 @@ def diagnose_expedition(
         "status": _status_from_risk(r8),
         "evidence": ev8,
         "remediation": "Enforce fixed-compute wall-clock survival caps alongside round counts; never compare unbounded format-breaking CoT retries against capped baselines.",
+    })
+
+    # ------------------------------------------------------------------
+    # 9. Finite-Sample / Support-Truncation Mirage (CS-09, AUDIT-032)
+    # ------------------------------------------------------------------
+    r9 = 0
+    ev9: list[str] = []
+    cs09_ok = ("finite-m", "finite m", "tail extinction checked", "avoid", "never", "repaired", "caught", "anti-pattern", "prevent", "mitigated")
+    for mf in [audit_log_path] + md_files:
+        if not mf.is_file():
+            continue
+        for lineno, line in enumerate(mf.read_text(encoding="utf-8", errors="replace").splitlines(), start=1):
+            if _TRUNCATION_MIRAGE_RE.search(line) is not None and not any(tok in line.lower() for tok in cs09_ok):
+                r9 += 50
+                ev9.append(f"{mf.relative_to(root)}:{lineno}: possible finite-sample / support-truncation mirage")
+    for sub in ("probes", "synthesis"):
+        sp = root / sub
+        if not sp.is_dir():
+            continue
+        for jf in sorted(sp.rglob("*.json")):
+            if any(part in SKIP_DIRS for part in jf.relative_to(root).parts):
+                continue
+            try:
+                jobj = json.loads(jf.read_text(encoding="utf-8", errors="replace"))
+            except Exception:
+                continue
+            if isinstance(jobj, dict):
+                if (jobj.get("asymptotic_claim") is True and jobj.get("finite_sample_checked") is False) or (
+                    jobj.get("support_truncated") is True and jobj.get("tail_extinction_checked") is False
+                ):
+                    r9 += 60
+                    ev9.append(f"{jf.relative_to(root)}: asymptotic/truncated claim without finite-M / tail-extinction check")
+    r9 = min(100, r9)
+    patterns.append({
+        "id": "CS-09",
+        "name": "Finite-Sample / Support-Truncation Mirage",
+        "risk_score": r9,
+        "status": _status_from_risk(r9),
+        "evidence": ev9,
+        "remediation": "Check finite-M sample cutoffs and tail-mass extinction (e.g. exact PGL(2,Q) support truncation) before claiming asymptotic laws.",
+    })
+
+    # ------------------------------------------------------------------
+    # 10. Sparse-Collision Denominator Collapse (CS-10, AUDIT-039 / AUDIT-037)
+    # ------------------------------------------------------------------
+    r10 = 0
+    ev10: list[str] = []
+    cs10_ok = ("fixed-denominator", "fixed denominator", "sum/w", "avoid", "never", "repaired", "caught", "anti-pattern", "prevent")
+    for d in py_scan_dirs:
+        if not d.is_dir():
+            continue
+        for pf in sorted(d.rglob("*.py")):
+            if any(part in SKIP_DIRS or part == "__pycache__" for part in pf.relative_to(root).parts):
+                continue
+            txt = pf.read_text(encoding="utf-8", errors="replace")
+            if _SCATTER_MEAN_RE.search(txt) is not None and not any(tok in txt.lower() for tok in ("fixed_denominator", "sum_over_w")):
+                r10 += 60
+                ev10.append(f"{pf.relative_to(root)}: scatter_reduce_('mean', include_self=False) divides by collision count c_j instead of global W")
+    for mf in [audit_log_path] + md_files:
+        if not mf.is_file():
+            continue
+        for lineno, line in enumerate(mf.read_text(encoding="utf-8", errors="replace").splitlines(), start=1):
+            if _COLLISION_DENOM_RE.search(line) is not None and not any(tok in line.lower() for tok in cs10_ok):
+                r10 += 50
+                ev10.append(f"{mf.relative_to(root)}:{lineno}: possible sparse-collision or shrinking-denominator collapse")
+    for sub in ("probes", "synthesis"):
+        sp = root / sub
+        if not sp.is_dir():
+            continue
+        for jf in sorted(sp.rglob("*.json")):
+            if any(part in SKIP_DIRS for part in jf.relative_to(root).parts):
+                continue
+            try:
+                jobj = json.loads(jf.read_text(encoding="utf-8", errors="replace"))
+            except Exception:
+                continue
+            if isinstance(jobj, dict):
+                if jobj.get("denominator_mode") == "collision_count" or jobj.get("fixed_denominator_enforced") is False:
+                    r10 += 60
+                    ev10.append(f"{jf.relative_to(root)}: sparse/filtered aggregation lacks fixed global denominator W")
+    r10 = min(100, r10)
+    patterns.append({
+        "id": "CS-10",
+        "name": "Sparse-Collision Denominator Collapse",
+        "risk_score": r10,
+        "status": _status_from_risk(r10),
+        "evidence": ev10,
+        "remediation": "Aggregate sparse/filtered updates or eval scores over the fixed global denominator W (e.g. sum/W), never local collision count c_j.",
+    })
+
+    # ------------------------------------------------------------------
+    # 11. Unit-Gauge / Radix Fragility (CS-11, AUDIT-039 / AUDIT-036)
+    # ------------------------------------------------------------------
+    r11 = 0
+    ev11: list[str] = []
+    cs11_ok = ("gauge-invariant", "unit-invariant", "coordinate-free", "exact fraction", "avoid", "never", "repaired", "caught", "anti-pattern", "prevent")
+    for mf in [audit_log_path] + md_files:
+        if not mf.is_file():
+            continue
+        for lineno, line in enumerate(mf.read_text(encoding="utf-8", errors="replace").splitlines(), start=1):
+            if _UNIT_RADIX_FRAGILE_RE.search(line) is not None and not any(tok in line.lower() for tok in cs11_ok):
+                r11 += 50
+                ev11.append(f"{mf.relative_to(root)}:{lineno}: possible unit-gauge or radix-dependent fragility")
+    for sub in ("probes", "synthesis"):
+        sp = root / sub
+        if not sp.is_dir():
+            continue
+        for jf in sorted(sp.rglob("*.json")):
+            if any(part in SKIP_DIRS for part in jf.relative_to(root).parts):
+                continue
+            try:
+                jobj = json.loads(jf.read_text(encoding="utf-8", errors="replace"))
+            except Exception:
+                continue
+            if isinstance(jobj, dict):
+                if jobj.get("unit_gauge_invariant") is False or jobj.get("radix_invariant") is False:
+                    r11 += 60
+                    ev11.append(f"{jf.relative_to(root)}: benchmark/grader fails coordinate-free unit-gauge or radix invariance gate")
+    r11 = min(100, r11)
+    patterns.append({
+        "id": "CS-11",
+        "name": "Unit-Gauge / Radix Fragility",
+        "risk_score": r11,
+        "status": _status_from_risk(r11),
+        "evidence": ev11,
+        "remediation": "Enforce Stage-B coordinate-free null-equivalence: standardize/scale-normalize features before regularization and grade mathematical equivalence over exact Q, never base-10/float64 heuristics.",
     })
 
     avg_risk = sum(p["risk_score"] for p in patterns) / len(patterns)

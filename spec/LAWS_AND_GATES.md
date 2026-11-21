@@ -1,7 +1,7 @@
 # Aletheia Canonical Specification: Laws, Gates, Contracts, Oracles & Anti-Patterns
 
-**Specification Version:** `aletheia.spec.v1.1`  
-**Lineage:** Formalizes the Cave Expedition anti-shadow protocol (`verification/PROTOCOL.md`, v2), gate-contract architecture (`siliconcordat/loom#8` / `#9`), and Wave 2 Symbiosis upgrades (`AUDIT-023`–`AUDIT-029`) into a domain-general open specification enforced programmatically by the `aletheia` CLI (`audit-check`, `mutate`, `diagnose`, `ratchet`, `mde`).
+**Specification Version:** `aletheia.spec.v1.2`  
+**Lineage:** Formalizes the Cave Expedition anti-shadow protocol (`verification/PROTOCOL.md`, v2), gate-contract architecture (`siliconcordat/loom#8` / `#9`), Wave 2 Symbiosis Rounds 1–2 (`AUDIT-023`–`AUDIT-034R`), and Wave 2 Round 3 10-Lab Formal Math & Beyond-Language Tomography (`AUDIT-035`–`AUDIT-039`) into a domain-general open specification enforced programmatically by the `aletheia` v1.2 CLI (`audit-check`, `mutate`, `diagnose`, `ratchet`, `mde`).
 
 ---
 
@@ -72,9 +72,9 @@ Principle: *"A gate's verdict must never be movable by how the submission is wri
 
 ---
 
-## 5. The Eight Cave-Shadow Anti-Patterns (`CS-01` – `CS-08`)
+## 5. The Eleven Cave-Shadow Anti-Patterns (`CS-01` – `CS-11`)
 
-Automated heuristics for these eight failure modes are implemented in `aletheia diagnose`:
+Automated heuristics for these eleven failure modes are implemented in `aletheia diagnose`:
 
 | # | Anti-Pattern | Observable Symptom | Structural Remedy |
 |---|---|---|---|
@@ -82,23 +82,30 @@ Automated heuristics for these eight failure modes are implemented in `aletheia 
 | **2** | **Premature Dismissal Bias (`CS-02`)** | Multiple `FALSIFIED` / `N0` verdicts with zero repaired/steelmanned formulations tested. | Invoke Law 2: require an explicit steelman statement & exact test before closing a thread. |
 | **3** | **Language Smuggling (`CS-03`)** | Cross-domain prose claims (*"both are sheaves/dualities"*) with no typed intertwining map or defect metric. | Enforce Gate 5: require explicit typed objects, operator identity, and quantitative transfer. |
 | **4** | **Substitution Shadow (`CS-04`)** | Verifier certifies a simplified synthetic proxy matrix/dataset instead of the real upstream target. | Import and execute against the actual target equations, datasets, or live upstream code. |
-| **5** | **Glass Gate (`CS-05`)** | Bare `assert`s on trust paths, `1e-12` float cutoffs for exact claims, unseeded RNGs, or `0` must-fail controls. | Enforce R1–R5 (`aletheia audit-check` + `aletheia mutate` v1.1 covering dict-verdicts & accumulators). |
+| **5** | **Glass Gate (`CS-05`)** | Bare `assert`s on trust paths, `1e-12` float cutoffs for exact claims, unseeded RNGs, or `0` must-fail controls. | Enforce R1–R5 (`aletheia audit-check` + `aletheia mutate` covering dict-verdicts & accumulators). |
 | **6** | **Local-Optimum Closure (`CS-06`)** | Stopping when hitting a sharpness wall or impossibility boundary instead of turning it into a theorem or next branch. | Elevate exact obstructions to theorems or spawn a branch supplying the proven missing invariant. |
 | **7** | **Provenance Inflation (`CS-07`)** | Claiming "merged", "machine-checked", or `N2` without merge, compiler execution, or full-text prior-art verification. | Enforce strict standing tags (`Draft PR`, `uncompiled_source`, local-vs-global scope, default `N0`). |
 | **8** | **Compute-Leakage Simpson's Paradox (`CS-08`)** | Comparing arms by round count without a fixed compute/token survival cap, allowing slow format-breaking CoT escapes to invert the true fixed-budget winner (`AUDIT-023` `N2`). | Enforce fixed wall-clock/token survival caps alongside round counts; report paired fast-channel and escape-channel outcomes separately. |
+| **9** | **Finite-Sample / Support-Truncation Mirage (`CS-09`)** | Claiming an infinite-horizon equilibrium or phase-transition law from finite-sample / top-$p$ / truncated trajectories without checking tail-mass extinction (`AUDIT-032` `N2`). | Test exact finite-$M$ / projective support-truncation cutoffs and verify tail survival before asserting asymptotic laws. |
+| **10** | **Sparse-Collision Denominator Collapse (`CS-10`)** | Aggregating sparse updates or filtered eval scores by local collision count $c_j$ (e.g. `scatter_reduce_("mean", include_self=False)`) or dropping invalid rows instead of dividing by fixed global $W$ (`AUDIT-039` `N2`, `AUDIT-037`). | Always normalize sparse/filtered aggregates over the fixed global denominator $W$ (`sum/W`) and penalize dropped/invalid rows explicitly. |
+| **11** | **Unit-Gauge / Radix Fragility (`CS-11`)** | Regularizing unscaled heterogeneous-unit features (e.g. raw `Ridge(alpha)` breaking under $10^9\times$ unit rescaling) or grading exact math via base-10/IEEE-754 heuristics (`100 == 1`, `10^17+1 == 10^17`, `AUDIT-039` `N2`, `AUDIT-036`). | Enforce Stage-B coordinate-free null-equivalence: gauge-normalize features before regularization and grade exact equivalence over $\mathbb{Q}$, never float64/radix heuristics. |
 
 ---
 
-## 6. v1.1 Governance Extensions: Plane-1 MDE & 5-Gate Ratchet Contracts
+## 6. v1.1–v1.2 Governance Extensions: Beyond-Language Perception, Plane-1 MDE, Ratchet & 4-Lab Lean 4 Gates
 
-1. **Plane-1 MDE Contract (`aletheia mde`, `AUDIT-027`):**
+1. **Beyond-Language, Beyond-Numerology Structural Perception (v1.2, `THEORY.md` §3.5):**
+   - **Stage A (Label-Stripping):** Strip disciplinary nouns and base-10/coordinate numerology across candidate domains to perceive raw relational geometry, fiber eliminations, dualities, and obstructions.
+   - **Stage B (Coordinate-Free Null-Equivalence):** Compress silhouettes into basis-, unit-, and radix-invariant exact invariants (`residual == 0`, exact integer inertia, projective invariants, R5 refusal witnesses) verified by independent clean-room oracles.
+2. **Plane-1 MDE Contract (`aletheia mde`, `AUDIT-027`):**
    - An Aletheia expedition may be packaged unconditionally as a **Plane-1 Model Domain Expansion (MDE)** using deterministic `zone-canon-v0` manifest IDs, dyadic integer zone scales, content-addressed causal `AUDIT-XXX` lineage DAGs enforcing **`author != verifier`** and Hard Veto #2 contested-head halts, and compact `abios`-compatible `SYM-2P/2.0-rcp` wire packets.
    - **Plane-2 Mechanical Obstruction (`plane2_oracle_compilation_forbidden: true`):** Verification oracles MUST NEVER be compiled into neural weights; Plane-2 weight adapters are strictly disposable caches subordinate to Plane-1 deterministic verification.
-2. **5-Gate Autonomous Ratchet Contract (`aletheia ratchet`, `AUDIT-026R` + `AUDIT-023`):**
+3. **5-Gate Autonomous Ratchet Contract (`aletheia ratchet`, `AUDIT-026R` + `AUDIT-023`):**
    - Any automated hill-climbing or autoresearch loop running under Aletheia MUST enforce: (i) immutable Ring-0 evaluation harness lock, (ii) float-free canonical hash-chained receipts, (iii) AST-identity unchanged-baseline null rejection, (iv) Pre-Adaptation Goodhart Latch halt + blind portal re-entry preserving informative failed branches, and (v) a fixed-compute `CS-08` survival cap.
-3. **Mechanical Gate-8 & Static Lean 4 Verification (`aletheia audit-check`, `AUDIT-028` + `AUDIT-029`):**
-   - `--prereg-check` verifies plan-before-data ordering mechanically via git ancestry (`git merge-base --is-ancestor`).
-   - `--lean-audit` statically checks `.lean` files against stock-`Init` purity and blocks `sorry`, `axiom`, `unsafe`, `partial`, multiline attribute escapes, and non-`Init` imports.
+4. **Hardened v1.2 Static Lean 4, Comparator, Manifest & Gate-8 Checks (`aletheia audit-check`, `AUDIT-028`–`039`):**
+   - `--prereg-check` verifies strict topological plan-before-data ordering via git DAG ancestry (`LATEST(plan) < EARLIEST(data)`, rejecting same-commit bulk, post-hoc plan rewrites, typo masking, and dash-prefixed refs).
+   - `--lean-audit` (v1.2) enforces char-literal `'"'` (`T-12`) & nested-comment-safe lexing, multiline `debug.skipKernelTC`, `sorryAx`, `Lean.ofReduceBool`, `Lean.trustCompiler`, declaration-scoped `partial` (zero `.partial` FPs), Lean 4.22 `(public|private|meta)? import` with `--allow-project-import`, `@[extern]`/`@[implemented_by]` hard escapes vs. `@[csimp]`/`ExistsImplication` review notices.
+   - `--comparator-config` validates dual-kernel Comparator JSONs (`enable_nanoda: true`, permitted axioms, Spec $\not\to$ Proof isolation); `--pinned-manifest` verifies `CORE_MANIFEST.json` SHA-256 digests and `SafeVerify` 40-hex commit-SHA pins with path-traversal protection.
 
 ---
 
