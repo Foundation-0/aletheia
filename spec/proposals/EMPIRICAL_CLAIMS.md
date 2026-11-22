@@ -38,7 +38,8 @@ claim:        "<the pattern, in the authors' own terms>"
 part_E:       procedure P at plan hash h(P), run on manifest hash H,
               seeds S, returns outcome O            -> VERIFIED or not
 part_I:       P is wrong about the world at most a, assuming A1..An
-grade:        E2 SEALED_PASS
+grade:        E2 SEALED
+outcome:      supported
 not_survived: second implementation, independent instrument
 scope:        instrument X, 2019-2023, band 0.1-10 Hz
 novelty:      N0 (full-text prior work not yet read)
@@ -146,8 +147,8 @@ Gates 1 and 3 are R6 and R7 applied to data. Gates 2, 5, 6 and 9 are the null an
 
 - **Rule:** The unchanged plan runs on data from a different instrument, epoch or source. Independence means a different source lineage (instrument or corpus, epoch or edition, channel), not different file hashes. Re-encodings, resamplings and translations of one source do not count. Agreement between pipelines (gate 7) catches bugs. Agreement between instruments catches artefacts.
 - **Catches:** Instrument artefacts, processing artefacts in one archive, and patterns tied to one period.
-- **Certifier recomputes:** The plan hash on both runs (they must match), the manifests of both datasets, and the outcome of each run.
-- **Must-fail control:** The same bytes relabelled as an independent dataset (overlapping file hashes) must be refused.
+- **Certifier recomputes:** The plan hash on both runs (they must match), the manifests of both datasets, and the outcome of each run. Compares the declared source lineage of the two datasets and refuses overlapping lineages even when the file hashes differ.
+- **Must-fail control:** The same bytes relabelled as an independent dataset (overlapping file hashes) must be refused. So must a re-encoded or resampled copy of the first dataset presented as the second.
 - **In v2 now:** Own-Terms-First Phase 1 requires a second instrument. Not yet required: an unchanged plan hash, and a byte-level independence check.
 
 ### 9. Mutation testing of the safeguards
@@ -192,7 +193,7 @@ Part E is judged with the existing verdicts (`VERIFIED`, `PARTIAL/FRAGILE`, `FAL
 |---|---|---|---|
 | `E0 LEAD` | Nothing | Someone saw a pattern | Any test fixed in advance |
 | `E1 PLANNED` | Gates 1, 2, 3 | A frozen plan, a calibrated detector, pinned bytes | Contact with sealed data |
-| `E2 SEALED_PASS` | Gates 4, 5, 6, 10 | One sealed run with exact error accounting and controls | A second implementation, other data |
+| `E2 SEALED` | Gates 4, 5, 6, 10 | One sealed run with exact error accounting and controls | A second implementation, other data |
 | `E3 REIMPLEMENTED` | Gates 7, 9 | A clean-room rerun, mutation of its guards, a false-claim run | Another instrument or source |
 | `E4 REPLICATED` | Gate 8 | Independent data under the unchanged plan | A group outside the team |
 | `E5 OUTSIDE_REPLICATED` | Gate 8, run by others | Replication by a group with no shared authors or code | Data outside its stated scope |
@@ -224,7 +225,7 @@ Every row is a failure visible in public pull requests from the week of 2026-11-
 
 ## Changes after review
 
-Items taken from the review of this pull request: the two cases of gate 4, the exchangeability and exact-arithmetic rules of gate 5, the tie and exit-code rules of gate 2, the source-lineage rule of gate 8, and the three ladder rules.
+Items taken from the review of this pull request: the two cases of gate 4, the exchangeability and exact-arithmetic rules of gate 5, the tie and exit-code rules of gate 2, the source-lineage rule of gate 8, the three ladder rules, the `E2 SEALED` grade name with an `outcome` field in the claim record, and the lineage check in the gate 8 certifier and must-fail control.
 
 Two further proposals from that review are left to their authors as separate pull requests: binding each prose claim to its computed outcome, and a blinded verifier that receives only the claim, the pinned inputs and the code.
 
