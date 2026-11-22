@@ -1185,6 +1185,71 @@ class TestAletheiaCLI(unittest.TestCase):
             res = run_audit_check(root)
             _req(res["passed"], f"in-tree install artifacts tripped the self-audit: {res['failures']}")
 
+    def test_16_self_audit_ignores_only_its_own_bytecode(self) -> None:
+        import importlib.util
+        import shutil
+        import subprocess
+
+        driver = (
+            "import sys\n"
+            "root = sys.argv[1]\n"
+            "sys.path.insert(0, root)\n"
+            "from aletheia.cli import main\n"
+            "raise SystemExit(main(['audit-check', root, '--json']))\n"
+        )
+
+        def fresh_copy(parent: Path, name: str) -> Path:
+            dst = parent / name
+            shutil.copytree(CLI_ROOT / "aletheia", dst / "aletheia", ignore=shutil.ignore_patterns("__pycache__"))
+            return dst
+
+        def audit(root: Path, *, bytecode: bool) -> dict:
+            flags = ["-I"] if bytecode else ["-I", "-B"]
+            proc = subprocess.run(
+                [sys.executable, *flags, "-c", driver, str(root)],
+                capture_output=True, check=False, timeout=120, cwd=str(root),
+            )
+            _req(proc.stdout.strip() != b"", f"audit printed nothing: {proc.stderr.decode()[-400:]}")
+            return json.loads(proc.stdout.decode("utf-8"))
+
+        with tempfile.TemporaryDirectory(prefix="aletheia_t_pyc_") as td:
+            parent = Path(td)
+
+            # Bytecode writing ON: the run writes aletheia/__pycache__ while importing, then audits the tree.
+            on = fresh_copy(parent, "on")
+            r_on = audit(on, bytecode=True)
+            written = sorted((on / "aletheia" / "__pycache__").glob("*.pyc"))
+            _req(len(written) >= 10, f"control failed: the bytecode-on run wrote only {len(written)} .pyc files")
+            _req(r_on["passed"] and r_on["summary"]["pycache_count"] == 0,
+                 f"audit failed on bytecode it produced itself: {r_on['failures']} {r_on['pycache_items'][:3]}")
+
+            # Bytecode writing OFF: same verdict.
+            off = fresh_copy(parent, "off")
+            r_off = audit(off, bytecode=False)
+            _req(not (off / "aletheia" / "__pycache__").exists(), "control failed: -B run wrote bytecode")
+            _req(r_off["passed"] and r_off["status"] == r_on["status"], f"verdicts differ: {r_off['failures']}")
+
+            # Stale bytecode planted before the run is still reported (loose file, other interpreter tag).
+            ghost = fresh_copy(parent, "ghost")
+            (ghost / "aletheia" / "__pycache__").mkdir()
+            (ghost / "aletheia" / "__pycache__" / "ghost.cpython-39.pyc").write_bytes(b"0000")
+            for use_bytecode in (False, True):
+                r_ghost = audit(ghost, bytecode=use_bytecode)
+                _req(not r_ghost["passed"] and any("ghost.cpython-39.pyc" in it for it in r_ghost["pycache_items"]),
+                     f"planted stale pyc not reported (bytecode={use_bytecode}): {r_ghost['pycache_items']}")
+
+            # Bytecode left by an earlier run whose source has since changed is stale: reported.
+            stale = fresh_copy(parent, "stale")
+            audit(stale, bytecode=True)
+            target = stale / "aletheia" / "scaffold.py"
+            target.write_bytes(target.read_bytes() + b"\n# edited after the bytecode was written\n")
+            stale_cache = Path(importlib.util.cache_from_source(str(target), optimization=""))
+            _req(stale_cache.is_file(), "control failed: no cache file for the edited module")
+            r_stale = audit(stale, bytecode=False)
+            stale_rel = str(stale_cache.relative_to(stale))
+            _req(not r_stale["passed"] and r_stale["pycache_items"] == ["aletheia/__pycache__", stale_rel],
+                 f"stale cache of an edited module not isolated: {r_stale['pycache_items']}")
+
 
 if __name__ == "__main__":
     unittest.main()

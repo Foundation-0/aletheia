@@ -17,6 +17,7 @@ Checks:
 from __future__ import annotations
 
 import ast
+import importlib.util
 import os
 from pathlib import Path
 import re
@@ -112,6 +113,59 @@ def _scan_python_ast(path: Path, text: str) -> tuple[list[dict[str, Any]], list[
                 })
 
     return syntax_errors, bare_asserts, unseeded_rng
+
+
+def _pyc_matches_source(cache: Path, source: Path) -> bool:
+    """True when `cache` is a bytecode file whose header matches `source` (the check the import system makes)."""
+    try:
+        with cache.open("rb") as fh:
+            head = fh.read(16)
+        if len(head) < 16 or head[:4] != importlib.util.MAGIC_NUMBER:
+            return False
+        flags = int.from_bytes(head[4:8], "little")
+        if flags & 0b1:
+            return head[8:16] == importlib.util.source_hash(source.read_bytes())
+        st = source.stat()
+        return (
+            int.from_bytes(head[8:12], "little") == (int(st.st_mtime) & 0xFFFFFFFF)
+            and int.from_bytes(head[12:16], "little") == (st.st_size & 0xFFFFFFFF)
+        )
+    except OSError:
+        return False
+
+
+def _loaded_module_bytecode() -> set[Path]:
+    """
+    Cache files of modules this very process imported that still match their source.
+    A normal (bytecode-on) run writes exactly these while importing `aletheia`, and the
+    child runs that `--scripts` starts read them, so the scan must not count them as artifacts. Any other bytecode (other modules, other
+    interpreter tags, mismatched or corrupt headers, loose `.pyc` files) is still counted.
+    """
+    own: set[Path] = set()
+    for mod in list(sys.modules.values()):
+        origin = getattr(getattr(mod, "__spec__", None), "origin", None)
+        if not isinstance(origin, str) or not origin.endswith(".py"):
+            continue
+        # A parent run and its -O child name the same module's cache differently (`.opt-1`), so try each level.
+        for opt in ("", 1, 2):
+            try:
+                cache = Path(importlib.util.cache_from_source(origin, optimization=opt))
+                if _pyc_matches_source(cache, Path(origin)):
+                    own.add(cache.resolve())
+            except (OSError, ValueError, NotImplementedError):
+                continue
+    return own
+
+
+def _foreign_bytecode_items(entries: Sequence[Path], own: set[Path]) -> list[Path]:
+    """Filter `entries` (pycache dirs and files found by the scan) down to what this run did not produce."""
+    kept = {p for p in entries if p.is_file() and p.resolve() not in own}
+    for d in (p for p in entries if not p.is_file()):
+        below = [c for c in entries if c != d and d in c.parents]
+        # A __pycache__ directory disappears only when it held files and every one of them is ours.
+        if not below or any(c in kept or not c.is_file() for c in below):
+            kept.add(d)
+    return [p for p in entries if p in kept]
 
 
 def validate_audit_log_markdown(path: Path) -> dict[str, Any]:
@@ -969,7 +1023,7 @@ def run_audit_check(
     require_ok(root.exists(), "TARGET_NOT_FOUND", f"target path does not exist: {root}")
 
     crlf_files: list[str] = []
-    pycache_items: list[str] = []
+    pycache_entries: list[Path] = []
     leak_findings: list[dict[str, Any]] = []
     syntax_errors: list[dict[str, Any]] = []
     bare_asserts: list[dict[str, Any]] = []
@@ -989,10 +1043,15 @@ def run_audit_check(
             if any(part in SKIP_DIRS for part in rel_parts):
                 continue
             if "__pycache__" in rel_parts or p.suffix in (".pyc", ".pyo"):
-                pycache_items.append(str(p.relative_to(root)))
+                pycache_entries.append(p)
                 continue
             if p.is_file():
                 walk_files.append(p)
+
+    pycache_items = [
+        str(p.relative_to(root))
+        for p in _foreign_bytecode_items(pycache_entries, _loaded_module_bytecode())
+    ]
 
     for p in walk_files:
         files_scanned += 1
