@@ -641,6 +641,9 @@ def validate_comparator_config(
         if extra:
             errors.append(f"UNDECLARED_NONSTANDARD_AXIOMS:{','.join(extra)}")
 
+    if isinstance(chl_mod, str) and chl_mod == sol_mod:
+        errors.append(f"CHALLENGE_EQUALS_SOLUTION_MODULE:{chl_mod}")
+
     if enable_nanoda is not True:
         msg = f"NANODA_DISABLED_OR_OMITTED:{enable_nanoda!r}"
         if require_nanoda:

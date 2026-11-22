@@ -1605,6 +1605,31 @@ class TestAletheiaCLI(unittest.TestCase):
         for gates, text in (("G1", "prior-art checked against arXiv"), ("G1", "no upstream result found"), ("G1, G9", "note")):
             _req(warn_codes(gates, text) == [], f"{gates!r}/{text!r} lost its prior-art credit")
 
+    def test_31_comparator_rejects_one_module_as_challenge_and_solution(self) -> None:
+        from aletheia.audit_check import validate_comparator_config
+
+        base = {
+            "theorem_names": ["main"],
+            "permitted_axioms": ["propext", "Classical.choice", "Quot.sound"],
+            "enable_nanoda": True,
+        }
+        with tempfile.TemporaryDirectory(prefix="aletheia_t_cmp_") as td:
+            root = Path(td)
+            write_lf_text(root / "Same.lean", "theorem main : True := trivial\n")
+            write_lf_text(root / "Other.lean", "theorem main : True := trivial\n")
+
+            def check(chl: str, sol: str) -> dict:
+                cfg = root / "cfg.json"
+                write_lf_text(cfg, json.dumps({**base, "challenge_module": chl, "solution_module": sol}) + "\n")
+                return validate_comparator_config(cfg, lean_root=root, require_nanoda=True)
+
+            same = check("Same", "Same")
+            _req(
+                not same["passed"] and "CHALLENGE_EQUALS_SOLUTION_MODULE:Same" in same["errors"],
+                f"challenge == solution accepted: {same}",
+            )
+            _req(check("Same", "Other")["passed"], "two different modules must still pass")
+
 
 if __name__ == "__main__":
     unittest.main()
