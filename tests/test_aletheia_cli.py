@@ -1432,6 +1432,37 @@ class TestAletheiaCLI(unittest.TestCase):
         rc, _, _ = _run_cli(["calculus", "--eval", "no_such_var ⩩ 0", "--json"])
         _req(rc == 2, f"error must stay rc=2, got {rc}")
 
+    def test_24_calculus_self_test_reports_a_raising_probe_as_failed(self) -> None:
+        from unittest import mock
+
+        import aletheia.calculus as calc
+
+        def boom() -> dict:
+            raise calc.CalculusError("SINGULAR_SOLVE", "precondition miss")
+
+        clean = calc.run_calculus_self_test()
+        _req(clean["passed"] is True and clean["errors"] == [], f"clean self-test must pass with no errors: {clean['errors']}")
+
+        for target, section in (
+            ("run_probe_c2_nested_shadow_and_associator", "C2"),
+            ("run_compressed_theorems", "compressed_theorems"),
+            ("verify_glyph_registry", "glyph_registry"),
+        ):
+            with mock.patch.object(calc, target, boom):
+                res = calc.run_calculus_self_test()
+                _req(
+                    res["passed"] is False and res["verdict"] == "FAILED"
+                    and [(e["section"], e["code"]) for e in res["errors"]] == [(section, "SINGULAR_SOLVE")],
+                    f"{target}: raised error not reported as FAILED: {res['verdict']} {res['errors']}",
+                )
+                _req(
+                    res["commutator_discovery_probes"]["C6"]["all_verified"] is True or section == "glyph_registry",
+                    f"{target}: the other probes must still run",
+                )
+                rc, out, _ = _run_cli(["calculus", "--self-test", "--json"])
+                _req(rc == 1, f"{target}: CLI must exit 1 for a failed section, got {rc}")
+                _req(parse_strict_json_text(out, allow_float=False)["verdict"] == "FAILED", f"{target}: CLI verdict")
+
 
 if __name__ == "__main__":
     unittest.main()

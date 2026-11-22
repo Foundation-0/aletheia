@@ -2051,19 +2051,46 @@ def eval_calculus_expression(expr: str, env: dict[str, Any] | None = None) -> di
 
 
 def run_calculus_self_test() -> dict[str, Any]:
-    """Run full 8-glyph registry verification, 13 compressed theorems, and 6 commutator probes (C1..C6)."""
-    reg = verify_glyph_registry()
-    thms = run_compressed_theorems()
+    """Run full 8-glyph registry verification, 13 compressed theorems, and 6 commutator probes (C1..C6).
+
+    A section that raises a structured error is reported as a failed section in `errors`, never raised.
+    """
+    errors: list[dict[str, str]] = []
+
+    def guarded(name: str, fn: Callable[[], dict[str, Any]], failed: dict[str, Any]) -> dict[str, Any]:
+        try:
+            return fn()
+        except AletheiaError as exc:
+            errors.append({"section": name, "code": exc.code, "message": exc.message})
+            return failed
+
+    reg = guarded(
+        "glyph_registry",
+        verify_glyph_registry,
+        {"glyph_count": 0, "all_category_Sm_and_zero_collision": False, "unicode_ascii_lexer_bound": False, "glyphs": []},
+    )
+    thms = guarded(
+        "compressed_theorems", run_compressed_theorems, {"theorems": [], "theorems_verified": 0}
+    )
+    probe_fns: dict[str, Callable[[], dict[str, Any]]] = {
+        "C1": run_probe_c1_schur_unmask_screening,
+        "C2": run_probe_c2_nested_shadow_and_associator,
+        "C3": run_probe_c3_schur_equalizer_jensen,
+        "C4": run_probe_c4_woodbury_monopole_obstruction,
+        "C5": run_probe_c5_r5_exact_vs_float64_killshot,
+        "C6": run_probe_c6_linear_monopole_subadditivity_metric,
+    }
     probes = {
-        "C1": run_probe_c1_schur_unmask_screening(),
-        "C2": run_probe_c2_nested_shadow_and_associator(),
-        "C3": run_probe_c3_schur_equalizer_jensen(),
-        "C4": run_probe_c4_woodbury_monopole_obstruction(),
-        "C5": run_probe_c5_r5_exact_vs_float64_killshot(),
-        "C6": run_probe_c6_linear_monopole_subadditivity_metric(),
+        pid: guarded(
+            pid,
+            fn,
+            {"all_verified": False, "all_defects_strictly_PSD_even_for_asymmetric_K3": False},
+        )
+        for pid, fn in probe_fns.items()
     }
     all_ok = (
-        reg["all_category_Sm_and_zero_collision"]
+        not errors
+        and reg["all_category_Sm_and_zero_collision"]
         and all(t["verified"] for t in thms["theorems"])
         and probes["C1"]["all_defects_strictly_PSD_even_for_asymmetric_K3"]
         and probes["C2"]["all_verified"]
@@ -2080,6 +2107,7 @@ def run_calculus_self_test() -> dict[str, Any]:
         "glyph_registry_verification": reg,
         "compressed_expedition_theorems": thms,
         "commutator_discovery_probes": probes,
+        "errors": errors,
     }
     payload["canonical_sha256"] = hashlib.sha256(canonical_json(payload).encode("utf-8")).hexdigest()
     return payload
