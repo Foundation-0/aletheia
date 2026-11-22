@@ -46,7 +46,7 @@ Compact cheat-sheet for agents running **The Aletheia Method** (`https://github.
 
 ## 5. 8-Glyph Exact Operator Calculus (v1.3 — `aletheia calculus`)
 
-Audited across `227,540` Lean 4 files (`0` collisions, all Unicode `Sm`), executable in exact $\mathbb{Q}/\mathbb{Z}$ via `python3 -m aletheia calculus [--list | --eval EXPR | --self-test] [--json]`:
+Reported audit across `227,540` Lean 4 files (`0` collisions, all Unicode `Sm`; not reproduced here), executable in exact $\mathbb{Q}/\mathbb{Z}$ via `python3 -m aletheia calculus [--list | --eval EXPR | --self-test] [--json]`:
 
 | Glyph | ASCII | Operator | Meaning |
 |---|---|---|---|

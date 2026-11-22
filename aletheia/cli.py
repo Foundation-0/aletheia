@@ -49,7 +49,7 @@ def _emit(payload: dict[str, Any], as_json: bool) -> None:
         for k, v in payload["summary"].items():
             print(f"  {k}: {v}")
     if "glyphs" in payload and isinstance(payload["glyphs"], list):
-        print("  operator glyphs (0 / 227,540 Lean 4 collisions):")
+        print("  operator glyphs (reported 0 / 227,540 Lean 4 collisions, not reproduced here):")
         for g in payload["glyphs"]:
             print(f"    - {g['id']} {g['codepoint']} ({g['ascii_fallback']}): {g['name']}")
     if "failures" in payload and payload["failures"]:
@@ -163,7 +163,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_calc = sub.add_parser("calculus", help="List, evaluate, or self-test the 8-glyph Aletheia Operator Calculus")
     calc_grp = p_calc.add_mutually_exclusive_group(required=True)
     calc_grp.add_argument("--list", action="store_true", help="List the verified 8-glyph operator registry (Unicode Sm & ASCII fallbacks)")
-    calc_grp.add_argument("--eval", dest="eval_expr", default=None, metavar="EXPR", help="Evaluate a pure-Q Unicode or ASCII operator-calculus expression")
+    calc_grp.add_argument("--eval", dest="eval_expr", default=None, metavar="EXPR", help="Evaluate a pure-Q Unicode or ASCII operator-calculus expression (exit 1 if the value is the boolean false)")
     calc_grp.add_argument("--self-test", action="store_true", help="Run 8-glyph registry verification, 13 compressed theorems & 6 commutator probes")
     p_calc.add_argument("--json", action="store_true", help="Emit zero-float JSON output")
 
@@ -279,7 +279,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 return 0 if res["passed"] else 1
             res = eval_calculus_expression(args.eval_expr)
             _emit(res, as_json)
-            return 0
+            # A false boolean (a failed equivalence) exits 1 so a shell pipeline can gate on truth.
+            return 1 if res["value_type"] == "bool" and res["value"] is False else 0
 
         raise AletheiaError("UNKNOWN_COMMAND", f"unknown command: {args.command}")
 

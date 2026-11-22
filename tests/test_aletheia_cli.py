@@ -886,7 +886,8 @@ class TestAletheiaCLI(unittest.TestCase):
             for u_expr, a_expr, exp_type, exp_val in eval_pairs:
                 rc_u, out_u, err_u = _run_cli(["calculus", "--eval", u_expr, "--json"])
                 rc_a, out_a, err_a = _run_cli(["calculus", "--eval", a_expr, "--json"])
-                _req(rc_u == 0 and rc_a == 0, f"eval failed for {u_expr!r}/{a_expr!r}: {err_u} {err_a}")
+                want_rc = 1 if exp_val is False else 0
+                _req(rc_u == want_rc and rc_a == want_rc, f"eval rc for {u_expr!r}/{a_expr!r}: {rc_u}/{rc_a}, want {want_rc}: {err_u} {err_a}")
                 obj_u = parse_strict_json_text(out_u, allow_float=False)
                 obj_a = parse_strict_json_text(out_a, allow_float=False)
                 _req(
@@ -1387,6 +1388,247 @@ class TestAletheiaCLI(unittest.TestCase):
             obj = json.loads(out)
             _req(rc == 1 and not obj["passed"] and obj["audit_log"]["errors"][0]["code"] == "NO_AUDIT_ROWS",
                  f"explicit empty --audit-log passed: rc={rc} {obj['failures']}")
+
+    def test_21_calculus_registry_lists_every_commutator_probe_the_self_test_runs(self) -> None:
+        from aletheia.calculus import GLYPH_REGISTRY_DATA, run_calculus_self_test
+
+        listed = [p["id"] for p in GLYPH_REGISTRY_DATA["commutator_probes"]]
+        ran = list(run_calculus_self_test()["commutator_discovery_probes"].keys())
+        _req(listed == ran == ["C1", "C2", "C3", "C4", "C5", "C6"], f"registry {listed} vs self-test {ran}")
+        c6 = GLYPH_REGISTRY_DATA["commutator_probes"][-1]
+        _req(c6["expression"] and c6["hypothesis"], f"C6 entry is incomplete: {c6}")
+
+    def test_22_collision_figure_is_labelled_as_reported_not_reproduced(self) -> None:
+        from aletheia.calculus import GLYPH_REGISTRY_DATA
+
+        prov = GLYPH_REGISTRY_DATA["collision_audit"].get("provenance", "")
+        _req("reported" in prov and "not reproduced" in prov, f"registry carries no provenance note: {prov!r}")
+        _, out, _ = _run_cli(["calculus", "--list"])
+        _req("reported 0 / 227,540" in out and "not reproduced" in out, f"--list does not label the figure: {out[:300]}")
+
+        # The scan script and corpus manifest are not in the repo, so every prose line that states the figure must say so.
+        unlabelled = []
+        for path in sorted(CLI_ROOT.rglob("*")):
+            rel = path.relative_to(CLI_ROOT)
+            if not path.is_file() or ".git" in rel.parts or rel.parts[0] == "tests" or path.suffix not in (".py", ".md"):
+                continue
+            for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+                if "227,540" in line and "reported" not in line.lower():
+                    unlabelled.append(f"{rel}:{n}")
+        _req(not unlabelled, f"227,540 stated without a 'reported' label at: {unlabelled}")
+
+    def test_23_calculus_eval_exit_code_gates_on_a_false_boolean(self) -> None:
+        for expr, rc_want, value in (
+            ("1/2 ⩩ 1/2", 0, True),
+            ("1/2 =#= 1/3", 1, False),
+            ("1/2 + 1/3", 0, "5/6"),
+        ):
+            for extra in (["--json"], []):
+                rc, out, _ = _run_cli(["calculus", "--eval", expr, *extra])
+                _req(rc == rc_want, f"{expr!r} {extra}: rc={rc}, want {rc_want}")
+                if extra:
+                    _req(parse_strict_json_text(out, allow_float=False)["value"] == value, f"{expr!r}: wrong value {out}")
+        # A usage or evaluation error is still rc=2, distinct from a false result.
+        rc, _, _ = _run_cli(["calculus", "--eval", "no_such_var ⩩ 0", "--json"])
+        _req(rc == 2, f"error must stay rc=2, got {rc}")
+
+    def test_24_calculus_self_test_reports_a_raising_probe_as_failed(self) -> None:
+        from unittest import mock
+
+        import aletheia.calculus as calc
+
+        def boom() -> dict:
+            raise calc.CalculusError("SINGULAR_SOLVE", "precondition miss")
+
+        clean = calc.run_calculus_self_test()
+        _req(clean["passed"] is True and clean["errors"] == [], f"clean self-test must pass with no errors: {clean['errors']}")
+
+        for target, section in (
+            ("run_probe_c2_nested_shadow_and_associator", "C2"),
+            ("run_compressed_theorems", "compressed_theorems"),
+            ("verify_glyph_registry", "glyph_registry"),
+        ):
+            with mock.patch.object(calc, target, boom):
+                res = calc.run_calculus_self_test()
+                _req(
+                    res["passed"] is False and res["verdict"] == "FAILED"
+                    and [(e["section"], e["code"]) for e in res["errors"]] == [(section, "SINGULAR_SOLVE")],
+                    f"{target}: raised error not reported as FAILED: {res['verdict']} {res['errors']}",
+                )
+                _req(
+                    res["commutator_discovery_probes"]["C6"]["all_verified"] is True or section == "glyph_registry",
+                    f"{target}: the other probes must still run",
+                )
+                rc, out, _ = _run_cli(["calculus", "--self-test", "--json"])
+                _req(rc == 1, f"{target}: CLI must exit 1 for a failed section, got {rc}")
+                _req(parse_strict_json_text(out, allow_float=False)["verdict"] == "FAILED", f"{target}: CLI verdict")
+
+    def test_25_latch_result_carries_no_tautological_gate_field(self) -> None:
+        from fractions import Fraction
+
+        from aletheia.ratchet import exact_pythagorean_latch_check
+
+        res = exact_pythagorean_latch_check(
+            proxy_before=Fraction(36), proxy_after=Fraction(0),
+            outside_before=Fraction(0), outside_after=Fraction(144),
+        )
+        # `pythagorean_exact` compared proxy_after + outside_after with itself and was true for every input.
+        _req("pythagorean_exact" not in res, f"always-true field is back: {res}")
+        _req(res["decision"] == "LATCH_HALT" and res["total_after"] == "144" and res["outside_inflated"] is True, f"latch changed: {res}")
+        _, out, _ = _run_cli(["ratchet", "--demo", "--json"])
+        _req("pythagorean_exact" not in out, "the demo output still carries pythagorean_exact")
+
+    def test_26_mutator_reports_when_max_mutants_truncates(self) -> None:
+        fixture = CLI_ROOT / "tests" / "fixture_verifier.py"
+        cmd = "python3 fixture_verifier_test.py"
+        full = run_mutation_suite(fixture, cmd, work_root=fixture.parent, include_boundaries=True)
+        n = full["total_mutants"]
+        _req(n > 3 and full["truncated"] is False and "warning" not in full and full["mutants_discovered"] == n,
+             f"untruncated run must say so: {n} {full['truncated']} {full.get('warning')}")
+
+        cut = run_mutation_suite(fixture, cmd, work_root=fixture.parent, include_boundaries=True, max_mutants=3)
+        _req(
+            cut["truncated"] is True and cut["total_mutants"] == 3 and cut["mutants_discovered"] == n
+            and f"{n - 3} of {n}" in cut["warning"],
+            f"truncation not reported: {cut.get('truncated')} {cut.get('mutants_discovered')} {cut.get('warning')}",
+        )
+
+        # The command line shows it too, in JSON and in the text summary.
+        args = ["mutate", str(fixture), "--test-cmd", cmd, "--max-mutants", "3"]
+        rc, out, _ = _run_cli(args + ["--json"])
+        obj = json.loads(out)
+        _req(obj["truncated"] is True and "warning" in obj, f"JSON output hides the truncation: {list(obj)}")
+        rc, out, _ = _run_cli(args)
+        _req("warning: max_mutants=3" in out, f"text output hides the truncation: {out[:400]}")
+
+    def test_27_init_reports_a_regular_file_in_the_way_of_a_directory(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="aletheia_t_initfile_") as td:
+            root = Path(td)
+            for blocker in ("verification", "probes", "cartography"):
+                ws = root / f"ws_{blocker}"
+                ws.mkdir()
+                (ws / blocker).write_text("not a directory\n", encoding="utf-8")
+                for extra in ([], ["--force"]):
+                    rc, out, err = _run_cli(["init", str(ws), "--domain", "spectral", "--json", *extra])
+                    obj = json.loads(out) if out.strip() else {}
+                    _req(
+                        rc == 2 and obj.get("code") == "WORKSPACE_EXISTS" and blocker in obj.get("message", ""),
+                        f"{blocker} {extra}: rc={rc} out={out!r} err={err!r}",
+                    )
+                    _req((ws / blocker).read_text(encoding="utf-8") == "not a directory\n", f"{blocker} file was touched")
+                    _req(sorted(p.name for p in ws.iterdir()) == [blocker], f"{blocker} {extra}: partial scaffold left behind")
+            # The target itself being a regular file takes the same path.
+            target = root / "afile"
+            target.write_text("x", encoding="utf-8")
+            rc, out, _ = _run_cli(["init", str(target), "--json"])
+            _req(rc == 2 and json.loads(out)["code"] == "WORKSPACE_EXISTS", f"file target: rc={rc} out={out!r}")
+            # Control: a clean directory still initializes.
+            rc, out, _ = _run_cli(["init", str(root / "clean"), "--json"])
+            _req(rc == 0 and json.loads(out)["status"] == "INITIALIZED", f"clean init failed: rc={rc} out={out!r}")
+
+    def test_28_r4_is_three_modes_everywhere_it_is_stated(self) -> None:
+        import re
+
+        from aletheia.audit_check import run_r4_script_check
+
+        # The code is the reference: the check runs three modes and the scaffold writes three.
+        with tempfile.TemporaryDirectory(prefix="aletheia_t_r4_") as td:
+            script = Path(td) / "ok.py"
+            write_lf_text(script, 'print("ok")\n')
+            res = run_r4_script_check(script)
+            _req(sorted(res["modes"]) == ["B", "B_Werror", "O_B"] and res["passed"], f"R4 check modes: {sorted(res['modes'])}")
+            ws = Path(td) / "ws"
+            init_workspace(ws, domain="spectral")
+            cfg = json.loads((ws / "aletheia.json").read_text(encoding="utf-8"))
+            _req(cfg["r4_modes"] == ["-I -B", "-I -O -B", "-I -B -W error"], f"scaffold r4_modes: {cfg['r4_modes']}")
+
+        # No document, docstring or example may call it four modes or list a fourth combination as an R4 mode.
+        fourth = [
+            re.compile(r"(?i)4-mode|all four (isolated|python|execution)|four isolated"),
+            re.compile(r"-I -B -W error.{0,12}-I -O -B -W error"),
+            re.compile(r"-I -B -W error[^\n]*\n[^\n]*-I -O -B -W error"),
+        ]
+        stray = []
+        for path in sorted(CLI_ROOT.rglob("*")):
+            rel = path.relative_to(CLI_ROOT)
+            if not path.is_file() or ".git" in rel.parts or rel.parts[0] == "tests" and rel.name != "run_all.py" or path.suffix not in (".py", ".md"):
+                continue
+            text = path.read_text(encoding="utf-8")
+            for pat in fourth:
+                if pat.search(text):
+                    stray.append(f"{rel}: {pat.pattern}")
+        _req(not stray, f"a fourth R4 mode is still stated: {stray}")
+
+    def test_29_demo_stage5_is_labelled_simulated(self) -> None:
+        import importlib.util
+
+        demo = CLI_ROOT / "examples" / "worked_resonance_cycle" / "run_demo.py"
+        spec = importlib.util.spec_from_file_location("aletheia_worked_demo", demo)
+        _req(spec is not None and spec.loader is not None, "cannot load the demo")
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = mod
+        try:
+            spec.loader.exec_module(mod)
+        finally:
+            sys.modules.pop(spec.name, None)
+        stage5 = mod.run_all()["stages"][4]
+        _req("simulated" in stage5["name"].lower(), f"stage 5 name does not say simulated: {stage5['name']}")
+        _req(stage5["mutants_total"] == 3 and stage5["mutants_killed"] == 3, "stage 5 counts changed")
+
+        # The demo uses skip flags in the certifier, not the AST mutator, so no text may call these mutations live.
+        for path in (demo, demo.with_name("README.md")):
+            text = path.read_text(encoding="utf-8").lower()
+            _req("live refusal-site" not in text and "3 live" not in text and "live mutation" not in text,
+                 f"{path.name} still calls the simulated mutations live")
+            _req("simulated" in text and "ast mutator" in text, f"{path.name} does not say the mutations are simulated")
+
+    def test_30_n2_prior_art_hint_ignores_bare_confirmed_and_beyond(self) -> None:
+        from aletheia.audit_check import validate_audit_log_markdown
+
+        head = (
+            "| Audit ID | Date | Author | Target | Gates | Oracle | Novelty | Verdict | Evidence |\n"
+            "|---|---|---|---|---|---|---|---|---|\n"
+        )
+
+        def warn_codes(gates: str, evidence: str) -> list[str]:
+            with tempfile.TemporaryDirectory(prefix="aletheia_t_n2_") as td:
+                path = Path(td) / "LOG.md"
+                write_lf_text(path, head + f"| AUDIT-001 | 2026-11-20 | a | t | {gates} | exact | N2 | VERIFIED | {evidence} |\n")
+                res = validate_audit_log_markdown(path)
+                _req(res["valid"], f"row rejected: {res['errors']}")
+                return [w["code"] for w in res["warnings"]]
+
+        # Ordinary words are not a prior-art note.
+        for text in ("confirmed by the verifier", "goes beyond the sketch", "Confirmed beyond doubt"):
+            _req(warn_codes("G1", text) == ["N2_MISSING_PRIOR_ART_NOTE"], f"{text!r} counted as a prior-art note")
+        # Controls: a real prior-art cue or a G9 entry still satisfies the check.
+        for gates, text in (("G1", "prior-art checked against arXiv"), ("G1", "no upstream result found"), ("G1, G9", "note")):
+            _req(warn_codes(gates, text) == [], f"{gates!r}/{text!r} lost its prior-art credit")
+
+    def test_31_comparator_rejects_one_module_as_challenge_and_solution(self) -> None:
+        from aletheia.audit_check import validate_comparator_config
+
+        base = {
+            "theorem_names": ["main"],
+            "permitted_axioms": ["propext", "Classical.choice", "Quot.sound"],
+            "enable_nanoda": True,
+        }
+        with tempfile.TemporaryDirectory(prefix="aletheia_t_cmp_") as td:
+            root = Path(td)
+            write_lf_text(root / "Same.lean", "theorem main : True := trivial\n")
+            write_lf_text(root / "Other.lean", "theorem main : True := trivial\n")
+
+            def check(chl: str, sol: str) -> dict:
+                cfg = root / "cfg.json"
+                write_lf_text(cfg, json.dumps({**base, "challenge_module": chl, "solution_module": sol}) + "\n")
+                return validate_comparator_config(cfg, lean_root=root, require_nanoda=True)
+
+            same = check("Same", "Same")
+            _req(
+                not same["passed"] and "CHALLENGE_EQUALS_SOLUTION_MODULE:Same" in same["errors"],
+                f"challenge == solution accepted: {same}",
+            )
+            _req(check("Same", "Other")["passed"], "two different modules must still pass")
 
 
 if __name__ == "__main__":

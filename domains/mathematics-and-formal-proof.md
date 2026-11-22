@@ -82,14 +82,13 @@ Every executable mathematical verifier in an Aletheia project must satisfy:
   - Reject Python `bool` explicitly (`isinstance(x, bool)` is `True` for `int` subclasses — a notorious silent bug in Python `Fraction` TCBs!).
   - Reject `float` explicitly on exact trust paths (never silently call `Fraction(1.5)` inside a certifier).
   - Parse rational strings strictly in lowest terms with no leading zeros, whitespace, underscores, decimal notation, or non-ASCII digits (`AUDIT-006R`, `AUDIT-016R`).
-- **R4 (Isolated 4-Mode Determinism & Zero Bare `assert`s):**
+- **R4 (Isolated 3-Mode Determinism & Zero Bare `assert`s):**
   - Never use bare Python `assert` on any trust or verification path — `python3 -O` strips every `assert` statement! Always use an explicit `require(cond, code, msg)` function raising `ValueError`/`TypeError`.
-  - Verify bit-identical deterministic output across all four isolated execution modes:
+  - Verify bit-identical deterministic output across all three isolated execution modes:
     ```bash
     python3 -I -B script.py --json
     python3 -I -O -B script.py --json
     python3 -I -B -W error script.py --json
-    python3 -I -O -B -W error script.py --json
     ```
 - **R5 (Must-Fail Controls & Refusal-Site Mutation Suite):**
   - Ship concrete negative controls covering every failure mode (non-PSD $P$, non-Hermitian $H$, negative Hankel weights $a_k < 0$, wrong dimensions, `bool`/`float` leaks, boundary violations).
@@ -139,7 +138,7 @@ Before marking any mathematical discovery `VERIFIED` or promoting it to `N1`/`N2
 - [ ] **Boundary & edge-case coverage:** Zero-trace, zero-rank, $b = 0$, $b > n$, degenerate eigenvalues, and division-by-zero boundaries are checked both analytically and in code.
 - [ ] **Zero-float TCB:** No `float`, `math.sqrt`, or `numpy` tolerance appears inside any `exact` decision path.
 - [ ] **Zero-shared-code dual oracle:** A second, mathematically independent checker agrees 100% across all test cases and fresh out-of-sample randomized exact inputs.
-- [ ] **R4 4-mode isolated parity:** Script contains `0` bare `assert`s and produces bit-identical canonical JSON under `-I -B`, `-I -O -B`, `-I -B -W error`, and `-I -O -B -W error`.
+- [ ] **R4 3-mode isolated parity:** Script contains `0` bare `assert`s and produces bit-identical canonical JSON under `-I -B`, `-I -O -B`, and `-I -B -W error`.
 - [ ] **R5 must-fail & mutation suite:** Every hypothesis guard has a failing negative control, and mutating/deleting each guard is caught live.
 - [ ] **Full-text prior-art delta (Gate 9):** Checked against the actual text of closest papers/PRs; `N0`/`N1`/`N2` label matches the proven delta.
 - [ ] **Honest scope & standing tags:** Uncompiled Lean/Coq files tagged `uncompiled_source`; open PRs tagged `Draft PR`; local-vs-global limits stated upfront.

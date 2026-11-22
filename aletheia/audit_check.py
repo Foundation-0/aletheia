@@ -55,7 +55,7 @@ _UNSEEDED_NP_RANDOM_FUNCS = {
 
 _AUDIT_ID_RE = re.compile(r"AUDIT-[0-9]+[A-Za-z0-9_-]*")
 _PRIOR_ART_HINT_RE = re.compile(
-    r"(?:prior[- ]?art|arxiv|literature|borcea|streinu|knausg|alp[oö]ge|loom#|docs/10|confirmed|beyond|over\s+`?loom|refut|reproduc|upstream|skordis|l'vov|viazovska)",
+    r"(?:prior[- ]?art|arxiv|literature|borcea|streinu|knausg|alp[oö]ge|loom#|docs/10|over\s+`?loom|refut|reproduc|upstream|skordis|l'vov|viazovska)",
     re.IGNORECASE,
 )
 
@@ -640,6 +640,9 @@ def validate_comparator_config(
         extra = sorted(a for a in axioms if a not in allowed_all)
         if extra:
             errors.append(f"UNDECLARED_NONSTANDARD_AXIOMS:{','.join(extra)}")
+
+    if isinstance(chl_mod, str) and chl_mod == sol_mod:
+        errors.append(f"CHALLENGE_EQUALS_SOLUTION_MODULE:{chl_mod}")
 
     if enable_nanoda is not True:
         msg = f"NANODA_DISABLED_OR_OMITTED:{enable_nanoda!r}"

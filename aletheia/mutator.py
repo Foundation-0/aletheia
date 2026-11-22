@@ -407,6 +407,7 @@ def run_mutation_suite(
     source = target.read_text(encoding="utf-8")
     tree, sites = discover_mutant_sites(source, include_boundaries=include_boundaries)
     local_wrappers = sorted(discover_local_refusal_wrappers(tree).keys())
+    discovered = len(sites)
     if max_mutants > 0:
         sites = sites[:max_mutants]
     require_ok(len(sites) > 0, "NO_MUTANTS_DISCOVERED", f"no refusal/boundary guard sites found in {target}")
@@ -473,11 +474,14 @@ def run_mutation_suite(
 
     total = len(sites)
     kill_rate = round(100.0 * killed / total, 2) if total > 0 else 0.0
-    return {
+    truncated = total < discovered
+    payload: dict[str, Any] = {
         "passed": len(survivors) == 0,
         "target": str(target),
         "test_cmd": test_cmd,
         "local_wrappers_detected": local_wrappers,
+        "mutants_discovered": discovered,
+        "truncated": truncated,
         "total_mutants": total,
         "killed": killed,
         "survived": len(survivors),
@@ -485,3 +489,9 @@ def run_mutation_suite(
         "survivors": survivors,
         "results": results,
     }
+    if truncated:
+        payload["warning"] = (
+            f"max_mutants={max_mutants} cut {discovered - total} of {discovered} discovered sites; "
+            "they were not tested, so a pass covers only the first sites (use --max-mutants 0 for all)"
+        )
+    return payload
