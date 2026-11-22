@@ -2,8 +2,8 @@ r"""
 Aletheia 8-Glyph Operator Calculus (v1.3 — AUDIT-051 VERIFIED).
 
 Zero-dependency, zero-float pure-Q/Z executable engine, Unicode & ASCII-fallback
-lexer/parser/evaluator, embedded canonical 8-glyph registry (0 / 227,540 Lean 4
-corpus collisions, all Unicode Sm), 13 compressed expedition theorems, and 6
+lexer/parser/evaluator, embedded canonical 8-glyph registry (reported 0 / 227,540 Lean 4
+corpus collisions, not reproduced in this repo; all Unicode Sm), 13 compressed expedition theorems, and 6
 commutator discovery probes (C1..C6):
 
     ⧄ (U+29C4, |/| )  Fiber-Elimination Schur Pushforward     (binary, prec 60 L)
@@ -73,6 +73,7 @@ GLYPH_REGISTRY_DATA: dict[str, Any] = loads_strict_json(
       "U+2A00..U+2AFF (Supplemental Mathematical Operators)"
     ],
     "total_sm_codepoints_audited": 392,
+    "provenance": "reported by the Round 4C run; the scan script and corpus manifest are not in this repository, so this figure is not reproduced here",
     "lean4_corpus_files_scanned": 227540,
     "lean4_repos_scanned": [
       "google-deepmind/formal-conjectures@d8d031d4",

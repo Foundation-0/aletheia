@@ -1397,6 +1397,25 @@ class TestAletheiaCLI(unittest.TestCase):
         c6 = GLYPH_REGISTRY_DATA["commutator_probes"][-1]
         _req(c6["expression"] and c6["hypothesis"], f"C6 entry is incomplete: {c6}")
 
+    def test_22_collision_figure_is_labelled_as_reported_not_reproduced(self) -> None:
+        from aletheia.calculus import GLYPH_REGISTRY_DATA
+
+        prov = GLYPH_REGISTRY_DATA["collision_audit"].get("provenance", "")
+        _req("reported" in prov and "not reproduced" in prov, f"registry carries no provenance note: {prov!r}")
+        _, out, _ = _run_cli(["calculus", "--list"])
+        _req("reported 0 / 227,540" in out and "not reproduced" in out, f"--list does not label the figure: {out[:300]}")
+
+        # The scan script and corpus manifest are not in the repo, so every prose line that states the figure must say so.
+        unlabelled = []
+        for path in sorted(CLI_ROOT.rglob("*")):
+            rel = path.relative_to(CLI_ROOT)
+            if not path.is_file() or ".git" in rel.parts or rel.parts[0] == "tests" or path.suffix not in (".py", ".md"):
+                continue
+            for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+                if "227,540" in line and "reported" not in line.lower():
+                    unlabelled.append(f"{rel}:{n}")
+        _req(not unlabelled, f"227,540 stated without a 'reported' label at: {unlabelled}")
+
 
 if __name__ == "__main__":
     unittest.main()

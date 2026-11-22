@@ -49,7 +49,7 @@ def _emit(payload: dict[str, Any], as_json: bool) -> None:
         for k, v in payload["summary"].items():
             print(f"  {k}: {v}")
     if "glyphs" in payload and isinstance(payload["glyphs"], list):
-        print("  operator glyphs (0 / 227,540 Lean 4 collisions):")
+        print("  operator glyphs (reported 0 / 227,540 Lean 4 collisions, not reproduced here):")
         for g in payload["glyphs"]:
             print(f"    - {g['id']} {g['codepoint']} ({g['ascii_fallback']}): {g['name']}")
     if "failures" in payload and payload["failures"]:

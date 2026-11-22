@@ -80,7 +80,7 @@ PYTHONPATH=. python3 -m aletheia ratchet --demo
 # Run Plane-1 zone-canon-v0 manifest pinning, causal audit DAG & abios SYM-2P/2.0-rcp bridge (AUDIT-027)
 PYTHONPATH=. python3 -m aletheia mde --demo
 
-# Run the verified 8-Glyph Aletheia Operator Calculus (⧄ ⧅ ⦷ ⟠ ⧇ ⦺ ⩩ ⫩; 0 / 227,540 Lean 4 collisions, AUDIT-051)
+# Run the verified 8-Glyph Aletheia Operator Calculus (⧄ ⧅ ⦷ ⟠ ⧇ ⦺ ⩩ ⫩; reported 0 / 227,540 Lean 4 collisions, not reproduced here, AUDIT-051)
 PYTHONPATH=. python3 -m aletheia calculus --list --json
 PYTHONPATH=. python3 -m aletheia calculus --eval "⦺(L_odd ⦷ chi1) ⩩ (1, 2, 1)" --json
 PYTHONPATH=. python3 -m aletheia calculus --self-test --json
