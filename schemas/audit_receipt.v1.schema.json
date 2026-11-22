@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/Foundation-0/aletheia/schemas/audit_receipt.v1.schema.json",
   "title": "Aletheia Audit Receipt v1",
-  "description": "Machine-readable adversarial verification receipt produced by an independent Tomography Verifier (G_obs) and validated by `aletheia audit-check`.",
+  "description": "Machine-readable adversarial verification receipt produced by an independent Tomography Verifier (G_obs) and validated by `aletheia audit-check`. All regexes use `(?!\\n)$` so Python `re` and ECMA-262 both reject trailing newlines.",
   "type": "object",
   "required": [
     "schema",
@@ -22,12 +22,12 @@
     },
     "audit_id": {
       "type": "string",
-      "pattern": "^AUDIT-[0-9]{3}[A-Z]?$",
-      "description": "Sequential audit identifier (e.g. AUDIT-001, AUDIT-020R)."
+      "pattern": "^AUDIT-[0-9]{3,4}[A-Za-z0-9_-]*(?!\\n)$",
+      "description": "Sequential audit identifier (e.g. AUDIT-001, AUDIT-020R, AUDIT-0001)."
     },
     "date": {
       "type": "string",
-      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}(?!\\n)$",
       "description": "UTC date (YYYY-MM-DD) when the audit completed."
     },
     "author": {
@@ -57,8 +57,8 @@
     },
     "oracle_class": {
       "type": "string",
-      "pattern": "^(exact|sampled|anchor)(\\s*\\+\\s*(exact|sampled|anchor))*$",
-      "description": "Primary verification oracle class (or '+'-joined combination of exact, sampled, anchor)."
+      "pattern": "^(exact|sampled|anchor|reference_replay)(\\s*\\+\\s*(exact|sampled|anchor|reference_replay))*(?!\\n)$",
+      "description": "Primary verification oracle class (or '+'-joined combination of exact, sampled, anchor, reference_replay)."
     },
     "novelty": {
       "type": "string",
@@ -75,22 +75,22 @@
       "type": "array",
       "items": {
         "type": "string",
-        "pattern": "^(G[1-9]|R[1-5])$"
+        "pattern": "^(G(?:[1-9]|10)|R[1-7])(?!\\n)$"
       },
       "uniqueItems": true
     },
     "repro_command": {
       "type": "string",
       "minLength": 1,
-      "description": "Clean-room command reproducing the audit under isolated flags (-I -O -B -W error)."
+      "description": "Clean-room command reproducing the audit across the 3 R4 modes (-I -B, -I -O -B, -I -B -W error)."
     },
     "r4_parity": {
       "type": "boolean",
-      "description": "True iff exit code and canonical output match across -I -B, -I -O -B, and -I -B -W error with zero bare asserts."
+      "description": "True iff exit code, skip counts, and canonical output match across -I -B, -I -O -B, and -I -B -W error with zero bare asserts (required true when verdict == VERIFIED)."
     },
     "prior_art_checked": {
       "type": "boolean",
-      "description": "True iff full-text prior art and live peer PRs were inspected (mandatory true whenever novelty includes N2)."
+      "description": "True iff full-text prior art and mechanism-first literature checks were completed (mandatory true whenever verdict == VERIFIED and novelty includes N2)."
     },
     "prior_art_refs": {
       "type": "array",
@@ -101,7 +101,7 @@
     },
     "canonical_sha256": {
       "type": "string",
-      "pattern": "^[0-9a-f]{64}$"
+      "pattern": "^[0-9a-f]{64}(?!\\n)$"
     },
     "mutants_killed": {
       "type": "integer",
@@ -141,6 +141,28 @@
     {
       "if": {
         "properties": {
+          "verdict": {
+            "const": "VERIFIED"
+          }
+        },
+        "required": [
+          "verdict"
+        ]
+      },
+      "then": {
+        "properties": {
+          "r4_parity": {
+            "const": true
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "verdict": {
+            "const": "VERIFIED"
+          },
           "novelty": {
             "enum": [
               "N2",
@@ -149,6 +171,7 @@
           }
         },
         "required": [
+          "verdict",
           "novelty"
         ]
       },

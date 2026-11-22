@@ -19,7 +19,7 @@ from .strict_io import (
 )
 
 SUPPORTED_SCHEMAS = ("aletheia.compute_handoff.v1", "expedition.next_waves.v1")
-VALID_ORACLE_TOKENS = {"exact", "sampled", "anchor"}
+VALID_ORACLE_TOKENS = {"exact", "sampled", "anchor", "reference_replay"}
 _DATE_RE = re.compile(r"\A[0-9]{4}-[0-9]{2}-[0-9]{2}\Z", re.ASCII)
 
 
@@ -82,7 +82,7 @@ def create_handoff_template(
     return {"status": "TEMPLATE_CREATED", "path": str(out_path), "schema": tpl["schema"]}
 
 
-_LEGACY_ORACLE_PART_RE = re.compile(r"\A(exact|sampled|anchor)(?:\s*\([^()]+\))?\Z")
+_LEGACY_ORACLE_PART_RE = re.compile(r"\A(exact|sampled|anchor|reference_replay)(?:\s*\([^()]+\))?\Z")
 
 
 def _validate_oracle_class(raw: Any, task_id: str, *, allow_qualifiers: bool = False) -> list[str]:

@@ -1,10 +1,10 @@
 # Aletheia — Portal-Driven Scientific Discovery & Adversarial Verification Framework
 
-> **Alētheia** (ἀλήθεια — *unconcealment*, stepping out of Plato's cave): an open, domain-general scientific discovery methodology, zero-dependency Python 3 CLI (`v1.4.0`), multi-platform agent adapter suite, and formal verification standard for human researchers and AI research swarms.
+> **Alētheia** (ἀλήθεια — *unconcealment*, stepping out of Plato's cave): an open, domain-general scientific discovery methodology, zero-dependency Python 3 CLI (`v2.0.0`), multi-platform agent adapter suite, and formal verification standard (`R1`–`R7`, Own-Terms-First, Law 2b Transformational Steelman) for human researchers and AI research swarms.
 >
-> **Law-4 Prior-Art & Naming Disambiguation:** Google DeepMind independently publishes a proprietary Gemini-Deep-Think mathematical proving agent named *Aletheia* (`google-deepmind/superhuman@9b620a9`, `aletheia/README.md` / `Aletheia.pdf`). **`Foundation-0/aletheia` is completely orthogonal:** an open-source (Apache-2.0), model-agnostic, zero-dependency anti-Cave research methodology, Beyond-Language coordinate-free protocol, and R1–R5 adversarial verification CLI.
+> **Law-4 Prior-Art & Naming Disambiguation:** Google DeepMind independently publishes a proprietary Gemini-Deep-Think mathematical proving agent named *Aletheia* (`google-deepmind/superhuman@9b620a9`, `aletheia/README.md` / `Aletheia.pdf`). **`Foundation-0/aletheia` is completely orthogonal:** an open-source (Apache-2.0), model-agnostic, zero-dependency anti-Cave research methodology, Own-Terms-First & Transformational Steelman protocol, and `R1`–`R7` adversarial verification CLI.
 
-Standard AI research workflows—and standard critique-first review loops—fall into a systematic **cave-shadow trap**: they treat rough ideas, messy transcripts, or buggy prototypes as finished papers to grade, catch implementation flaws, log clean negative results, and stall at **`N0` (no new ground)**. **The Aletheia Method** breaks out of that trap by coupling **radical open-mindedness in hypothesis generation** (*Active Portal Resonance* + *Steelman-Before-Falsify*) with **zero-mercy independence in certification** (*Active Multi-Basis Observer Tomography*, $\mathcal{G}_{\mathrm{obs}}$, across 9 verification gates and R1–R5 gate-integrity contracts).
+Standard AI research workflows—and standard critique-first review loops—fall into a systematic **cave-shadow trap**: they treat rough ideas, messy transcripts, or buggy prototypes as finished papers to grade, catch implementation flaws, log clean negative results, and stall at **`N0` (no new ground)**. **The Aletheia Method** breaks out of that trap by coupling **radical open-mindedness in hypothesis generation** (*Active Portal Resonance* + *Own-Terms-First* + *Steelman & Law 2b Transformational Steelman*) with **zero-mercy independence in certification** (*Active Multi-Basis Observer Tomography*, $\mathcal{G}_{\mathrm{obs}}$, across 10 verification gates and `R1`–`R7` gate-integrity contracts).
 
 ---
 
@@ -36,9 +36,9 @@ Aletheia was not designed abstractly—it emerged from a live natural experiment
 | **Cartographer / Portal Role** | One-shot static map (`#10`–`#14`), then parked `[done]` | Active **Portal Keeper** re-entering raw sources on every anomaly (`#16`, `#25`, `#38`, `#46`, `#47`, `#52`, `#53`) |
 | **Handling of Rough Drafts** | Cataloged bugs (`AUDIT-001` `FALSIFIED`, `AUDIT-003` `PARTIAL`) and stopped | Separated prototype defects from underlying invariants; steelmanned first, then certified in exact arithmetic |
 | **Verifier Role** | Rejection gate only | **Active Tomography ($\mathcal{G}_{\mathrm{obs}}$):** caught `5/5` real intermediate defects (`AUDIT-006/007/013/015/020`), supplied minimal reproducers & sharpness walls, driving clean upgrades to `VERIFIED` |
-| **Verified Yield (`AUDIT-001`–`021`)** | **`0` confirmed `N2`** (matching peer baseline *"New ground: still none"*) | **`10` confirmed `N2` breakthroughs** + **`1` `N1`/`N2`** + **`7` `N1` advances**, `14` clean-room verifier scripts, `0` unresolved defects, published across [2 canonical `Foundation-0` repos & 10 open Draft PRs](evidence/cave-expedition-case-study.md#4-complete-published-artifact-ledger) |
+| **Verified Yield (`AUDIT-001`–`021`)** | **`0` confirmed `N2`** (our sibling team's ledger read *"New ground: still none"* after its own critique-first pass on overlapping sources) | Ten results were labelled `N2` by the expedition's own verifier (plus `1` `N1`/`N2` and `8` `N1` advances across `14` verifier scripts; `0` unresolved defects in the results checked, with two check scripts `check_007`/`check_008` later needing re-pinning against patched heads). An independent two-pass outside check (`cave-expedition#4`) confirmed every central computation it covered, kept one at `N2` (`F_8 -> E_8` fold, medium confidence) and one as a strong candidate (all-$n$ `D_n` fold), and reclassified the rest to `N1` or `N0` after finding the same mechanisms under other fields' names. Published across [2 canonical `Foundation-0` repos & 10 open Draft PRs](evidence/cave-expedition-case-study.md#4-complete-published-artifact-ledger). |
 
-> **Provenance Standing:** Every cross-repo mathematical/physical contribution from the Cave Expedition remains an open Draft PR awaiting human and external peer review; "`VERIFIED`" and "`N2`" denote survival of our 9-gate clean-room adversarial protocol and full-text prior-art checks.
+> **Provenance Standing:** Every cross-repo mathematical/physical contribution from the Cave Expedition remains an open Draft PR awaiting human and external peer review; internal "`VERIFIED`" and "`N2`" tags denote survival of our verification protocol and full-text checks of the cited prior work. An outside check (`cave-expedition#4`, `evidence/outside/`) found several of the same mechanisms under other fields' names—directly driving v2.0's Gate 9 Mechanism-First Prior Art and Gate 10 Advocate Pass.
 
 ---
 
@@ -54,7 +54,7 @@ cd aletheia
 python3 -I -O -B -W error examples/worked_resonance_cycle/run_demo.py
 ```
 
-### 2. Run the Zero-Dependency `aletheia` v1.4 CLI & Self-Test Suite
+### 2. Run the Zero-Dependency `aletheia` v2.0.0 CLI & Self-Test Suite
 
 ```bash
 # Run directly without installing (or: pip install -e .)
@@ -63,15 +63,21 @@ PYTHONPATH=. python3 -m aletheia --help
 # Scaffold a new expedition workspace
 PYTHONPATH=. python3 -m aletheia init /tmp/my-expedition --domain physics
 
-# Audit any repo/expedition for R4 parity, bare asserts, strict JSON/JSONL, CRLF, leaks,
-# optional --strict-ancestors (canonical 0o022-free ancestor permissions), and hardened Lean 4 purity
-PYTHONPATH=. python3 -m aletheia audit-check . --lean-audit --strict-ancestors
+# Audit any repo/expedition for R4 3-mode parity (incl. unittest -O skip detection), bare asserts,
+# strict JSON/JSONL, CRLF, leaks, --strict-ancestors, --safety-scan (CYA-GAP-01..06), and Lean 4 purity
+PYTHONPATH=. python3 -m aletheia audit-check . --lean-audit --strict-ancestors --safety-scan
 
-# Run AST-based R5 refusal-site mutation testing (auto-detects local refusal wrappers like _req/_fail_if,
-# supports --work-root/--add-cwd, dict verdicts & accumulators)
-PYTHONPATH=. python3 -m aletheia mutate path/to/verifier.py --work-root . --test-cmd "python3 -I -O -B path/to/tests.py"
+# Run pure-Q v2.0 gate-contract self-test (R6/R7, Two-Direction R3, NOT_SHOWN, Gate-8 col(Phi) latch, Law 2b, Own-Terms-First)
+PYTHONPATH=. python3 -m aletheia gate-v2 --self-test --json
 
-# Diagnose all 12 Cave-Shadow relapse patterns (CS-01..CS-12, incl. truncation mirages, collision denominators, unit/radix fragility & trust-boundary shadows)
+# Run deterministic static agent safety-surface scan (CYA-GAP-01..06)
+PYTHONPATH=. python3 -m aletheia safety-scan . --json
+
+# Run AST-based R5 refusal-site mutation testing (local + cross-module imported wrappers, --guards,
+# string/tuple/multi-stmt refusal shapes, self-check mode, NOT_SHOWN on truncation)
+PYTHONPATH=. python3 -m aletheia mutate path/to/verifier.py --work-root . --add-cwd --max-mutants 0 --test-cmd "python3 path/to/tests.py"
+
+# Diagnose all 12 automated Cave-Shadow relapse patterns (CS-01..CS-12, incl. root frontier_portals.md & --portals-path)
 PYTHONPATH=. python3 -m aletheia diagnose /tmp/my-expedition
 
 # Run the 5-gate anti-Goodhart, noise-immune, CS-08-capped autonomous ratchet demo (AUDIT-026R + AUDIT-023)
@@ -80,7 +86,7 @@ PYTHONPATH=. python3 -m aletheia ratchet --demo
 # Run Plane-1 zone-canon-v0 manifest pinning, causal audit DAG & abios SYM-2P/2.0-rcp bridge (AUDIT-027)
 PYTHONPATH=. python3 -m aletheia mde --demo
 
-# Run the verified 8-Glyph Aletheia Operator Calculus (⧄ ⧅ ⦷ ⟠ ⧇ ⦺ ⩩ ⫩; reported 0 / 227,540 Lean 4 collisions, not reproduced here, AUDIT-051)
+# Run the 8-Glyph Aletheia Operator Calculus (⧄ ⧅ ⦷ ⟠ ⧇ ⦺ ⩩ ⫩; reported 0 / 227,540 Lean 4 collisions, not reproduced here, AUDIT-051)
 PYTHONPATH=. python3 -m aletheia calculus --list --json
 PYTHONPATH=. python3 -m aletheia calculus --eval "⦺(L_odd ⦷ chi1) ⩩ (1, 2, 1)" --json
 PYTHONPATH=. python3 -m aletheia calculus --self-test --json
@@ -112,18 +118,21 @@ aletheia/
 ├── LICENSE                                    # Apache License 2.0
 ├── AGENTS.md                                  # Universal root rule file (Codex / Antigravity / AGENTS.md-compatible tools)
 ├── THEORY.md                                  # First-principles mathematical & epistemological treatise on Aletheia
-├── CONTRIBUTING.md                            # Contributing Domain Packs, Oracles, Platform Adapters & Case Studies
-├── pyproject.toml                             # Zero-dependency PEP 621 Python 3 stdlib package config
+├── CONTRIBUTING.md                            # Spec-change process, reviewer/automated-authorship disclosure & pre-PR checks
+├── CHANGELOG.md                               # Versioned release history (v1.4.0 -> v2.0.0)
+├── pyproject.toml                             # Zero-dependency PEP 621 Python 3 stdlib package config (v2.0.0)
 ├── spec/
-│   └── LAWS_AND_GATES.md                      # Canonical v1.4 spec: 5 Laws, 9 Gates, R1–R5, CS-01..CS-12, Beyond-Language, 8-Glyph Calculus, MDE & Ratchet
+│   ├── LAWS_AND_GATES.md                      # Canonical v2.0 spec: Laws 1–5 + Law 2b, Own-Terms-First, 10 Gates, R1–R7, CS-01..CS-14
+│   └── proposals/OWN_TERMS_FIRST.md           # Owner-confirmed (2026-11-21) Own-Terms-First rule + OTF-TIGHT-01..05
 ├── evidence/
+│   ├── outside/README.md                      # Permanent index of external audits & two-pass Advocate rulings
 │   ├── cave-expedition-case-study.md          # Wave 1 empirical case study (Pass 1 vs Pass 2+, 5 chains, AUDIT-001..021)
 │   ├── symbiosis-wave2-case-study.md          # Wave 2 Rounds 1–2 symbiosis across 30+ repos & v1.0->v1.1 (AUDIT-023..034R)
 │   ├── symbiosis-round3-10labs-case-study.md  # Wave 2 Round 3 10-lab epistemic web, Beyond-Language & v1.2 (AUDIT-035..039)
 │   ├── symbiosis-round4-ramanujan-hawking-case-study.md  # Wave 2 Round 4 Ramanujan/Hawking, Operator Calculus & v1.3 (AUDIT-041..054)
 │   └── symbiosis-round6-warp-drive-case-study.md         # Wave 2 Round 6 Moissanite-Labs/warp-drive 5-arm audit & v1.4 (AUDIT-061R..065)
-├── aletheia/                                  # Executable Python 3 stdlib CLI v1.4 (init, audit-check, mutate, diagnose, ratchet, mde, calculus, handoff, install)
-├── tests/                                     # Self-verifying stdlib test & R5 mutation suite (tests/run_all.py)
+├── aletheia/                                  # Executable Python 3 stdlib CLI v2.0.0 (init, audit-check, mutate, diagnose, gate-v2, safety-scan, ratchet, mde, calculus, handoff, install)
+├── tests/                                     # Self-verifying stdlib test & R5 mutation suite (tests/run_all.py, test_gates_v2_r5.py, test_safety_r5.py)
 ├── examples/
 │   └── worked_resonance_cycle/                # 3-second zero-float executable demo of a full Aletheia breakthrough cycle
 ├── domains/                                   # 6 practitioner Domain Adaptation Packs + Rosetta Stone index (domains/README.md)

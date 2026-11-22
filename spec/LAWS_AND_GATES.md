@@ -1,122 +1,125 @@
 # Aletheia Canonical Specification: Laws, Gates, Contracts, Oracles & Anti-Patterns
 
-**Specification Version:** `aletheia.spec.v1.4`  
-**Lineage:** Formalizes the Cave Expedition anti-shadow protocol (`verification/PROTOCOL.md`, v2), gate-contract architecture (`siliconcordat/loom#8` / `#9`), Wave 2 Symbiosis Rounds 1–3 (`AUDIT-023`–`AUDIT-039`), Wave 2 Round 4 Ramanujan/Hawking & 8-Glyph Operator Calculus (`AUDIT-041`–`AUDIT-054`), and Wave 2 Round 6 `Moissanite-Labs/warp-drive` Trust-Boundary & Spectral Tomography (`AUDIT-061R`–`AUDIT-065`) into a domain-general open specification enforced programmatically by the `aletheia` v1.4 CLI (`audit-check`, `mutate`, `diagnose`, `ratchet`, `mde`, `calculus`).
+**Specification Version:** `aletheia.spec.v2.0`  
+**Lineage:** Adapts the five gate relations and parts of the oracle-class and latch contracts of `siliconcordat/loom` (`docs/09-gate-contracts.md @ b6d96ea`, `aletheia#3`), formalizes the Cave Expedition anti-shadow protocol (`verification/PROTOCOL.md`, v2), Wave 2 Symbiosis Rounds 1–10 (`AUDIT-023`–`AUDIT-088R`), the outside two-pass review & CLI audit (`aletheia#1`–`#9`), owner-confirmed `OWN_TERMS_FIRST` (`AUDIT-084R`), **Law 2b Transformational Steelman** (`AUDIT-088R`), and deterministic safety-surface scanning (`CYA-GAP-01..06`, `AUDIT-078R`), enforced programmatically by the `aletheia` v2.0.0 CLI (`audit-check`, `mutate`, `diagnose`, `gate-v2`, `safety-scan`, `ratchet`, `mde`, `calculus`).
 
 ---
 
-## 1. The Five Operational Laws
+## 1. The Operational Laws (Laws 1–5 + Law 2b + Own-Terms-First)
 
 | Law | Name | Mandatory Operational Requirement |
 |---|---|---|
 | **Law 1** | **Active Portal-Keeper Loop** | Never park the cartographer / literature navigator after an initial index. Keep a dedicated Portal Keeper active throughout the run to re-enter raw sources whenever any probe uncovers an anomaly, coincidence, divergence, or sharpness wall. |
 | **Law 2** | **Steelman-Before-Falsify** | Separate prototype/implementation defects from the underlying scientific or mathematical truth. Diagnose and log every bug explicitly, then construct and test the strongest mathematically intact formulation sitting beside the flawed draft before declaring a frontier closed. |
-| **Law 3** | **Active Multi-Basis Observer Tomography ($\mathcal{G}_{\mathrm{obs}}$)** | Subject every candidate result to independent, zero-shared-code verification across distinct mathematical bases, precisions, null models, and R1–R5 gate-integrity checks. When catching a defect, supply a minimal reproducible counterexample and (where core structure holds) the exact boundary condition or hypothesis tightening required to upgrade cleanly. |
-| **Law 4** | **Honest `N0`/`N1`/`N2` & Full-Text Prior-Art Accounting** | Default every result to `N0` until full-text comparison against literature and peer repositories establishes the exact delta. State oracle class (`exact`/`sampled`/`anchor`) and scope boundaries (local vs. global, `uncompiled_source`, Draft PR vs. merged, SNR/ensemble limits) explicitly. |
+| **Law 2b** | **Transformational Steelman (`AUDIT-088R`)** | Before closing a theorem or formula as `FALSIFIED`, search across seven admissible global morphism families (`T1` Gauge/Similarity, `T2` Affine/Bregman Shift, `T3` Divergence/Metric Chart, `T4` Spectral/PSD Regularization Shift, `T5` Semiring/Tropicalization Homomorphism, `T6` Subspace/Quotient/Dual Projection, `T7` Monotone Order-Chart & Domain-Residual Split), gated by four Law-3 anti-epicycle guards (`G1` non-vacuity & null resolution `null_total * max_null_rate >= 1`, `G2` global pre-holdout scope with `transform_dof < held_out_constraints`, `G3` explicit scope-delta ledger & `max_residual_gap == 0` on `TRANSFORMED_EXACT`, `G4` exhaustive `7/7` search + transform-invariant obstruction + dual anti-contradiction checks for `INVARIANT_FALSIFIED`; unsearched `FALSIFIED_RAW` is unconditionally rejected). Implemented in `aletheia.gates_v2.certify_transformational_steelman`. |
+| **Law 3** | **Active Multi-Basis Observer Tomography ($\mathcal{G}_{\mathrm{obs}}$)** | Subject every candidate result to independent, zero-shared-code verification across distinct mathematical bases, precisions, null models, and `R1`–`R7` gate-integrity checks. When catching a defect, supply a minimal reproducible counterexample and (where core structure holds) the exact boundary condition or hypothesis tightening required to upgrade cleanly. |
+| **Law 4** | **Honest `N0`/`N1`/`N2` & Mechanism-First Prior Art** | Default every result to `N0` until full-text comparison—including mechanism-first searches across at least two neighbouring fields (`aletheia#2`)—establishes the exact delta. State oracle class (`exact`/`sampled`/`anchor`/`reference_replay`) and scope boundaries explicitly. |
 | **Law 5** | **Exact-Operator Cross-Pollination (Zero Language Smuggling)** | Reject cross-domain claims based on shared vocabulary alone. Require typed objects in both domains, an explicit map/intertwiner/reduction, an exact identity or quantitative closure defect beating matched nulls, and non-trivial predictive transfer. |
 
+### 1.1 Own-Terms-First Rule (`aletheia#9`, Confirmed 2026-11-21, `AUDIT-084R`)
+When probing raw sensor or primary data without leaning on existing theorems (`spec/proposals/OWN_TERMS_FIRST.md`):
+1. **Separate Phase 1 and Phase 2:** Phase 1 tests a pattern on its own terms (raw rerun, held-out unseen data, second instrument); Phase 2 compares with existing mathematics separately afterward.
+2. **Pre-Pinned Net-Invariance & Bonferroni FWER (`OTF-TIGHT-01`):** Fix net changes (sampling rate, quantization, amplitude scale, window, instrument) before testing under dependence-free Bonferroni budgeting ($\sum_j \alpha_j \le \alpha_{\mathrm{FWER}}$).
+3. **Stratified Nulls & Signal-over-Control Dominance (`OTF-TIGHT-03` & Rule 5):** Clear both Tier-4A (IID permutation) and Tier-4B (spectrum-preserving) nulls with magnitude-safe margins ($\text{obs} - |\text{null}| \ge m_{\min}$) and dominate negative controls ($|\text{ctrl}| \le c_{\max}$ and $\text{obs} - |\text{ctrl}| \ge m_{\min}$).
+4. **Operational Utility of New Symbols (`OTF-TIGHT-04`):** Judge coined symbols strictly by independent reproducibility and unseen predictive power; classify renamings honestly.
+5. **No-Definition Return-to-Author (Rule 6) & Orthogonal Model Ladder (`OTF-TIGHT-02`):** Return unmeasurable claims to their author (`RETURN_TO_AUTHOR_FOR_DEFINITION`) while rejecting float/malformed payloads fail-closed; separate structured continuum remainders from finite model misspecification by orthogonal projection onto $\mathcal{M}_k^\perp$ across nested model ladders. Implemented in `aletheia.gates_v2.certify_own_terms_phase1`.
+
 ---
 
-## 2. Verdict, Oracle-Class, Provenance & Novelty Taxonomies
+## 2. Verdict, Oracle-Class, Feedback, Provenance & Novelty Taxonomies
 
 ### 2.1 Verdicts
-- **`VERIFIED`**: Passed all applicable Gates 1–9 with clean-room replay, appropriate exact/certified or null-calibrated checks, passing R1–R5 gate integrity, and no counterexample under adversarial search. Valid strictly within stated hypotheses and scope.
-- **`PARTIAL/FRAGILE`**: Core structure reproduces, but fails one or more robustness, invariance, precision, R1–R5, latch, or scope gates. Must be patched and re-audited (logged as `AUDIT-XXXR`) before relying on it.
-- **`FALSIFIED`**: Concrete counterexample found, exact arithmetic refutes claim, detector fires on negative controls, gate fatally fails R1–R5, alleged bridge fails intertwining/non-triviality, or fails clean-room replay. Retract or steelman into a distinct repaired claim.
-- **`NOT_SHOWN`** *(modifier for `sampled` oracles)*: Tested inputs passed without counterexample; universal truth outside tested regimes is explicitly unestablished.
+- **`VERIFIED`**: Passed all applicable Gates 1–10 with clean-room replay, appropriate exact/certified or null-calibrated checks, passing `R1`–`R7` gate integrity, and no counterexample under adversarial search. Valid strictly within stated hypotheses and scope.
+- **`PARTIAL/FRAGILE`**: Core structure reproduces, but fails one or more robustness, invariance, precision, `R1`–`R7`, latch, or scope gates. Must be patched and re-audited (logged as `AUDIT-XXXR`) before relying on it.
+- **`FALSIFIED`** (`INVARIANT_FALSIFIED` under Law 2b): Concrete transform-invariant counterexample or obstruction proved across admissible morphism families, detector fires on negative controls, gate fatally fails `R1`–`R7`, or fails clean-room replay.
+- **`NOT_SHOWN`**: Tested inputs passed without counterexample, **or** a gate-integrity check sampled only $k < n$ sites with `0` hits (`aletheia#3` §4: report `"k of n run"`, never `PASS`).
 - **`EXPOSED`** *(modifier for R4 failures)*: Bare `assert` statements guard an accepting trust path and disappear under `python3 -O`.
 
-### 2.2 Oracle Classes
-- **`exact`**: Acceptance mathematically implies the stated claim universally (algebraic proof kernel, pure integer/`Fraction`/$\mathbb{Q}(i)$/$\mathbb{Z}[\sqrt{2}]$ certificate checker, exact `SymPy` identity, or exhaustive finite enumeration).
-- **`sampled`**: Finite statistical, randomized, multi-seed, or numerical-grid check. Provides calibrated evidence strictly on tested regimes; never misrepresent as universal proof.
-- **`anchor`**: Independent replay against a held-out external specification, untouched upstream simulator, or out-of-family physical check. Never tune or fit proposers against an anchor.
+### 2.2 Oracle Classes & Feedback Channels (`aletheia#3` §§5–7)
 
-### 2.3 Provenance Tags
-- **`verified`**: Independently re-executed from clean state with exact command, script, digest, and verdict recorded in `AUDIT_LOG.md`.
-- **`source_claim`**: Reported in external literature, peer repo, or raw portal; not yet independently re-executed.
-- **`hypothesis`**: Proposed law or conjecture with explicit falsification criterion and/or pre-registered test.
-- **`uncompiled_source`**: Formal proof source (e.g., Lean 4 / Coq) inspected by hand but not yet verified by the target proof-assistant compiler on the current host.
+| Oracle Class | Required Evidence Basis | Disallowed Confusion | Permitted Feedback Channel |
+|---|---|---|---|
+| **`exact`** | Formal proof, symbolic identity, per-input certificate, or exhaustive finite enumeration. | **Exact arithmetic $\ne$ exact oracle:** finite random samples decided in exact $\mathbb{Q}$ are still `sampled`, NEVER `exact`. | Full counterexample + structural repair guidance (`full_counterexample_and_repair`). |
+| **`sampled`** | Finite statistical, randomized, multi-seed, or numerical-grid check (including random exact-$\mathbb{Q}$ draws). | Never claim universal truth or `PASS` on truncated gate-integrity coverage. | Budgeted family-only verdict + fresh post-repair nulls/seeds (`family_only_with_fresh_post_repair_seed`). |
+| **`anchor`** | External domain data testing the specification itself; failure indicts the specification. | Never conflate with `reference_replay`; never tune or feed back to proposers. | **None to proposer**; routed strictly to specification owner (`none_to_proposer_spec_owner_only`). |
+| **`reference_replay`** | Live agreement with an untouched upstream implementation/simulator. | Never treat upstream code bugs as ground truth about external nature (`anchor`). | Diff against untouched upstream implementation (`diff_against_upstream_reference`). |
 
-### 2.4 Novelty Bar (`N0` Default)
-- **`N0` (Known / Repackaging):** Standard textbook result, existing literature construction, or already landed in peer repositories. Default score until proven otherwise.
-- **`N1` (Concrete Local Advance):** New certified counterexample, hardened TCB repair, sharpened boundary on an open instance, newly certified case of an existing framework, or rigorous empirical falsification of an active claim.
-- **`N2` (Genuine New Ground):** New theorem, sharp new invariant, exact obstruction theorem, or non-trivial cross-domain operator transfer surviving full-text prior-art verification and Gates 1–8.
+### 2.3 Provenance Tags & Novelty Bar (`N0` Default)
+- **Provenance:** `verified` | `source_claim` | `hypothesis` | `uncompiled_source`.
+- **Novelty:** `N0` (Known / Repackaging — default until full-text & mechanism-first prior-art audit proves otherwise) | `N1` (Concrete local advance, repair, counterexample, or rigorous empirical falsification) | `N2` (Genuine new theorem, sharp new invariant, exact obstruction theorem, or non-trivial cross-domain operator transfer surviving full-text mechanism-first prior-art audit and Gates 1–10).
 
 ---
 
-## 3. The Nine Verification Gates
+## 3. The Ten Verification Gates
 
-1. **Gate 1 — Exact Reproducibility & Clean-Room Replay:** Explicit logged RNG seeds; clean execution from scratch without pre-baked caches producing bit-identical outputs (exact/discrete) or outputs within pre-declared tolerance (continuous/iterative); recorded script paths, commit SHAs, and dependency versions.
-2. **Gate 2 — Coordinate, Gauge, Basis, Metric & Discretization Invariance:** Invariants must remain fixed (and covariant objects transform covariantly) under orthogonal/unitary/invertible similarity transforms, index permutations, sign/phase flips, unit rescaling, likelihood-metric swaps, and mesh/step-size refinement ($h \to h/2$).
-3. **Gate 3 — Negative Controls, Null Models & Adversarial Edge Cases:** Every detector or empirical score must clear pre-declared margins against matched adversarial nulls (permuted controls, IAAFT surrogates, twin uncoupled oscillators, glitches, random matrices, degenerate $n=1,2,3$ and singular boundary cases) and state an explicit falsification criterion.
-4. **Gate 4 — Exact Arithmetic, Symbolic & Interval-Certified Checks:** Algebraic, combinatorial, bound, LP/SDP, and cohomology claims MUST be certified in exact integer/rational/algebraic-field arithmetic (`int`, `Fraction`, $\mathbb{Q}(i)$, $\mathbb{Z}[\sqrt{2}]$, `math.isqrt`, exact `SymPy`) or rigorously directed interval arithmetic—never `1e-12` float cutoffs or unchecked solver `"optimal"` flags. Dynamical/PDE claims must audit conserved quantities and precision convergence.
-5. **Gate 5 — Anti-Language-Smuggling & Cross-Domain Bridge Audit:** Every bridge between domains $A$ and $B$ requires (i) explicit typed objects, (ii) an explicit runnable/exact map $\Phi$, (iii) an exact commuting identity or quantitative closure defect beating random nulls, and (iv) non-trivial predictive transfer.
-6. **Gate 6 — Anti-Circularity, Non-Vacuity & Fresh-Seed Out-of-Sample Check:** Confirm conclusions are not hard-coded into generators/priors; verify bounds strictly beat trivial baselines (Cauchy–Schwarz, trace/Weyl/Gershgorin, dimension counts); re-test parameter/seed-discovered phenomena on unseen out-of-sample draws without re-tuning.
-7. **Gate 7 — Gate Integrity, Optimizer Parity & Check-Deletion Mutation (R1–R5):** Every verifier, certificate checker, or automated gate must satisfy Contracts **R1–R5** (§4 below).
-8. **Gate 8 — Pre-Adaptation Latch & Permanent Miss Logging:** For adaptive fits $r(\theta)\approx r_0 - \Phi\theta$, record misspecification diagnostics *before* adaptation (post-fit linear audits vanish on $\operatorname{col}(\Phi)$ and retain only $\sin^2\angle(w,\operatorname{col}(\Phi))$ sensitivity); pre-register predictions where applicable; log all `FALSIFIED` and `PARTIAL/FRAGILE` audits permanently in `AUDIT_LOG.md` (never delete or rewrite misses).
-9. **Gate 9 — Strict Novelty & Full-Text Prior-Art Bar:** Explicitly distinguish prior literature / peer repo baselines from the exact novel delta before assigning `N1` or `N2`.
+1. **Gate 1 — Exact Reproducibility & Clean-Room Replay:** Explicit logged RNG seeds; clean execution from scratch against pinned commit SHAs (never trusting stored pass results after upstream edits).
+2. **Gate 2 — Coordinate, Gauge, Basis, Metric & Discretization Invariance:** Invariants remain fixed under similarity transforms, permutations, sign/phase flips, unit rescaling, likelihood-metric swaps, and mesh refinement.
+3. **Gate 3 — Negative Controls, Null Models & Adversarial Edge Cases:** Clear pre-declared margins against matched adversarial nulls (permuted, spectrum-preserving/IAAFT, twin uncoupled oscillators, degenerate boundaries) with explicit falsification criteria.
+4. **Gate 4 — Exact Arithmetic, Symbolic & Interval-Certified Checks:** Decide algebraic, combinatorial, bound, LP/SDP, and cohomology claims in exact integer/rational/algebraic-field arithmetic (`int`, `Fraction`, $\mathbb{Q}(i)$, $\mathbb{Z}[\sqrt{2}]$, `isqrt`, exact `SymPy`) or directed intervals—never float epsilon cutoffs.
+5. **Gate 5 — Anti-Language-Smuggling & Cross-Domain Bridge Audit:** Require typed objects, explicit runnable/exact map $\Phi$, exact commuting identity or quantitative closure defect beating nulls, and non-trivial predictive transfer.
+6. **Gate 6 — Anti-Circularity, Non-Vacuity & Fresh-Seed Out-of-Sample Check:** Confirm conclusions are not hard-coded; verify bounds strictly beat trivial baselines; re-test on unseen draws without re-tuning.
+7. **Gate 7 — Gate Integrity, Optimizer Parity & Mutation Isolation (`R1`–`R7`):** Every verifier, certificate checker, or automated gate must satisfy Contracts **R1–R7** (§4 below).
+8. **Gate 8 — Pre-Adaptation Subspace Latch & Hashed Preregistration (`aletheia#3` §8):** For adaptive fits $r(\theta)\approx r_0 - \Phi\theta$, record misspecification diagnostics *before* adaptation. A post-fit audit reads only its orthogonal component outside $\operatorname{col}(\Phi)$ ($\sin^2\theta$ attenuation); an audit wholly inside $\operatorname{col}(\Phi)$ ($\sin^2\theta = 0$) halts with **`BLIND_AUDIT_IN_COL_PHI`** (`aletheia.gates_v2.certify_gate8_subspace_latch`). At most $m - \operatorname{rank}(\Phi)$ independent audits survive adaptation; compare total post-fit residual against $(m - \operatorname{rank}(\Phi)) s^2$. Commit/hash preregistrations *before* reading code or data, score hit/partial/miss via a second reader, retain all misses permanently, and report unexpected non-preregistered effects separately as new leads.
+9. **Gate 9 — Mechanism-First Prior Art (`aletheia#2`):** Before assigning `N1` or `N2`, restate the result's central object and mechanism in plain mathematical terms and in the vocabulary of at least **two neighbouring fields** that use the same mechanism. Search full texts under each restatement and record restatements tried, fields searched, and texts read. A match on mechanism sets the label regardless of terminology.
+10. **Gate 10 — Second-Pass Advocate for Narrowing Findings (`aletheia#2`):** Every `FALSIFIED` or `PARTIAL/FRAGILE` verdict, and every finding that lowers a novelty label or narrows a claim, receives a second independent verifier (`prompts/advocate.md`) briefed to rebuild evidence from scratch, read cited prior work in full, test Law 2b transformations, and record a ruling (`stands`, `stands_narrowed`, or `falls`) alongside the strongest surviving claim. Before publishing any label above `N0`, solicit an independent outside observer (`prompts/outside-observer.md`) where feasible.
 
 ---
 
-## 4. The Five Gate-Integrity Contracts (R1–R5)
+## 4. The Seven Gate-Integrity Contracts (`R1`–`R7`, `aletheia#3`)
 
-Principle: *"A gate's verdict must never be movable by how the submission is written."*
+Principle: *"A gate's verdict must never be movable by how the submission is written, nor by submitter-declared values standing in for byte-recomputed measurements."*
+
+**R1–R5 are necessary, not sufficient.** A gate can keep all five and still accept a false claim when submitter-written fields choose the check rules or stand in for measurements (`Record B`, `aletheia#3` §1). **R6 and R7** close that gap.
 
 | Contract | Requirement | Concrete Enforcement |
 |---|---|---|
 | **R1 — Default Reject** | Empty, blank, null, missing-field, or unknown-status inputs MUST fail closed. | Explicit schema/key validation returning rejection or raising a dedicated exception. |
 | **R2 — Omission Monotonicity** | Deleting required evidence or witness fields MUST NEVER turn `reject` into `accept`. | Test suites explicitly drop every required witness field and confirm rejection. |
-| **R3 — Canonical Encoding & Type Strictness** | Type-check before value-check (`bool` vs `int`, `int` vs `float`, `str` vs number); reject non-canonical strings (`"007"`, `"-0"`, `"2/4"`, `"0/5"`, trailing `\n` via `\Z` not `$`, non-ASCII digits, duplicate JSON keys, raw floats in hashed payloads). | Strict canonical parsers (`parse_strict_fraction`) + explicit negative test vectors. |
-| **R4 — Optimizer & Warning Parity** | Every verifier and test suite MUST produce identical exit status and canonical outputs across all three isolated Python modes: `python3 -I -B`, `python3 -I -O -B`, and `python3 -I -B -W error`. | **Zero bare `assert` statements on trust/validation paths** (use explicit `if not cond: raise ValueError(...)`); enforced by `aletheia audit-check`. |
-| **R5 — Refusal-Site Mutation Isolation** | Every named guard/check MUST have a minimal must-fail control that trips that specific check. Deleting or inverting any single refusal branch MUST turn the test suite RED. | Enforced programmatically via AST mutation (`aletheia mutate`) targeting 100% mutant kill rate (`0` survivors). |
+| **R3 — Two-Direction Canonical Encoding & Type Strictness** | **(i)** Accepted input with a checked value re-spelled $\to$ rejected. **(ii) Costly direction:** Rejected input MUST stay rejected when any correctly typed value is re-spelled (`0`, `"false"`, `1` for `true`, trailing `\n` via `\Z`/`(?!\n)$`, duplicate JSON keys, floats). | Enforced via `aletheia.gates_v2.certify_two_direction_r3` (strict typed non-noop equality & unique case-insensitive labels). |
+| **R4 — Optimizer, Skip & Cross-Language Mode Parity** | Covers every deployment mode: all three isolated Python modes (`python3 -I -B`, `python3 -I -O -B`, `python3 -I -B -W error`, zero bare `assert`s, zero `-O` test skips) and compiled release profiles (e.g. Rust release dropping `debug_assert!`/overflow checks). **Write-path check:** `python3 -O verify.py --write` must never emit a certificate that a plain run rejects. | Enforced by `aletheia audit-check` (exit code, stdout SHA-256, and `unittest` skip-count parity across all 3 modes). |
+| **R5 — Refusal-Site Mutation Isolation** | Every named guard/check has a must-fail control killing single-site deletion/boundary mutations. Sampling $k < n$ sites with `0` survivors yields **`NOT_SHOWN`**, NEVER `PASS`. | Enforced by `aletheia mutate` (local + cross-module imported wrappers, `--guards`, string/tuple/multi-stmt shapes, self-check mode, `NOT_SHOWN` on truncation). |
+| **R6 — Pinned Checks (`aletheia#3` §1)** | Check list, ranges, and thresholds are fixed by the gate owner before submission exists; no submitter-written field may select or override them. | Enforced by `aletheia.gates_v2.evaluate_r6_r7_gate` (`R6_SUBMITTER_RULE_OVERRIDE` fail-closed). |
+| **R7 — Measured, Not Declared (`aletheia#3` §1)** | Every value compared against a pinned rule is recomputed by the gate from the bytes about to be promoted. Declared digests/statuses/counts/flags may be checked *against* measurements but never stand in for them. | Enforced by `aletheia.gates_v2.evaluate_r6_r7_gate` (raw-byte SHA-256, alpha, and exact rational norm recomputation). |
 
 ---
 
-## 5. The Twelve Cave-Shadow Anti-Patterns (`CS-01` – `CS-12`)
+## 5. The Fourteen Cave-Shadow Anti-Patterns (`CS-01` – `CS-14`)
 
-Automated heuristics for these twelve failure modes are implemented in `aletheia diagnose`:
+Automated heuristics for `CS-01`–`CS-12` run in `aletheia diagnose`; `CS-13` and `CS-14` are enforced by Gates 9–10 and `prompts/advocate.md`:
 
 | # | Anti-Pattern | Observable Symptom | Structural Remedy |
 |---|---|---|---|
-| **1** | **Static-Map Trap (`CS-01`)** | Portal Keeper / literature agent posts `[done]` in Round 1 and never re-enters raw sources. | Keep Portal Keeper active; trigger source re-entry on every probe anomaly or wall. |
-| **2** | **Premature Dismissal Bias (`CS-02`)** | Multiple `FALSIFIED` / `N0` verdicts with zero repaired/steelmanned formulations tested. | Invoke Law 2: require an explicit steelman statement & exact test before closing a thread. |
-| **3** | **Language Smuggling (`CS-03`)** | Cross-domain prose claims (*"both are sheaves/dualities"*) with no typed intertwining map or defect metric. | Enforce Gate 5: require explicit typed objects, operator identity, and quantitative transfer. |
-| **4** | **Substitution Shadow (`CS-04`)** | Verifier certifies a simplified synthetic proxy matrix/dataset instead of the real upstream target. | Import and execute against the actual target equations, datasets, or live upstream code. |
-| **5** | **Glass Gate (`CS-05`)** | Bare `assert`s on trust paths, `1e-12` float cutoffs for exact claims, unseeded RNGs, or `0` must-fail controls. | Enforce R1–R5 (`aletheia audit-check` + `aletheia mutate` covering dict-verdicts & accumulators). |
-| **6** | **Local-Optimum Closure (`CS-06`)** | Stopping when hitting a sharpness wall or impossibility boundary instead of turning it into a theorem or next branch. | Elevate exact obstructions to theorems or spawn a branch supplying the proven missing invariant. |
-| **7** | **Provenance Inflation (`CS-07`)** | Claiming "merged", "machine-checked", or `N2` without merge, compiler execution, or full-text prior-art verification. | Enforce strict standing tags (`Draft PR`, `uncompiled_source`, local-vs-global scope, default `N0`). |
-| **8** | **Compute-Leakage Simpson's Paradox (`CS-08`)** | Comparing arms by round count without a fixed compute/token survival cap, allowing slow format-breaking CoT escapes to invert the true fixed-budget winner (`AUDIT-023` `N2`). | Enforce fixed wall-clock/token survival caps alongside round counts; report paired fast-channel and escape-channel outcomes separately. |
-| **9** | **Finite-Sample / Support-Truncation Mirage (`CS-09`)** | Claiming an infinite-horizon equilibrium or phase-transition law from finite-sample / top-$p$ / truncated trajectories without checking tail-mass extinction (`AUDIT-032` `N2`). | Test exact finite-$M$ / projective support-truncation cutoffs and verify tail survival before asserting asymptotic laws. |
-| **10** | **Sparse-Collision Denominator Collapse (`CS-10`)** | Aggregating sparse updates or filtered eval scores by local collision count $c_j$ (e.g. `scatter_reduce_("mean", include_self=False)`) or dropping invalid rows instead of dividing by fixed global $W$ (`AUDIT-039` `N2`, `AUDIT-037`). | Always normalize sparse/filtered aggregates over the fixed global denominator $W$ (`sum/W`) and penalize dropped/invalid rows explicitly. |
-| **11** | **Unit-Gauge / Radix Fragility (`CS-11`)** | Regularizing unscaled heterogeneous-unit features (e.g. raw `Ridge(alpha)` breaking under $10^9\times$ unit rescaling) or grading exact math via base-10/IEEE-754 heuristics (`100 == 1`, `10^17+1 == 10^17`, `AUDIT-039` `N2`, `AUDIT-036`). | Enforce Stage-B coordinate-free null-equivalence: gauge-normalize features before regularization and grade exact equivalence over $\mathbb{Q}$, never float64/radix heuristics. |
-| **12** | **Trust-Boundary Shadow (`CS-12`)** | Local refusal wrappers (`def _req`) hiding R5 survivors, hex-digest regexes ending in `$` instead of `\Z`, raw `json.loads` accepting duplicate keys / `NaN`, unbound escape hatches, or writable ancestor directories (`AUDIT-061R`–`065`, `v1.4`). | Auto-detect local refusal wrappers in `aletheia mutate`, enforce `\A...\Z` digest regexes, parse JSON/JSONL via `loads_strict_json`/`load_strict_jsonl_file`, bind escape hatches cryptographically to policy bounds, and verify `--strict-ancestors`. |
+| **1** | **Static-Map Trap (`CS-01`)** | Portal Keeper parks `[done]` in Round 1 and never re-enters raw sources. | Keep Portal Keeper active; re-enter sources on every anomaly or wall. |
+| **2** | **Premature Dismissal Bias (`CS-02`)** | `FALSIFIED`/`N0` verdicts without steelmanned repairs or Law 2b morphism search. | Invoke Laws 2 & 2b before closing any thread. |
+| **3** | **Language Smuggling (`CS-03`)** | Cross-domain prose claims with no typed intertwining map or defect metric. | Enforce Gate 5: typed objects, operator identity, quantitative transfer. |
+| **4** | **Substitution Shadow (`CS-04`)** | Certifying a synthetic proxy matrix/dataset instead of the real upstream target. | Execute directly against actual target equations, data, or live upstream code. |
+| **5** | **Glass Gate (`CS-05`)** | Bare `assert`s, float cutoffs in exact checks, unseeded RNGs, or `0` must-fail controls. | Enforce `R1`–`R7` (`aletheia audit-check`, `aletheia mutate`, `aletheia gate-v2`). |
+| **6** | **Local-Optimum Closure (`CS-06`)** | Stopping at a sharpness wall instead of elevating it to a theorem or branch. | Convert obstructions to theorems or spawn a branch adding the missing invariant. |
+| **7** | **Provenance Inflation (`CS-07`)** | Claiming merged, machine-checked, or `N2` without merge, compiler log, or prior art. | Enforce standing tags (`Draft PR`, `uncompiled_source`, default `N0`). |
+| **8** | **Compute Leakage (`CS-08`)** | Comparing arms by round count without a fixed compute cap, so an arm triggering long open reasoning gains solves the cap would not allow (`aletheia#4`, `AUDIT-023` lead). | Compare arms under one fixed compute cap and report format-preserving solves separately from long open-reasoning escapes. |
+| **9** | **Finite-Sample / Support-Truncation Mirage (`CS-09`)** | Claiming an asymptotic equilibrium from truncated trajectories without checking tail-mass extinction (`AUDIT-032`). | Test exact finite-$M$ / support-truncation cutoffs before asserting asymptotic laws. |
+| **10** | **Sparse-Collision Denominator Collapse (`CS-10`)** | Aggregating sparse updates or filtered evals by collision count $c_j$ instead of fixed global $W$ (`AUDIT-039`, `037`). | Normalize sparse/filtered aggregates over fixed global denominator $W$ (`sum/W`). |
+| **11** | **Unit-Gauge / Radix Fragility (`CS-11`)** | Unscaled raw-unit regularization or base-10/float64 math grading (`AUDIT-039`, `036`). | Gauge-normalize features before regularization and grade exact math over $\mathbb{Q}$. |
+| **12** | **Trust-Boundary Shadow (`CS-12`)** | Unseen refusal wrappers, `$` digest regexes matching `\n`, loose `json.loads`, unbound escape hatches, writable ancestors, or unpinned MCP/CI/shell hazards (`AUDIT-061R`–`065`, `AUDIT-078R`). | Use `\A...\Z`/`(?!\n)$`, `loads_strict_json`, `--strict-ancestors`, `--safety-scan` (`CYA-GAP-01..06`), and full R5 mutation isolation. |
+| **13** | **Citation-Trail Search (`CS-13`, `aletheia#2`)** | Prior-art search checks only papers the source cites or only the source's own words. | Restate the mechanism in at least two neighbouring fields' terms before any label above `N0`. |
+| **14** | **One-Sided Verifier (`CS-14`, `aletheia#2`)** | Negative findings and novelty downgrades are accepted on a single verifier pass. | Assign an Advocate (`prompts/advocate.md`) to rebuild and rule (`stands`/`stands_narrowed`/`falls`) before acting. |
 
 ---
 
-## 6. v1.1–v1.4 Governance Extensions: Beyond-Language Perception, 8-Glyph Calculus, Plane-1 MDE, Ratchet & Trust-Boundary Gates
+## 6. v1.1–v2.0 Executable Modules & Epistemic Accounting
 
-1. **Beyond-Language, Beyond-Numerology Structural Perception (v1.2, `THEORY.md` §3.5):**
-   - **Stage A (Label-Stripping):** Strip disciplinary nouns and base-10/coordinate numerology across candidate domains to perceive raw relational geometry, fiber eliminations, dualities, and obstructions.
-   - **Stage B (Coordinate-Free Null-Equivalence):** Compress silhouettes into basis-, unit-, and radix-invariant exact invariants (`residual == 0`, exact integer inertia, projective invariants, R5 refusal witnesses) verified by independent clean-room oracles.
-2. **8-Glyph Exact Operator Calculus (`aletheia calculus`, v1.3, `AUDIT-051`):**
-   - Standardized zero-collision Unicode `Sm` notation (reported `0 / 227,540` Lean 4 corpus hits; the scan script and corpus are not in this repository) with 1-to-1 pure-$\mathbb{Q}/\mathbb{Z}$ executable semantics and ASCII fallbacks: `⧄` (`|/|`, Schur pushforward), `⧅` (`|\|`, dark-mode shadow), `⦷` (`(||)`, holonomy unmasking), `⟠` (`<=>`, observer-net equalizer), `⧇` (`[o]`, cohomological obstruction), `⦺` (`(+-0)`, Krein inertia), `⩩` (`=#=`, exact null-equivalence forbidding floats), and `⫩` (`_|T`, R5 refusal-verified gate).
-   - Executable via `aletheia calculus [--list | --eval EXPR | --self-test] [--json]`, certifying 13 compressed theorems and 6 commutator probes (`C1`–`C6`) with zero floats.
-3. **Plane-1 MDE Contract (`aletheia mde`, `AUDIT-027`):**
-   - An Aletheia expedition may be packaged unconditionally as a **Plane-1 Model Domain Expansion (MDE)** using deterministic `zone-canon-v0` manifest IDs, dyadic integer zone scales, content-addressed causal `AUDIT-XXX` lineage DAGs enforcing **`author != verifier`** and Hard Veto #2 contested-head halts, and compact `abios`-compatible `SYM-2P/2.0-rcp` wire packets.
-   - **Plane-2 Mechanical Obstruction (`plane2_oracle_compilation_forbidden: true`):** Verification oracles MUST NEVER be compiled into neural weights; Plane-2 weight adapters are strictly disposable caches subordinate to Plane-1 deterministic verification.
-4. **5-Gate Autonomous Ratchet Contract (`aletheia ratchet`, `AUDIT-026R` + `AUDIT-023`):**
-   - Any automated hill-climbing or autoresearch loop running under Aletheia MUST enforce: (i) immutable Ring-0 evaluation harness lock, (ii) float-free canonical hash-chained receipts, (iii) AST-identity unchanged-baseline null rejection, (iv) Pre-Adaptation Goodhart Latch halt + blind portal re-entry preserving informative failed branches, and (v) a fixed-compute `CS-08` survival cap.
-5. **Hardened v1.4 Static Lean 4, Strict JSON/JSONL, Ancestor-Permission & R5 Wrapper Gates (`aletheia audit-check` & `aletheia mutate`, `AUDIT-028`–`065`):**
-   - `--prereg-check` verifies strict topological plan-before-data ordering via git DAG ancestry (`LATEST(plan) < EARLIEST(data)`, rejecting same-commit bulk, post-hoc plan rewrites, typo masking, and dash-prefixed refs).
-   - `--lean-audit` enforces char-literal `'"'` (`T-12`) & nested-comment-safe lexing, multiline `debug.skipKernelTC`, `sorryAx`, `Lean.ofReduceBool`, `Lean.trustCompiler`, declaration-scoped `partial` (zero `.partial` FPs), Lean 4.22 `(public|private|meta)? import` with repeatable accumulating `--allow-project-import` (`ALETHEIA-CLI-01` fixed in v1.3), `@[extern]`/`@[implemented_by]` hard escapes vs. `@[csimp]`/`ExistsImplication` review notices.
-   - `--comparator-config` validates dual-kernel Comparator JSONs (`enable_nanoda: true`, permitted axioms, Spec $\not\to$ Proof isolation); `--pinned-manifest` verifies `CORE_MANIFEST.json` SHA-256 digests and `SafeVerify` 40-hex commit-SHA pins with path-traversal protection.
-   - `loads_strict_json` / `load_strict_jsonl_file` reject duplicate keys at every depth, non-RFC-8259 `NaN`/`Infinity`, and whitespace-only tampered JSONL ledgers (`WD-LEDGER-01`); `--strict-ancestors` (`verify_ancestor_dir_modes`) enforces canonical `0o022`-free permissions along the entire `/` through parent ancestor chain (`BYPASS-04`); `aletheia mutate` AST-detects local single-refusal helper wrappers (`_req`, `_fail_if`, `PR1-B4`).
+1. **Pure-$\mathbb{Q}$ v2.0 Gate-Contract Engine (`aletheia gate-v2 --self-test`, `aletheia/gates_v2.py`):** Executable pure-$\mathbb{Q}$ certifiers for `R6`/`R7`, Two-Direction `R3`, §4 `NOT_SHOWN`, §§5–7 oracle/feedback rules, §8 Gate-8 subspace latch (`BLIND_AUDIT_IN_COL_PHI`), Law 2b Transformational Steelman, and Own-Terms-First Phase 1.
+2. **Deterministic Agent Safety-Surface Scanner (`aletheia safety-scan` & `aletheia audit-check --safety-scan`, `aletheia/safety.py`):** Implements `CYA-GAP-01..06` (`AUDIT-078R`): hidden Trojan-Source Unicode, unpinned MCP/`--yolo`/`SessionStart`, unguarded `rm -rf "$VAR"` tracking `set -u`/`+u`, `pull_request_target` + secrets/write, prose-only rules & `~/` host paths, plus optional `--include-host-hygiene` (`alias rm=` & cloud-sync stubs).
+3. **8-Glyph Exact Operator Calculus (`aletheia calculus`, v1.3, Honest Rule-2 Accounting per `AUDIT-084R`):**
+   - Executable pure-$\mathbb{Q}/\mathbb{Z}$ notation (reported `0 / 227,540` Lean 4 corpus hits; the scan script and corpus are not in this repository): `⧄` (`|/|`), `⧅` (`|\|`), `⦷` (`(||)`), `⟠` (`<=>`), `⧇` (`[o]`), `⦺` (`(+-0)`), `⩩` (`=#=`), `⫩` (`_|T`).
+   - **Honest Operational-Utility Classification (`AUDIT-084R`):** Under Own-Terms-First Rule 2, `7/8` glyphs are documented transparently as composition shorthands / renamings (`6` shorthands + overloaded `⟠`) operating on constructed exact-$\mathbb{Q}$ objects (`0` file I/O in `calculus.py`), while `1/8` (`⫩`, mutation-tested refusal gate) is a typed execution operator (`N0` mutation-testing origin); all `6` algebraic composition probes (`C1`–`C6`) execute cleanly with zero floats.
+4. **Plane-1 MDE (`aletheia mde`), 5-Gate Ratchet (`aletheia ratchet`), & Hardened `audit-check` / `mutate`:** Includes Lean 4 raw-string `r#"..."#` safe lexing, R4 `unittest` `-O` skip detection, `from random import` AST tracking, cross-module imported wrapper discovery + `--guards` + `covered_lines`, `shapes.py`/`rule.py` refusal shapes, `selfcheck.py` constant-shift mutation, `NOT_SHOWN` truncation, and `(?!\n)$` schema alignment.
 
 ---
 
 ## 7. Machine-Readable Schemas
 
-Formal JSON Schemas (`draft/2020-12`) corresponding to this specification reside in [`../schemas/`](../schemas/):
+Formal JSON Schemas (`draft/2020-12`, aligned with CLI validators and `(?!\n)$` newline-safe anchors) reside in [`../schemas/`](../schemas/):
 - [`schemas/audit_receipt.v1.schema.json`](../schemas/audit_receipt.v1.schema.json)
 - [`schemas/frontier_portal.v1.schema.json`](../schemas/frontier_portal.v1.schema.json)
 - [`schemas/compute_handoff.v1.schema.json`](../schemas/compute_handoff.v1.schema.json)

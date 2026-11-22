@@ -143,6 +143,7 @@ def _build_install_plan(target: str, repo_root: Path | None) -> list[tuple[str, 
                 "version": __version__,
                 "description": "The Aletheia Method adapter for Claude Code",
                 "homepage": "https://github.com/Foundation-0/aletheia",
+                "commands": [".claude/commands/aletheia.md"],
             },
             indent=2,
         ) + "\n"

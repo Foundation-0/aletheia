@@ -929,7 +929,7 @@ class TestAletheiaCLI(unittest.TestCase):
         )
         from aletheia.mutator import discover_mutant_sites, run_mutation_suite
 
-        _req(__version__ == "1.4.0", f"expected version 1.4.0, got {__version__}")
+        _req(tuple(int(p) for p in __version__.split(".")) >= (1, 4, 0), f"expected version >= 1.4.0, got {__version__}")
 
         # 1. AST local refusal-wrapper auto-detection (`PR1-B4`: `_req`, `_fail_if`, `_guard_ret`)
         with tempfile.TemporaryDirectory(prefix="aletheia_v14_") as td:
@@ -1489,17 +1489,19 @@ class TestAletheiaCLI(unittest.TestCase):
         cut = run_mutation_suite(fixture, cmd, work_root=fixture.parent, include_boundaries=True, max_mutants=3)
         _req(
             cut["truncated"] is True and cut["total_mutants"] == 3 and cut["mutants_discovered"] == n
+            and cut["verdict"] == "NOT_SHOWN" and cut["passed"] is False
             and f"{n - 3} of {n}" in cut["warning"],
-            f"truncation not reported: {cut.get('truncated')} {cut.get('mutants_discovered')} {cut.get('warning')}",
+            f"truncation not reported as NOT_SHOWN: {cut.get('verdict')} {cut.get('passed')} {cut.get('warning')}",
         )
 
-        # The command line shows it too, in JSON and in the text summary.
+        # The command line shows it too, in JSON and in the text summary, and exits 1 (NOT_SHOWN).
         args = ["mutate", str(fixture), "--test-cmd", cmd, "--max-mutants", "3"]
         rc, out, _ = _run_cli(args + ["--json"])
         obj = json.loads(out)
-        _req(obj["truncated"] is True and "warning" in obj, f"JSON output hides the truncation: {list(obj)}")
+        _req(rc == 1 and obj["truncated"] is True and obj["verdict"] == "NOT_SHOWN" and "warning" in obj,
+             f"JSON output hides NOT_SHOWN truncation: rc={rc} {list(obj)}")
         rc, out, _ = _run_cli(args)
-        _req("warning: max_mutants=3" in out, f"text output hides the truncation: {out[:400]}")
+        _req(rc == 1 and "warning: max_mutants=3" in out and "NOT_SHOWN" in out, f"text output hides NOT_SHOWN truncation: {out[:400]}")
 
     def test_27_init_reports_a_regular_file_in_the_way_of_a_directory(self) -> None:
         with tempfile.TemporaryDirectory(prefix="aletheia_t_initfile_") as td:
@@ -1629,6 +1631,221 @@ class TestAletheiaCLI(unittest.TestCase):
                 f"challenge == solution accepted: {same}",
             )
             _req(check("Same", "Other")["passed"], "two different modules must still pass")
+
+    def test_32_v20_issue5_imported_wrappers_guards_and_refusal_shapes(self) -> None:
+        """v2.0 closes aletheia#5 #1 (imported wrappers + --guards + covered_lines) & #11 (shapes.py + rule.py)."""
+        with tempfile.TemporaryDirectory(prefix="aletheia_t_v2_mut_") as td:
+            root = Path(td)
+            write_lf_text(root / "helpers.py", "def need(ok, msg):\n    if not ok:\n        raise ValueError(msg)\n")
+            write_lf_text(
+                root / "checker_ext.py",
+                'from helpers import need\n'
+                'def accept(d):\n'
+                '    need(isinstance(d, dict), "not dict")\n'
+                '    need(d.get("ok") == 1, "bad")\n'
+                '    return True\n',
+            )
+            write_lf_text(
+                root / "test_ext.py",
+                'import unittest, checker_ext\n'
+                'class T(unittest.TestCase):\n'
+                '    def test_all(self):\n'
+                '        self.assertTrue(checker_ext.accept({"ok": 1}))\n'
+                '        with self.assertRaises(ValueError):\n'
+                '            checker_ext.accept([])\n'
+                '        with self.assertRaises(ValueError):\n'
+                '            checker_ext.accept({"ok": 2})\n'
+                'if __name__ == "__main__":\n'
+                '    unittest.main()\n',
+            )
+            rc, out, err = _run_cli([
+                "mutate", str(root / "checker_ext.py"),
+                "--work-root", str(root),
+                "--test-cmd", "python3 test_ext.py",
+                "--add-cwd", "--json",
+            ])
+            obj = json.loads(out)
+            _req(rc == 0 and obj["passed"] and obj["imported_wrappers_detected"] == ["need"] and obj["covered_lines"] == [3, 4],
+                 f"imported wrapper failed: rc={rc} out={out} err={err}")
+
+            # Explicit --guards flag
+            write_lf_text(root / "custom_g.py", "def f(x, gate):\n    gate(x > 0, 'neg')\n    return x\n")
+            write_lf_text(
+                root / "test_cg.py",
+                'import unittest, custom_g\n'
+                'def g(ok, m):\n    if not ok:\n        raise ValueError(m)\n'
+                'class T(unittest.TestCase):\n'
+                '    def test_g(self):\n'
+                '        self.assertEqual(custom_g.f(1, g), 1)\n'
+                '        with self.assertRaises(ValueError):\n            custom_g.f(0, g)\n'
+                'if __name__ == "__main__":\n    unittest.main()\n',
+            )
+            rc_g, out_g, _ = _run_cli([
+                "mutate", str(root / "custom_g.py"),
+                "--work-root", str(root),
+                "--test-cmd", "python3 test_cg.py",
+                "--add-cwd", "--guards", "gate", "--json",
+            ])
+            og = json.loads(out_g)
+            _req(rc_g == 0 and og["passed"] and og["explicit_guards"] == ["gate"] and og["total_mutants"] == 2,
+                 f"--guards failed: rc={rc_g} out={out_g}")
+
+            # aletheia#5 #11: shapes.py (all 5 refusal shapes) & rule.py
+            write_lf_text(
+                root / "shapes.py",
+                'def a(x):\n    if x < 0:\n        return "REJECTED"\n    return "ok"\n\n'
+                'def b(x):\n    if x < 0:\n        return False, "negative"\n    return True, ""\n\n'
+                'def c(x):\n    if x < 0:\n        print("bad")\n        raise ValueError(x)\n    return x\n\n'
+                'def d(x):\n    if x < 0:\n        return {"admissible": False}\n    return {"admissible": True}\n\n'
+                'def e(x):\n    findings = []\n    if x < 0:\n        findings.append("neg")\n    return findings\n',
+            )
+            _, out_s, _ = _run_cli(["mutate", str(root / "shapes.py"), "--test-cmd", "python3 -c pass", "--json"])
+            os_j = json.loads(out_s)
+            _req(len(os_j["covered_lines"]) == 5 and os_j["total_mutants"] == 10,
+                 f"shapes.py missed refusal shapes: {os_j['covered_lines']} total={os_j['total_mutants']}")
+
+            write_lf_text(
+                root / "rule.py",
+                'def decide(x):\n    if x == 1:\n        return "against"\n    if x == 2:\n        return "inconclusive"\n    raise ValueError(x)\n',
+            )
+            _, out_r, _ = _run_cli(["mutate", str(root / "rule.py"), "--test-cmd", "python3 -c pass", "--json"])
+            or_j = json.loads(out_r)
+            _req(or_j["total_mutants"] == 4 and or_j["covered_lines"] == [2, 4],
+                 f"rule.py missed string decisions: {or_j}")
+
+    def test_33_v20_issue5_selfcheck_timeout_and_add_cwd_hint(self) -> None:
+        """v2.0 closes aletheia#5 #6 (-I/--add-cwd hint), #7 (BASELINE_TEST_TIMEOUT), and #12 (selfcheck.py 100%)."""
+        with tempfile.TemporaryDirectory(prefix="aletheia_t_v2_sc_") as td:
+            root = Path(td)
+            # #12 selfcheck.py -> 100.0% kill!
+            write_lf_text(
+                root / "selfcheck.py",
+                'import sys\nFAILS = []\n'
+                'def check(cond, msg):\n    if not cond:\n        FAILS.append(msg)\n'
+                'check(sum(range(5)) == 10, "sum")\n'
+                'check(len("abc") == 3, "len")\n'
+                'if FAILS:\n    print("FAIL", FAILS)\n    sys.exit(1)\n'
+                'print("PASS 2 of 2")\n',
+            )
+            rc_sc, out_sc, err_sc = _run_cli([
+                "mutate", str(root / "selfcheck.py"),
+                "--test-cmd", "python3 selfcheck.py", "--json",
+            ])
+            jsc = json.loads(out_sc)
+            _req(rc_sc == 0 and jsc["passed"] and jsc["self_check_mode"] is True and jsc["kill_rate_pct"] == 100.0 and jsc["total_mutants"] == 6,
+                 f"selfcheck.py did not reach 100%: rc={rc_sc} out={out_sc} err={err_sc}")
+
+            # #6 -I hint on ModuleNotFoundError
+            write_lf_text(root / "m.py", "def f(x):\n    if x < 0:\n        raise ValueError(x)\n    return x\n")
+            write_lf_text(root / "tm.py", "import m\nm.f(1)\n")
+            rc_6, out_6, _ = _run_cli(["mutate", str(root / "m.py"), "--test-cmd", "python3 tm.py", "--json"])
+            j6 = json.loads(out_6)
+            _req(rc_6 == 2 and j6["code"] == "BASELINE_TEST_FAILED" and "--add-cwd" in j6["message"] and "-I" in j6["message"],
+                 f"missing -I/--add-cwd hint: {j6}")
+
+            # #7 structured BASELINE_TEST_TIMEOUT (no traceback!)
+            write_lf_text(root / "slow.py", "import time\ntime.sleep(3)\n")
+            rc_7, out_7, err_7 = _run_cli([
+                "mutate", str(root / "m.py"), "--test-cmd", "python3 slow.py", "--timeout", "1", "--json",
+            ])
+            j7 = json.loads(out_7)
+            _req(rc_7 == 2 and j7["code"] == "BASELINE_TEST_TIMEOUT" and "Traceback" not in err_7,
+                 f"baseline timeout not structured: rc={rc_7} out={out_7} err={err_7}")
+
+    def test_34_v20_issue5_r4_skip_from_random_diagnose_claude_and_lean_raw(self) -> None:
+        """v2.0 closes aletheia#5 #2 (-O skip), #5 (\\Z schemas), #8 (root portals), #10 (claude-code), #13 (from random) & B4 raw strings."""
+        with tempfile.TemporaryDirectory(prefix="aletheia_t_v2_aud_") as td:
+            root = Path(td)
+            # #2 R4 unittest skip under -O MUST FAIL!
+            write_lf_text(
+                root / "skip_o.py",
+                'import unittest\nclass T(unittest.TestCase):\n'
+                '    @unittest.skipIf(not __debug__, "needs asserts")\n'
+                '    def test_g(self):\n        self.assertTrue(True)\n'
+                'if __name__ == "__main__":\n    unittest.main()\n',
+            )
+            rc2, out2, _ = _run_cli(["audit-check", str(root), "--scripts", "skip_o.py", "--json"])
+            j2 = json.loads(out2)
+            _req(rc2 == 1 and j2["r4_scripts"][0]["skip_parity"] is False and j2["r4_scripts"][0]["passed"] is False,
+                 f"-O unittest skip passed R4: rc={rc2} {j2['r4_scripts']}")
+
+            # #13 from random import randint caught by --strict-unseeded
+            d13 = root / "rng13"
+            d13.mkdir()
+            write_lf_text(d13 / "fromimp.py", "from random import randint as r_int\nprint(r_int(1, 6))\n")
+            rc13, out13, _ = _run_cli(["audit-check", str(d13), "--strict-unseeded", "--json"])
+            j13 = json.loads(out13)
+            _req(rc13 == 1 and j13["summary"]["unseeded_rng_warning_count"] == 1,
+                 f"from random import randint missed: rc={rc13} {j13['unseeded_rng_warnings']}")
+
+            # #8 diagnose accepts root frontier_portals.md
+            d8 = root / "diag8"
+            d8.mkdir()
+            write_lf_text(d8 / "frontier_portals.md", "# Portal 1: Alpha\n" + ("x" * 1300) + "\n# Portal 2: Beta\n")
+            rc8, out8, _ = _run_cli(["diagnose", str(d8), "--json"])
+            j8 = json.loads(out8)
+            _req(rc8 == 0 and j8["overall_status"] == "HEALTHY", f"root frontier_portals.md failed diagnose: {j8}")
+
+            # #10 claude-code install plugin.json paths all exist in dest
+            d10 = root / "cc10"
+            d10.mkdir()
+            rc10, _, _ = _run_cli(["install", "--target", "claude-code", "--dest", str(d10)])
+            pj = json.loads((d10 / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))
+            listed = list(pj.get("commands", [])) + list(pj.get("agents", []))
+            missing = [p for p in listed if not (d10 / p).is_file()]
+            _req(rc10 == 0 and len(listed) == 3 and not missing, f"claude-code plugin.json broken paths: listed={listed} missing={missing}")
+
+            # #5 schemas use (?!\n)$ everywhere (rejecting trailing \n in Python re)
+            import re
+            for sf in sorted((CLI_ROOT / "schemas").glob("*.json")):
+                sobj = json.loads(sf.read_text(encoding="utf-8"))
+                def _check_pats(x: object) -> None:
+                    if isinstance(x, dict):
+                        p = x.get("pattern")
+                        if isinstance(p, str):
+                            _req(p.endswith("(?!\\n)$"), f"{sf.name} pattern lacks (?!\\n)$: {p!r}")
+                            _req(re.search(p, "AUDIT-001\n") is None and re.search(p, "2026-11-21\n") is None,
+                                 f"{sf.name} pattern matched trailing newline: {p!r}")
+                        for v in x.values():
+                            _check_pats(v)
+                    elif isinstance(x, list):
+                        for v in x:
+                            _check_pats(v)
+                _check_pats(sobj)
+
+            # PR #7 B4 Lean 4 raw string r#"has " quote"# clean + sorry still caught
+            from aletheia.audit_check import audit_lean4_source
+            lean_raw_ok = audit_lean4_source('def s := r#"has " quote"#\ntheorem ok : True := trivial\n')
+            lean_raw_sorry = audit_lean4_source('def s := r#"has " quote"#\ntheorem bad : True := by sorry\n')
+            lean_raw_unclosed = audit_lean4_source('def s := r#"unclosed\ntheorem ok : True := trivial\n')
+            _req(lean_raw_ok["clean"] is True, f"raw string false positive: {lean_raw_ok}")
+            _req(not lean_raw_sorry["clean"] and lean_raw_sorry["findings"][0]["code"] == "LEAN4_SORRY",
+                 f"sorry after raw string missed: {lean_raw_sorry}")
+            _req(not lean_raw_unclosed["clean"] and lean_raw_unclosed["findings"][0]["code"] == "LEAN4_UNTERMINATED_STRING",
+                 f"unclosed raw string missed: {lean_raw_unclosed}")
+
+    def test_35_v20_cli_gate_v2_and_safety_scan(self) -> None:
+        """v2.0 CLI subcommands: gate-v2 --self-test, safety-scan, audit-check --safety-scan, version 2.0.0."""
+        from aletheia import __version__
+        _req(__version__ == "2.0.0", f"expected version 2.0.0, got {__version__}")
+
+        rc_g, out_g, _ = _run_cli(["gate-v2", "--self-test", "--json"])
+        jg = parse_strict_json_text(out_g, allow_float=False)
+        _req(rc_g == 0 and jg["passed"] is True and jg["verdict"] == "ALETHEIA_V2_GATES_VERIFIED",
+             f"gate-v2 --self-test failed: rc={rc_g} {jg}")
+
+        with tempfile.TemporaryDirectory(prefix="aletheia_t_v2_saf_") as td:
+            root = Path(td)
+            write_lf_text(root / "bad.sh", 'rm -rf "$TARGET"\n')
+            rc_s, out_s, _ = _run_cli(["safety-scan", str(root), "--json"])
+            js = json.loads(out_s)
+            _req(rc_s == 1 and js["clean"] is False and js["gap_ids_present"] == ["CYA-GAP-03"],
+                 f"safety-scan failed: rc={rc_s} {js}")
+
+            rc_a, out_a, _ = _run_cli(["audit-check", str(root), "--safety-scan", "--json"])
+            ja = json.loads(out_a)
+            _req(rc_a == 1 and ja["summary"]["safety_findings_count"] == 1,
+                 f"audit-check --safety-scan failed: rc={rc_a} {ja['summary']}")
 
 
 if __name__ == "__main__":

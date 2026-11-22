@@ -95,12 +95,18 @@ def diagnose_expedition(
     expedition_dir: Path,
     *,
     board_path: Path | None = None,
+    portals_file: Path | None = None,
 ) -> dict[str, Any]:
     """Run quantitative 12-pattern Cave-Shadow relapse diagnosis on an expedition directory."""
     root = expedition_dir.resolve()
     require_ok(root.is_dir(), "EXPEDITION_DIR_NOT_FOUND", f"directory not found: {root}")
 
-    portals_path = root / "cartography" / "frontier_portals.md"
+    if portals_file is not None:
+        portals_path = portals_file.resolve()
+    else:
+        cand_cart = root / "cartography" / "frontier_portals.md"
+        cand_root = root / "frontier_portals.md"
+        portals_path = cand_cart if cand_cart.is_file() else (cand_root if cand_root.is_file() else cand_cart)
     audit_log_path = root / "verification" / "AUDIT_LOG.md"
     board_msgs = _load_board_jsonl(board_path)
 
@@ -397,11 +403,11 @@ def diagnose_expedition(
     r8 = min(100, r8)
     patterns.append({
         "id": "CS-08",
-        "name": "Compute-Leakage Simpson's Paradox",
+        "name": "Compute Leakage",
         "risk_score": r8,
         "status": _status_from_risk(r8),
         "evidence": ev8,
-        "remediation": "Enforce fixed-compute wall-clock survival caps alongside round counts; never compare unbounded format-breaking CoT retries against capped baselines.",
+        "remediation": "Enforce fixed-compute wall-clock survival caps alongside round counts; report format-preserving solves separately from long open-reasoning escapes.",
     })
 
     # ------------------------------------------------------------------

@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aletheia-method"
-version = "1.4.0"
-description = "The Aletheia Method: zero-dependency CLI for Portal-Driven Resonance, R1-R5 Adversarial Tomography, AST refusal-site mutation testing, and Anti-Cave diagnostics."
+version = "2.0.0"
+description = "The Aletheia Method v2.0: zero-dependency CLI for Portal-Driven Resonance, Own-Terms-First, Transformational Steelman, R1-R7 Adversarial Tomography, AST mutation testing, and safety-surface diagnostics."
 readme = "README.md"
 license = {text = "Apache-2.0"}
 requires-python = ">=3.11"

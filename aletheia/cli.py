@@ -24,11 +24,13 @@ from . import __version__
 from .audit_check import run_audit_check
 from .calculus import eval_calculus_expression, list_glyphs, run_calculus_self_test
 from .diagnose import diagnose_expedition
+from .gates_v2 import run_v2_gates_self_test
 from .handoff import create_handoff_template, validate_handoff_manifest
 from .installer import VALID_TARGETS, install_adapter
 from .mde import build_aletheia_mde_manifest, run_mde_demo, verify_lineage_dag_file
 from .mutator import run_mutation_suite
 from .ratchet import run_ratchet_demo, verify_ratchet_ledger_file
+from .safety import scan_directory_safety_surface
 from .scaffold import init_workspace
 from .strict_io import AletheiaError
 
@@ -71,6 +73,8 @@ def _emit(payload: dict[str, Any], as_json: bool) -> None:
         print("  surviving mutants:")
         for s in payload["survivors"]:
             print(f"    - {s['id']} line {s['line']} ({s['kind']}): {s['original']} -> {s['mutated']}")
+    if "covered_lines" in payload and isinstance(payload["covered_lines"], list):
+        print(f"  covered_lines: {payload['covered_lines']}")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -105,6 +109,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_aud.add_argument("--prereg-check", action="store_true", help="Verify Gate 8 git-DAG plan-before-data ancestor ordering")
     p_aud.add_argument("--plan-commit", default=None, help="Explicit plan commit SHA for --prereg-check")
     p_aud.add_argument("--data-commit", default=None, help="Explicit data/audit commit SHA for --prereg-check")
+    p_aud.add_argument("--safety-scan", action="store_true", help="Run CYA-GAP-01..05 deterministic agent safety-surface scan")
+    p_aud.add_argument("--include-host-hygiene", action="store_true", help="Include CYA-GAP-06 host-hygiene rules when using --safety-scan")
     p_aud.add_argument("--timeout", type=int, default=120, help="Per-mode script timeout in seconds")
     p_aud.add_argument("--json", action="store_true", help="Emit JSON output")
 
@@ -114,7 +120,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_mut.add_argument("--test-cmd", required=True, help="Test command (supports {target} placeholder)")
     p_mut.add_argument("--work-root", type=Path, default=None, help="Workspace root directory to copy into tempdir")
     p_mut.add_argument("--add-cwd", action="store_true", help="Keep work_root on sys.path (uses -s -O -B instead of -I) for repo-local unittest imports")
-    p_mut.add_argument("--max-mutants", type=int, default=100, help="Maximum mutant sites to execute")
+    p_mut.add_argument("--guards", action="extend", nargs="+", default=[], help="Extra guard function names (e.g. need or fail_if:reject)")
+    p_mut.add_argument("--max-mutants", type=int, default=100, help="Maximum mutant sites to execute (0 = all; truncating yields NOT_SHOWN)")
     p_mut.add_argument("--timeout", type=int, default=30, help="Per-mutant test timeout in seconds")
     p_mut.add_argument("--no-boundaries", action="store_true", help="Only mutate if/require guard deletion (skip boundary flips)")
     p_mut.add_argument("--json", action="store_true", help="Emit JSON output")
@@ -123,6 +130,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_diag = sub.add_parser("diagnose", help="Run quantitative 12-pattern Anti-Cave relapse detector (CS-01..CS-12)")
     p_diag.add_argument("expedition_dir", type=Path, help="Expedition workspace directory")
     p_diag.add_argument("--board", type=Path, default=None, help="Optional swarm board JSONL file")
+    p_diag.add_argument("--portals-path", type=Path, default=None, help="Explicit path to frontier_portals.md")
     p_diag.add_argument("--fail-on-warning", action="store_true", help="Return non-zero on WARNING as well as ALERT")
     p_diag.add_argument("--json", action="store_true", help="Emit JSON output")
 
@@ -167,6 +175,17 @@ def build_parser() -> argparse.ArgumentParser:
     calc_grp.add_argument("--self-test", action="store_true", help="Run 8-glyph registry verification, 13 compressed theorems & 6 commutator probes")
     p_calc.add_argument("--json", action="store_true", help="Emit zero-float JSON output")
 
+    # 10. gate-v2 (v2.0 — R6/R7, Two-Direction R3, Gate-8 Subspace Latch, Law 2b Steelman, Own-Terms-First)
+    p_gv2 = sub.add_parser("gate-v2", help="Self-test pure-Q Aletheia v2.0 gates (R6/R7, 2-dir R3, Gate-8 latch, Law 2b, Own-Terms-First)")
+    p_gv2.add_argument("--self-test", action="store_true", required=True, help="Run deterministic zero-float self-test across all 7 v2.0 gates")
+    p_gv2.add_argument("--json", action="store_true", help="Emit zero-float JSON output")
+
+    # 11. safety-scan (v2.0 — CYA-GAP-01..06 deterministic agent safety-surface scanner)
+    p_saf = sub.add_parser("safety-scan", help="Scan a file or directory for CYA-GAP-01..06 agent safety-surface hazards")
+    p_saf.add_argument("path", type=Path, help="File or directory to scan")
+    p_saf.add_argument("--include-host-hygiene", action="store_true", help="Include CYA-GAP-06 alias-rm and cloud-sync rules")
+    p_saf.add_argument("--json", action="store_true", help="Emit JSON output")
+
     return parser
 
 
@@ -199,6 +218,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 prereg_check=args.prereg_check,
                 plan_commit=args.plan_commit,
                 data_commit=args.data_commit,
+                safety_scan=args.safety_scan,
+                include_host_hygiene=args.include_host_hygiene,
             )
             _emit(res, as_json)
             return 0 if res["passed"] else 1
@@ -212,12 +233,13 @@ def main(argv: Sequence[str] | None = None) -> int:
                 timeout=args.timeout,
                 include_boundaries=not args.no_boundaries,
                 add_cwd=args.add_cwd,
+                extra_guards=args.guards,
             )
             _emit(res, as_json)
             return 0 if res["passed"] else 1
 
         if args.command == "diagnose":
-            res = diagnose_expedition(args.expedition_dir, board_path=args.board)
+            res = diagnose_expedition(args.expedition_dir, board_path=args.board, portals_file=args.portals_path)
             _emit(res, as_json)
             if res["overall_status"] == "RELAPSE_DETECTED":
                 return 1
@@ -281,6 +303,19 @@ def main(argv: Sequence[str] | None = None) -> int:
             _emit(res, as_json)
             # A false boolean (a failed equivalence) exits 1 so a shell pipeline can gate on truth.
             return 1 if res["value_type"] == "bool" and res["value"] is False else 0
+
+        if args.command == "gate-v2":
+            res = run_v2_gates_self_test()
+            _emit(res, as_json)
+            return 0 if res["passed"] else 1
+
+        if args.command == "safety-scan":
+            try:
+                res = scan_directory_safety_surface(args.path, include_host_hygiene=args.include_host_hygiene)
+            except ValueError as exc:
+                raise AletheiaError("SAFETY_SCAN_ERROR", str(exc)) from exc
+            _emit(res, as_json)
+            return 0 if res["clean"] else 1
 
         raise AletheiaError("UNKNOWN_COMMAND", f"unknown command: {args.command}")
 

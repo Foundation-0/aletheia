@@ -1,16 +1,16 @@
 """
 aletheia: Zero-dependency Python 3 stdlib toolkit for The Aletheia Method
-(Portal-Driven Resonance & Adversarial Tomography).
+(Portal-Driven Resonance, Own-Terms-First, Transformational Steelman & Adversarial Tomography).
 
 Zero external dependencies. Zero bare asserts on trust paths.
-Safe under:
+Safe under all three R4 isolated modes:
   python3 -I -B
   python3 -I -O -B
   python3 -I -B -W error
 """
 from __future__ import annotations
 
-__version__ = "1.4.0"
+__version__ = "2.0.0"
 
 from .strict_io import (
     AletheiaError,
@@ -21,11 +21,22 @@ from .strict_io import (
 )
 from .scaffold import init_workspace
 from .audit_check import run_audit_check, verify_ancestor_dir_modes, audit_ancestor_dir_permissions
-from .mutator import run_mutation_suite, discover_local_refusal_wrappers
+from .mutator import run_mutation_suite, discover_local_refusal_wrappers, discover_imported_refusal_wrappers
 from .diagnose import diagnose_expedition
 from .handoff import validate_handoff_manifest, create_handoff_template
 from .installer import install_adapter
 from .calculus import list_glyphs, eval_calculus_expression, run_calculus_self_test
+from .gates_v2 import (
+    evaluate_r6_r7_gate,
+    certify_two_direction_r3,
+    evaluate_sampled_integrity,
+    certify_oracle_contract,
+    certify_gate8_subspace_latch,
+    certify_transformational_steelman,
+    certify_own_terms_phase1,
+    run_v2_gates_self_test,
+)
+from .safety import scan_hidden_unicode, scan_text_safety_surface, scan_directory_safety_surface
 
 __all__ = [
     "__version__",
@@ -40,6 +51,7 @@ __all__ = [
     "audit_ancestor_dir_permissions",
     "run_mutation_suite",
     "discover_local_refusal_wrappers",
+    "discover_imported_refusal_wrappers",
     "diagnose_expedition",
     "validate_handoff_manifest",
     "create_handoff_template",
@@ -47,4 +59,15 @@ __all__ = [
     "list_glyphs",
     "eval_calculus_expression",
     "run_calculus_self_test",
+    "evaluate_r6_r7_gate",
+    "certify_two_direction_r3",
+    "evaluate_sampled_integrity",
+    "certify_oracle_contract",
+    "certify_gate8_subspace_latch",
+    "certify_transformational_steelman",
+    "certify_own_terms_phase1",
+    "run_v2_gates_self_test",
+    "scan_hidden_unicode",
+    "scan_text_safety_surface",
+    "scan_directory_safety_surface",
 ]

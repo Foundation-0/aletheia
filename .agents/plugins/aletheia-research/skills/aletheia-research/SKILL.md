@@ -56,13 +56,15 @@ When working without a swarm, run four explicit phases rather than blending crit
 
 ---
 
-## 3. Executable CLI Workflow (v1.4)
+## 3. Executable CLI Workflow (`v2.0.0`)
 
 ```bash
 python3 -m aletheia init my-expedition --domain physics
-python3 -m aletheia audit-check my-expedition --lean-audit --strict-ancestors --json  # strict JSON/JSONL, repeatable --allow-project-import, --comparator-config, --pinned-manifest, --prereg-check
-python3 -m aletheia mutate path/to/verifier.py --work-root . --test-cmd "python3 -I -O -B path/to/test.py"  # auto-detects local refusal wrappers (_req, _fail_if)
-python3 -m aletheia diagnose my-expedition        # checks CS-01..CS-12 (incl. truncation mirages, collision denominators, unit/radix fragility & trust-boundary shadows)
+python3 -m aletheia audit-check my-expedition --lean-audit --strict-ancestors --safety-scan --json  # strict JSON/JSONL, R4 -O skip check, from-random AST, CYA-GAP-01..06
+python3 -m aletheia gate-v2 --self-test --json    # pure-Q R6/R7, Two-Direction R3, NOT_SHOWN, Gate-8 col(Phi) latch, Law 2b, Own-Terms-First
+python3 -m aletheia safety-scan my-expedition --json  # deterministic CYA-GAP-01..06 safety scanner
+python3 -m aletheia mutate path/to/verifier.py --work-root . --add-cwd --max-mutants 0 --test-cmd "python3 path/to/test.py"  # local + imported wrappers, --guards, shapes, self-check, NOT_SHOWN on truncation
+python3 -m aletheia diagnose my-expedition        # checks CS-01..CS-12 (incl. root frontier_portals.md & --portals-path)
 python3 -m aletheia ratchet --demo              # 5-gate anti-Goodhart, noise-immune, CS-08-capped ratchet
 python3 -m aletheia mde --demo                  # Plane-1 zone-canon-v0 manifest, causal DAG & SYM-2P/2.0-rcp
 python3 -m aletheia calculus --list --json      # 8-glyph exact operator calculus (⧄ ⧅ ⦷ ⟠ ⧇ ⦺ ⩩ ⫩; --eval EXPR, --self-test)

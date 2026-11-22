@@ -52,11 +52,11 @@ When a rough time-series script fails `AUDIT-003`-style negative controls, **ins
 
 One of the clearest signatures that an expedition has genuinely **left Plato's Cave** is when a clean null-equivalence operator rejects the team's own textbook hypothesis and reveals deeper real-world structure instead.
 
-### Worked Example: Sabra Turbulence Refuting Period-3 and Surfacing the Period-2 Helicity Ripple (`AUDIT-010`)
+### Worked Example: Sabra Turbulence — No Period-3 Signal Detected and Surfacing the Period-2 Helicity Ripple (`AUDIT-010`)
 1. **The Prior Hypothesis (Portal 2):** Discrete scale invariance $y_k = A \lambda^{\beta k} P(k)$ with period $p$ ($P(k+p) = P(k)$) is annihilated identically by the zero-log telescoping cross-ratio product:
    $$\Pi_p(k) := \prod_{j=0}^{p-1} R_{k+j} = \frac{y_{k+p}/y_k}{y_{k+p-1}/y_{k-1}} \equiv 1 \qquad (\text{exact DSI Null-Equivalence}).$$
    Based on the famous GOY shell-model literature, the initial hypothesis predicted period-$3$ oscillations ($\Pi_3 \to 1$) in `Foundation-0/fractals/turbulence/model.js` (which implements the Sabra shell model).
-2. **Live Data Refutation (Do Not Force the Fit!):** Running exact $\Pi_p(n)$ on live Sabra plain shell energies $\langle |u_n|^2 \rangle$ against 200 ratio-shuffle nulls **cleanly refuted period-3** (`p = 0.405 / 1.000`).
+2. **Live Data Check (Do Not Force the Fit!):** Running exact $\Pi_p(n)$ on live Sabra plain shell energies $\langle |u_n|^2 \rangle$ against 200 ratio-shuffle nulls detected **no period-3 signal** (`p = 0.405 / 1.000`; note per outside check `cave-expedition#4` that the `p2 < p3` statistic has little power against period-3 on smooth surrogates, and Sabra has no period-3 artifact by construction per L'vov et al. 1998).
 3. **Surprise $\longrightarrow$ Stronger Observable:** Inspecting the actual sign-alternating structure of $R_n - 1$ immediately surfaced Sabra's decaying **period-2 helicity ripple** $(-1/2)^n$ — empirically rediscovering L'vov et al. (1998)'s elimination of GOY's unphysical period-3 artifact! Switching from plain energy moments to the signed energy-flux observable $F_2(n)$ cancelled the period-2 ripple by **`> 22x`** (`22.62x` and `24.57x` on unseen out-of-sample seeds `13` and `42` in `AUDIT-010`).
 
 **Practitioner Rule:** Whenever live data reject your pre-registered prior ($p > 0.05$ or exact Farkas infeasibility), **log the refutation permanently (Gate 8)**, inspect the *residual structure* (sign alternation, lag peak, scale drift, catalog offset) without re-tuning, and test the new observable on **fresh unseen seeds or disjoint catalogs**.

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/Foundation-0/aletheia/schemas/compute_handoff.v1.schema.json",
   "title": "Aletheia Portable Compute Handoff Manifest v1",
-  "description": "Machine-readable compute-tiered Wave 2+ handoff manifest validated by `aletheia handoff <manifest.json>`. Supports both canonical `aletheia.compute_handoff.v1` and legacy `expedition.next_waves.v1`.",
+  "description": "Machine-readable compute-tiered Wave 2+ handoff manifest validated by `aletheia handoff <manifest.json>`. Supports both canonical `aletheia.compute_handoff.v1` and legacy `expedition.next_waves.v1` (with optional parenthetical oracle qualifiers).",
   "type": "object",
   "required": [
     "schema",
@@ -25,7 +25,7 @@
     },
     "snapshot_date": {
       "type": "string",
-      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}(?!\\n)$"
     },
     "source_repo": {
       "type": "string",
@@ -176,7 +176,7 @@
                 },
                 "oracle_class": {
                   "type": "string",
-                  "pattern": "^(exact|sampled|anchor)(\\s*\\+\\s*(exact|sampled|anchor))*$"
+                  "pattern": "^(exact|sampled|anchor|reference_replay)(\\s*\\([^()]+\\))?(\\s*\\+\\s*(exact|sampled|anchor|reference_replay)(\\s*\\([^()]+\\))?)*(?!\\n)$"
                 },
                 "falsification_gate": {
                   "type": "string",

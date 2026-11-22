@@ -26,6 +26,7 @@ import subprocess
 import sys
 from typing import Any, Sequence
 
+from .safety import scan_directory_safety_surface
 from .strict_io import (
     AletheiaError,
     canonical_sha256_bytes,
@@ -42,7 +43,7 @@ TEXT_SUFFIXES = {
 }
 
 VALID_VERDICTS = {"VERIFIED", "PARTIAL/FRAGILE", "FALSIFIED", "NOT_SHOWN", "EXPOSED"}
-VALID_ORACLE_TOKENS = {"exact", "sampled", "anchor"}
+VALID_ORACLE_TOKENS = {"exact", "sampled", "anchor", "reference_replay"}
 VALID_NOVELTY_TOKENS = {"N0", "N1", "N2"}
 
 _UNSEEDED_RANDOM_FUNCS = {
@@ -53,7 +54,12 @@ _UNSEEDED_NP_RANDOM_FUNCS = {
     "rand", "randn", "randint", "random", "uniform", "normal", "choice", "permutation", "shuffle",
 }
 
-_AUDIT_ID_RE = re.compile(r"AUDIT-[0-9]+[A-Za-z0-9_-]*")
+_AUDIT_ID_RE = re.compile(r"AUDIT-[0-9]{3,4}[A-Za-z0-9_-]*")
+_AUDIT_ID_STRICT_RE = re.compile(r"\AAUDIT-[0-9]{3,4}[A-Za-z0-9_-]*\Z")
+_DATE_STRICT_RE = re.compile(r"\A[0-9]{4}-[0-9]{2}-[0-9]{2}\Z")
+_SHA256_LOWER_STRICT_RE = re.compile(r"\A[0-9a-f]{64}\Z")
+_UNITTEST_SKIP_RE = re.compile(r"\bskipped\s*=\s*([0-9]+)\b")
+_UNITTEST_RAN_RE = re.compile(r"\bRan\s+([0-9]+)\s+tests?\b")
 _PRIOR_ART_HINT_RE = re.compile(
     r"(?:prior[- ]?art|arxiv|literature|borcea|streinu|knausg|alp[oö]ge|loom#|docs/10|over\s+`?loom|refut|reproduc|upstream|skordis|l'vov|viazovska)",
     re.IGNORECASE,
@@ -72,9 +78,14 @@ def _scan_python_ast(path: Path, text: str) -> tuple[list[dict[str, Any]], list[
         syntax_errors.append({"file": str(path), "line": exc.lineno or 0, "message": str(exc)})
         return syntax_errors, bare_asserts, unseeded_rng
 
-    # Track aliases for `import random as X` or `import numpy as Y`
+    # Track aliases for `import random as X`, `import numpy as Y`, `from random import randint`, etc.
     random_aliases = {"random"}
     numpy_aliases = {"np", "numpy"}
+    np_random_aliases: set[str] = set()
+    direct_random_funcs: dict[str, str] = {}
+    direct_np_funcs: dict[str, str] = {}
+    has_module_seed = False
+
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             for alias in node.names:
@@ -82,6 +93,31 @@ def _scan_python_ast(path: Path, text: str) -> tuple[list[dict[str, Any]], list[
                     random_aliases.add(alias.asname)
                 if alias.name == "numpy" and alias.asname:
                     numpy_aliases.add(alias.asname)
+                if alias.name == "numpy.random" and alias.asname:
+                    np_random_aliases.add(alias.asname)
+        elif isinstance(node, ast.ImportFrom):
+            mod = node.module or ""
+            if mod == "random":
+                for alias in node.names:
+                    if alias.name in _UNSEEDED_RANDOM_FUNCS:
+                        direct_random_funcs[alias.asname or alias.name] = alias.name
+            elif mod == "numpy":
+                for alias in node.names:
+                    if alias.name == "random":
+                        np_random_aliases.add(alias.asname or "random")
+            elif mod == "numpy.random":
+                for alias in node.names:
+                    if alias.name in _UNSEEDED_NP_RANDOM_FUNCS:
+                        direct_np_funcs[alias.asname or alias.name] = alias.name
+        elif isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+            if node.func.attr == "seed":
+                has_module_seed = True
+
+    rng_hint = (
+        "Module-global RNG state (even after random.seed(...)) leaks across imports/tests; prefer explicit local random.Random(seed)"
+        if has_module_seed
+        else "Prefer explicit local random.Random(seed)"
+    )
 
     for node in ast.walk(tree):
         if isinstance(node, ast.Assert):
@@ -95,9 +131,20 @@ def _scan_python_ast(path: Path, text: str) -> tuple[list[dict[str, Any]], list[
                     "file": str(path),
                     "line": node.lineno,
                     "call": f"{val.id}.{attr}()",
-                    "hint": "Prefer explicit local random.Random(seed)",
+                    "hint": rng_hint,
                 })
-            # np.random.<fn>() (skip np.random.default_rng(seed)!)
+            # np.random.<fn>() or `from numpy import random as npr; npr.rand()`
+            elif (
+                isinstance(val, ast.Name)
+                and val.id in np_random_aliases
+                and attr in _UNSEEDED_NP_RANDOM_FUNCS
+            ):
+                unseeded_rng.append({
+                    "file": str(path),
+                    "line": node.lineno,
+                    "call": f"{val.id}.{attr}()",
+                    "hint": "Prefer explicit np.random.default_rng(seed)",
+                })
             elif (
                 isinstance(val, ast.Attribute)
                 and val.attr == "random"
@@ -109,6 +156,22 @@ def _scan_python_ast(path: Path, text: str) -> tuple[list[dict[str, Any]], list[
                     "file": str(path),
                     "line": node.lineno,
                     "call": f"{val.value.id}.random.{attr}()",
+                    "hint": "Prefer explicit np.random.default_rng(seed)",
+                })
+        elif isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+            fname = node.func.id
+            if fname in direct_random_funcs:
+                unseeded_rng.append({
+                    "file": str(path),
+                    "line": node.lineno,
+                    "call": f"{fname}() [from random import {direct_random_funcs[fname]}]",
+                    "hint": rng_hint,
+                })
+            elif fname in direct_np_funcs:
+                unseeded_rng.append({
+                    "file": str(path),
+                    "line": node.lineno,
+                    "call": f"{fname}() [from numpy.random import {direct_np_funcs[fname]}]",
                     "hint": "Prefer explicit np.random.default_rng(seed)",
                 })
 
@@ -294,8 +357,16 @@ def validate_audit_receipt_json(path: Path) -> dict[str, Any]:
         errors.append({"code": "INVALID_RECEIPT_SCHEMA", "message": f"expected aletheia.audit_receipt.v1, got {data.get('schema')!r}"})
 
     aid = data.get("audit_id")
-    if not isinstance(aid, str) or _AUDIT_ID_RE.fullmatch(aid) is None:
-        errors.append({"code": "INVALID_AUDIT_ID", "message": f"audit_id {aid!r} must match AUDIT-NNN..."})
+    if not isinstance(aid, str) or _AUDIT_ID_STRICT_RE.match(aid) is None:
+        errors.append({"code": "INVALID_AUDIT_ID", "message": f"audit_id {aid!r} must match AUDIT-NNN[N]..."})
+
+    dt = data.get("date")
+    if dt is not None and (not isinstance(dt, str) or _DATE_STRICT_RE.match(dt) is None):
+        errors.append({"code": "INVALID_DATE", "message": f"date {dt!r} must match YYYY-MM-DD (no trailing newline)"})
+
+    csha = data.get("canonical_sha256")
+    if csha is not None and (not isinstance(csha, str) or _SHA256_LOWER_STRICT_RE.match(csha) is None):
+        errors.append({"code": "INVALID_CANONICAL_SHA256", "message": f"canonical_sha256 {csha!r} must be 64 lower-hex chars"})
 
     for req_s in ("target", "repro_command"):
         val = data.get(req_s)
@@ -307,7 +378,13 @@ def validate_audit_receipt_json(path: Path) -> dict[str, Any]:
         errors.append({"code": "INVALID_VERDICT", "message": f"verdict {verdict!r} not in {sorted(VALID_VERDICTS)}"})
 
     oc = data.get("oracle_class")
-    if not isinstance(oc, str) or not oc.strip() or any(p.strip() not in VALID_ORACLE_TOKENS for p in oc.split("+")):
+    if (
+        not isinstance(oc, str)
+        or not oc.strip()
+        or "\n" in oc
+        or "\r" in oc
+        or any(p.strip() not in VALID_ORACLE_TOKENS for p in oc.split("+"))
+    ):
         errors.append({"code": "INVALID_ORACLE_CLASS", "message": f"invalid oracle_class {oc!r}"})
 
     nov = data.get("novelty")
@@ -393,15 +470,16 @@ _LEAN4_EXISTS_IMP_RE = re.compile(r"∃[^,\n]+,\s*(?!.*(?:∀|∧))[^,\n]*(?:→
 
 def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
     """
-    Char-literal-safe and nested-block-comment-safe Lean 4 stripper preserving line count.
-    Also returns one finding per block comment or string still open at end of file: the stripper
-    blanks everything after it, so a caller must treat those findings as a failed audit (R1).
+    Char-literal-safe, raw-string-safe (`r#"..."#`), and nested-block-comment-safe Lean 4
+    stripper preserving line count. Reports one finding per block comment or string still
+    open at end of file so callers treat unterminated escapes as failed audits (R1).
     """
     out: list[str] = []
     i = 0
     n = len(source)
     depth = 0
     in_str = False
+    raw_hashes = 0
     opened_at = 0
     unterminated: list[dict[str, Any]] = []
     while i < n:
@@ -416,6 +494,16 @@ def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
                 depth -= 1
                 out.append("  ")
                 i += 2
+            else:
+                out.append("\n" if ch == "\n" else " ")
+                i += 1
+            continue
+        if raw_hashes > 0:
+            close_seq = '"' + ("#" * raw_hashes)
+            if source.startswith(close_seq, i):
+                out.append(" " * len(close_seq))
+                i += len(close_seq)
+                raw_hashes = 0
             else:
                 out.append("\n" if ch == "\n" else " ")
                 i += 1
@@ -441,6 +529,18 @@ def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
             while i < n and source[i] != "\n":
                 out.append(" ")
                 i += 1
+        elif ch == "r" and nxt == "#" and (i == 0 or not (source[i - 1].isalnum() or source[i - 1] == "_")):
+            j = i + 1
+            while j < n and source[j] == "#":
+                j += 1
+            if j < n and source[j] == '"':
+                raw_hashes = j - (i + 1)
+                opened_at = i
+                out.append(" " * (j - i + 1))
+                i = j + 1
+            else:
+                out.append(ch)
+                i += 1
         elif ch == '"':
             in_str = True
             opened_at = i
@@ -460,7 +560,7 @@ def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
         else:
             out.append(ch)
             i += 1
-    if depth > 0 or in_str:
+    if depth > 0 or in_str or raw_hashes > 0:
         lineno = source.count("\n", 0, opened_at) + 1
         excerpt = source.splitlines()[lineno - 1].strip()[:100]
         unterminated.append(
@@ -924,11 +1024,16 @@ def run_r4_script_check(
             hashes.add(h)
             if proc.returncode != 0:
                 all_zero = False
+            stderr_text = proc.stderr.decode("utf-8", errors="replace")
+            m_skip = _UNITTEST_SKIP_RE.search(stderr_text)
+            m_ran = _UNITTEST_RAN_RE.search(stderr_text)
             mode_results[label] = {
                 "returncode": proc.returncode,
                 "stdout_sha256": h,
                 "stdout_bytes": len(proc.stdout),
-                "stderr_tail": proc.stderr.decode("utf-8", errors="replace")[-400:],
+                "tests_ran": int(m_ran.group(1)) if m_ran else None,
+                "tests_skipped": int(m_skip.group(1)) if m_skip else 0,
+                "stderr_tail": stderr_text[-400:],
             }
         except subprocess.TimeoutExpired:
             all_zero = False
@@ -936,16 +1041,23 @@ def run_r4_script_check(
                 "returncode": -1,
                 "stdout_sha256": "",
                 "stdout_bytes": 0,
+                "tests_ran": None,
+                "tests_skipped": 0,
                 "stderr_tail": f"TIMEOUT after {timeout}s",
             }
 
     bit_identical = all_zero and len(hashes) == 1
+    skip_counts = {mode_results[lbl]["tests_skipped"] for lbl, _ in modes}
+    ran_counts = {mode_results[lbl]["tests_ran"] for lbl, _ in modes}
+    # aletheia#5 #2: fail R4 if -O silently skips tests that ran in plain mode
+    skip_parity = len(skip_counts) == 1 and len(ran_counts) == 1
     return {
         "script": str(script_path),
         "isolated": isolated,
-        "passed": all_zero and bit_identical,
+        "passed": all_zero and bit_identical and skip_parity,
         "all_exit_zero": all_zero,
         "stdout_bit_identical": bit_identical,
+        "skip_parity": skip_parity,
         "modes": mode_results,
     }
 
@@ -1055,6 +1167,8 @@ def run_audit_check(
     prereg_check: bool = False,
     plan_commit: str | None = None,
     data_commit: str | None = None,
+    safety_scan: bool = False,
+    include_host_hygiene: bool = False,
 ) -> dict[str, Any]:
     """Run complete Aletheia R1-R5 & Gate 1-9 audit check on `target_path`."""
     root = target_path.resolve()
@@ -1200,6 +1314,11 @@ def run_audit_check(
     if strict_ancestors:
         ancestor_report = audit_ancestor_dir_permissions(root)
 
+    # Optional v2.0 deterministic static agent-safety scanner (CYA-GAP-01..06, --safety-scan)
+    safety_report: dict[str, Any] | None = None
+    if safety_scan:
+        safety_report = scan_directory_safety_surface(root, include_host_hygiene=include_host_hygiene)
+
     failures: list[str] = []
     if crlf_files:
         failures.append(f"CRLF line endings in {len(crlf_files)} file(s)")
@@ -1231,6 +1350,8 @@ def run_audit_check(
         failures.append(f"git-DAG preregistration check failed ({prereg_report['reason']})")
     if ancestor_report is not None and not ancestor_report["passed"]:
         failures.append(f"ancestor directory permission findings ({len(ancestor_report['findings'])})")
+    if safety_report is not None and not safety_report["clean"]:
+        failures.append(f"agent safety-surface findings ({safety_report['finding_count']})")
 
     passed = len(failures) == 0
     return {
@@ -1254,6 +1375,7 @@ def run_audit_check(
             "lean_findings_count": len(lean_report["findings"]) if lean_report is not None else 0,
             "lean_notices_count": len(lean_report["notices"]) if lean_report is not None else 0,
             "ancestor_permission_findings_count": len(ancestor_report["findings"]) if ancestor_report is not None else 0,
+            "safety_findings_count": safety_report["finding_count"] if safety_report is not None else 0,
         },
         "failures": failures,
         "crlf_files": crlf_files,
@@ -1271,4 +1393,5 @@ def run_audit_check(
         "pinned_manifest": manifest_report,
         "prereg_check": prereg_report,
         "ancestor_permissions": ancestor_report,
+        "safety_scan": safety_report,
     }
