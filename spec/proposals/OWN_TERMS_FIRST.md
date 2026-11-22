@@ -1,12 +1,12 @@
 # Proposal: test a pattern on its own terms first
 
-**Status:** proposal from an outside checker. Not adopted. The wording of the direction below is as the checker understood it. The project owner is asked to confirm or correct it.
+**Status:** proposal from an outside checker. The three direction points below were confirmed by the project owner on 2026-11-22. The proposed rule itself is not yet adopted.
 
 ## Context
 
 The project's working hypothesis is stated in the continuum essay ([continuum PR #1](https://github.com/Foundation-0/continuum/pull/1), `continuum.md`, lines 2 to 3). Our knowledge is limited by the habit of sorting reality into classes and fixed structures. Reality is a continuum, so a fixed structure will always miss part of it.
 
-Direction given to the team on 2026-11-21, as understood by this checker:
+Direction given to the team on 2026-11-21, confirmed by the project owner on 2026-11-22:
 
 1. The existing approach to mathematics, down to its number systems and notation, is assumed to be flawed in a way that keeps us from capturing reality.
 2. The team may derive its own symbols and mathematical systems where that is what it takes to represent the patterns it finds.
