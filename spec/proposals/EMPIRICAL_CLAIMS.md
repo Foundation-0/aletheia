@@ -27,7 +27,9 @@ It also fits Own-Terms-First (section 1.1). Predicting sealed, unseen data with 
 
 Exact gates are only as strong as their certifiers. A gate that reads declared numbers instead of recomputing them is not a gate.
 
-The open review of the v2 pull request found this in the Law 2b gate, which checks a residual ceiling the submitter picks. The Own-Terms-First certifier has the same shape: it compares observed and null scores passed in by the caller and does not compute them from data. Contract R7 ("measured, not declared") already states the rule. This proposal applies R7 to every empirical gate below.
+The open review of the v2 pull request found this in the Law 2b gate, which checks a residual ceiling the submitter picks. The Own-Terms-First certifier has the same shape: it compares observed and null scores passed in by the caller and does not compute them from data (as of commit 0b60322, later commits changed some of this).
+
+Contract R7 ("measured, not declared") already states the rule. This proposal applies R7 to every empirical gate below.
 
 ## A claim record, in short
 
@@ -73,11 +75,14 @@ Gates 1 and 3 are R6 and R7 applied to data. Gates 2, 5, 6 and 9 are the null an
 ### 2. Calibrate the instrument before data (known-answer tests)
 
 - **Rule:** Before any data file is opened, the detector runs on synthetic series with known answers. It must find planted effects at a stated power. It must stay at its nominal false-alarm rate on matched nulls, including nulls that differ from the signal only in the claimed property. Each known-answer test has a deliberately wrong control that must be flagged. No data file is opened until every test passes.
+  - A known-answer script exits non-zero when it fails. Production gates carry no bypass switch. Calibration inputs include tied and constant data wherever the real data can contain ties.
 - **Catches:** A detector that sees the claimed property in data that lack it, or misses it where it is planted. These failures are cheap to find on synthetic data and expensive to find after a verdict.
 - **Certifier recomputes:** Reruns the known-answer suite from the seeds in the plan, counts hits and false alarms, and compares them with exact binomial bounds pinned in the plan.
 - **Must-fail control:** A detector that always reports "present", and one with a known defect, must each fail the suite.
 - **In v2 now:** The empirical domain pack lists a seven-rung null hierarchy and planted-signal recovery. Not yet required: that calibration happens before data, with a stated power, a pinned bound, and a block on opening data until it passes.
 - **Worked example:** In the cave-expedition [pre-registration](https://github.com/Foundation-0/cave-expedition/pull/6), the first frozen plan failed four of its six [known-answer tests](https://github.com/Foundation-0/cave-expedition/pull/8) before any data file was opened. False-alarm rates reached 0.295 after a monotone map (`exp`).
+
+  In the review of cave-expedition pull request 8, a rank step that broke ties in time order turned a perfectly symmetric tied waveform into an apparent time arrow, and the calibration had missed it because it used only tie-free noise.
 
   The plan was then amended, still before any data was opened. A checker that shared no code with the author checked the amendment.
 
@@ -97,6 +102,9 @@ Gates 1 and 3 are R6 and R7 applied to data. Gates 2, 5, 6 and 9 are the null an
   - The sealed part is opened once, for one verdict run, and the opening is logged.
   - Data used during development is not held out.
   - Where practical, the sealed part is stored encrypted, with the key held by someone outside the authoring team.
+  - Two cases are kept apart. A sealed holdout proper is data released after the plan's anchor date, or held by a party outside the authors until the verdict run.
+  - Data already in a public archive cannot be sealed. For it, the split is fixed by a salted rule over identifiers, every run is in the ledger, and a clean-room rerun is required. This cannot prevent an earlier look, so it is a lower assurance, and the claim record says which case applies.
+  - A split-half of data already used (for example odd and even items) is an internal-consistency check, not a holdout.
 - **Catches:** "Held-out" data that the authors inspected while designing the test. A verdict run repeated until it passes.
 - **Certifier recomputes:** The split from the identifier list and the salt in the plan. Checks in the run ledger that no entry before the verdict run touched a sealed identifier, and that exactly one verdict run exists.
 - **Must-fail control:** A ledger with one development run that reads a sealed record, and a ledger with two verdict runs. Both must be refused.
@@ -107,6 +115,8 @@ Gates 1 and 3 are R6 and R7 applied to data. Gates 2, 5, 6 and 9 are the null an
 - **Rule:** Every error rate in the claim is computed, not assumed.
   - Each test's null distribution is exact (full permutation, exact binomial) or calibrated by simulation under gate 2.
   - With `m` random permutations, the p-value is `(1 + b) / (1 + m)`, where `b` counts null draws at least as extreme as the observed value. This is valid for any `m`.
+  - The p-value above is exact only when the null draws are exchangeable with the data under the null (permutations, sign flips). Surrogate nulls that preserve a spectrum are approximate, and count only with a passing calibration under gate 2 on the same pipeline. Each test records which kind it uses.
+  - P-values and levels are integers or exact rationals, never floats. The float 0.05 is slightly larger than 1/20 and can flip a boundary decision.
   - Nulls use many draws, never a single shuffle.
   - The smallest attainable p-value of each test is computed in the plan. A test that can never reach its level is removed before data.
   - The whole confirmatory family is corrected together.
@@ -134,7 +144,7 @@ Gates 1 and 3 are R6 and R7 applied to data. Gates 2, 5, 6 and 9 are the null an
 
 ### 8. Replication on independent data
 
-- **Rule:** The unchanged plan runs on data from a different instrument, epoch or source. Agreement between pipelines (gate 7) catches bugs. Agreement between instruments catches artefacts.
+- **Rule:** The unchanged plan runs on data from a different instrument, epoch or source. Independence means a different source lineage (instrument or corpus, epoch or edition, channel), not different file hashes. Re-encodings, resamplings and translations of one source do not count. Agreement between pipelines (gate 7) catches bugs. Agreement between instruments catches artefacts.
 - **Catches:** Instrument artefacts, processing artefacts in one archive, and patterns tied to one period.
 - **Certifier recomputes:** The plan hash on both runs (they must match), the manifests of both datasets, and the outcome of each run.
 - **Must-fail control:** The same bytes relabelled as an independent dataset (overlapping file hashes) must be refused.
@@ -163,6 +173,7 @@ Gates 1 and 3 are R6 and R7 applied to data. Gates 2, 5, 6 and 9 are the null an
 - **Catches:** Verdicts that rest on one checker's reading, and adverse results caused by a pipeline bug rather than by the world.
 - **Certifier recomputes:** That the reviewer was named in a commit dated before the verdict run, that the reviewer has no commits in the pipeline, and that a ruling (`stands`, `stands_narrowed`, `falls`) is recorded for each adverse or narrowing verdict.
 - **Must-fail control:** A reviewer named after the verdict run must be refused.
+- **Open:** What counts as independent for a reviewer inside the same organisation is left open here, pending a ruling by the repository owners.
 - **In v2 now:** Gate 10, Law 2 and Law 2b cover most of this. Not yet required: naming the reviewer before the outcome, and the authors' turn first.
 
 ### 12. Scope
@@ -190,6 +201,9 @@ Rules for the ladder:
 
 - Gates 11 and 12 apply at every grade.
 - A grade drops when a later run fails. The failure stays on record next to the grade.
+- A sealed run that passed its gates keeps its grade whatever the outcome. The record carries the grade together with the outcome (supported, narrowed, against, inconclusive), because a clean result against a claim is as well established as a clean result for it.
+- Grade changes are an append-only history. Each entry names the ledger entry that caused it.
+- `E4 REPLICATED` requires the plan unchanged and both implementations agreeing on the new data.
 - A failed sealed run cannot be retried on the same sealed data. A revised plan needs new sealed data.
 - Once the sealed part is opened, its outcome is not fed back into the plan. This is the `anchor` rule of section 2.2 applied to the verdict run.
 - Novelty stays at `N0` until full-text prior work has been checked (Law 4, Gate 9). A "new" regularity in heavily studied public data is most likely known or an artefact.
@@ -201,12 +215,18 @@ Every row is a failure visible in public pull requests from the week of 2026-11-
 | Failure | Gate |
 |---|---|
 | A frozen plan whose detector failed four of six known-answer tests, with false alarms up to 0.295 after a monotone map. Found before any data was opened. | 2 (it worked) |
-| Gates that compare scores and ceilings declared by the submitter instead of measured ones | 3 (R7) |
+| Gates that compare scores and ceilings declared by the submitter instead of measured ones (as of commit 0b60322, later commits changed some of this) | 3 (R7) |
 | No public example yet | 4 |
 | No public example yet | 5 |
 | No public example yet | 5, 6 |
-| A self-test whose pass flag was a constant, so it could not fail | 9 |
-| Guard removals that left every test passing (13 sub-conditions in one review, 114 of 118 removals in another) | 9 |
+| A self-test whose pass flag was a constant, so it could not fail (as of commit 0b60322, later commits changed some of this) | 9 |
+| Guard removals that left every test passing (13 sub-conditions in one review, 114 of 118 removals in another) (as of commit 0b60322, later commits changed some of this) | 9 |
+
+## Changes after review
+
+Items taken from the review of this pull request: the two cases of gate 4, the exchangeability and exact-arithmetic rules of gate 5, the tie and exit-code rules of gate 2, the source-lineage rule of gate 8, and the three ladder rules.
+
+Two further proposals from that review are left to their authors as separate pull requests: binding each prose claim to its computed outcome, and a blinded verifier that receives only the claim, the pinned inputs and the code.
 
 ## What this proposal does not do
 
