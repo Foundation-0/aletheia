@@ -6,6 +6,7 @@ so this module never contains literal personal path or secret tokens.
 """
 from __future__ import annotations
 
+from decimal import Decimal, InvalidOperation
 import hashlib
 import json
 import math
@@ -27,6 +28,15 @@ def require_ok(cond: bool, code: str, message: str) -> None:
     """Explicit non-assert guard for all TCB / verification paths."""
     if not cond:
         raise AletheiaError(code, message)
+
+
+def _literal_denotes_exact_zero(literal: str) -> bool:
+    """True when a decimal float literal denotes exactly zero, so a silent underflow is distinguishable."""
+    try:
+        exact = Decimal(literal)
+    except (InvalidOperation, ValueError):
+        return False
+    return exact.is_zero()
 
 
 def canonical_sha256_bytes(data: bytes) -> str:
@@ -62,6 +72,7 @@ def parse_strict_json_text(
       - Rejects empty/blank strings
       - Rejects duplicate keys anywhere in the JSON tree
       - Rejects NaN, Infinity, -Infinity, including respelled overflow such as 1e999
+      - Rejects a literal that silently underflows to zero, such as 1e-999
       - Rejects lone surrogates in strings
       - Optionally rejects floats (allow_float=False)
       - Optionally requires top-level JSON object (dict).
@@ -79,6 +90,8 @@ def parse_strict_json_text(
         value = float(s)
         if not math.isfinite(value):
             raise AletheiaError("JSON_FLOAT_NOT_FINITE", f"non-finite float literal forbidden: {s!r}")
+        if value == 0.0 and not _literal_denotes_exact_zero(s):
+            raise AletheiaError("JSON_FLOAT_UNDERFLOW", f"float literal underflows to zero: {s!r}")
         return value
 
     def reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:

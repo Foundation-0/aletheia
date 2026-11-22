@@ -1943,6 +1943,27 @@ class TestAletheiaCLI(unittest.TestCase):
             except AletheiaError as exc:
                 _req(exc.code == "JSON_FLOAT_FORBIDDEN", f"wrong exact-path code for {bad}: {exc.code}")
 
+    def test_37b_strict_json_rejects_float_literal_that_underflows_to_zero(self) -> None:
+        from aletheia.strict_io import loads_strict_json
+
+        for bad in ('{"x": 1e-999}', '{"x": -1e-999}', '{"x": 1.0e-999}', '{"a": 1e-999, "b": 2}'):
+            try:
+                loads_strict_json(bad)
+                raise AssertionError(f"underflowing float accepted: {bad}")
+            except AletheiaError as exc:
+                _req(exc.code == "JSON_FLOAT_UNDERFLOW", f"wrong code for {bad}: {exc.code}")
+        # Literals that denote exactly zero stay legal.
+        for good, want in (('{"x": 0}', 0.0), ('{"x": 0.0}', 0.0), ('{"x": -0.0}', -0.0), ('{"x": 0e-999}', 0.0)):
+            _req(loads_strict_json(good)["x"] == want, f"exact zero rejected: {good}")
+        # A subnormal that still carries magnitude is accepted; that scope choice is recorded in the PR.
+        _req(loads_strict_json('{"x": 1e-320}')["x"] == 1e-320, "subnormal float rejected")
+        # The exact path keeps its own float refusal code.
+        try:
+            loads_strict_json('{"x": 1e-999}', allow_float=False)
+            raise AssertionError("float accepted with allow_float=False")
+        except AletheiaError as exc:
+            _req(exc.code == "JSON_FLOAT_FORBIDDEN", f"wrong exact-path code: {exc.code}")
+
     def test_38_ring0_lock_compares_with_strict_types(self) -> None:
         from aletheia.ratchet import check_ring0_lock
 
