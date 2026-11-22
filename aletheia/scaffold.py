@@ -10,12 +10,36 @@ import json
 import os
 from pathlib import Path
 import re
-from typing import Any
+import stat
+from typing import Any, Iterable
 
 from .handoff import build_handoff_template_dict
 from .strict_io import AletheiaError, require_ok, write_lf_text
 
 _DOMAIN_RE = re.compile(r"\A[a-z0-9][a-z0-9_-]{0,47}\Z", re.ASCII)
+
+
+def _symlink_offenders(root: Path, rel_paths: Iterable[str]) -> list[str]:
+    """Return sorted relative paths whose existing component under root is a symlink.
+
+    Every existing component (directories and the final path) is checked with
+    lstat, so a link is reported by its own relative path and is never followed.
+    Missing components end the walk for that path because nothing below them
+    can exist yet."""
+    offenders: set[str] = set()
+    for rel in rel_paths:
+        parts = [p for p in rel.split("/") if p not in ("", ".")]
+        current = root
+        for i, part in enumerate(parts):
+            current = current / part
+            try:
+                st = os.lstat(current)
+            except OSError:
+                break
+            if stat.S_ISLNK(st.st_mode):
+                offenders.add("/".join(parts[: i + 1]))
+                break
+    return sorted(offenders)
 
 
 def _protocol_markdown(domain: str) -> str:
@@ -137,6 +161,15 @@ def init_workspace(
         ("peer-web/.gitkeep", ""),
         ("verification/checks/.gitkeep", ""),
     ]
+
+    # Refuse before creating anything: no write may pass through a symlinked
+    # component under the root, with or without --force.
+    symlinked = _symlink_offenders(root, [*created_dirs, *(rel for rel, _ in files_to_write)])
+    if symlinked:
+        raise AletheiaError(
+            "SYMLINK_REFUSED",
+            f"refusing to write through symlinked path component(s) in {root}: {', '.join(symlinked)} (force never follows links; remove the symlink and retry)",
+        )
 
     # Refuse before creating anything: no target file may be overwritten without --force.
     conflicts = [rel for rel, _ in files_to_write if os.path.lexists(root / rel)]

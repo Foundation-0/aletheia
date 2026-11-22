@@ -8,10 +8,11 @@ when present, and falls back to clean built-in stdlib templates when installed s
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any
 
-from .scaffold import _audit_log_markdown, _protocol_markdown
+from .scaffold import _audit_log_markdown, _protocol_markdown, _symlink_offenders
 from .strict_io import AletheiaError, require_ok, write_lf_text
 
 VALID_TARGETS = ("antigravity", "claude-code", "codex", "cursor", "gemini-cli", "repo")
@@ -90,15 +91,52 @@ def _detect_repo_root(source_dir: Path | None) -> Path | None:
     return None
 
 
+def _read_source_text(path: Path) -> str:
+    """Read a single source file, refusing to follow a symlink out of the tree."""
+    require_ok(
+        not path.is_symlink(),
+        "SYMLINK_REFUSED",
+        f"refusing to read symlinked source file {path} (force never follows links; replace the symlink with a regular file)",
+    )
+    return path.read_text(encoding="utf-8")
+
+
 def _collect_tree(src_dir: Path, dest_prefix: str = "") -> list[tuple[str, str]]:
-    """Collect all UTF-8 text files under src_dir as (relative_dest_path, content)."""
+    """Collect all UTF-8 text files under src_dir as (relative_dest_path, content).
+
+    Symlinked files or directories anywhere in the tree are refused with
+    SYMLINK_REFUSED instead of being copied, so a planted link can never pull
+    content from outside the source tree into an install."""
+    require_ok(
+        not src_dir.is_symlink(),
+        "SYMLINK_REFUSED",
+        f"refusing to collect symlinked source directory {src_dir} (force never follows links; replace the symlink with a real directory)",
+    )
     files: list[tuple[str, str]] = []
-    for p in sorted(src_dir.rglob("*")):
-        if p.is_file() and "__pycache__" not in p.parts:
-            rel = str(p.relative_to(src_dir)).replace("\\", "/")
+    for dirpath, dirnames, filenames in os.walk(src_dir, followlinks=False):
+        dirnames.sort()
+        kept_dirs: list[str] = []
+        for name in dirnames:
+            entry = Path(dirpath) / name
+            require_ok(
+                not entry.is_symlink(),
+                "SYMLINK_REFUSED",
+                f"refusing to copy symlinked source directory {entry} (force never follows links; replace the symlink with a real directory)",
+            )
+            if name != "__pycache__":
+                kept_dirs.append(name)
+        dirnames[:] = kept_dirs
+        for name in sorted(filenames):
+            entry = Path(dirpath) / name
+            require_ok(
+                not entry.is_symlink(),
+                "SYMLINK_REFUSED",
+                f"refusing to copy symlinked source file {entry} (force never follows links; replace the symlink with a regular file)",
+            )
+            rel = str(entry.relative_to(src_dir)).replace("\\", "/")
             out_rel = f"{dest_prefix}/{rel}".lstrip("/") if dest_prefix else rel
-            files.append((out_rel, p.read_text(encoding="utf-8")))
-    return files
+            files.append((out_rel, entry.read_text(encoding="utf-8")))
+    return sorted(files)
 
 
 def _build_install_plan(target: str, repo_root: Path | None) -> list[tuple[str, str]]:
@@ -155,26 +193,26 @@ def _build_install_plan(target: str, repo_root: Path | None) -> list[tuple[str, 
 
     if target == "codex":
         if repo_root is not None and (repo_root / "adapters" / "codex" / "AGENTS.md").is_file():
-            return [("AGENTS.md", (repo_root / "adapters" / "codex" / "AGENTS.md").read_text(encoding="utf-8"))]
+            return [("AGENTS.md", _read_source_text(repo_root / "adapters" / "codex" / "AGENTS.md"))]
         if repo_root is not None and (repo_root / "AGENTS.md").is_file():
-            return [("AGENTS.md", (repo_root / "AGENTS.md").read_text(encoding="utf-8"))]
+            return [("AGENTS.md", _read_source_text(repo_root / "AGENTS.md"))]
         return [("AGENTS.md", _EMBEDDED_AGENTS_MD)]
 
     if target == "cursor":
         if repo_root is not None and (repo_root / "adapters" / "cursor" / ".cursor" / "rules" / "aletheia-research.mdc").is_file():
             src = repo_root / "adapters" / "cursor" / ".cursor" / "rules" / "aletheia-research.mdc"
-            return [(".cursor/rules/aletheia-research.mdc", src.read_text(encoding="utf-8"))]
+            return [(".cursor/rules/aletheia-research.mdc", _read_source_text(src))]
         return [(".cursor/rules/aletheia-research.mdc", _EMBEDDED_CURSOR_MDC)]
 
     if target == "gemini-cli":
         if repo_root is not None and (repo_root / "adapters" / "gemini-cli" / "GEMINI.md").is_file():
-            return [("GEMINI.md", (repo_root / "adapters" / "gemini-cli" / "GEMINI.md").read_text(encoding="utf-8"))]
+            return [("GEMINI.md", _read_source_text(repo_root / "adapters" / "gemini-cli" / "GEMINI.md"))]
         return [("GEMINI.md", _EMBEDDED_AGENTS_MD)]
 
     if target == "repo":
         agents_text = _EMBEDDED_AGENTS_MD
         if repo_root is not None and (repo_root / "AGENTS.md").is_file():
-            agents_text = (repo_root / "AGENTS.md").read_text(encoding="utf-8")
+            agents_text = _read_source_text(repo_root / "AGENTS.md")
         return [
             ("AGENTS.md", agents_text),
             ("verification/PROTOCOL.md", _protocol_markdown("repo")),
@@ -202,6 +240,24 @@ def install_adapter(
         else:
             dest_root = Path.cwd().resolve()
     else:
+        # A symlinked destination is refused before resolve() can hide it.
+        # Relative destinations are checked component by component below the
+        # working directory. Absolute destinations are checked at the leaf,
+        # and every component under the resolved root is checked per file.
+        if dest.is_symlink():
+            raise AletheiaError(
+                "SYMLINK_REFUSED",
+                f"refusing to install into symlinked destination {dest} (force never follows links; pass a real directory)",
+            )
+        if not dest.is_absolute():
+            current = Path.cwd()
+            for part in dest.parts:
+                current = current / part
+                if current.is_symlink():
+                    raise AletheiaError(
+                        "SYMLINK_REFUSED",
+                        f"refusing to install through symlinked destination component {current} (force never follows links; pass a real directory)",
+                    )
         dest_root = dest.resolve()
 
     repo_root = _detect_repo_root(source_dir)
@@ -209,11 +265,19 @@ def install_adapter(
 
     actions: list[dict[str, Any]] = []
     conflicts: list[str] = []
+    symlink_conflicts: list[str] = []
 
     for rel, content in plan:
         out_path = dest_root / rel
-        exists = out_path.exists()
-        if exists and not force:
+        # lexists counts a broken symlink as existing, so it can never be
+        # reported as CREATE or written through to its target.
+        exists = os.path.lexists(out_path)
+        offenders = _symlink_offenders(dest_root, [rel])
+        if offenders:
+            symlink_conflicts.extend(offenders)
+            conflicts.append(rel)
+            action = "CONFLICT_EXISTS"
+        elif exists and not force:
             conflicts.append(rel)
             action = "CONFLICT_EXISTS"
         else:
@@ -225,6 +289,12 @@ def install_adapter(
             "action": action,
         })
 
+    if symlink_conflicts and not dry_run:
+        raise AletheiaError(
+            "SYMLINK_REFUSED",
+            f"refusing to write through symlinked path component(s) in {dest_root}: {', '.join(sorted(set(symlink_conflicts)))} (force never follows links; remove the symlink and retry)",
+        )
+
     if conflicts and not dry_run:
         raise AletheiaError(
             "INSTALL_CONFLICT",
@@ -233,7 +303,14 @@ def install_adapter(
 
     if not dry_run:
         for rel, content in plan:
-            write_lf_text(dest_root / rel, content)
+            out_path = dest_root / rel
+            parent = out_path.parent.resolve()
+            require_ok(
+                parent == dest_root or dest_root in parent.parents,
+                "SYMLINK_REFUSED",
+                f"refusing to write outside destination root {dest_root}: {rel} resolves under {parent} (force never follows links)",
+            )
+            write_lf_text(out_path, content)
 
     return {
         "status": "DRY_RUN" if dry_run else "INSTALLED",
