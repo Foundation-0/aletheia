@@ -1501,6 +1501,31 @@ class TestAletheiaCLI(unittest.TestCase):
         rc, out, _ = _run_cli(args)
         _req("warning: max_mutants=3" in out, f"text output hides the truncation: {out[:400]}")
 
+    def test_27_init_reports_a_regular_file_in_the_way_of_a_directory(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="aletheia_t_initfile_") as td:
+            root = Path(td)
+            for blocker in ("verification", "probes", "cartography"):
+                ws = root / f"ws_{blocker}"
+                ws.mkdir()
+                (ws / blocker).write_text("not a directory\n", encoding="utf-8")
+                for extra in ([], ["--force"]):
+                    rc, out, err = _run_cli(["init", str(ws), "--domain", "spectral", "--json", *extra])
+                    obj = json.loads(out) if out.strip() else {}
+                    _req(
+                        rc == 2 and obj.get("code") == "WORKSPACE_EXISTS" and blocker in obj.get("message", ""),
+                        f"{blocker} {extra}: rc={rc} out={out!r} err={err!r}",
+                    )
+                    _req((ws / blocker).read_text(encoding="utf-8") == "not a directory\n", f"{blocker} file was touched")
+                    _req(sorted(p.name for p in ws.iterdir()) == [blocker], f"{blocker} {extra}: partial scaffold left behind")
+            # The target itself being a regular file takes the same path.
+            target = root / "afile"
+            target.write_text("x", encoding="utf-8")
+            rc, out, _ = _run_cli(["init", str(target), "--json"])
+            _req(rc == 2 and json.loads(out)["code"] == "WORKSPACE_EXISTS", f"file target: rc={rc} out={out!r}")
+            # Control: a clean directory still initializes.
+            rc, out, _ = _run_cli(["init", str(root / "clean"), "--json"])
+            _req(rc == 0 and json.loads(out)["status"] == "INITIALIZED", f"clean init failed: rc={rc} out={out!r}")
+
 
 if __name__ == "__main__":
     unittest.main()

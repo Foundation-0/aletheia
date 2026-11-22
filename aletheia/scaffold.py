@@ -146,6 +146,20 @@ def init_workspace(
             f"refusing to overwrite existing file(s) in {root}: {', '.join(conflicts)} (pass --force to overwrite)",
         )
 
+    # A regular file where a directory is needed cannot be overwritten, with or without --force.
+    blockers = [root] + [
+        root / "/".join(parts[: i + 1])
+        for rel in created_dirs
+        for parts in [rel.split("/")]
+        for i in range(len(parts))
+    ]
+    blocked = sorted({str(b.relative_to(root)) if b != root else "." for b in blockers if os.path.lexists(b) and not b.is_dir()})
+    if blocked:
+        raise AletheiaError(
+            "WORKSPACE_EXISTS",
+            f"a regular file is in the way of a directory in {root}: {', '.join(blocked)} (--force does not replace it; remove or rename it)",
+        )
+
     for rel in created_dirs:
         (root / rel).mkdir(parents=True, exist_ok=True)
 
