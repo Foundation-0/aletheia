@@ -1163,6 +1163,231 @@ class TestAletheiaCLI(unittest.TestCase):
                 f"CS-12 .json-only poison did not ALERT: {by_id12j.get('CS-12')}",
             )
 
+    def test_15_ci_install_step_needs_no_preinstalled_setuptools(self) -> None:
+        wf = (CLI_ROOT / ".github" / "workflows" / "aletheia-ci.yml").read_text(encoding="utf-8")
+        install_lines = [ln.strip() for ln in wf.splitlines() if "pip install" in ln]
+        _req(len(install_lines) == 1, f"expected exactly one pip install line in CI, got {install_lines}")
+        # `--no-build-isolation` needs setuptools in the runner's own environment, which
+        # setup-python does not provide (ModuleNotFoundError: No module named 'setuptools').
+        _req("--no-build-isolation" not in install_lines[0], f"CI install needs preinstalled setuptools: {install_lines[0]}")
+        _req("--no-deps" in install_lines[0], f"CI install must stay dependency-free: {install_lines[0]}")
+
+        # An in-tree install leaves build/ and *.egg-info in the repo root; the self-audit must not trip on them.
+        with tempfile.TemporaryDirectory(prefix="aletheia_t_ci_") as td:
+            root = Path(td)
+            write_lf_text(root / "README.md", "# demo\n")
+            egg = root / "aletheia_method.egg-info"
+            write_lf_text(egg / "PKG-INFO", "Metadata-Version: 2.1\nName: aletheia-method\n")
+            write_lf_text(egg / "SOURCES.txt", "README.md\naletheia/__init__.py\n")
+            write_lf_text(egg / "top_level.txt", "aletheia\n")
+            write_lf_text(egg / "entry_points.txt", "[console_scripts]\naletheia = aletheia.cli:main\n")
+            write_lf_text(root / "build" / "lib" / "aletheia" / "x.py", "x = 1\n")
+            res = run_audit_check(root)
+            _req(res["passed"], f"in-tree install artifacts tripped the self-audit: {res['failures']}")
+
+    def test_16_self_audit_ignores_only_its_own_bytecode(self) -> None:
+        import importlib.util
+        import shutil
+        import subprocess
+
+        driver = (
+            "import sys\n"
+            "root = sys.argv[1]\n"
+            "sys.path.insert(0, root)\n"
+            "from aletheia.cli import main\n"
+            "raise SystemExit(main(['audit-check', root, '--json']))\n"
+        )
+
+        def fresh_copy(parent: Path, name: str) -> Path:
+            dst = parent / name
+            shutil.copytree(CLI_ROOT / "aletheia", dst / "aletheia", ignore=shutil.ignore_patterns("__pycache__"))
+            return dst
+
+        def audit(root: Path, *, bytecode: bool) -> dict:
+            flags = ["-I"] if bytecode else ["-I", "-B"]
+            proc = subprocess.run(
+                [sys.executable, *flags, "-c", driver, str(root)],
+                capture_output=True, check=False, timeout=120, cwd=str(root),
+            )
+            _req(proc.stdout.strip() != b"", f"audit printed nothing: {proc.stderr.decode()[-400:]}")
+            return json.loads(proc.stdout.decode("utf-8"))
+
+        with tempfile.TemporaryDirectory(prefix="aletheia_t_pyc_") as td:
+            parent = Path(td)
+
+            # Bytecode writing ON: the run writes aletheia/__pycache__ while importing, then audits the tree.
+            on = fresh_copy(parent, "on")
+            r_on = audit(on, bytecode=True)
+            written = sorted((on / "aletheia" / "__pycache__").glob("*.pyc"))
+            _req(len(written) >= 10, f"control failed: the bytecode-on run wrote only {len(written)} .pyc files")
+            _req(r_on["passed"] and r_on["summary"]["pycache_count"] == 0,
+                 f"audit failed on bytecode it produced itself: {r_on['failures']} {r_on['pycache_items'][:3]}")
+
+            # Bytecode writing OFF: same verdict.
+            off = fresh_copy(parent, "off")
+            r_off = audit(off, bytecode=False)
+            _req(not (off / "aletheia" / "__pycache__").exists(), "control failed: -B run wrote bytecode")
+            _req(r_off["passed"] and r_off["status"] == r_on["status"], f"verdicts differ: {r_off['failures']}")
+
+            # Stale bytecode planted before the run is still reported (loose file, other interpreter tag).
+            ghost = fresh_copy(parent, "ghost")
+            (ghost / "aletheia" / "__pycache__").mkdir()
+            (ghost / "aletheia" / "__pycache__" / "ghost.cpython-39.pyc").write_bytes(b"0000")
+            for use_bytecode in (False, True):
+                r_ghost = audit(ghost, bytecode=use_bytecode)
+                _req(not r_ghost["passed"] and any("ghost.cpython-39.pyc" in it for it in r_ghost["pycache_items"]),
+                     f"planted stale pyc not reported (bytecode={use_bytecode}): {r_ghost['pycache_items']}")
+
+            # Bytecode left by an earlier run whose source has since changed is stale: reported.
+            stale = fresh_copy(parent, "stale")
+            audit(stale, bytecode=True)
+            target = stale / "aletheia" / "scaffold.py"
+            target.write_bytes(target.read_bytes() + b"\n# edited after the bytecode was written\n")
+            stale_cache = Path(importlib.util.cache_from_source(str(target), optimization=""))
+            _req(stale_cache.is_file(), "control failed: no cache file for the edited module")
+            r_stale = audit(stale, bytecode=False)
+            stale_rel = str(stale_cache.relative_to(stale))
+            _req(not r_stale["passed"] and r_stale["pycache_items"] == ["aletheia/__pycache__", stale_rel],
+                 f"stale cache of an edited module not isolated: {r_stale['pycache_items']}")
+
+    def test_17_init_refuses_to_overwrite_any_existing_file(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="aletheia_t_force_") as td:
+            root = Path(td)
+            for rel in ("verification/AUDIT_LOG.md", "verification/PROTOCOL.md", "synthesis/.gitkeep"):
+                ws = root / rel.replace("/", "_")
+                precious = "| **AUDIT-007** | keep me |\n"
+                write_lf_text(ws / rel, precious)
+                before = sorted(p.relative_to(ws).as_posix() for p in ws.rglob("*"))
+
+                # No aletheia.json here, so only a guard on every target file protects the ledger.
+                rc, out, _ = _run_cli(["init", str(ws), "--domain", "spectral", "--json"])
+                _req(rc != 0, f"init over existing {rel} returned rc={rc}: {out}")
+                _req(rel in out and "WORKSPACE_EXISTS" in out, f"refusal did not name {rel}: {out!r}")
+                _req((ws / rel).read_text(encoding="utf-8") == precious, f"{rel} was overwritten without --force")
+                after = sorted(p.relative_to(ws).as_posix() for p in ws.rglob("*"))
+                _req(after == before, f"refused init still wrote files: {sorted(set(after) - set(before))}")
+
+                with self.assertRaises(AletheiaError) as ctx:
+                    init_workspace(ws, domain="spectral")
+                _req(ctx.exception.code == "WORKSPACE_EXISTS", f"wrong error code {ctx.exception.code}")
+
+                # --force is the only way through.
+                rc_f, out_f, _ = _run_cli(["init", str(ws), "--domain", "spectral", "--force", "--json"])
+                _req(rc_f == 0 and json.loads(out_f)["status"] == "INITIALIZED", f"--force init failed: {out_f}")
+                _req((ws / rel).read_text(encoding="utf-8") != precious or rel.endswith(".gitkeep"),
+                     f"--force did not rewrite {rel}")
+                _req((ws / "aletheia.json").is_file(), "--force init did not write aletheia.json")
+
+    def test_18_seeding_is_not_an_unseeded_rng_call(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="aletheia_t_seed_") as td:
+            root = Path(td)
+            seeded = root / "seeded"
+            write_lf_text(seeded / "sim.py", "import random\nimport random as rnd\nrandom.seed(42)\nrnd.seed(7)\n")
+            r_seeded = run_audit_check(seeded, strict_unseeded=True)
+            _req(r_seeded["passed"] and r_seeded["summary"]["unseeded_rng_warning_count"] == 0,
+                 f"random.seed(...) was reported as unseeded: {r_seeded['unseeded_rng_warnings']}")
+
+            # Control: a module-level draw is still reported, with or without a seed call before it.
+            drawn = root / "drawn"
+            write_lf_text(drawn / "sim.py", "import random\nrandom.seed(42)\nx = random.random()\n")
+            r_drawn = run_audit_check(drawn, strict_unseeded=True)
+            _req(not r_drawn["passed"] and r_drawn["summary"]["unseeded_rng_warning_count"] == 1
+                 and r_drawn["unseeded_rng_warnings"][0]["call"] == "random.random()",
+                 f"module-level draw no longer flagged: {r_drawn['unseeded_rng_warnings']}")
+
+    def test_19_lean4_unterminated_comment_or_string_fails_closed(self) -> None:
+        from aletheia.audit_check import audit_lean4_source
+
+        def codes(src: str) -> list[str]:
+            return [f["code"] for f in audit_lean4_source(src)["findings"]]
+
+        open_comment = "/- never closed\ntheorem t : True := by sorry\n"
+        res = audit_lean4_source(open_comment)
+        _req(not res["clean"], f"unterminated block comment before sorry passed: {res}")
+        _req(res["findings"][0] == {"line": 1, "code": "LEAN4_UNTERMINATED_COMMENT", "excerpt": "/- never closed"},
+             f"wrong unterminated-comment finding: {res['findings']}")
+        _req("LEAN4_UNTERMINATED_COMMENT" in codes("def a := 1\n/- outer /- inner -/ still open\n"),
+             "nested comment left open was not reported")
+        _req(codes('def s := "never closed\ntheorem t : True := by sorry\n') == ["LEAN4_UNTERMINATED_STRING"],
+             "unterminated string was not reported")
+
+        # Controls: terminated comments and strings, openers inside strings and line comments, a char literal.
+        for ok_src in (
+            "/- closed -/\ndef a := 1\n",
+            "/- outer /- inner -/ outer -/\ndef a := 1\n",
+            'def s := "text /- not a comment"\ndef a := 1\n',
+            "-- /- only a line comment\ndef a := 1\n",
+            "def q : Char := '\"'\ndef a := 1\n",
+        ):
+            _req(audit_lean4_source(ok_src)["clean"], f"false positive on well-formed source: {ok_src!r}")
+        _req(codes("/- closed -/ theorem t : True := by sorry\n") == ["LEAN4_SORRY"], "closed comment must not hide code after it")
+
+        # End to end through audit-check --lean-audit.
+        with tempfile.TemporaryDirectory(prefix="aletheia_t_lean_open_") as td:
+            root = Path(td)
+            write_lf_text(root / "Open.lean", open_comment)
+            rc, out, _ = _run_cli(["audit-check", str(root), "--lean-audit", "--json"])
+            obj = json.loads(out)
+            _req(rc == 1 and not obj["passed"] and obj["lean_audit"]["findings"][0]["code"] == "LEAN4_UNTERMINATED_COMMENT",
+                 f"audit-check passed an unterminated Lean comment: rc={rc} {obj['failures']}")
+
+    def test_20_audit_log_matches_whole_verdict_tokens_and_needs_rows(self) -> None:
+        from aletheia.audit_check import validate_audit_log_markdown
+
+        head = (
+            "| Audit ID | Date | Author | Target | Gates | Oracle | Novelty | Verdict | Evidence |\n"
+            "|---|---|---|---|---|---|---|---|---|\n"
+        )
+
+        def row(verdict: str) -> str:
+            return f"| **AUDIT-001** | 2026-11-20 | a | t | G1 | exact | N1 | {verdict} | note |\n"
+
+        with tempfile.TemporaryDirectory(prefix="aletheia_t_log_") as td:
+            root = Path(td)
+
+            def check(body: str, **kw) -> dict:
+                path = root / "LOG.md"
+                write_lf_text(path, body)
+                return validate_audit_log_markdown(path, **kw)
+
+            # A negated or embedded verdict is not VERIFIED.
+            for bad in ("**NOT VERIFIED**", "NOT VERIFIED", "NOT_VERIFIED", "UNVERIFIED", "not verified", "VERIFIED_PARTIAL"):
+                res = check(head + row(bad))
+                _req(not res["valid"] and res["verdict_counts"] == {}
+                     and [e["code"] for e in res["errors"]] == ["INVALID_VERDICT"],
+                     f"{bad!r} was accepted: {res}")
+
+            # Controls: whole tokens, with or without markdown emphasis or a trailing note, are still read.
+            for good, token in (
+                ("**VERIFIED**", "VERIFIED"),
+                ("`FALSIFIED`", "FALSIFIED"),
+                ("PARTIAL/FRAGILE", "PARTIAL/FRAGILE"),
+                ("**PARTIAL/FRAGILE** (scope: local)", "PARTIAL/FRAGILE"),
+                ("NOT_SHOWN", "NOT_SHOWN"),
+                ("EXPOSED", "EXPOSED"),
+            ):
+                res = check(head + row(good))
+                _req(res["valid"] and res["verdict_counts"] == {token: 1}, f"{good!r} was not read as {token}: {res}")
+
+            # A ledger with no rows is not valid; one row makes it valid.
+            for empty in ("", head, "# Log\n\nNo audits yet.\n"):
+                res = check(empty)
+                _req(not res["valid"] and res["rows_checked"] == 0
+                     and [e["code"] for e in res["errors"]] == ["NO_AUDIT_ROWS"],
+                     f"empty ledger accepted: {res}")
+            _req(check(head + row("VERIFIED"))["valid"], "one-row ledger rejected")
+            _req(check(head, require_rows=False)["valid"], "require_rows=False must still allow an empty ledger")
+
+            # Through audit-check: an explicit empty log fails, a freshly scaffolded workspace still passes.
+            ws = root / "ws"
+            init_workspace(ws, domain="spectral")
+            ledger = ws / "verification" / "AUDIT_LOG.md"
+            _req(run_audit_check(ws)["passed"], "fresh workspace with an empty auto-discovered ledger must pass")
+            rc, out, _ = _run_cli(["audit-check", str(ws), "--audit-log", str(ledger), "--json"])
+            obj = json.loads(out)
+            _req(rc == 1 and not obj["passed"] and obj["audit_log"]["errors"][0]["code"] == "NO_AUDIT_ROWS",
+                 f"explicit empty --audit-log passed: rc={rc} {obj['failures']}")
+
 
 if __name__ == "__main__":
     unittest.main()

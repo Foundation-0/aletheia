@@ -17,6 +17,7 @@ Checks:
 from __future__ import annotations
 
 import ast
+import importlib.util
 import os
 from pathlib import Path
 import re
@@ -46,7 +47,7 @@ VALID_NOVELTY_TOKENS = {"N0", "N1", "N2"}
 
 _UNSEEDED_RANDOM_FUNCS = {
     "random", "randint", "randrange", "uniform", "gauss", "normalvariate",
-    "choice", "choices", "sample", "shuffle", "seed",
+    "choice", "choices", "sample", "shuffle",
 }
 _UNSEEDED_NP_RANDOM_FUNCS = {
     "rand", "randn", "randint", "random", "uniform", "normal", "choice", "permutation", "shuffle",
@@ -114,8 +115,70 @@ def _scan_python_ast(path: Path, text: str) -> tuple[list[dict[str, Any]], list[
     return syntax_errors, bare_asserts, unseeded_rng
 
 
-def validate_audit_log_markdown(path: Path) -> dict[str, Any]:
-    """Parse and validate a markdown AUDIT_LOG.md table under Gate 8 & Gate 9."""
+def _pyc_matches_source(cache: Path, source: Path) -> bool:
+    """True when `cache` is a bytecode file whose header matches `source` (the check the import system makes)."""
+    try:
+        with cache.open("rb") as fh:
+            head = fh.read(16)
+        if len(head) < 16 or head[:4] != importlib.util.MAGIC_NUMBER:
+            return False
+        flags = int.from_bytes(head[4:8], "little")
+        if flags & 0b1:
+            return head[8:16] == importlib.util.source_hash(source.read_bytes())
+        st = source.stat()
+        return (
+            int.from_bytes(head[8:12], "little") == (int(st.st_mtime) & 0xFFFFFFFF)
+            and int.from_bytes(head[12:16], "little") == (st.st_size & 0xFFFFFFFF)
+        )
+    except OSError:
+        return False
+
+
+def _loaded_module_bytecode() -> set[Path]:
+    """
+    Cache files of modules this very process imported that still match their source.
+    A normal (bytecode-on) run writes exactly these while importing `aletheia`, and the
+    child runs that `--scripts` starts read them, so the scan must not count them as artifacts. Any other bytecode (other modules, other
+    interpreter tags, mismatched or corrupt headers, loose `.pyc` files) is still counted.
+    """
+    own: set[Path] = set()
+    for mod in list(sys.modules.values()):
+        origin = getattr(getattr(mod, "__spec__", None), "origin", None)
+        if not isinstance(origin, str) or not origin.endswith(".py"):
+            continue
+        # A parent run and its -O child name the same module's cache differently (`.opt-1`), so try each level.
+        for opt in ("", 1, 2):
+            try:
+                cache = Path(importlib.util.cache_from_source(origin, optimization=opt))
+                if _pyc_matches_source(cache, Path(origin)):
+                    own.add(cache.resolve())
+            except (OSError, ValueError, NotImplementedError):
+                continue
+    return own
+
+
+def _foreign_bytecode_items(entries: Sequence[Path], own: set[Path]) -> list[Path]:
+    """Filter `entries` (pycache dirs and files found by the scan) down to what this run did not produce."""
+    kept = {p for p in entries if p.is_file() and p.resolve() not in own}
+    for d in (p for p in entries if not p.is_file()):
+        below = [c for c in entries if c != d and d in c.parents]
+        # A __pycache__ directory disappears only when it held files and every one of them is ours.
+        if not below or any(c in kept or not c.is_file() for c in below):
+            kept.add(d)
+    return [p for p in entries if p in kept]
+
+
+_VERDICT_TOKEN_RE = re.compile(
+    "(" + "|".join(re.escape(v) for v in sorted(VALID_VERDICTS, key=len, reverse=True)) + ")(?![A-Za-z0-9_/])"
+)
+
+
+def validate_audit_log_markdown(path: Path, *, require_rows: bool = True) -> dict[str, Any]:
+    """
+    Parse and validate a markdown AUDIT_LOG.md table under Gate 8 & Gate 9.
+    The verdict cell must open with one whole verdict token (markdown emphasis aside), so `NOT VERIFIED`
+    is rejected rather than read as `VERIFIED`. With `require_rows`, a ledger with no audit rows is invalid.
+    """
     require_ok(path.is_file(), "AUDIT_LOG_NOT_FOUND", f"audit log not found: {path}")
     text = path.read_text(encoding="utf-8")
     errors: list[dict[str, Any]] = []
@@ -145,14 +208,10 @@ def validate_audit_log_markdown(path: Path) -> dict[str, Any]:
         verdict_cell = cells[7] if len(cells) >= 9 else cells[-2]
         evidence_cell = cells[8] if len(cells) >= 9 else cells[-1]
 
-        # Extract primary verdict token deterministically (earliest match in cell, longest tie-break)
-        matched_positions: list[tuple[int, int, str]] = []
-        for v in sorted(VALID_VERDICTS):
-            pos = verdict_cell.find(v)
-            if pos >= 0:
-                matched_positions.append((pos, -len(v), v))
+        # The verdict is the whole token that opens the cell (after markdown emphasis such as ** or `).
         v_main: str | None = None
-        if not matched_positions:
+        m_verdict = _VERDICT_TOKEN_RE.match(verdict_cell.lstrip("*`_~ \t"))
+        if m_verdict is None:
             errors.append({
                 "line": lineno,
                 "audit_id": audit_id,
@@ -160,8 +219,7 @@ def validate_audit_log_markdown(path: Path) -> dict[str, Any]:
                 "message": f"unrecognized verdict cell {verdict_cell!r}",
             })
         else:
-            matched_positions.sort()
-            v_main = matched_positions[0][2]
+            v_main = m_verdict.group(1)
             verdict_counts[v_main] = verdict_counts.get(v_main, 0) + 1
 
         # Extract oracle class tokens
@@ -207,6 +265,14 @@ def validate_audit_log_markdown(path: Path) -> dict[str, Any]:
                 "code": "PROVENANCE_INFLATION",
                 "message": "row mixes uncompiled_source with kernel-verified claim",
             })
+
+    if require_rows and rows_checked == 0:
+        errors.append({
+            "line": 0,
+            "audit_id": "",
+            "code": "NO_AUDIT_ROWS",
+            "message": "audit log has no audit rows (expected at least one `AUDIT-...` table row)",
+        })
 
     return {
         "path": str(path),
@@ -325,13 +391,19 @@ _LEAN4_VACUOUS_THM_RE = re.compile(
 _LEAN4_EXISTS_IMP_RE = re.compile(r"∃[^,\n]+,\s*(?!.*(?:∀|∧))[^,\n]*(?:→|->)")
 
 
-def _strip_lean4_comments_and_literals(source: str) -> str:
-    """Char-literal-safe and nested-block-comment-safe Lean 4 stripper preserving line count."""
+def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
+    """
+    Char-literal-safe and nested-block-comment-safe Lean 4 stripper preserving line count.
+    Also returns one finding per block comment or string still open at end of file: the stripper
+    blanks everything after it, so a caller must treat those findings as a failed audit (R1).
+    """
     out: list[str] = []
     i = 0
     n = len(source)
     depth = 0
     in_str = False
+    opened_at = 0
+    unterminated: list[dict[str, Any]] = []
     while i < n:
         ch = source[i]
         nxt = source[i + 1] if i + 1 < n else ""
@@ -362,6 +434,7 @@ def _strip_lean4_comments_and_literals(source: str) -> str:
             continue
         if ch == "/" and nxt == "-":
             depth = 1
+            opened_at = i
             out.append("  ")
             i += 2
         elif ch == "-" and nxt == "-":
@@ -370,6 +443,7 @@ def _strip_lean4_comments_and_literals(source: str) -> str:
                 i += 1
         elif ch == '"':
             in_str = True
+            opened_at = i
             out.append(" ")
             i += 1
         elif ch == "'":
@@ -386,7 +460,22 @@ def _strip_lean4_comments_and_literals(source: str) -> str:
         else:
             out.append(ch)
             i += 1
-    return "".join(out)
+    if depth > 0 or in_str:
+        lineno = source.count("\n", 0, opened_at) + 1
+        excerpt = source.splitlines()[lineno - 1].strip()[:100]
+        unterminated.append(
+            {
+                "line": lineno,
+                "code": "LEAN4_UNTERMINATED_COMMENT" if depth > 0 else "LEAN4_UNTERMINATED_STRING",
+                "excerpt": excerpt,
+            }
+        )
+    return "".join(out), unterminated
+
+
+def _strip_lean4_comments_and_literals(source: str) -> str:
+    """Cleaned Lean 4 source (comments and literals blanked, line count preserved)."""
+    return _strip_lean4_with_report(source)[0]
 
 
 def audit_lean4_source(
@@ -407,8 +496,8 @@ def audit_lean4_source(
       - Parses Lean 4.22 `(public|private|meta)? import` with optional `allow_project_imports`
         and `forbidden_import_prefixes` (enforcing Spec -/-> Proof isolation)
     """
-    cleaned = _strip_lean4_comments_and_literals(source)
-    findings: list[dict[str, Any]] = []
+    cleaned, unterminated = _strip_lean4_with_report(source)
+    findings: list[dict[str, Any]] = list(unterminated)
     notices: list[dict[str, Any]] = []
     imports: list[str] = []
 
@@ -969,7 +1058,7 @@ def run_audit_check(
     require_ok(root.exists(), "TARGET_NOT_FOUND", f"target path does not exist: {root}")
 
     crlf_files: list[str] = []
-    pycache_items: list[str] = []
+    pycache_entries: list[Path] = []
     leak_findings: list[dict[str, Any]] = []
     syntax_errors: list[dict[str, Any]] = []
     bare_asserts: list[dict[str, Any]] = []
@@ -989,10 +1078,15 @@ def run_audit_check(
             if any(part in SKIP_DIRS for part in rel_parts):
                 continue
             if "__pycache__" in rel_parts or p.suffix in (".pyc", ".pyo"):
-                pycache_items.append(str(p.relative_to(root)))
+                pycache_entries.append(p)
                 continue
             if p.is_file():
                 walk_files.append(p)
+
+    pycache_items = [
+        str(p.relative_to(root))
+        for p in _foreign_bytecode_items(pycache_entries, _loaded_module_bytecode())
+    ]
 
     for p in walk_files:
         files_scanned += 1
@@ -1056,7 +1150,9 @@ def run_audit_check(
         if cand.is_file():
             log_path = cand
     if log_path is not None:
-        audit_log_report = validate_audit_log_markdown(log_path)
+        # An explicit --audit-log must hold rows. A freshly scaffolded workspace has an empty ledger, so the
+        # auto-discovered one may still be empty.
+        audit_log_report = validate_audit_log_markdown(log_path, require_rows=audit_log is not None)
 
     # Optional JSON audit receipt validation
     receipt_report: dict[str, Any] | None = None
