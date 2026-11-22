@@ -1478,6 +1478,29 @@ class TestAletheiaCLI(unittest.TestCase):
         _, out, _ = _run_cli(["ratchet", "--demo", "--json"])
         _req("pythagorean_exact" not in out, "the demo output still carries pythagorean_exact")
 
+    def test_26_mutator_reports_when_max_mutants_truncates(self) -> None:
+        fixture = CLI_ROOT / "tests" / "fixture_verifier.py"
+        cmd = "python3 fixture_verifier_test.py"
+        full = run_mutation_suite(fixture, cmd, work_root=fixture.parent, include_boundaries=True)
+        n = full["total_mutants"]
+        _req(n > 3 and full["truncated"] is False and "warning" not in full and full["mutants_discovered"] == n,
+             f"untruncated run must say so: {n} {full['truncated']} {full.get('warning')}")
+
+        cut = run_mutation_suite(fixture, cmd, work_root=fixture.parent, include_boundaries=True, max_mutants=3)
+        _req(
+            cut["truncated"] is True and cut["total_mutants"] == 3 and cut["mutants_discovered"] == n
+            and f"{n - 3} of {n}" in cut["warning"],
+            f"truncation not reported: {cut.get('truncated')} {cut.get('mutants_discovered')} {cut.get('warning')}",
+        )
+
+        # The command line shows it too, in JSON and in the text summary.
+        args = ["mutate", str(fixture), "--test-cmd", cmd, "--max-mutants", "3"]
+        rc, out, _ = _run_cli(args + ["--json"])
+        obj = json.loads(out)
+        _req(obj["truncated"] is True and "warning" in obj, f"JSON output hides the truncation: {list(obj)}")
+        rc, out, _ = _run_cli(args)
+        _req("warning: max_mutants=3" in out, f"text output hides the truncation: {out[:400]}")
+
 
 if __name__ == "__main__":
     unittest.main()
