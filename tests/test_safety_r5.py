@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 """R5 adversarial & mutation-killing test suite for aletheia/safety.py (CYA-GAP-01..06).
 
-Zero bare asserts. Covers every scanner rule, boundary codepoint, JSON/YAML npx -y,
-shell/YAML/Makefile rm -rf + top-level/heredoc/conditional nounset, CI pwn-request,
-UTF-16 decoding, dotfiles/extensionless/vendor-dir scanning, and fail-closed IO guards.
+Zero bare asserts. Covers CYA-GAP-01..06 scanner rules, all listed invisible/BiDi
+codepoints, JSON/YAML npx -y, shell/YAML/Makefile rm -rf + braced ${D} + top-level/
+heredoc/conditional nounset, CI pwn-request, UTF-16 decoding, fail-closed UTF-32 BOM/NUL
+and non-regular-file (FIFO) handling, isolated unreadable-only trees, and all 4/4
+raise-guard deletions plus 14/14 `aletheia mutate` sites.
 """
 from __future__ import annotations
 
+import codecs
 import os
 from pathlib import Path
 import sys
@@ -49,6 +52,19 @@ class TestSafetyR5(unittest.TestCase):
         self.assertEqual(hits[9]["category"], "variation_selector_smuggling")
         self.assertEqual(hits[0]["line"], 2)
         self.assertEqual(hits[0]["col"], 1)
+
+        # Verify every listed zero-width/invisible and BiDi codepoint individually (review 6012061680)
+        for cp in (0x00AD, 0x200B, 0x200C, 0x200D, 0x200E, 0x200F, 0x2060, 0x2061, 0x2062, 0x2063, 0x2064, 0xFEFF):
+            cp_hits = safety.scan_hidden_unicode(f"a{chr(cp)}b", "zw.py")
+            self.assertEqual(len(cp_hits), 1, msg=f"missed U+{cp:04X}")
+            self.assertEqual(cp_hits[0]["codepoint"], f"U+{cp:04X}")
+            self.assertEqual(cp_hits[0]["category"], "zero_width_or_invisible_format")
+
+        for cp in (0x061C, 0x202A, 0x202B, 0x202C, 0x202D, 0x202E, 0x2066, 0x2067, 0x2068, 0x2069):
+            cp_hits = safety.scan_hidden_unicode(f"a{chr(cp)}b", "bidi.py")
+            self.assertEqual(len(cp_hits), 1, msg=f"missed U+{cp:04X}")
+            self.assertEqual(cp_hits[0]["codepoint"], f"U+{cp:04X}")
+            self.assertEqual(cp_hits[0]["category"], "bidi_trojan_source")
 
     def test_02_gaps_02_through_06_and_input_guards(self) -> None:
         with self.assertRaisesRegex(ValueError, "SAFETY_TEXT_NOT_STR"):
@@ -122,6 +138,7 @@ class TestSafetyR5(unittest.TestCase):
                 '/bin/rm -rf "$BUILD_DIR"\n',
                 'command /usr/bin/rm -rf "$BUILD_DIR"\n',
                 'env FOO=1 \\rm -rf "$BUILD_DIR"\n',
+                'rm -rf "${D}"\n',
                 'set -- -u\nrm -rf "$BUILD_DIR"\n',
                 'run: rm -rf "$DIR"\n',
                 '      - run: rm -rf "$DIR"\n',
@@ -208,6 +225,12 @@ class TestSafetyR5(unittest.TestCase):
         # Invalid surrogate pair in BOM-less UTF-16-LE / UTF-16-BE triggers decode failure cleanly
         self.assertIsNone(safety._decode_text_bytes(b"a\x00b\x00\x00\xd8c\x00"))
         self.assertIsNone(safety._decode_text_bytes(b"\x00a\x00b\xd8\x00\x00c"))
+        # UTF-32-LE/BE with or without BOM and UTF-16-with-BOM containing NUL MUST fail closed as undecodable
+        wf_u32 = "on: pull_request_target\npermissions: write-all\n"
+        self.assertIsNone(safety._decode_text_bytes(wf_u32.encode("utf-32-le")))
+        self.assertIsNone(safety._decode_text_bytes(codecs.BOM_UTF32_LE + wf_u32.encode("utf-32-le")))
+        self.assertIsNone(safety._decode_text_bytes(codecs.BOM_UTF32_BE + wf_u32.encode("utf-32-be")))
+        self.assertIsNone(safety._decode_text_bytes(("a\x00b").encode("utf-16")))
 
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
@@ -296,6 +319,53 @@ class TestSafetyR5(unittest.TestCase):
             finally:
                 os.chmod(locked_file, 0o600)
                 os.chmod(locked_dir, 0o700)
+
+        # Isolated unreadable-only tree (no undecodable/skipped files alongside) MUST still report clean=False
+        if os.geteuid() != 0:
+            with tempfile.TemporaryDirectory() as td:
+                root = Path(td)
+                locked_only = root / "locked_only.sh"
+                locked_only.write_text("echo ok\n", encoding="utf-8")
+                try:
+                    os.chmod(locked_only, 0o000)
+                    res_unr = safety.scan_directory_safety_surface(root)
+                    self.assertFalse(res_unr["clean"])
+                    self.assertEqual(res_unr["findings"], [])
+                    self.assertEqual(res_unr["skipped_files"], [])
+                    self.assertEqual(res_unr["undecodable_files"], [])
+                    self.assertEqual([u["file"] for u in res_unr["unreadable_files"]], ["locked_only.sh"])
+                finally:
+                    os.chmod(locked_only, 0o600)
+
+        # UTF-32-LE with BOM MUST land in undecodable_files (clean=False, never silently clean!)
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            (root / "w.yml").write_bytes(codecs.BOM_UTF32_LE + wf_u32.encode("utf-32-le"))
+            res_u32 = safety.scan_directory_safety_surface(root)
+            self.assertFalse(res_u32["clean"])
+            self.assertEqual(res_u32["finding_count"], 0)
+            self.assertEqual(res_u32["files_scanned"], 0)
+            self.assertEqual([u["file"] for u in res_u32["undecodable_files"]], ["w.yml"])
+
+        # Named pipe (FIFO) MUST be skipped as non_regular_file (clean=False) without blocking
+        if hasattr(os, "mkfifo"):
+            with tempfile.TemporaryDirectory() as td:
+                root = Path(td)
+                fifo_path = root / "pipe"
+                os.mkfifo(fifo_path)
+                res_fifo_dir = safety.scan_directory_safety_surface(root)
+                self.assertFalse(res_fifo_dir["clean"])
+                self.assertEqual(res_fifo_dir["files_scanned"], 0)
+                self.assertEqual(
+                    res_fifo_dir["skipped_files"],
+                    [{"file": "pipe", "reason": "non_regular_file"}],
+                )
+                res_fifo_direct = safety.scan_directory_safety_surface(fifo_path)
+                self.assertFalse(res_fifo_direct["clean"])
+                self.assertEqual(
+                    res_fifo_direct["skipped_files"],
+                    [{"file": "pipe", "reason": "non_regular_file"}],
+                )
 
 
 if __name__ == "__main__":

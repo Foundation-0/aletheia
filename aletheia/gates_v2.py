@@ -677,6 +677,13 @@ def certify_transformational_steelman(spec: dict[str, Any]) -> dict[str, Any]:
     and exhaustive INVARIANT_FALSIFIED verdicts, including uniform G1 null-resolution
     (null_total * max_null_rate >= 1 for max_null_rate > 0, and null_total >= 10 when
     max_null_rate == 0).
+
+    Declared-record scope: this pure-Q schema/inequality gate certifies that a
+    caller-supplied record is well-formed and satisfies the stated mathematical
+    inequalities. It does NOT establish from the dict alone that the underlying
+    measurements, null suites, or held-out evaluations were actually executed or that
+    free-text witness fields match the declared numbers; execution provenance must be
+    verified separately via clean-room replay or R6/R7 byte-recomputed artifacts.
     """
     _verify_no_floats(spec)
     if not isinstance(spec, dict):
@@ -832,7 +839,15 @@ def certify_own_terms_phase1(
     net_measurements: list[dict[str, Any]],
 ) -> dict[str, Any]:
     """Own-Terms-First Phase-1 gate: >=2 pinned nets across >=2 distinct axes, non-vacuous FWER/alpha,
-    held-out + second-instrument verification, Tier-4A/4B nulls, Rule-5 controls, and Rule-6 return."""
+    held-out + second-instrument verification, Tier-4A/4B nulls, Rule-5 controls, and Rule-6 return.
+
+    Declared-record scope: this pure-Q schema/inequality gate certifies that a
+    caller-supplied specification and measurement record are well-formed and satisfy the
+    stated inequalities. It does NOT establish from the dicts alone that the underlying
+    null suites, held-out runs, or second-instrument checks were executed, nor that
+    distinct net/axis labels represent physically distinct measurements; execution
+    provenance must be verified separately via clean-room replay or R6/R7 artifacts.
+    """
     _verify_no_floats(pinned_spec)
     _verify_no_floats(net_measurements)
 
@@ -980,7 +995,14 @@ def certify_own_terms_model_ladder(
     min_unseen_corr_sq: Any,
     min_remainder_energy_ratio: Any,
 ) -> dict[str, Any]:
-    """OTF-TIGHT-02: Pure-Q orthogonal projection onto M_k^perp across a nested model ladder."""
+    """OTF-TIGHT-02: Pure-Q orthogonal projection onto M_k^perp across a nested model ladder.
+
+    Declared-record scope: computes exact orthogonal projections and squared correlations
+    from the caller-supplied vectors, and checks the stated thresholds against the
+    caller-supplied `scrambled_null_corr_sq`. It does NOT establish from the arguments
+    alone that `unseen_signal` was held out from `train_signal` or that the scrambled
+    null suite was independently executed; provenance must be verified separately.
+    """
     _verify_no_floats((train_signal, unseen_signal, basis_vectors, scrambled_null_corr_sq, min_unseen_corr_sq, min_remainder_energy_ratio))
     if not isinstance(train_signal, (list, tuple)) or not isinstance(unseen_signal, (list, tuple)):
         raise ValueError("OTF_LADDER_SIGNAL_NOT_SEQUENCE")
@@ -1093,7 +1115,13 @@ def certify_own_terms_model_ladder(
 
 
 def certify_own_terms_symbol_utility(symbols: list[dict[str, Any]] | tuple[dict[str, Any], ...]) -> dict[str, Any]:
-    """OTF-TIGHT-04: Classify proposed symbols strictly across 5 operational-utility tiers."""
+    """OTF-TIGHT-04: Classify proposed symbols strictly across 5 operational-utility tiers.
+
+    Declared-record scope: validates the schema and classifies each caller-supplied symbol
+    record deterministically from its declared boolean flags; it does NOT independently
+    verify from the dicts alone that the underlying reproducibility or unseen-prediction
+    checks were executed.
+    """
     _verify_no_floats(symbols)
     if not isinstance(symbols, (list, tuple)) or len(symbols) == 0:
         raise ValueError("OTF_SYMBOLS_EMPTY_OR_NOT_SEQUENCE")

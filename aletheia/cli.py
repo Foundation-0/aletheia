@@ -40,13 +40,26 @@ def _emit(payload: dict[str, Any], as_json: bool) -> None:
         print(json.dumps(payload, indent=2, sort_keys=False))
         return
     # Concise human-readable summary
-    status = payload.get("status") or payload.get("overall_status") or payload.get("verdict") or "OK"
+    status = payload.get("status") or payload.get("overall_status") or payload.get("verdict")
+    if status is None and "clean" in payload and isinstance(payload["clean"], bool):
+        status = "CLEAN" if payload["clean"] else "FAIL"
+    status = status or "OK"
     print(f"[aletheia] status={status}")
     for key, val in payload.items():
         if key in ("status", "overall_status", "verdict", "results", "patterns", "files", "r4_scripts", "glyphs"):
             continue
         if isinstance(val, (str, int, float, bool)):
             print(f"  {key}: {val}")
+    for list_key in ("skipped_files", "undecodable_files", "unreadable_files"):
+        items = payload.get(list_key)
+        if isinstance(items, list):
+            print(f"  {list_key}_count: {len(items)}")
+            for item in items:
+                if isinstance(item, dict):
+                    detail = item.get("reason") or item.get("error") or ""
+                    print(f"    - {item.get('file', '<unknown>')}: {detail}")
+                else:
+                    print(f"    - {item}")
     if "summary" in payload and isinstance(payload["summary"], dict):
         for k, v in payload["summary"].items():
             print(f"  {k}: {v}")

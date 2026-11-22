@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """R5 adversarial & mutation-killing test suite for aletheia/gates_v2.py.
 
-Zero bare asserts. Covers every fail-closed guard, individual boolean sub-condition,
-boundary, and red-team bypass across all 9 Aletheia v2.0 pure-Q gates (R6/R7,
-Two-Direction R3, Sampled NOT_SHOWN, Oracle Contract, Gate-8 Subspace Latch,
-Law 2b Transformational Steelman, Own-Terms-First Phase 1, Orthogonal Model Ladder,
-and Rule-2 Symbol Operational-Utility Classifier) plus dynamic self-test tampering.
+Zero bare asserts. Covers all 9 Aletheia v2.0 pure-Q gates (R6/R7, Two-Direction R3,
+Sampled NOT_SHOWN, Oracle Contract, Gate-8 Subspace Latch, Law 2b Transformational
+Steelman, Own-Terms-First Phase 1, Orthogonal Model Ladder, and Rule-2 Symbol
+Operational-Utility Classifier) plus dynamic self-test tampering, killing all 156/156
+raise-guard deletions, all 213/213 `aletheia mutate` sites, and the targeted
+sub-condition and classification regressions from review 6012061680.
 """
 from __future__ import annotations
 
@@ -177,11 +178,19 @@ class TestGatesV2R5(unittest.TestCase):
             ("1/2\n", "RATIONAL_TYPE_OR_SYNTAX"),
             ("1/2/3", "RATIONAL_TOO_MANY_SLASHES"),
             ("-", "RATIONAL_INVALID_NUMERATOR"),
+            ("+5", "RATIONAL_INVALID_NUMERATOR"),
+            ("1_0", "RATIONAL_INVALID_NUMERATOR"),
             ("1/", "RATIONAL_INVALID_DENOMINATOR"),
+            ("1/+5", "RATIONAL_INVALID_DENOMINATOR"),
+            ("1/1_0", "RATIONAL_INVALID_DENOMINATOR"),
             ("1/0", "RATIONAL_NONPOSITIVE_DENOMINATOR"),
         ):
             with self.assertRaisesRegex(ValueError, code):
                 g2._parse_exact_rational(bad)
+
+        self.assertFalse(g2._is_clean_ascii("a\x00b\u202e"))
+        self.assertFalse(g2._is_clean_ascii("caf\u00e9"))
+        self.assertFalse(g2._is_clean_ascii("tab\there"))
 
         with self.assertRaisesRegex(ValueError, "FLOAT_FORBIDDEN"):
             g2._verify_no_floats({"a": [1, 0.5]})
@@ -302,6 +311,25 @@ class TestGatesV2R5(unittest.TestCase):
         self.assertEqual(res_vuln["dir1_failures"], ["d1_int1"])
         self.assertEqual(res_vuln["dir2_failures"], ["d2_int1"])
 
+        # Asymmetric failures: dir1-only failure (dir2_failures empty) and dir2-only failure MUST both set passed=False
+        def dir1_only_vuln_fn(r):
+            return isinstance(r, dict) and r.get("flag") in (True, 1) and r.get("v") == "VERIFIED"
+
+        res_d1 = g2.certify_two_direction_r3(dir1_only_vuln_fn, ok, bad, [("x", ok_m)], [("d2_clean", bad_m)])
+        self.assertFalse(res_d1["passed"])
+        self.assertEqual(res_d1["dir1_failures"], ["x"])
+        self.assertEqual(res_d1["dir2_failures"], [])
+
+        def dir2_only_vuln_fn(r):
+            if r.get("v") == "FAILED" and type(r.get("flag")) is int:
+                return True
+            return strict_fn(r)
+
+        res_d2 = g2.certify_two_direction_r3(dir2_only_vuln_fn, ok, bad, [("d1_clean", ok_m)], [("y", bad_m)])
+        self.assertFalse(res_d2["passed"])
+        self.assertEqual(res_d2["dir1_failures"], [])
+        self.assertEqual(res_d2["dir2_failures"], ["y"])
+
         self.assertEqual(g2.evaluate_sampled_integrity(0, 1, 0)["verdict"], "NOT_SHOWN")
         self.assertEqual(g2.evaluate_sampled_integrity(4, 4, 0)["verdict"], "PASS")
         self.assertEqual(g2.evaluate_sampled_integrity(4, 4, 4)["verdict"], "FAIL")
@@ -417,6 +445,8 @@ class TestGatesV2R5(unittest.TestCase):
             (_valid_steelman_rescue(literal_failed=1), "G0_INVALID_LITERAL_FAILED_TYPE"),
             (_valid_steelman_rescue(literal_failed=False), "G0_LITERAL_CLAIM_NOT_FAILED"),
             (_valid_steelman_rescue(literal_failure_witness=""), "G3_MISSING_LITERAL_FAILURE_WITNESS"),
+            (_valid_steelman_rescue(literal_failure_witness="a\x00b\u202e"), "G3_MISSING_LITERAL_FAILURE_WITNESS"),
+            (_valid_steelman_rescue(literal_failure_witness="caf\u00e9"), "G3_MISSING_LITERAL_FAILURE_WITNESS"),
             (_valid_steelman_rescue(relabelled_as_literal=1), "G3_INVALID_RELABELLED_TYPE"),
             (_valid_steelman_rescue(relabelled_as_literal=True), "G3_SILENT_GOALPOST_MOVING"),
             (_valid_steelman_rescue(families_searched="T1_GAUGE_SIMILARITY"), "TS_FAMILIES_NOT_SEQUENCE"),
@@ -590,6 +620,19 @@ class TestGatesV2R5(unittest.TestCase):
         )
         self.assertEqual(none_rem["classification"], "NO_STRUCTURED_REMAINDER")
 
+        # Positive alignment & corr_sq > nc, but corr_sq = 576/625 < min_unseen_corr_sq = 99/100 MUST NOT classify as structured
+        low_corr = g2.certify_own_terms_model_ladder(
+            ["1", "0", "3", "4"],
+            ["1", "0", "4", "3"],
+            [["1", "0", "0", "0"], ["0", "1", "0", "0"]],
+            ["0", "0"],
+            "99/100",
+            "1/2",
+        )
+        self.assertEqual(low_corr["classification"], "NO_STRUCTURED_REMAINDER")
+        self.assertEqual(low_corr["rungs"][-1]["unseen_residual_corr_sq"], "576/625")
+        self.assertFalse(low_corr["rungs"][-1]["structured_at_rung"])
+
         for args, code in (
             ((["1.0", "2"], ["1", "2"], [["1", "0"], ["0", "1"]], ["0", "0"], 0.5, "1/4"), "FLOAT_FORBIDDEN"),
             (("bad", ["1", "2"], [["1", "0"], ["0", "1"]], ["0", "0"], "1/2", "1/4"), "OTF_LADDER_SIGNAL_NOT_SEQUENCE"),
@@ -636,6 +679,22 @@ class TestGatesV2R5(unittest.TestCase):
             "NON_REPRODUCIBLE_SYMBOL",
         ):
             self.assertEqual(sym_res["counts"][tier], 1)
+
+        # adds_rule_beyond_standard=False with unseen_physical_prediction=True MUST NOT promote to OPERATIONAL_NEW_PRIMITIVE
+        pred_no_rule = g2.certify_own_terms_symbol_utility(
+            [
+                {
+                    "symbol": "s_pred_no_rule",
+                    "op_id": "OP-6",
+                    "reproducible_from_rules": True,
+                    "unseen_physical_prediction": True,
+                    "adds_rule_beyond_standard": False,
+                    "overloads_distinct_constructs": False,
+                }
+            ]
+        )
+        self.assertEqual(pred_no_rule["records"][0]["classification"], "COMPOSITION_SHORTHAND_RENAMING")
+        self.assertEqual(pred_no_rule["counts"]["OPERATIONAL_NEW_PRIMITIVE"], 0)
 
         base_sym = {
             "symbol": "s1",

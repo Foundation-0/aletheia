@@ -21,6 +21,7 @@ import json
 import os
 from pathlib import Path
 import re
+import stat
 from typing import Any
 
 _VCS_IGNORE_DIRS = {".git"}
@@ -204,12 +205,15 @@ def _extract_nested_rm_segments(seg: str, parent_nounset: bool) -> list[tuple[st
 
 
 def _decode_text_bytes(raw: bytes) -> str | None:
-    """Decode UTF-8 or UTF-16 (with or without BOM); return None for binary/undecodable bytes."""
+    """Decode UTF-8 or UTF-16 (with or without BOM); return None for binary/NUL/undecodable bytes."""
     if raw.startswith((b"\xff\xfe", b"\xfe\xff")):
         try:
-            return raw.decode("utf-16")
+            decoded = raw.decode("utf-16")
         except UnicodeDecodeError:
             return None
+        if "\x00" in decoded:
+            return None
+        return decoded
     if b"\x00" in raw:
         if len(raw) >= 4 and len(raw) % 2 == 0:
             half = len(raw) // 2
@@ -485,9 +489,11 @@ def scan_directory_safety_surface(
 ) -> dict[str, Any]:
     """Scan a file or directory tree for CYA-GAP-01..06 safety findings.
 
-    Scans all working-tree text files (including dotfiles, extensionless files, build/dist/node_modules,
+    Scans all regular working-tree text files (including dotfiles, extensionless files, build/dist/node_modules,
     and UTF-16 files; excluding only `.git` VCS metadata). Fails closed (`clean=False`) whenever any
-    findings, skipped entries, undecodable/binary files, or unreadable files/directories are present.
+    findings, skipped entries (broken symlinks, symlinked directories, or non-regular files such as FIFOs,
+    sockets, and devices), undecodable/binary/NUL-containing files (including UTF-32 with BOM), or
+    unreadable files/directories are present.
     """
     resolved = target_path.resolve()
     if not resolved.exists():
@@ -505,6 +511,14 @@ def scan_directory_safety_surface(
             skipped_files.append({"file": label, "reason": "broken_symlink"})
             return
         try:
+            st = p.stat()
+        except OSError as exc:
+            unreadable_files.append({"file": label, "error": type(exc).__name__, "detail": str(exc)})
+            return
+        if not stat.S_ISREG(st.st_mode):
+            skipped_files.append({"file": label, "reason": "non_regular_file"})
+            return
+        try:
             raw = p.read_bytes()
         except OSError as exc:
             unreadable_files.append({"file": label, "error": type(exc).__name__, "detail": str(exc)})
@@ -517,7 +531,7 @@ def scan_directory_safety_surface(
         res = scan_text_safety_surface(decoded, label, include_host_hygiene=include_host_hygiene)
         all_findings.extend(res["findings"])
 
-    if resolved.is_file():
+    if not resolved.is_dir():
         _scan_one(resolved, resolved.name)
     else:
         def _on_walk_err(exc: OSError) -> None:

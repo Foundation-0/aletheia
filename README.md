@@ -63,15 +63,16 @@ PYTHONPATH=. python3 -m aletheia --help
 # Scaffold a new expedition workspace
 PYTHONPATH=. python3 -m aletheia init /tmp/my-expedition --domain physics
 
-# Audit any repo/expedition for R4 3-mode parity (incl. unittest -O skip detection), bare asserts,
-# strict JSON/JSONL, CRLF, leaks, --strict-ancestors, --safety-scan (CYA-GAP-01..06), and Lean 4 purity
-PYTHONPATH=. python3 -m aletheia audit-check . --lean-audit --strict-ancestors --safety-scan
+# Audit a repo/expedition for R4 3-mode parity (incl. unittest -O skip detection), bare asserts,
+# strict JSON/JSONL, CRLF, leaks, --strict-ancestors, and Lean 4 purity (self-audit of this repo):
+PYTHONPATH=. python3 -m aletheia audit-check . --strict-ancestors
 
 # Run pure-Q v2.0 gate-contract self-test (R6/R7, Two-Direction R3, NOT_SHOWN, Gate-8 col(Phi) latch, Law 2b, Own-Terms-First)
 PYTHONPATH=. python3 -m aletheia gate-v2 --self-test --json
 
-# Run deterministic static agent safety-surface scan (CYA-GAP-01..06)
-PYTHONPATH=. python3 -m aletheia safety-scan . --json
+# Run deterministic static agent safety-surface scan (CYA-GAP-01..06) on package code
+# (add --safety-scan to audit-check on target repos; scanning this repo's docs/tests flags their quoted test patterns by design):
+PYTHONPATH=. python3 -m aletheia safety-scan aletheia --json
 
 # Run AST-based R5 refusal-site mutation testing (local + cross-module imported wrappers, --guards,
 # string/tuple/multi-stmt refusal shapes, self-check mode, NOT_SHOWN on truncation)

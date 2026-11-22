@@ -1868,6 +1868,18 @@ class TestAletheiaCLI(unittest.TestCase):
             _req(rc_b == 1 and jb["clean"] is False and len(jb["undecodable_files"]) == 1,
                  f"undecodable file must fail closed: rc={rc_b} {jb}")
 
+            # Plain-text safety-scan prints FAIL status + skipped/undecodable/unreadable counts
+            rc_pt, out_pt, _ = _run_cli(["safety-scan", str(bin_dir)])
+            _req(
+                rc_pt == 1
+                and "[aletheia] status=FAIL" in out_pt
+                and "skipped_files_count: 0" in out_pt
+                and "undecodable_files_count: 1" in out_pt
+                and "unreadable_files_count: 0" in out_pt
+                and "opaque.bin: undecodable_or_binary" in out_pt,
+                f"plain-text safety-scan missing counts/status: rc={rc_pt} out={out_pt!r}",
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
