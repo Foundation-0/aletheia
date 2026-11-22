@@ -18,7 +18,7 @@ jobs:
 
       - name: Install aletheia-method (zero external dependencies)
         run: |
-          python3 -m pip install --no-deps --no-build-isolation .
+          python3 -m pip install --no-deps .
 
       - name: Run full CLI test & R5 mutation suite across all 3 isolated R4 modes
         run: |

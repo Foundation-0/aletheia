@@ -1163,6 +1163,28 @@ class TestAletheiaCLI(unittest.TestCase):
                 f"CS-12 .json-only poison did not ALERT: {by_id12j.get('CS-12')}",
             )
 
+    def test_15_ci_install_step_needs_no_preinstalled_setuptools(self) -> None:
+        wf = (CLI_ROOT / ".github" / "workflows" / "aletheia-ci.yml").read_text(encoding="utf-8")
+        install_lines = [ln.strip() for ln in wf.splitlines() if "pip install" in ln]
+        _req(len(install_lines) == 1, f"expected exactly one pip install line in CI, got {install_lines}")
+        # `--no-build-isolation` needs setuptools in the runner's own environment, which
+        # setup-python does not provide (ModuleNotFoundError: No module named 'setuptools').
+        _req("--no-build-isolation" not in install_lines[0], f"CI install needs preinstalled setuptools: {install_lines[0]}")
+        _req("--no-deps" in install_lines[0], f"CI install must stay dependency-free: {install_lines[0]}")
+
+        # An in-tree install leaves build/ and *.egg-info in the repo root; the self-audit must not trip on them.
+        with tempfile.TemporaryDirectory(prefix="aletheia_t_ci_") as td:
+            root = Path(td)
+            write_lf_text(root / "README.md", "# demo\n")
+            egg = root / "aletheia_method.egg-info"
+            write_lf_text(egg / "PKG-INFO", "Metadata-Version: 2.1\nName: aletheia-method\n")
+            write_lf_text(egg / "SOURCES.txt", "README.md\naletheia/__init__.py\n")
+            write_lf_text(egg / "top_level.txt", "aletheia\n")
+            write_lf_text(egg / "entry_points.txt", "[console_scripts]\naletheia = aletheia.cli:main\n")
+            write_lf_text(root / "build" / "lib" / "aletheia" / "x.py", "x = 1\n")
+            res = run_audit_check(root)
+            _req(res["passed"], f"in-tree install artifacts tripped the self-audit: {res['failures']}")
+
 
 if __name__ == "__main__":
     unittest.main()
