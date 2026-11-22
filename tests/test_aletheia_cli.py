@@ -886,7 +886,8 @@ class TestAletheiaCLI(unittest.TestCase):
             for u_expr, a_expr, exp_type, exp_val in eval_pairs:
                 rc_u, out_u, err_u = _run_cli(["calculus", "--eval", u_expr, "--json"])
                 rc_a, out_a, err_a = _run_cli(["calculus", "--eval", a_expr, "--json"])
-                _req(rc_u == 0 and rc_a == 0, f"eval failed for {u_expr!r}/{a_expr!r}: {err_u} {err_a}")
+                want_rc = 1 if exp_val is False else 0
+                _req(rc_u == want_rc and rc_a == want_rc, f"eval rc for {u_expr!r}/{a_expr!r}: {rc_u}/{rc_a}, want {want_rc}: {err_u} {err_a}")
                 obj_u = parse_strict_json_text(out_u, allow_float=False)
                 obj_a = parse_strict_json_text(out_a, allow_float=False)
                 _req(
@@ -1415,6 +1416,21 @@ class TestAletheiaCLI(unittest.TestCase):
                 if "227,540" in line and "reported" not in line.lower():
                     unlabelled.append(f"{rel}:{n}")
         _req(not unlabelled, f"227,540 stated without a 'reported' label at: {unlabelled}")
+
+    def test_23_calculus_eval_exit_code_gates_on_a_false_boolean(self) -> None:
+        for expr, rc_want, value in (
+            ("1/2 ⩩ 1/2", 0, True),
+            ("1/2 =#= 1/3", 1, False),
+            ("1/2 + 1/3", 0, "5/6"),
+        ):
+            for extra in (["--json"], []):
+                rc, out, _ = _run_cli(["calculus", "--eval", expr, *extra])
+                _req(rc == rc_want, f"{expr!r} {extra}: rc={rc}, want {rc_want}")
+                if extra:
+                    _req(parse_strict_json_text(out, allow_float=False)["value"] == value, f"{expr!r}: wrong value {out}")
+        # A usage or evaluation error is still rc=2, distinct from a false result.
+        rc, _, _ = _run_cli(["calculus", "--eval", "no_such_var ⩩ 0", "--json"])
+        _req(rc == 2, f"error must stay rc=2, got {rc}")
 
 
 if __name__ == "__main__":
