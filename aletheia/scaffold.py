@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from datetime import date
 import json
+import os
 from pathlib import Path
 import re
 from typing import Any
@@ -95,12 +96,6 @@ def init_workspace(
         f"domain must match [a-z0-9][a-z0-9_-]{{0,47}}, got {domain!r}",
     )
     root = target_dir.resolve()
-    config_path = root / "aletheia.json"
-    if config_path.exists() and not force:
-        raise AletheiaError(
-            "WORKSPACE_EXISTS",
-            f"aletheia.json already exists at {config_path} (pass --force to overwrite)",
-        )
 
     created_dirs = [
         "cartography",
@@ -110,9 +105,6 @@ def init_workspace(
         "verification/checks",
         "manifests",
     ]
-    for rel in created_dirs:
-        (root / rel).mkdir(parents=True, exist_ok=True)
-
     today_str = date.today().isoformat()
     workspace_cfg = {
         "schema": "aletheia.workspace.v1",
@@ -145,6 +137,17 @@ def init_workspace(
         ("peer-web/.gitkeep", ""),
         ("verification/checks/.gitkeep", ""),
     ]
+
+    # Refuse before creating anything: no target file may be overwritten without --force.
+    conflicts = [rel for rel, _ in files_to_write if os.path.lexists(root / rel)]
+    if conflicts and not force:
+        raise AletheiaError(
+            "WORKSPACE_EXISTS",
+            f"refusing to overwrite existing file(s) in {root}: {', '.join(conflicts)} (pass --force to overwrite)",
+        )
+
+    for rel in created_dirs:
+        (root / rel).mkdir(parents=True, exist_ok=True)
 
     written: list[str] = []
     for rel, content in files_to_write:

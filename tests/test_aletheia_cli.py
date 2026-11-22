@@ -1250,6 +1250,34 @@ class TestAletheiaCLI(unittest.TestCase):
             _req(not r_stale["passed"] and r_stale["pycache_items"] == ["aletheia/__pycache__", stale_rel],
                  f"stale cache of an edited module not isolated: {r_stale['pycache_items']}")
 
+    def test_17_init_refuses_to_overwrite_any_existing_file(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="aletheia_t_force_") as td:
+            root = Path(td)
+            for rel in ("verification/AUDIT_LOG.md", "verification/PROTOCOL.md", "synthesis/.gitkeep"):
+                ws = root / rel.replace("/", "_")
+                precious = "| **AUDIT-007** | keep me |\n"
+                write_lf_text(ws / rel, precious)
+                before = sorted(p.relative_to(ws).as_posix() for p in ws.rglob("*"))
+
+                # No aletheia.json here, so only a guard on every target file protects the ledger.
+                rc, out, _ = _run_cli(["init", str(ws), "--domain", "spectral", "--json"])
+                _req(rc != 0, f"init over existing {rel} returned rc={rc}: {out}")
+                _req(rel in out and "WORKSPACE_EXISTS" in out, f"refusal did not name {rel}: {out!r}")
+                _req((ws / rel).read_text(encoding="utf-8") == precious, f"{rel} was overwritten without --force")
+                after = sorted(p.relative_to(ws).as_posix() for p in ws.rglob("*"))
+                _req(after == before, f"refused init still wrote files: {sorted(set(after) - set(before))}")
+
+                with self.assertRaises(AletheiaError) as ctx:
+                    init_workspace(ws, domain="spectral")
+                _req(ctx.exception.code == "WORKSPACE_EXISTS", f"wrong error code {ctx.exception.code}")
+
+                # --force is the only way through.
+                rc_f, out_f, _ = _run_cli(["init", str(ws), "--domain", "spectral", "--force", "--json"])
+                _req(rc_f == 0 and json.loads(out_f)["status"] == "INITIALIZED", f"--force init failed: {out_f}")
+                _req((ws / rel).read_text(encoding="utf-8") != precious or rel.endswith(".gitkeep"),
+                     f"--force did not rewrite {rel}")
+                _req((ws / "aletheia.json").is_file(), "--force init did not write aletheia.json")
+
 
 if __name__ == "__main__":
     unittest.main()
