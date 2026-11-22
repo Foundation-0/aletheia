@@ -1388,6 +1388,15 @@ class TestAletheiaCLI(unittest.TestCase):
             _req(rc == 1 and not obj["passed"] and obj["audit_log"]["errors"][0]["code"] == "NO_AUDIT_ROWS",
                  f"explicit empty --audit-log passed: rc={rc} {obj['failures']}")
 
+    def test_21_calculus_registry_lists_every_commutator_probe_the_self_test_runs(self) -> None:
+        from aletheia.calculus import GLYPH_REGISTRY_DATA, run_calculus_self_test
+
+        listed = [p["id"] for p in GLYPH_REGISTRY_DATA["commutator_probes"]]
+        ran = list(run_calculus_self_test()["commutator_discovery_probes"].keys())
+        _req(listed == ran == ["C1", "C2", "C3", "C4", "C5", "C6"], f"registry {listed} vs self-test {ran}")
+        c6 = GLYPH_REGISTRY_DATA["commutator_probes"][-1]
+        _req(c6["expression"] and c6["hypothesis"], f"C6 entry is incomplete: {c6}")
+
 
 if __name__ == "__main__":
     unittest.main()

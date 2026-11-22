@@ -357,6 +357,11 @@ GLYPH_REGISTRY_DATA: dict[str, Any] = loads_strict_json(
       "id": "C5",
       "expression": "⫩ coupled with ⩩ vs float64 ==",
       "hypothesis": "Replacing exact ⩩ by float64 near-equality causes R5 mutant survival (kill_ratio < 1), breaking T ⫩ x"
+    },
+    {
+      "id": "C6",
+      "expression": "Phi(L ⦷ (c1 * c2))  vs  Phi(L ⦷ c1) + Phi(L ⦷ c2)",
+      "hypothesis": "Linear monopole subadditivity: Phi_B(L ⦷ (chi1*chi2)) <= Phi_B(L ⦷ chi1) + Phi_B(L ⦷ chi2), via an exact rational 1-Lipschitz witness, defining a rational metric on H^1(G, B; Z_2)"
     }
   ]
 }"""
