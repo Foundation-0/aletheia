@@ -76,7 +76,6 @@ def exact_pythagorean_latch_check(
         "total_after": str(total_after),
         "outside_inflated": outside_inflated,
         "decision": "LATCH_HALT" if latch_halt else ("KEEP" if total_after < total_before else "DISCARD"),
-        "pythagorean_exact": (total_after == proxy_after + outside_after),
     }
 
 

@@ -1463,6 +1463,21 @@ class TestAletheiaCLI(unittest.TestCase):
                 _req(rc == 1, f"{target}: CLI must exit 1 for a failed section, got {rc}")
                 _req(parse_strict_json_text(out, allow_float=False)["verdict"] == "FAILED", f"{target}: CLI verdict")
 
+    def test_25_latch_result_carries_no_tautological_gate_field(self) -> None:
+        from fractions import Fraction
+
+        from aletheia.ratchet import exact_pythagorean_latch_check
+
+        res = exact_pythagorean_latch_check(
+            proxy_before=Fraction(36), proxy_after=Fraction(0),
+            outside_before=Fraction(0), outside_after=Fraction(144),
+        )
+        # `pythagorean_exact` compared proxy_after + outside_after with itself and was true for every input.
+        _req("pythagorean_exact" not in res, f"always-true field is back: {res}")
+        _req(res["decision"] == "LATCH_HALT" and res["total_after"] == "144" and res["outside_inflated"] is True, f"latch changed: {res}")
+        _, out, _ = _run_cli(["ratchet", "--demo", "--json"])
+        _req("pythagorean_exact" not in out, "the demo output still carries pythagorean_exact")
+
 
 if __name__ == "__main__":
     unittest.main()
