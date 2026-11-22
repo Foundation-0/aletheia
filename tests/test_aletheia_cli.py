@@ -1295,6 +1295,42 @@ class TestAletheiaCLI(unittest.TestCase):
                  and r_drawn["unseeded_rng_warnings"][0]["call"] == "random.random()",
                  f"module-level draw no longer flagged: {r_drawn['unseeded_rng_warnings']}")
 
+    def test_19_lean4_unterminated_comment_or_string_fails_closed(self) -> None:
+        from aletheia.audit_check import audit_lean4_source
+
+        def codes(src: str) -> list[str]:
+            return [f["code"] for f in audit_lean4_source(src)["findings"]]
+
+        open_comment = "/- never closed\ntheorem t : True := by sorry\n"
+        res = audit_lean4_source(open_comment)
+        _req(not res["clean"], f"unterminated block comment before sorry passed: {res}")
+        _req(res["findings"][0] == {"line": 1, "code": "LEAN4_UNTERMINATED_COMMENT", "excerpt": "/- never closed"},
+             f"wrong unterminated-comment finding: {res['findings']}")
+        _req("LEAN4_UNTERMINATED_COMMENT" in codes("def a := 1\n/- outer /- inner -/ still open\n"),
+             "nested comment left open was not reported")
+        _req(codes('def s := "never closed\ntheorem t : True := by sorry\n') == ["LEAN4_UNTERMINATED_STRING"],
+             "unterminated string was not reported")
+
+        # Controls: terminated comments and strings, openers inside strings and line comments, a char literal.
+        for ok_src in (
+            "/- closed -/\ndef a := 1\n",
+            "/- outer /- inner -/ outer -/\ndef a := 1\n",
+            'def s := "text /- not a comment"\ndef a := 1\n',
+            "-- /- only a line comment\ndef a := 1\n",
+            "def q : Char := '\"'\ndef a := 1\n",
+        ):
+            _req(audit_lean4_source(ok_src)["clean"], f"false positive on well-formed source: {ok_src!r}")
+        _req(codes("/- closed -/ theorem t : True := by sorry\n") == ["LEAN4_SORRY"], "closed comment must not hide code after it")
+
+        # End to end through audit-check --lean-audit.
+        with tempfile.TemporaryDirectory(prefix="aletheia_t_lean_open_") as td:
+            root = Path(td)
+            write_lf_text(root / "Open.lean", open_comment)
+            rc, out, _ = _run_cli(["audit-check", str(root), "--lean-audit", "--json"])
+            obj = json.loads(out)
+            _req(rc == 1 and not obj["passed"] and obj["lean_audit"]["findings"][0]["code"] == "LEAN4_UNTERMINATED_COMMENT",
+                 f"audit-check passed an unterminated Lean comment: rc={rc} {obj['failures']}")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -379,13 +379,19 @@ _LEAN4_VACUOUS_THM_RE = re.compile(
 _LEAN4_EXISTS_IMP_RE = re.compile(r"∃[^,\n]+,\s*(?!.*(?:∀|∧))[^,\n]*(?:→|->)")
 
 
-def _strip_lean4_comments_and_literals(source: str) -> str:
-    """Char-literal-safe and nested-block-comment-safe Lean 4 stripper preserving line count."""
+def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
+    """
+    Char-literal-safe and nested-block-comment-safe Lean 4 stripper preserving line count.
+    Also returns one finding per block comment or string still open at end of file: the stripper
+    blanks everything after it, so a caller must treat those findings as a failed audit (R1).
+    """
     out: list[str] = []
     i = 0
     n = len(source)
     depth = 0
     in_str = False
+    opened_at = 0
+    unterminated: list[dict[str, Any]] = []
     while i < n:
         ch = source[i]
         nxt = source[i + 1] if i + 1 < n else ""
@@ -416,6 +422,7 @@ def _strip_lean4_comments_and_literals(source: str) -> str:
             continue
         if ch == "/" and nxt == "-":
             depth = 1
+            opened_at = i
             out.append("  ")
             i += 2
         elif ch == "-" and nxt == "-":
@@ -424,6 +431,7 @@ def _strip_lean4_comments_and_literals(source: str) -> str:
                 i += 1
         elif ch == '"':
             in_str = True
+            opened_at = i
             out.append(" ")
             i += 1
         elif ch == "'":
@@ -440,7 +448,22 @@ def _strip_lean4_comments_and_literals(source: str) -> str:
         else:
             out.append(ch)
             i += 1
-    return "".join(out)
+    if depth > 0 or in_str:
+        lineno = source.count("\n", 0, opened_at) + 1
+        excerpt = source.splitlines()[lineno - 1].strip()[:100]
+        unterminated.append(
+            {
+                "line": lineno,
+                "code": "LEAN4_UNTERMINATED_COMMENT" if depth > 0 else "LEAN4_UNTERMINATED_STRING",
+                "excerpt": excerpt,
+            }
+        )
+    return "".join(out), unterminated
+
+
+def _strip_lean4_comments_and_literals(source: str) -> str:
+    """Cleaned Lean 4 source (comments and literals blanked, line count preserved)."""
+    return _strip_lean4_with_report(source)[0]
 
 
 def audit_lean4_source(
@@ -461,8 +484,8 @@ def audit_lean4_source(
       - Parses Lean 4.22 `(public|private|meta)? import` with optional `allow_project_imports`
         and `forbidden_import_prefixes` (enforcing Spec -/-> Proof isolation)
     """
-    cleaned = _strip_lean4_comments_and_literals(source)
-    findings: list[dict[str, Any]] = []
+    cleaned, unterminated = _strip_lean4_with_report(source)
+    findings: list[dict[str, Any]] = list(unterminated)
     notices: list[dict[str, Any]] = []
     imports: list[str] = []
 
