@@ -17,6 +17,7 @@ Checks:
 from __future__ import annotations
 
 import ast
+import errno
 import importlib.util
 import os
 from pathlib import Path
@@ -679,7 +680,7 @@ def audit_lean4_directory(
     """Scan all `.lean` files under `root` with the hardened v1.2 static Lean 4 auditor."""
     lean_files = [root] if root.is_file() and root.suffix == ".lean" else [
         p for p in sorted(root.rglob("*.lean"))
-        if not any(part in SKIP_DIRS for part in p.relative_to(root).parts)
+        if p.is_file() and not any(part in SKIP_DIRS for part in p.relative_to(root).parts)
     ]
     all_findings: list[dict[str, Any]] = []
     all_notices: list[dict[str, Any]] = []
@@ -1148,6 +1149,90 @@ def audit_ancestor_dir_permissions(target_path: Path) -> dict[str, Any]:
     return res
 
 
+_SYMLINK_CODES = frozenset({"SYMLINK_DIR", "SYMLINK_OUTSIDE_ROOT", "BROKEN_SYMLINK"})
+
+
+def _err_detail(exc: OSError) -> str:
+    name = errno.errorcode.get(exc.errno, "") if exc.errno is not None else ""
+    return f"{type(exc).__name__}{'/' + name if name else ''}: {exc.strerror or 'os error'}"
+
+
+def _read_regular_bytes(p: Path) -> bytes:
+    """Read `p` only if it is a regular file (opened non-blocking so a swapped-in FIFO cannot hang the scan)."""
+    fd = os.open(p, os.O_RDONLY | getattr(os, "O_NONBLOCK", 0))
+    try:
+        require_ok(stat.S_ISREG(os.fstat(fd).st_mode), "NON_REGULAR_FILE", f"not a regular file: {p.name}")
+        with os.fdopen(fd, "rb", closefd=False) as fh:
+            return fh.read()
+    finally:
+        os.close(fd)
+
+
+def _walk_classified(root: Path) -> tuple[list[Path], list[Path], list[dict[str, str]], list[dict[str, str]]]:
+    """
+    Walk `root` without ever following a symlink or reading anything, classifying every entry with `os.lstat`.
+    Returns `(files_to_scan, pycache_entries, path_findings, symlinks)`.
+    """
+    real_root = os.path.realpath(root)
+    files: list[Path] = []
+    pycache: list[Path] = []
+    findings: list[dict[str, str]] = []
+    symlinks: list[dict[str, str]] = []
+
+    def find(p: Path, code: str, detail: str) -> None:
+        findings.append({"file": str(p.relative_to(root)), "code": code, "detail": detail})
+
+    stack = [root]
+    while stack:
+        d = stack.pop()
+        try:
+            with os.scandir(d) as it:
+                children = sorted(Path(e.path) for e in it)
+        except OSError as exc:
+            find(d, "UNREADABLE_FILE", f"directory not listable: {_err_detail(exc)}")
+            continue
+        for p in children:
+            rel_parts = p.relative_to(root).parts
+            if any(part in SKIP_DIRS for part in rel_parts):
+                continue
+            try:
+                st = os.lstat(p)
+            except OSError as exc:
+                find(p, "UNREADABLE_FILE", _err_detail(exc))
+                continue
+            scan = False
+            if stat.S_ISLNK(st.st_mode):
+                target = os.path.realpath(p)
+                outside = not Path(target).is_relative_to(real_root)
+                try:
+                    tmode = os.stat(p).st_mode
+                except OSError as exc:
+                    tmode = None
+                    find(p, "BROKEN_SYMLINK", f"symlink target unavailable ({_err_detail(exc)}): {os.readlink(p)}")
+                kind = "broken" if tmode is None else "dir" if stat.S_ISDIR(tmode) else "file" if stat.S_ISREG(tmode) else "other"
+                symlinks.append({"file": str(p.relative_to(root)), "target": os.readlink(p), "kind": kind})
+                if tmode is not None and outside:
+                    find(p, "SYMLINK_OUTSIDE_ROOT", f"symlink resolves outside the scan root: {target}")
+                if kind == "dir":
+                    find(p, "SYMLINK_DIR", "symlink to a directory (not followed, contents not audited)")
+                elif kind == "other":
+                    find(p, "NON_REGULAR_FILE", "symlink to a non-regular file (never read)")
+                scan = kind == "file" and not outside
+            elif stat.S_ISDIR(st.st_mode):
+                stack.append(p)
+            elif stat.S_ISREG(st.st_mode):
+                scan = True
+            else:
+                find(p, "NON_REGULAR_FILE", f"non-regular file (mode {oct(stat.S_IFMT(st.st_mode))}), never read")
+            if "__pycache__" in rel_parts or p.suffix in (".pyc", ".pyo"):
+                pycache.append(p)
+            elif scan:
+                files.append(p)
+    return sorted(files), sorted(pycache), sorted(findings, key=lambda f: (f["file"], f["code"])), sorted(
+        symlinks, key=lambda f: f["file"]
+    )
+
+
 def run_audit_check(
     target_path: Path,
     *,
@@ -1169,10 +1254,17 @@ def run_audit_check(
     data_commit: str | None = None,
     safety_scan: bool = False,
     include_host_hygiene: bool = False,
+    allow_symlinks: bool = False,
 ) -> dict[str, Any]:
     """Run complete Aletheia R1-R5 & Gate 1-9 audit check on `target_path`."""
     root = target_path.resolve()
     require_ok(root.exists(), "TARGET_NOT_FOUND", f"target path does not exist: {root}")
+    root_mode = os.stat(root).st_mode
+    require_ok(
+        stat.S_ISREG(root_mode) or stat.S_ISDIR(root_mode),
+        "TARGET_NOT_REGULAR",
+        f"target is not a regular file or directory (FIFO, socket, or device?): {root}",
+    )
 
     crlf_files: list[str] = []
     pycache_entries: list[Path] = []
@@ -1186,19 +1278,12 @@ def run_audit_check(
     py_files_scanned = 0
     json_files_scanned = 0
 
+    path_findings: list[dict[str, str]] = []
+    symlinks: list[dict[str, str]] = []
     if root.is_file():
         walk_files = [root]
     else:
-        walk_files = []
-        for p in sorted(root.rglob("*")):
-            rel_parts = p.relative_to(root).parts
-            if any(part in SKIP_DIRS for part in rel_parts):
-                continue
-            if "__pycache__" in rel_parts or p.suffix in (".pyc", ".pyo"):
-                pycache_entries.append(p)
-                continue
-            if p.is_file():
-                walk_files.append(p)
+        walk_files, pycache_entries, path_findings, symlinks = _walk_classified(root)
 
     pycache_items = [
         str(p.relative_to(root))
@@ -1206,9 +1291,16 @@ def run_audit_check(
     ]
 
     for p in walk_files:
-        files_scanned += 1
         rel_str = p.name if root.is_file() else str(p.relative_to(root))
-        raw = p.read_bytes()
+        try:
+            raw = _read_regular_bytes(p)
+        except AletheiaError as exc:
+            path_findings.append({"file": rel_str, "code": exc.code, "detail": exc.message})
+            continue
+        except OSError as exc:
+            path_findings.append({"file": rel_str, "code": "UNREADABLE_FILE", "detail": _err_detail(exc)})
+            continue
+        files_scanned += 1
         is_text = p.suffix.lower() in TEXT_SUFFIXES or p.name in {"LICENSE", "Makefile", "Dockerfile"}
         if not is_text:
             continue
@@ -1319,7 +1411,20 @@ def run_audit_check(
     if safety_scan:
         safety_report = scan_directory_safety_surface(root, include_host_hygiene=include_host_hygiene)
 
+    fatal_findings = [f for f in path_findings if not (allow_symlinks and f["code"] in _SYMLINK_CODES)]
+    non_regular_count = sum(1 for f in path_findings if f["code"] == "NON_REGULAR_FILE")
+    unreadable_count = sum(1 for f in path_findings if f["code"] == "UNREADABLE_FILE")
+
     failures: list[str] = []
+    if fatal_findings:
+        by_code: dict[str, int] = {}
+        for f in fatal_findings:
+            by_code[f["code"]] = by_code.get(f["code"], 0) + 1
+        failures.append(
+            f"path walk findings ({len(fatal_findings)}: "
+            + ", ".join(f"{c}={n}" for c, n in sorted(by_code.items()))
+            + ")"
+        )
     if crlf_files:
         failures.append(f"CRLF line endings in {len(crlf_files)} file(s)")
     if pycache_items:
@@ -1382,6 +1487,10 @@ def run_audit_check(
             "lean_notices_count": len(lean_report["notices"]) if lean_report is not None else 0,
             "ancestor_permission_findings_count": len(ancestor_report["findings"]) if ancestor_report is not None else 0,
             "safety_findings_count": safety_report["finding_count"] if safety_report is not None else 0,
+            "path_findings_count": len(path_findings),
+            "symlink_count": len(symlinks),
+            "non_regular_count": non_regular_count,
+            "unreadable_count": unreadable_count,
         },
         "failures": failures,
         "crlf_files": crlf_files,
@@ -1400,4 +1509,7 @@ def run_audit_check(
         "prereg_check": prereg_report,
         "ancestor_permissions": ancestor_report,
         "safety_scan": safety_report,
+        "path_findings": path_findings,
+        "symlinks": symlinks,
+        "allow_symlinks": allow_symlinks,
     }
