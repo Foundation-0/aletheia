@@ -1880,6 +1880,89 @@ class TestAletheiaCLI(unittest.TestCase):
                 f"plain-text safety-scan missing counts/status: rc={rc_pt} out={out_pt!r}",
             )
 
+    def test_36_audit_log_splits_on_delimiter_pipes_and_whole_tokens_only(self) -> None:
+        from aletheia.audit_check import validate_audit_log_markdown
+
+        head = (
+            "| Audit ID | Date | Author | Target | Gates | Oracle | Novelty | Verdict | Evidence |\n"
+            "|---|---|---|---|---|---|---|---|---|\n"
+        )
+
+        def row(target: str, oracle: str, novelty: str, verdict: str) -> str:
+            return f"| **AUDIT-005** | 2026-11-20 | a | {target} | G1, G9 | {oracle} | {novelty} | {verdict} | note |\n"
+
+        with tempfile.TemporaryDirectory(prefix="aletheia_t_pipes_") as td:
+            root = Path(td)
+
+            def check(body: str) -> dict:
+                path = root / "LOG.md"
+                write_lf_text(path, body)
+                return validate_audit_log_markdown(path)
+
+            # Cave AUDIT-005 shape: norm bars inside math must not shift columns.
+            res = check(head + row(r"inflation $\|r\|^2=\|r^*\|^2+e_1^2/\|p_1\|^2$", "`exact`", "**`N1`** *(text)*", "**`VERIFIED`**"))
+            _req(res["valid"] and res["verdict_counts"] == {"VERIFIED": 1} and res["novelty_counts"] == {"N1": 1},
+                 f"escaped-pipe row rejected: {res}")
+            # Unescaped pipes inside math or code spans are cell content, not delimiters.
+            for target in (r"norm $a|b$ end", "`x|y` helper"):
+                res = check(head + row(target, "`exact` (notes)", "**`N1`** *(text)*", "**`VERIFIED`**"))
+                _req(res["valid"], f"pipe in span split the row for {target!r}: {res}")
+            # Whole tokens only: near spellings of each column must fail.
+            for body, code in (
+                (head + row("t", "exactitude", "N1", "VERIFIED"), "INVALID_ORACLE_CLASS"),
+                (head + row("t", "exact", "N20", "VERIFIED"), "INVALID_NOVELTY_TAG"),
+                (head + row("t", "exact", "N1", "VERIFIED-ish"), "INVALID_VERDICT"),
+            ):
+                res = check(body)
+                _req(not res["valid"] and [e["code"] for e in res["errors"]] == [code],
+                     f"near token accepted, want {code}: {res}")
+
+    def test_37_strict_json_rejects_nonfinite_floats_and_lone_surrogates(self) -> None:
+        from aletheia.strict_io import loads_strict_json
+
+        for bad, code in (
+            ('{"x": 1e999}', "JSON_FLOAT_NOT_FINITE"),
+            ('{"x": -1e999}', "JSON_FLOAT_NOT_FINITE"),
+            ('[1e999]', "JSON_FLOAT_NOT_FINITE"),
+            (r'"\ud800"', "JSON_LONE_SURROGATE"),
+            (r'{"\ud800": 1}', "JSON_LONE_SURROGATE"),
+            (r'{"a": ["\udfff"]}', "JSON_LONE_SURROGATE"),
+        ):
+            try:
+                loads_strict_json(bad)
+                raise AssertionError(f"bad JSON accepted: {bad}")
+            except AletheiaError as exc:
+                _req(exc.code == code, f"wrong code for {bad}: {exc.code} != {code}")
+        _req(loads_strict_json('{"x": 1.5}') == {"x": 1.5}, "finite float rejected")
+        _req(loads_strict_json(r'"\ud83d\ude00"') == "\U0001f600", "valid surrogate pair rejected")
+        # The exact path keeps its float refusal and code.
+        for bad in ('{"x": 1.5}', '{"x": 1e999}'):
+            try:
+                loads_strict_json(bad, allow_float=False)
+                raise AssertionError(f"float accepted with allow_float=False: {bad}")
+            except AletheiaError as exc:
+                _req(exc.code == "JSON_FLOAT_FORBIDDEN", f"wrong exact-path code for {bad}: {exc.code}")
+
+    def test_38_ring0_lock_compares_with_strict_types(self) -> None:
+        from aletheia.ratchet import check_ring0_lock
+
+        for base, cand in (
+            ({"oracle": 1}, {"oracle": True}),
+            ({"oracle": 1}, {"oracle": 1.0}),
+            ({"oracle": True}, {"oracle": 1.0}),
+            ({"gates": {"k": [1]}}, {"gates": {"k": [True]}}),
+        ):
+            try:
+                check_ring0_lock(base, cand)
+                raise AssertionError(f"Ring-0 type change accepted: {base} -> {cand}")
+            except AletheiaError as exc:
+                _req(exc.code == "RING0_TAMPER", f"wrong Ring-0 code: {exc.code}")
+        _req(check_ring0_lock({"oracle": "exact", "gates": {"k": [1, True, 1.0]}},
+                              {"oracle": "exact", "gates": {"k": [1, True, 1.0]}}),
+             "identical typed Ring-0 sections rejected")
+        _req(check_ring0_lock({"oracle": "exact", "lr": 1}, {"oracle": "exact", "lr": True}),
+             "non Ring-0 section must stay mutable")
+
 
 if __name__ == "__main__":
     unittest.main()

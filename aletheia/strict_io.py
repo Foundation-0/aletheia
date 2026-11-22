@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from pathlib import Path
 import re
 from typing import Any
@@ -36,6 +37,20 @@ def canonical_sha256_text(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
+def _require_no_lone_surrogates(value: Any) -> None:
+    """Reject lone surrogates in any parsed string (they crash later UTF-8 encodes)."""
+    if isinstance(value, str):
+        if any(0xD800 <= ord(ch) <= 0xDFFF for ch in value):
+            raise AletheiaError("JSON_LONE_SURROGATE", "lone surrogate in JSON string")
+    elif isinstance(value, dict):
+        for key, item in value.items():
+            _require_no_lone_surrogates(key)
+            _require_no_lone_surrogates(item)
+    elif isinstance(value, list):
+        for item in value:
+            _require_no_lone_surrogates(item)
+
+
 def parse_strict_json_text(
     raw_text: str,
     *,
@@ -46,7 +61,8 @@ def parse_strict_json_text(
     R1/R3 strict JSON parser:
       - Rejects empty/blank strings
       - Rejects duplicate keys anywhere in the JSON tree
-      - Rejects NaN, Infinity, -Infinity
+      - Rejects NaN, Infinity, -Infinity, including respelled overflow such as 1e999
+      - Rejects lone surrogates in strings
       - Optionally rejects floats (allow_float=False)
       - Optionally requires top-level JSON object (dict).
     """
@@ -58,6 +74,12 @@ def parse_strict_json_text(
 
     def reject_float(s: str) -> Any:
         raise AletheiaError("JSON_FLOAT_FORBIDDEN", f"float literal forbidden in exact JSON: {s!r}")
+
+    def finite_float(s: str) -> float:
+        value = float(s)
+        if not math.isfinite(value):
+            raise AletheiaError("JSON_FLOAT_NOT_FINITE", f"non-finite float literal forbidden: {s!r}")
+        return value
 
     def reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
         out: dict[str, Any] = {}
@@ -73,6 +95,8 @@ def parse_strict_json_text(
     }
     if not allow_float:
         kwargs["parse_float"] = reject_float
+    else:
+        kwargs["parse_float"] = finite_float
 
     try:
         obj = json.loads(raw_text, **kwargs)
@@ -80,6 +104,8 @@ def parse_strict_json_text(
         raise
     except Exception as exc:
         raise AletheiaError("JSON_SYNTAX_ERROR", str(exc)) from exc
+
+    _require_no_lone_surrogates(obj)
 
     if require_object and not isinstance(obj, dict):
         raise AletheiaError("JSON_ROOT_NOT_OBJECT", "top-level JSON payload must be an object")

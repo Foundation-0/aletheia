@@ -232,8 +232,87 @@ def _foreign_bytecode_items(entries: Sequence[Path], own: set[Path]) -> list[Pat
 
 
 _VERDICT_TOKEN_RE = re.compile(
-    "(" + "|".join(re.escape(v) for v in sorted(VALID_VERDICTS, key=len, reverse=True)) + ")(?![A-Za-z0-9_/])"
+    "(" + "|".join(re.escape(v) for v in sorted(VALID_VERDICTS, key=len, reverse=True)) + ")(?![A-Za-z0-9_/-])"
 )
+_ORACLE_TOKEN_RES = {
+    tok: re.compile(r"(?<![A-Za-z0-9_-])" + re.escape(tok) + r"(?![A-Za-z0-9_-])")
+    for tok in VALID_ORACLE_TOKENS
+}
+_NOVELTY_TOKEN_RE = re.compile(
+    r"(?<![A-Za-z0-9_-])(" + "|".join(re.escape(n) for n in sorted(VALID_NOVELTY_TOKENS)) + r")(?![A-Za-z0-9_-])"
+)
+
+
+def _split_audit_table_row(line: str) -> list[str]:
+    """Split a markdown table row on delimiter pipes only: escaped pipes, pipes inside
+    `$...$`/`$$...$$` math spans, and pipes inside backtick code spans stay in their cell."""
+    cells: list[str] = []
+    buf: list[str] = []
+    i = 0
+    n = len(line)
+    in_math = False
+    math_block = False
+    code_len = 0
+    while i < n:
+        ch = line[i]
+        if ch == "\\" and i + 1 < n and line[i + 1] in "|$`\\":
+            buf.append(line[i : i + 2])
+            i += 2
+        elif code_len:
+            if ch == "`":
+                j = i
+                while j < n and line[j] == "`":
+                    j += 1
+                buf.append(line[i:j])
+                if j - i == code_len:
+                    code_len = 0
+                i = j
+            else:
+                buf.append(ch)
+                i += 1
+        elif in_math:
+            if math_block and line.startswith("$$", i):
+                buf.append("$$")
+                in_math = False
+                math_block = False
+                i += 2
+            elif not math_block and ch == "$":
+                buf.append(ch)
+                in_math = False
+                i += 1
+            else:
+                buf.append(ch)
+                i += 1
+        elif ch == "`":
+            j = i
+            while j < n and line[j] == "`":
+                j += 1
+            code_len = j - i
+            buf.append(line[i:j])
+            i = j
+        elif ch == "$":
+            if line.startswith("$$", i):
+                buf.append("$$")
+                in_math = True
+                math_block = True
+                i += 2
+            else:
+                buf.append(ch)
+                in_math = True
+                i += 1
+        elif ch == "|":
+            cells.append("".join(buf))
+            buf = []
+            i += 1
+        else:
+            buf.append(ch)
+            i += 1
+    cells.append("".join(buf))
+    if cells and cells[0].strip() == "":
+        cells = cells[1:]
+    if cells and cells[-1].strip() == "":
+        cells = cells[:-1]
+    return [c.strip() for c in cells]
 
 
 def validate_audit_log_markdown(path: Path, *, require_rows: bool = True) -> dict[str, Any]:
@@ -254,7 +333,7 @@ def validate_audit_log_markdown(path: Path, *, require_rows: bool = True) -> dic
         stripped = line.strip()
         if not stripped.startswith("|") or not stripped.endswith("|"):
             continue
-        cells = [c.strip() for c in stripped.strip("|").split("|")]
+        cells = _split_audit_table_row(stripped)
         if len(cells) < 8:
             continue
         first_cell = cells[0]
@@ -285,9 +364,9 @@ def validate_audit_log_markdown(path: Path, *, require_rows: bool = True) -> dic
             v_main = m_verdict.group(1)
             verdict_counts[v_main] = verdict_counts.get(v_main, 0) + 1
 
-        # Extract oracle class tokens
+        # Extract oracle class tokens (whole tokens only, so `exactitude` is not `exact`)
         o_lower = oracle_cell.lower()
-        found_oracles = [tok for tok in sorted(VALID_ORACLE_TOKENS) if tok in o_lower]
+        found_oracles = [tok for tok in sorted(VALID_ORACLE_TOKENS) if _ORACLE_TOKEN_RES[tok].search(o_lower) is not None]
         if not found_oracles:
             errors.append({
                 "line": lineno,
@@ -296,8 +375,8 @@ def validate_audit_log_markdown(path: Path, *, require_rows: bool = True) -> dic
                 "message": f"oracle class {oracle_cell!r} must mention exact/sampled/anchor",
             })
 
-        # Extract novelty tokens
-        found_nov = [n for n in sorted(VALID_NOVELTY_TOKENS) if n in novelty_cell]
+        # Extract novelty tokens (whole tokens only, so `N20` is not `N2`)
+        found_nov = _NOVELTY_TOKEN_RE.findall(novelty_cell)
         if not found_nov:
             errors.append({
                 "line": lineno,
