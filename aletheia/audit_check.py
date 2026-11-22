@@ -55,7 +55,7 @@ _UNSEEDED_NP_RANDOM_FUNCS = {
 
 _AUDIT_ID_RE = re.compile(r"AUDIT-[0-9]+[A-Za-z0-9_-]*")
 _PRIOR_ART_HINT_RE = re.compile(
-    r"(?:prior[- ]?art|arxiv|literature|borcea|streinu|knausg|alp[oö]ge|loom#|docs/10|confirmed|beyond|over\s+`?loom|refut|reproduc|upstream|skordis|l'vov|viazovska)",
+    r"(?:prior[- ]?art|arxiv|literature|borcea|streinu|knausg|alp[oö]ge|loom#|docs/10|over\s+`?loom|refut|reproduc|upstream|skordis|l'vov|viazovska)",
     re.IGNORECASE,
 )
 

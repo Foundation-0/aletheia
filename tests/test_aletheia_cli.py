@@ -1582,6 +1582,29 @@ class TestAletheiaCLI(unittest.TestCase):
                  f"{path.name} still calls the simulated mutations live")
             _req("simulated" in text and "ast mutator" in text, f"{path.name} does not say the mutations are simulated")
 
+    def test_30_n2_prior_art_hint_ignores_bare_confirmed_and_beyond(self) -> None:
+        from aletheia.audit_check import validate_audit_log_markdown
+
+        head = (
+            "| Audit ID | Date | Author | Target | Gates | Oracle | Novelty | Verdict | Evidence |\n"
+            "|---|---|---|---|---|---|---|---|---|\n"
+        )
+
+        def warn_codes(gates: str, evidence: str) -> list[str]:
+            with tempfile.TemporaryDirectory(prefix="aletheia_t_n2_") as td:
+                path = Path(td) / "LOG.md"
+                write_lf_text(path, head + f"| AUDIT-001 | 2026-11-20 | a | t | {gates} | exact | N2 | VERIFIED | {evidence} |\n")
+                res = validate_audit_log_markdown(path)
+                _req(res["valid"], f"row rejected: {res['errors']}")
+                return [w["code"] for w in res["warnings"]]
+
+        # Ordinary words are not a prior-art note.
+        for text in ("confirmed by the verifier", "goes beyond the sketch", "Confirmed beyond doubt"):
+            _req(warn_codes("G1", text) == ["N2_MISSING_PRIOR_ART_NOTE"], f"{text!r} counted as a prior-art note")
+        # Controls: a real prior-art cue or a G9 entry still satisfies the check.
+        for gates, text in (("G1", "prior-art checked against arXiv"), ("G1", "no upstream result found"), ("G1, G9", "note")):
+            _req(warn_codes(gates, text) == [], f"{gates!r}/{text!r} lost its prior-art credit")
+
 
 if __name__ == "__main__":
     unittest.main()
