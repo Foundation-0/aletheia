@@ -1278,6 +1278,23 @@ class TestAletheiaCLI(unittest.TestCase):
                      f"--force did not rewrite {rel}")
                 _req((ws / "aletheia.json").is_file(), "--force init did not write aletheia.json")
 
+    def test_18_seeding_is_not_an_unseeded_rng_call(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="aletheia_t_seed_") as td:
+            root = Path(td)
+            seeded = root / "seeded"
+            write_lf_text(seeded / "sim.py", "import random\nimport random as rnd\nrandom.seed(42)\nrnd.seed(7)\n")
+            r_seeded = run_audit_check(seeded, strict_unseeded=True)
+            _req(r_seeded["passed"] and r_seeded["summary"]["unseeded_rng_warning_count"] == 0,
+                 f"random.seed(...) was reported as unseeded: {r_seeded['unseeded_rng_warnings']}")
+
+            # Control: a module-level draw is still reported, with or without a seed call before it.
+            drawn = root / "drawn"
+            write_lf_text(drawn / "sim.py", "import random\nrandom.seed(42)\nx = random.random()\n")
+            r_drawn = run_audit_check(drawn, strict_unseeded=True)
+            _req(not r_drawn["passed"] and r_drawn["summary"]["unseeded_rng_warning_count"] == 1
+                 and r_drawn["unseeded_rng_warnings"][0]["call"] == "random.random()",
+                 f"module-level draw no longer flagged: {r_drawn['unseeded_rng_warnings']}")
+
 
 if __name__ == "__main__":
     unittest.main()

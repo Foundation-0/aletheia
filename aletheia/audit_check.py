@@ -47,7 +47,7 @@ VALID_NOVELTY_TOKENS = {"N0", "N1", "N2"}
 
 _UNSEEDED_RANDOM_FUNCS = {
     "random", "randint", "randrange", "uniform", "gauss", "normalvariate",
-    "choice", "choices", "sample", "shuffle", "seed",
+    "choice", "choices", "sample", "shuffle",
 }
 _UNSEEDED_NP_RANDOM_FUNCS = {
     "rand", "randn", "randint", "random", "uniform", "normal", "choice", "permutation", "shuffle",
