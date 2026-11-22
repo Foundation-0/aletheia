@@ -38,12 +38,11 @@ Real exploits caught during the Cave Expedition (`AUDIT-001`, `AUDIT-006`, `AUDI
 
 ### R4 — Isolated Multi-Mode Parity & Zero Bare `assert`s
 - **Zero bare `assert`s on any trust, validation, or verification path:** Python's `-O` flag silently deletes every `assert` statement. Use explicit `if not cond: raise ValueError("EXPLICIT_CODE")` checks everywhere.
-- **Bit-identical 4-mode isolated execution:** Every standalone script and test suite must use LF-only line endings (`0` CRLF) and pass identically under:
+- **Bit-identical 3-mode isolated execution:** Every standalone script and test suite must use LF-only line endings (`0` CRLF) and pass identically under:
   ```bash
   python3 -I -B <script.py> && \
   python3 -I -O -B <script.py> && \
-  python3 -I -B -W error <script.py> && \
-  python3 -I -O -B -W error <script.py>
+  python3 -I -B -W error <script.py>
   ```
   Running with `-I` (isolated `sys.path`) catches hidden working-directory imports; `-W error` catches Python 3.14 invalid escape `SyntaxWarning`s and deprecation traps; `-O` catches stripped assertions.
 

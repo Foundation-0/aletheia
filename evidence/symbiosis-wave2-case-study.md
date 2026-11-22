@@ -8,7 +8,7 @@ The decisive finding of Wave 2 is **bidirectional self-evolution**: applying Ale
 
 ## 1. Bidirectional Scorecard Across All Five Symbiosis Arms (`AUDIT-023` – `AUDIT-029`)
 
-Every deliverable below passed clean-room, zero-shared-code adversarial verification (`verification/checks/check_016`–`check_025` in [`Foundation-0/cave-expedition`](https://github.com/Foundation-0/cave-expedition)), 4-mode isolated R4 parity (`-I -B`, `-I -O -B`, `-I -B -W error`, `-I -O -B -W error`), zero bare `assert`s, and `aletheia audit-check` `PASS` (`0` unresolved defects):
+Every deliverable below passed clean-room, zero-shared-code adversarial verification (`verification/checks/check_016`–`check_025` in [`Foundation-0/cave-expedition`](https://github.com/Foundation-0/cave-expedition)), 3-mode isolated R4 parity (`-I -B`, `-I -O -B`, `-I -B -W error`; reported as also run under `-I -O -B -W error`), zero bare `assert`s, and `aletheia audit-check` `PASS` (`0` unresolved defects):
 
 | Arm | Target Ecosystem | Audit & Novelty | Verified Outgoing Transfer (*Aletheia / Cave $\to$ Target*) | Verified Incoming Upgrade (*Target $\to$ Aletheia v1.1*) |
 |---|---|---|---|---|

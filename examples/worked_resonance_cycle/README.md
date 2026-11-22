@@ -22,10 +22,10 @@ For deterministic, machine-verifiable canonical JSON output:
 python3 -I -O -B -W error examples/worked_resonance_cycle/run_demo.py --json
 ```
 
-Verify **R4 4-mode isolated parity** (all four Python execution modes produce bit-identical output with zero bare `assert`s and zero warnings):
+Verify **R4 3-mode isolated parity** (all three Python execution modes produce bit-identical output with zero bare `assert`s and zero warnings):
 
 ```bash
-for flags in "-I -B" "-I -O -B" "-I -B -W error" "-I -O -B -W error"; do
+for flags in "-I -B" "-I -O -B" "-I -B -W error"; do
   python3 $flags examples/worked_resonance_cycle/run_demo.py --json | sha256sum
 done
 ```

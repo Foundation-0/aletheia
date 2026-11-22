@@ -1526,6 +1526,39 @@ class TestAletheiaCLI(unittest.TestCase):
             rc, out, _ = _run_cli(["init", str(root / "clean"), "--json"])
             _req(rc == 0 and json.loads(out)["status"] == "INITIALIZED", f"clean init failed: rc={rc} out={out!r}")
 
+    def test_28_r4_is_three_modes_everywhere_it_is_stated(self) -> None:
+        import re
+
+        from aletheia.audit_check import run_r4_script_check
+
+        # The code is the reference: the check runs three modes and the scaffold writes three.
+        with tempfile.TemporaryDirectory(prefix="aletheia_t_r4_") as td:
+            script = Path(td) / "ok.py"
+            write_lf_text(script, 'print("ok")\n')
+            res = run_r4_script_check(script)
+            _req(sorted(res["modes"]) == ["B", "B_Werror", "O_B"] and res["passed"], f"R4 check modes: {sorted(res['modes'])}")
+            ws = Path(td) / "ws"
+            init_workspace(ws, domain="spectral")
+            cfg = json.loads((ws / "aletheia.json").read_text(encoding="utf-8"))
+            _req(cfg["r4_modes"] == ["-I -B", "-I -O -B", "-I -B -W error"], f"scaffold r4_modes: {cfg['r4_modes']}")
+
+        # No document, docstring or example may call it four modes or list a fourth combination as an R4 mode.
+        fourth = [
+            re.compile(r"(?i)4-mode|all four (isolated|python|execution)|four isolated"),
+            re.compile(r"-I -B -W error.{0,12}-I -O -B -W error"),
+            re.compile(r"-I -B -W error[^\n]*\n[^\n]*-I -O -B -W error"),
+        ]
+        stray = []
+        for path in sorted(CLI_ROOT.rglob("*")):
+            rel = path.relative_to(CLI_ROOT)
+            if not path.is_file() or ".git" in rel.parts or rel.parts[0] == "tests" and rel.name != "run_all.py" or path.suffix not in (".py", ".md"):
+                continue
+            text = path.read_text(encoding="utf-8")
+            for pat in fourth:
+                if pat.search(text):
+                    stray.append(f"{rel}: {pat.pattern}")
+        _req(not stray, f"a fourth R4 mode is still stated: {stray}")
+
 
 if __name__ == "__main__":
     unittest.main()

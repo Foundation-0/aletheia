@@ -5,7 +5,7 @@ The Aletheia Method — Worked Resonance Cycle (Live 3-Second Exact Demo).
 Replays the Cave Expedition Chain 1 progression (AUDIT-001 -> AUDIT-002 -> AUDIT-014)
 end-to-end in 100% pure Python 3 standard library with ZERO IEEE-754 floats and
 ZERO bare `assert` statements (R1-R5 compliant; bit-identical under -I -B,
--I -O -B, -I -B -W error, and -I -O -B -W error):
+-I -O -B, and -I -B -W error):
 
   Stage 1 — Pass-1 Buggy Prototype (AUDIT-001 FALSIFIED):
       Omitting P = H - Q >= 0 forges rank(P) >= 117 on a 2x2 matrix.

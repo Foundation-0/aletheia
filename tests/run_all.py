@@ -7,7 +7,6 @@ Safe and bit-identical across ALL isolated R4 modes:
   python3 -I -B tests/run_all.py
   python3 -I -O -B tests/run_all.py
   python3 -I -B -W error tests/run_all.py
-  python3 -I -O -B -W error tests/run_all.py
 """
 from __future__ import annotations
 
