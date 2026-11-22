@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Method · Aletheia</title>
+<meta name="description" content="The Aletheia method in plain terms: the five step loop, laws, gates, contracts R1 to R7, oracle labels, Own-Terms-First, Law 2b, the operator calculus and relapse patterns.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Method · Aletheia">
+<meta property="og:description" content="The loop, laws, gates and contracts. Openness and rigor run at full, in separate steps.">
+<meta property="og:url" content="https://foundation-0.github.io/aletheia/method/">
+<link rel="canonical" href="https://foundation-0.github.io/aletheia/method/">
+<meta name="theme-color" content="#070b0e" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f0e6" media="(prefers-color-scheme: light)">
+<link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,400;0,500;1,400&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<script>(function(){var d=document.documentElement;try{var q=new URLSearchParams(location.search),t=q.get("theme")||localStorage.getItem("joint-theme"),m=q.get("motion")||localStorage.getItem("joint-motion");if(t==="dark"||t==="light")d.setAttribute("data-theme",t);var r=window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches;d.setAttribute("data-motion",(m==="on"||m==="off")?m:(r?"off":"on"));}catch(e){d.setAttribute("data-motion","on");}})();</script>
+<script defer src="../assets/site.js"></script>
+<script defer src="../assets/figures.js"></script>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><symbol id="zero" viewBox="-50 -50 100 100"><path d="M-40-40L40 40M40-40L-40 40" fill="none" stroke-width="2" style="stroke:var(--ink-3)"/><g fill="none" stroke-width="4"><circle cy="-23.431" r="16.569" style="stroke:var(--bio)"/><circle cy="23.431" r="16.569" style="stroke:var(--bio)"/><circle cx="-23.431" r="16.569" style="stroke:var(--dig)"/><circle cx="23.431" r="16.569" style="stroke:var(--dig)"/></g><rect x="-40" y="-40" width="80" height="80" fill="none" stroke-width="4.4" style="stroke:var(--ink)"/></symbol></defs></svg>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-head"><div class="wrap">
+  <a class="brand" href="../" aria-label="Aletheia home"><svg aria-hidden="true"><use href="#zero"/></svg>Aletheia</a>
+  <span class="twin"><span class="pair" aria-hidden="true"><i></i><i></i></span>Twin site <a href="https://foundation-0.github.io/cave-expedition/">Cave Expedition</a></span>
+  <nav class="nav" aria-label="Main">
+    <a href="../">Home</a><a href="./" aria-current="page">Method</a><a href="../joint-map/">Joint map</a><a href="../start/">Start</a><a href="https://github.com/Foundation-0/aletheia">Source</a>
+  </nav>
+  <div class="tools">
+    <button class="tbtn" type="button" data-motion-toggle aria-pressed="true"><span class="t-txt">Motion</span></button>
+    <button class="tbtn" type="button" data-theme-toggle><span class="t-txt">Theme</span></button>
+  </div>
+</div></header>
+<main id="main">
+<section class="page-head">
+  <div class="wrap">
+    <p class="kicker"><span class="pair" aria-hidden="true"><i></i><i></i></span>Method · Spec v2.0.0 in plain terms</p>
+    <h1>Method</h1>
+    <p class="promise">Aletheia runs openness and rigor at full, in separate steps of one loop. First keep the rough idea alive and state the sound claim inside it. Then check that claim hard with code that shares nothing with the first check.</p>
+    <p class="hint">This page sums up the full spec. Where this page and the spec differ, the spec wins. Read the <a href="https://github.com/Foundation-0/aletheia/blob/main/spec/LAWS_AND_GATES.md">full spec on GitHub</a>.</p>
+    <nav class="toc" aria-label="On this page">
+      <a href="#loop">The loop</a><a href="#laws">Laws</a><a href="#gates">Gates</a><a href="#contracts">Contracts R1 to R7</a><a href="#oracles">Oracle honesty</a><a href="#own-terms">Own-Terms-First and Law 2b</a><a href="#calculus">Operator calculus</a><a href="#relapse">Relapse patterns</a>
+    </nav>
+  </div>
+</section>
+
+<section class="sec" id="loop">
+  <div class="wrap">
+    <div class="sec-head"><p class="sec-label"><b>01</b><i>//</i>The loop</p><span class="chip">Five steps, then round again</span></div>
+    <h2 class="h2" data-reveal>One loop, five steps.</h2>
+    <p class="lede" data-reveal>A raw draft, a number that looks too clean, a bug or a wall all count as a start. The loop turns that start into a claim with a stated scope, or into a clear reason it fails.</p>
+    <ol class="steps" data-reveal>
+      <li><strong>Raw portal.</strong> Start from the raw source itself: a draft, a log, a transcript, a coincidence, a bug or a wall. Do not grade it yet.</li>
+      <li><strong>Keeper re-entry and steelman.</strong> The keeper stays in the loop and goes back into the raw source with each new surprise as a lens. Log every bug in full. Then state the strongest sound claim near the draft and test that claim.</li>
+      <li><strong>Probe.</strong> Run an exact proof or a live test in the domain. Say in advance what result would kill the claim.</li>
+      <li><strong>Tomography.</strong> Check from a second angle with no shared code. Change basis, units and precision. Run matched nulls. A catch comes with a small failing case and, where the core holds, the fix that lets it pass.</li>
+      <li><strong>Transfer.</strong> Move only exact operators to a peer front, with typed objects and a map that runs. Shared words alone carry no weight.</li>
+    </ol>
+    <p class="prose" data-reveal style="margin-top:20px">A wall is not the end of the loop. A sharp wall either is a theorem in its own right or names the missing term to add next. See how this ran in practice on the <a href="../joint-map/">joint map</a>.</p>
+  </div>
+</section>
+
+<section class="sec alt" id="laws">
+  <div class="wrap">
+    <div class="sec-head"><p class="sec-label"><b>02</b><i>//</i>Laws</p><span class="chip">Laws 1 to 5 plus Law 2b</span></div>
+    <h2 class="h2" data-reveal>Six rules that hold the loop together.</h2>
+    <div class="table-wrap" data-reveal>
+      <table class="data">
+        <thead><tr><th scope="col">Law</th><th scope="col">Rule in one line</th></tr></thead>
+        <tbody>
+          <tr><td>Law 1</td><td>Keep the keeper active for the whole run and re-enter raw sources on every surprise, clash or wall.</td></tr>
+          <tr><td>Law 2</td><td>Log each bug, then build and test the strongest sound claim beside the flawed draft before you close the line.</td></tr>
+          <tr><td>Law 2b</td><td>Before you mark a formula falsified, search the seven change families T1 to T7 under guards G1 to G4.</td></tr>
+          <tr><td>Law 3</td><td>Check with no shared code across bases, precisions and nulls, plus contracts R1 to R7, and give a failing case with each catch.</td></tr>
+          <tr><td>Law 4</td><td>Start every result at N0 and lift it only after full text search by mechanism in at least two nearby fields.</td></tr>
+          <tr><td>Law 5</td><td>Allow a cross-field claim only with typed objects, an explicit map, an exact identity or a defect score that beats nulls, and a new prediction.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:16px"><a class="more" href="https://github.com/Foundation-0/aletheia/blob/main/spec/LAWS_AND_GATES.md">Read the laws in the spec</a></p>
+  </div>
+</section>
+
+<section class="sec" id="gates">
+  <div class="wrap">
+    <div class="sec-head"><p class="sec-label"><b>03</b><i>//</i>Gates</p><span class="chip">Gates 1 to 10</span></div>
+    <h2 class="h2" data-reveal>Sound first. New second. Fair last.</h2>
+    <p class="lede" data-reveal>Gates 1 to 8 test if a claim is sound. Gate 9 tests if it is new. Gate 10 gives every cut or rejection a second hearing.</p>
+    <h3 data-reveal style="margin-top:28px">Soundness: gates 1 to 8</h3>
+    <div class="table-wrap" data-reveal>
+      <table class="data">
+        <thead><tr><th scope="col">Gate</th><th scope="col">What it asks</th></tr></thead>
+        <tbody>
+          <tr><td>Gate 1</td><td>Replay from scratch at a pinned commit with logged seeds. Do not trust stored pass marks after edits.</td></tr>
+          <tr><td>Gate 2</td><td>Hold fixed under change of basis, gauge, units, metric and mesh.</td></tr>
+          <tr><td>Gate 3</td><td>Beat matched nulls and hard edge cases by a margin set in advance.</td></tr>
+          <tr><td>Gate 4</td><td>Decide number claims in exact arithmetic or safe intervals, not by float cutoffs.</td></tr>
+          <tr><td>Gate 5</td><td>Show typed objects, a map that runs, an exact identity or low defect score, and a new prediction for any bridge claim.</td></tr>
+          <tr><td>Gate 6</td><td>Beat the plain baseline, rule out hard coded answers, and pass on fresh draws with no retuning.</td></tr>
+          <tr><td>Gate 7</td><td>Pass contracts R1 to R7. The checker itself must earn trust.</td></tr>
+          <tr><td>Gate 8</td><td>Hash plans before you see the data, latch fit checks before fitting, and keep every miss on record. A check that sits wholly inside the fit space stops as blind.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 data-reveal style="margin-top:28px">Novelty: gate 9</h3>
+    <div class="prose" data-reveal style="margin-top:12px">
+      <p>Gate 9 is mechanism first prior art. Restate the object and the mechanism in plain maths terms and in the words of at least two nearby fields that use the same mechanism. Search full texts under each restatement. Write down the restatements tried, the fields searched and the texts read. A match on mechanism sets the label, whatever words the source used.</p>
+    </div>
+    <h3 data-reveal style="margin-top:28px">Advocate: gate 10</h3>
+    <div class="prose" data-reveal style="margin-top:12px">
+      <p>Gate 10 is the second pass advocate. Each falsified or partial verdict, and each cut to a novelty label or claim scope, goes to a second checker who rebuilds the proof from scratch, reads the cited prior work in full and tests Law 2b changes. The ruling is stands, stands narrowed or falls, with the strongest claim that still holds. Before you publish a label above N0, ask an outside observer where you can.</p>
+    </div>
+  </div>
+</section>
+
+<section class="sec alt" id="contracts">
+  <div class="wrap">
+    <div class="sec-head"><p class="sec-label"><b>04</b><i>//</i>Contracts</p><span class="chip">R1 to R7: rules for checkers</span></div>
+    <h2 class="h2" data-reveal>A checker must prove it can still say no.</h2>
+    <p class="lede" data-reveal>The gate rule is plain: a verdict must not move with how the input is spelled, nor with values the sender merely declares. R1 to R5 are the floor. R6 and R7 close the gap where sender fields pick the rules or stand in for real counts.</p>
+    <div class="table-wrap" data-reveal>
+      <table class="data">
+        <thead><tr><th scope="col">Contract</th><th scope="col">Rule</th><th scope="col">How it is held</th></tr></thead>
+        <tbody>
+          <tr><td>R1 Default reject</td><td>Empty, blank, null, missing field or unknown status inputs fail closed.</td><td>Strict key checks that return reject or raise a set error.</td></tr>
+          <tr><td>R2 Omission rule</td><td>Deleting required proof fields must never turn reject into accept.</td><td>Tests drop each required field in turn and confirm reject.</td></tr>
+          <tr><td>R3 Strict parsing, both ways</td><td>An accepted input respelled is rejected. A rejected input stays rejected when any well typed value is respelled, such as 0 or 1 for true, a trailing newline, duplicate keys or floats.</td><td>One fixed spelling per value with strict types in both directions.</td></tr>
+          <tr><td>R4 Mode parity</td><td>The same verdict in <code>python3 -I -B</code>, <code>python3 -I -O -B</code> and <code>python3 -I -B -W error</code>, with zero bare asserts and zero skips under <code>-O</code>. A write run under <code>-O</code> must not emit a pass that a plain run rejects.</td><td><code>aletheia audit-check</code> compares exit code, output hash and skip count across all 3 modes.</td></tr>
+          <tr><td>R5 Mutation kill rate</td><td>Each named guard has a must-fail control that kills single site deletions and edge shifts. A run that samples only k of n sites with 0 survivors reads NOT_SHOWN, never PASS.</td><td><code>aletheia mutate</code> over local and imported guards.</td></tr>
+          <tr><td>R6 Pinned checks</td><td>The gate owner fixes the check list, ranges and limits before the input exists. No sender field may pick or override them.</td><td>Pure rational gate code fails closed on any sender rule override.</td></tr>
+          <tr><td>R7 Measured, not declared</td><td>Each value set against a pinned rule is recomputed from the bytes to be passed. Declared hashes, counts and flags are checked against that count and never stand in for it.</td><td>The gate recomputes byte hashes and exact rational norms itself.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout" data-reveal>
+      <p><strong>Declared record scope.</strong> The pure rational certifiers for R6 and R7, Own-Terms-First and Law 2b check that a supplied record is well formed and meets the stated sums. They do not by themselves prove that the runs, null suites or second tools behind the record took place. That proof needs clean room replay and byte level checks under R6 and R7.</p>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="oracles">
+  <div class="wrap">
+    <div class="sec-head"><p class="sec-label"><b>05</b><i>//</i>Oracle honesty</p><span class="chip">Exact, sampled, anchor · N0, N1, N2</span></div>
+    <h2 class="h2" data-reveal>Say what kind of check you ran.</h2>
+    <p class="lede" data-reveal>Truth and novelty are two claims, not one. Gates 1 to 8 cover truth and carry an oracle label. Gate 9 covers novelty. Every result starts at N0.</p>
+    <div class="table-wrap" data-reveal>
+      <table class="data">
+        <thead><tr><th scope="col">Oracle label</th><th scope="col">What backs it</th><th scope="col">What you must not claim</th></tr></thead>
+        <tbody>
+          <tr><td>exact</td><td>Formal proof, symbolic identity, a certificate per input, or full finite enumeration.</td><td>Exact arithmetic alone is not an exact oracle. Random draws in exact rationals stay sampled.</td></tr>
+          <tr><td>sampled</td><td>Finite random, multi seed or grid checks, with fresh seeds after a fix.</td><td>Truth for all inputs, or PASS from a cut short gate run.</td></tr>
+          <tr><td>anchor</td><td>Outside domain data that tests the spec itself. A fail blames the spec.</td><td>Do not feed anchor results back to tune the claim.</td></tr>
+          <tr><td>reference_replay</td><td>Live match with an untouched upstream program.</td><td>Do not treat upstream bugs as facts about the world.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap" data-reveal>
+      <table class="data">
+        <thead><tr><th scope="col">Novelty label</th><th scope="col">Meaning</th></tr></thead>
+        <tbody>
+          <tr><td>N0</td><td>Known or repackaged. This is the default until full text search by mechanism proves a clear gap.</td></tr>
+          <tr><td>N1</td><td>A concrete local step: a repair, a counterexample or a firm test based rejection.</td></tr>
+          <tr><td>N2</td><td>A new theorem, a sharp new invariant, an exact block theorem, or a sound cross-field transfer that clears gates 1 to 10.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="prose" data-reveal style="margin-top:20px">State the oracle label and the scope limits next to every result. A scope limit is a map pin for the next round, not small print.</p>
+  </div>
+</section>
+
+<section class="sec alt" id="own-terms">
+  <div class="wrap">
+    <div class="sec-head"><p class="sec-label"><b>06</b><i>//</i>Own-Terms-First and Law 2b</p><span class="chip">Test on own terms first, then compare</span></div>
+    <h2 class="h2" data-reveal>Let raw data speak first. Let old theorems speak second.</h2>
+    <p class="lede" data-reveal>Own-Terms-First guards raw data work. Law 2b guards formula work. Each stops a fast close in one direction and a loose rescue in the other.</p>
+    <h3 data-reveal style="margin-top:28px">Own-Terms-First</h3>
+    <div class="prose" data-reveal style="margin-top:12px">
+      <p>Phase 1 tests a pattern on its own terms: a raw rerun, held out unseen data and a second tool. Phase 2 compares with known maths, in a separate step. Phase 1 needs at least 2 nets pre-pinned across at least 2 axes such as rate, scale, window or instrument, with held out and second tool checks both true. Limits stay firm: per net alpha at most 1/10 and total error rate at most 1/4, with the sum of per net limits inside the total.</p>
+      <p>The pattern must clear both plain shuffled nulls and spectrum keeping nulls by a set margin, and beat negative controls by the same margin. New symbols earn their place only by repeat runs and by calls on unseen data. A claim with no measurable definition goes back to its author with no definition invented for it. A model ladder check splits a true remainder from plain model miss in exact rationals.</p>
+    </div>
+    <h3 data-reveal style="margin-top:28px">Law 2b: transformational steelman</h3>
+    <div class="prose" data-reveal style="margin-top:12px">
+      <p>Before you close a theorem or formula as falsified, the literal claim must fail first. Then search all seven admissible change families. A rescue must pass in full on held out cases. A final falsified verdict needs a block that survives every family searched. An unsearched raw falsified verdict is rejected on sight.</p>
+    </div>
+    <div class="table-wrap" data-reveal>
+      <table class="data">
+        <thead><tr><th scope="col">Family</th><th scope="col">Change to try</th></tr></thead>
+        <tbody>
+          <tr><td>T1</td><td>Gauge similarity: view the same operator in a like basis.</td></tr>
+          <tr><td>T2</td><td>Affine or Bregman shift: allow a set shift in the right geometry.</td></tr>
+          <tr><td>T3</td><td>Metric chart: restate in a sound chart or metric.</td></tr>
+          <tr><td>T4</td><td>Spectral PSD shift: allow a positive semidefinite spectral shift.</td></tr>
+          <tr><td>T5</td><td>Semiring tropical: restate in the tropical semiring.</td></tr>
+          <tr><td>T6</td><td>Subspace projection: project to the subspace the claim needs.</td></tr>
+          <tr><td>T7</td><td>Order domain residual: split the domain by order and state the residual.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap" data-reveal>
+      <table class="data">
+        <thead><tr><th scope="col">Guard</th><th scope="col">What it blocks</th></tr></thead>
+        <tbody>
+          <tr><td>G1</td><td>Empty rescues. A rescue must pass its target in full and clear null checks with set margins.</td></tr>
+          <tr><td>G2</td><td>Tuning to the test set. Scope is fixed before holdout, with fewer free terms than held out constraints.</td></tr>
+          <tr><td>G3</td><td>Quiet relabels. Any scope change is logged. Exact rescues carry zero residual gap. Bounded rescues carry a small stated gap.</td></tr>
+          <tr><td>G4</td><td>Fast closes. A final falsified verdict needs all 7 of 7 families searched plus a block that survives them all.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="calculus">
+  <div class="wrap">
+    <div class="sec-head"><p class="sec-label"><b>07</b><i>//</i>Operator calculus</p><span class="chip">8 glyphs, honest labels</span></div>
+    <h2 class="h2" data-reveal>Short signs for steps that recur.</h2>
+    <p class="lede" data-reveal>Eight exact steps came up again and again across fronts. Aletheia gives each step one sign and one program in exact rationals and integers, run by <code>aletheia calculus</code>.</p>
+    <div class="table-wrap" data-reveal>
+      <table class="data">
+        <thead><tr><th scope="col">Glyph</th><th scope="col">Plain meaning</th></tr></thead>
+        <tbody>
+          <tr><td>⧄</td><td>Fiber elimination by Schur complement: solve out one block and keep the reduced operator.</td></tr>
+          <tr><td>⧅</td><td>Singular kernel shadow: report the kernel of the eliminated block, its coupling and its rank.</td></tr>
+          <tr><td>⦷</td><td>Holonomy differential: compare the reduced operator with and without a twist.</td></tr>
+          <tr><td>⟠</td><td>Observer net equalizer: average over a group orbit or take the net invariant part.</td></tr>
+          <tr><td>⧇</td><td>Gluing obstruction ratio: the harmonic share of a form, as an exact rational in 0 to 1.</td></tr>
+          <tr><td>⦺</td><td>Inertia signature: count positive, zero and negative modes as (n+, n0, n-).</td></tr>
+          <tr><td>⩩</td><td>Exact null equivalence: X and Y match if and only if X minus Y is zero. Floats are rejected.</td></tr>
+          <tr><td>⫩</td><td>Refusal verified gate: pass the input and fail every mutant of it.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout cy" data-reveal>
+      <p><strong>Honest label.</strong> Per AUDIT-084R, 7 of 8 glyphs are shorthands for standard operations: 6 plain shorthands plus the overloaded ⟠. Only ⫩, the mutation tested refusal gate, acts as a typed execution operator, with an N0 origin in mutation testing. The reported scan found 0 of 227,540 hits in a Lean 4 corpus. The scan script and corpus are not in this repo, so that figure is reported here, not reproduced.</p>
+    </div>
+  </div>
+</section>
+
+<section class="sec alt" id="relapse">
+  <div class="wrap">
+    <div class="sec-head"><p class="sec-label"><b>08</b><i>//</i>Relapse patterns</p><span class="chip">CS-01 to CS-14</span></div>
+    <h2 class="h2" data-reveal>Old habits have names, so you can catch them.</h2>
+    <p class="lede" data-reveal>Fourteen relapse patterns, CS-01 to CS-14, name the ways a run slides back to static review or loose praise. The first 12 run as checks in <code>aletheia diagnose</code>. The last 2 are held by gates 9 and 10 and the advocate prompt.</p>
+    <pre data-reveal><code>PYTHONPATH=. python3 -m aletheia diagnose /tmp/my-expedition</code></pre>
+    <div class="table-wrap" data-reveal>
+      <table class="data">
+        <thead><tr><th scope="col">Pattern</th><th scope="col">Sign</th><th scope="col">Fix</th></tr></thead>
+        <tbody>
+          <tr><td>CS-01 Static map trap</td><td>Keeper parks as done in round 1 and never re-enters sources.</td><td>Keep the keeper active. Re-enter on each surprise or wall.</td></tr>
+          <tr><td>CS-02 Fast dismissal</td><td>Falsified or N0 verdicts with no steelman or Law 2b search.</td><td>Run Laws 2 and 2b before you close a line.</td></tr>
+          <tr><td>CS-03 Language smuggling</td><td>Bridge claims in prose with no typed map or defect score.</td><td>Hold Gate 5: typed objects, a map, a score and a prediction.</td></tr>
+          <tr><td>CS-04 Proxy shadow</td><td>A toy matrix or set is certified in place of the real target.</td><td>Run against the real equations, data or live upstream code.</td></tr>
+          <tr><td>CS-05 Glass gate</td><td>Bare asserts, float cutoffs in exact checks, unseeded random draws or zero must-fail controls.</td><td>Hold R1 to R7 with audit-check, mutate and gate-v2.</td></tr>
+          <tr><td>CS-06 Local close</td><td>The team stops at a sharpness wall.</td><td>State the wall as a theorem or spawn the branch it names.</td></tr>
+          <tr><td>CS-07 Status inflation</td><td>Merged, machine checked or N2 claimed with no merge, log or search.</td><td>Keep standing tags: draft, uncompiled source and default N0.</td></tr>
+          <tr><td>CS-08 Compute leakage</td><td>Arms are compared by round count with no fixed compute cap.</td><td>Fix one cap and report format bound solves apart from open escapes.</td></tr>
+          <tr><td>CS-09 Truncation mirage</td><td>A long run law is claimed from cut short runs.</td><td>Test finite size cutoffs before you claim a long run law.</td></tr>
+          <tr><td>CS-10 Denominator collapse</td><td>Sparse sums are split by hit count, not by a fixed total.</td><td>Divide sparse sums by the fixed global total.</td></tr>
+          <tr><td>CS-11 Unit and radix fragility</td><td>Raw unit weights or base 10 float grading set the verdict.</td><td>Scale features first and grade exact maths over rationals.</td></tr>
+          <tr><td>CS-12 Trust boundary shadow</td><td>Hidden wrappers, loose JSON reads, newline weak patterns or unpinned tools.</td><td>Use strict JSON, anchored patterns, strict ancestor checks and the safety scan.</td></tr>
+          <tr><td>CS-13 Citation trail search</td><td>Prior art search reads only cited papers or source words.</td><td>Restate by mechanism in at least two nearby fields first.</td></tr>
+          <tr><td>CS-14 One sided verifier</td><td>Cuts and rejections stand on one pass.</td><td>Send each cut to an advocate who rebuilds and rules.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="prose" data-reveal style="margin-top:24px">
+      <p>Go deeper in <a href="https://github.com/Foundation-0/aletheia/blob/main/THEORY.md">THEORY.md</a> and the <a href="https://github.com/Foundation-0/aletheia/blob/main/spec/LAWS_AND_GATES.md">full spec</a>. See each rule at work on this site in the <a href="../joint-map/">joint map</a>, and on the twin site in the <a href="https://foundation-0.github.io/cave-expedition/joint-map/">Cave Expedition joint map</a>. Then run the loop yourself from the <a href="../start/">start page</a>.</p>
+    </div>
+  </div>
+</section>
+</main>
+<footer class="coda"><div class="wrap">
+  <span>Aletheia is a <a href="https://foundation-0.github.io/f0/">Foundation0</a> project. Twin site: <a href="https://foundation-0.github.io/cave-expedition/">Cave Expedition</a>.</span>
+  <span>Code Apache-2.0 · <a href="https://github.com/Foundation-0/aletheia">Source</a> · Design after <a href="https://foundation-0.github.io/f0/">F0</a> and <a href="https://moissanite-labs.github.io/weft-eido/">Eido</a></span>
+</div></footer>
+</body>
+</html>
