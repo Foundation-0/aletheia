@@ -312,7 +312,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.command == "safety-scan":
             try:
                 res = scan_directory_safety_surface(args.path, include_host_hygiene=args.include_host_hygiene)
-            except ValueError as exc:
+            except (ValueError, OSError) as exc:
                 raise AletheiaError("SAFETY_SCAN_ERROR", str(exc)) from exc
             _emit(res, as_json)
             return 0 if res["clean"] else 1

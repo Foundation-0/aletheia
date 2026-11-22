@@ -1831,8 +1831,15 @@ class TestAletheiaCLI(unittest.TestCase):
 
         rc_g, out_g, _ = _run_cli(["gate-v2", "--self-test", "--json"])
         jg = parse_strict_json_text(out_g, allow_float=False)
-        _req(rc_g == 0 and jg["passed"] is True and jg["verdict"] == "ALETHEIA_V2_GATES_VERIFIED",
-             f"gate-v2 --self-test failed: rc={rc_g} {jg}")
+        _req(
+            rc_g == 0
+            and jg["passed"] is True
+            and jg["verdict"] == "ALETHEIA_V2_GATES_VERIFIED"
+            and isinstance(jg.get("checks"), dict)
+            and len(jg["checks"]) >= 19
+            and all(v is True for v in jg["checks"].values()),
+            f"gate-v2 --self-test failed: rc={rc_g} {jg}",
+        )
 
         with tempfile.TemporaryDirectory(prefix="aletheia_t_v2_saf_") as td:
             root = Path(td)
@@ -1846,6 +1853,20 @@ class TestAletheiaCLI(unittest.TestCase):
             ja = json.loads(out_a)
             _req(rc_a == 1 and ja["summary"]["safety_findings_count"] == 1,
                  f"audit-check --safety-scan failed: rc={rc_a} {ja['summary']}")
+
+            # Missing target yields structured AletheiaError (exit 2), never raw traceback
+            rc_m, out_m, _ = _run_cli(["safety-scan", str(root / "missing"), "--json"])
+            jm = json.loads(out_m)
+            _req(rc_m == 2 and jm.get("code") == "SAFETY_SCAN_ERROR", f"expected SAFETY_SCAN_ERROR: rc={rc_m} {jm}")
+
+            # Binary/undecodable file forces clean=False (exit 1) even with 0 regex findings
+            bin_dir = root / "bin_only"
+            bin_dir.mkdir()
+            (bin_dir / "opaque.bin").write_bytes(b"\x00\x01\x02\xff")
+            rc_b, out_b, _ = _run_cli(["safety-scan", str(bin_dir), "--json"])
+            jb = json.loads(out_b)
+            _req(rc_b == 1 and jb["clean"] is False and len(jb["undecodable_files"]) == 1,
+                 f"undecodable file must fail closed: rc={rc_b} {jb}")
 
 
 if __name__ == "__main__":

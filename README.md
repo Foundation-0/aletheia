@@ -123,7 +123,7 @@ aletheia/
 ├── pyproject.toml                             # Zero-dependency PEP 621 Python 3 stdlib package config (v2.0.0)
 ├── spec/
 │   ├── LAWS_AND_GATES.md                      # Canonical v2.0 spec: Laws 1–5 + Law 2b, Own-Terms-First, 10 Gates, R1–R7, CS-01..CS-14
-│   └── proposals/OWN_TERMS_FIRST.md           # Owner-confirmed (2026-11-21) Own-Terms-First rule + OTF-TIGHT-01..05
+│   └── proposals/OWN_TERMS_FIRST.md           # Own-Terms-First rule (direction confirmed 2026-11-22 in d43cb1c7; adopted in v2.0.0) + OTF-TIGHT-01..05
 ├── evidence/
 │   ├── outside/README.md                      # Permanent index of external audits & two-pass Advocate rulings
 │   ├── cave-expedition-case-study.md          # Wave 1 empirical case study (Pass 1 vs Pass 2+, 5 chains, AUDIT-001..021)

@@ -1351,7 +1351,13 @@ def run_audit_check(
     if ancestor_report is not None and not ancestor_report["passed"]:
         failures.append(f"ancestor directory permission findings ({len(ancestor_report['findings'])})")
     if safety_report is not None and not safety_report["clean"]:
-        failures.append(f"agent safety-surface findings ({safety_report['finding_count']})")
+        failures.append(
+            "agent safety-surface findings "
+            f"({safety_report['finding_count']} findings, "
+            f"{len(safety_report['skipped_files'])} skipped, "
+            f"{len(safety_report['undecodable_files'])} undecodable, "
+            f"{len(safety_report['unreadable_files'])} unreadable)"
+        )
 
     passed = len(failures) == 0
     return {
