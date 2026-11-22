@@ -88,6 +88,7 @@ Gates 1 and 3 are R6 and R7 applied to data. Gates 2, 5, 6 and 9 are the null an
 - **Certifier recomputes:** Hashes every file against the manifest, runs the regeneration script, and compares every number in the claim file with the regenerated value. The comparison is exact on rationals or on fixed decimal strings, never a float tolerance.
 - **Must-fail control:** A claim file with one number changed in its last digit, and a manifest with one wrong hash. Both must be refused.
 - **In v2 now:** R7 states the principle for gates. Gate 1 requires clean-room replay. Not yet required: a fetch manifest, and a rule that every number in an empirical claim is regenerated.
+- **Applies to reviewers:** The same rule binds reviewers. This week an outside review that doubted a pull request's numbers without recomputing them from the source texts was withdrawn for that reason, and its replacement will recompute first.
 
 ### 4. A holdout that is really unseen
 
@@ -200,11 +201,10 @@ Every row is a failure visible in public pull requests from the week of 2026-11-
 | Failure | Gate |
 |---|---|
 | A frozen plan whose detector failed four of six known-answer tests, with false alarms up to 0.295 after a monotone map. Found before any data was opened. | 2 (it worked) |
-| Figures and certificates in a pull request that the repository could not regenerate | 3 |
 | Gates that compare scores and ceilings declared by the submitter instead of measured ones | 3 (R7) |
-| "Unseen" halves of a corpus that had been read while the test was designed | 4 |
-| Nulls from a single seeded shuffle, with no interval | 5 |
-| A pass rule that required a control to pass, so it could not separate the data from that control | 5, 6 |
+| No public example yet | 4 |
+| No public example yet | 5 |
+| No public example yet | 5, 6 |
 | A self-test whose pass flag was a constant, so it could not fail | 9 |
 | Guard removals that left every test passing (13 sub-conditions in one review, 114 of 118 removals in another) | 9 |
 
