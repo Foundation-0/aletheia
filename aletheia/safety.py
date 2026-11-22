@@ -6,7 +6,7 @@ pure Python 3 stdlib deterministic scanners integrated into `aletheia audit-chec
   - CYA-GAP-01: Hidden / Trojan-Source Unicode (ZWSP/BOM, CVE-2021-42574 BiDi controls, Tag smuggling)
   - CYA-GAP-02: Unpinned MCP tags, auto-yes package runners, permission-bypass flags, and session hooks
   - CYA-GAP-03: Unguarded recursive force-delete of shell variables without active nounset or `:?` guard
-  - CYA-GAP-04: Untrusted CI workflow privilege (`pull_request_target` with secrets or write permissions)
+  - CYA-GAP-04: Untrusted CI workflow privilege (`pull_request_target` with secrets, write permissions, or untrusted PR head checkout)
   - CYA-GAP-05: Prose-only governance illusions & host-home tilde path dependencies in rule/prompt docs
   - CYA-GAP-06: Optional host-hygiene checks (interactive delete aliases & cloud-sync folder hazards)
 """
@@ -30,14 +30,36 @@ _MCP_BYPASS_RULES: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"\bSession" + r"Start\b"), "session_start_hook"),
 )
 
-_SET_NOUNSET_ON_RE = re.compile(r"(?:^|[;&|]\s*)set\s+(?:-[A-Za-z]*u[A-Za-z]*|-o\s+nounset)\b")
-_SET_NOUNSET_OFF_RE = re.compile(r"(?:^|[;&|]\s*)set\s+(?:\+[A-Za-z]*u[A-Za-z]*|\+o\s+nounset)\b")
-_RM_CMD_RE = re.compile(r"(?:^|[;&|]\s*)rm\s+([^\n;&|]+)")
+_SHELL_PREFIX_RE = (
+    r"^\s*"
+    r"(?:(?:[({!]\s*|(?:then|do|else)\s+))*"
+    r"(?:(?:[A-Za-z_][A-Za-z0-9_]*=\S*"
+    r"|sudo(?:\s+(?:-[uUgChp]\s+\S+|-[A-Za-z]+))*"
+    r"|command(?:\s+(?:-[pvV]+|--))*"
+    r"|env(?:\s+(?:-[uC]\s+\S+|-[A-Za-z]+))*"
+    r"|builtin|exec|nohup|nice(?:\s+-n\s+\S+)?|time)\s+)*"
+)
+_SET_OPT_PREFIX_RE = r"(?:(?:[-+][A-Za-z]+|[-+]o\s+[A-Za-z]+)\s+)*"
+_SET_NOUNSET_ON_RE = re.compile(
+    _SHELL_PREFIX_RE + r"set\s+" + _SET_OPT_PREFIX_RE + r"(?:-[A-Za-z]*u[A-Za-z]*|-o\s+nounset)\b"
+)
+_SET_NOUNSET_OFF_RE = re.compile(
+    _SHELL_PREFIX_RE + r"set\s+" + _SET_OPT_PREFIX_RE + r"(?:\+[A-Za-z]*u[A-Za-z]*|\+o\s+nounset)\b"
+)
+_RM_CMD_RE = re.compile(_SHELL_PREFIX_RE + r"(?:(?:/[A-Za-z0-9._-]+)+/|\\)?rm\s+([^\n;&|]+)")
+_SHELL_SEG_SPLIT_RE = re.compile(r"(?:&&|\|\||;|\||(?<![<>])&(?!>))")
 _VAR_REF_RE = re.compile(r"\$(?:\{([^}]+)\}|([A-Za-z_][A-Za-z0-9_]*))")
 
 _CI_PRT_RE = re.compile(r"\bpull_request_target\b")
 _CI_PRIV_RE = re.compile(
     r"(?:secrets\s*(?:\.|\[\s*['\"])|toJSON\s*\(\s*secrets\s*\)|\bwrite-all\b|\b[a-z-]+:\s*write\b)",
+    re.IGNORECASE,
+)
+_CI_UNTRUSTED_HEAD_RE = re.compile(
+    r"(?:github\.event\.pull_request\.head\.(?:sha|ref|repo)\b"
+    r"|\bgithub\.head_ref\b"
+    r"|refs/pull/[^\n'\"]*?/(?:head|merge)\b"
+    r"|\bgh\s+pr\s+checkout\b)",
     re.IGNORECASE,
 )
 
@@ -150,8 +172,9 @@ def scan_text_safety_surface(
     nounset_active = False
     for lineno, raw_line in enumerate(lines, start=1):
         code_line = _strip_shell_comment(raw_line)
-        segments = re.split(r"(?:&&|\|\||;)", code_line)
-        for seg in segments:
+        segments = _SHELL_SEG_SPLIT_RE.split(code_line)
+        for raw_seg in segments:
+            seg = raw_seg.strip()
             if _SET_NOUNSET_ON_RE.search(seg):
                 nounset_active = True
             if _SET_NOUNSET_OFF_RE.search(seg):
@@ -179,7 +202,7 @@ def scan_text_safety_surface(
                 )
                 break
 
-    # CYA-GAP-04: pull_request_target + secrets/write privilege in CI YAML
+    # CYA-GAP-04: pull_request_target + privileged access or untrusted PR head checkout in CI YAML
     if file_label.lower().endswith((".yml", ".yaml")) and _CI_PRT_RE.search(text) is not None:
         for lineno, line in enumerate(lines, start=1):
             if _CI_PRIV_RE.search(line) is not None:
@@ -189,6 +212,15 @@ def scan_text_safety_surface(
                         "file": file_label,
                         "line": lineno,
                         "detail": "pull_request_target_with_privileged_access",
+                    }
+                )
+            if _CI_UNTRUSTED_HEAD_RE.search(line) is not None:
+                findings.append(
+                    {
+                        "gap_id": "CYA-GAP-04",
+                        "file": file_label,
+                        "line": lineno,
+                        "detail": "pull_request_target_untrusted_head_checkout",
                     }
                 )
 

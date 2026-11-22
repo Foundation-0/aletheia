@@ -388,11 +388,15 @@ class TestGatesV2R5(unittest.TestCase):
         self.assertTrue(ok_res["certified"])
         self.assertEqual(ok_res["min_iid_margin"], "1/10")
 
-        # Rule 6 return-to-author (no floats allowed even on early return -> OTF-BUG-01!)
-        r6 = g2.certify_own_terms_phase1(_valid_otf_spec(measurable_definition_present=False), [])
+        # Rule 6 return-to-author (no floats and list/sequence types validated BEFORE early return -> OTF-BUG-01, ALETHEIA-V2-BUG-03)
+        r6 = g2.certify_own_terms_phase1(_valid_otf_spec(measurable_definition_present=False, pinned_net_ids=[]), [])
         self.assertEqual(r6["decision"], "RETURN_TO_AUTHOR_FOR_DEFINITION")
         with self.assertRaisesRegex(ValueError, "FLOAT_FORBIDDEN"):
             g2.certify_own_terms_phase1(_valid_otf_spec(measurable_definition_present=False), [0.5])  # type: ignore[list-item]
+        with self.assertRaisesRegex(ValueError, "OTF_MEASUREMENTS_NOT_LIST"):
+            g2.certify_own_terms_phase1(_valid_otf_spec(measurable_definition_present=False), "NOT_A_LIST")  # type: ignore[arg-type]
+        with self.assertRaisesRegex(ValueError, "OTF_PINNED_NETS_NOT_SEQUENCE"):
+            g2.certify_own_terms_phase1(_valid_otf_spec(measurable_definition_present=False, pinned_net_ids="NOT_A_LIST"), [])  # type: ignore[arg-type]
 
         # Boundary alpha=1, max_fwer=1, max_control_score=0
         b_res = g2.certify_own_terms_phase1(

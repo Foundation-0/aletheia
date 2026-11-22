@@ -730,6 +730,11 @@ def certify_own_terms_phase1(
 
     if not isinstance(pinned_spec, dict) or frozenset(pinned_spec.keys()) != OWN_TERMS_SPEC_KEYS:
         raise ValueError("OTF_SPEC_SCHEMA_MISMATCH")
+    if not isinstance(net_measurements, list):
+        raise ValueError("OTF_MEASUREMENTS_NOT_LIST")
+    pinned_ids = pinned_spec["pinned_net_ids"]
+    if not isinstance(pinned_ids, (list, tuple)):
+        raise ValueError("OTF_PINNED_NETS_NOT_SEQUENCE")
     measurable = pinned_spec["measurable_definition_present"]
     if not isinstance(measurable, bool):
         raise ValueError("OTF_INVALID_MEASURABLE_FLAG")
@@ -740,8 +745,7 @@ def certify_own_terms_phase1(
             "reason": "Rule 6: claim lacks a measurable definition; return to author without inventing one",
         }
 
-    pinned_ids = pinned_spec["pinned_net_ids"]
-    if not isinstance(pinned_ids, (list, tuple)) or len(pinned_ids) == 0:
+    if len(pinned_ids) == 0:
         raise ValueError("OTF_EMPTY_PINNED_NETS")
     if any(not _is_clean_ascii(nid) for nid in pinned_ids):
         raise ValueError("OTF_INVALID_NET_ID")
@@ -767,7 +771,7 @@ def certify_own_terms_phase1(
     if bonf_fwer > max_fwer:
         raise ValueError("OTF_BONFERRONI_FWER_EXCEEDED")
 
-    if not isinstance(net_measurements, list) or len(net_measurements) != len(pinned_ids):
+    if len(net_measurements) != len(pinned_ids):
         raise ValueError("OTF_MEASUREMENT_COUNT_MISMATCH")
 
     seen_low: set[str] = set()
