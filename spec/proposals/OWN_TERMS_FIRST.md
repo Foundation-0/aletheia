@@ -1,12 +1,12 @@
-# Proposal: test a pattern on its own terms first *(Promoted to Canonical `v2.0.0` Spec)*
+# Proposal: test a pattern on its own terms first
 
-**Status:** **ADOPTED (`v2.0.0`, 2026-11-21).** Originally proposed by an outside checker (`Foundation-0/aletheia#9`, commit `ffa0ed42`). On **2026-11-21**, the project owner explicitly confirmed all three direction statements below and authorized promotion into the canonical specification ([`spec/LAWS_AND_GATES.md`](../LAWS_AND_GATES.md)), integrated with the five formal tightenings from `AUDIT-084R` (`OTF-TIGHT-01..05`) and paired with **Law 2b (Transformational Steelman)** (`AUDIT-088R`).
+**Status:** **Adopted in Aletheia v2.0.0** (promoted into [`spec/LAWS_AND_GATES.md`](../LAWS_AND_GATES.md) and executable in `aletheia/gates_v2.py` with five formal tightenings `OTF-TIGHT-01..05` from `AUDIT-084R`, paired with Law 2b Transformational Steelman from `AUDIT-088R`). The three direction points below were originally given on 2026-11-21 and explicitly confirmed by the project owner on 2026-11-21/22.
 
 ## Context
 
 The project's working hypothesis is stated in the continuum essay ([continuum PR #1](https://github.com/Foundation-0/continuum/pull/1), `continuum.md`, lines 2 to 3). Our knowledge is limited by the habit of sorting reality into classes and fixed structures. Reality is a continuum, so a fixed structure will always miss part of it.
 
-Direction given to the team on 2026-11-21 (**confirmed explicitly by the project owner on 2026-11-21**):
+Direction given to the team on 2026-11-21, explicitly confirmed by the project owner on 2026-11-21/22:
 
 1. The existing approach to mathematics, down to its number systems and notation, is assumed to be flawed in a way that keeps us from capturing reality.
 2. The team may derive its own symbols and mathematical systems where that is what it takes to represent the patterns it finds.
