@@ -1331,6 +1331,63 @@ class TestAletheiaCLI(unittest.TestCase):
             _req(rc == 1 and not obj["passed"] and obj["lean_audit"]["findings"][0]["code"] == "LEAN4_UNTERMINATED_COMMENT",
                  f"audit-check passed an unterminated Lean comment: rc={rc} {obj['failures']}")
 
+    def test_20_audit_log_matches_whole_verdict_tokens_and_needs_rows(self) -> None:
+        from aletheia.audit_check import validate_audit_log_markdown
+
+        head = (
+            "| Audit ID | Date | Author | Target | Gates | Oracle | Novelty | Verdict | Evidence |\n"
+            "|---|---|---|---|---|---|---|---|---|\n"
+        )
+
+        def row(verdict: str) -> str:
+            return f"| **AUDIT-001** | 2026-11-20 | a | t | G1 | exact | N1 | {verdict} | note |\n"
+
+        with tempfile.TemporaryDirectory(prefix="aletheia_t_log_") as td:
+            root = Path(td)
+
+            def check(body: str, **kw) -> dict:
+                path = root / "LOG.md"
+                write_lf_text(path, body)
+                return validate_audit_log_markdown(path, **kw)
+
+            # A negated or embedded verdict is not VERIFIED.
+            for bad in ("**NOT VERIFIED**", "NOT VERIFIED", "NOT_VERIFIED", "UNVERIFIED", "not verified", "VERIFIED_PARTIAL"):
+                res = check(head + row(bad))
+                _req(not res["valid"] and res["verdict_counts"] == {}
+                     and [e["code"] for e in res["errors"]] == ["INVALID_VERDICT"],
+                     f"{bad!r} was accepted: {res}")
+
+            # Controls: whole tokens, with or without markdown emphasis or a trailing note, are still read.
+            for good, token in (
+                ("**VERIFIED**", "VERIFIED"),
+                ("`FALSIFIED`", "FALSIFIED"),
+                ("PARTIAL/FRAGILE", "PARTIAL/FRAGILE"),
+                ("**PARTIAL/FRAGILE** (scope: local)", "PARTIAL/FRAGILE"),
+                ("NOT_SHOWN", "NOT_SHOWN"),
+                ("EXPOSED", "EXPOSED"),
+            ):
+                res = check(head + row(good))
+                _req(res["valid"] and res["verdict_counts"] == {token: 1}, f"{good!r} was not read as {token}: {res}")
+
+            # A ledger with no rows is not valid; one row makes it valid.
+            for empty in ("", head, "# Log\n\nNo audits yet.\n"):
+                res = check(empty)
+                _req(not res["valid"] and res["rows_checked"] == 0
+                     and [e["code"] for e in res["errors"]] == ["NO_AUDIT_ROWS"],
+                     f"empty ledger accepted: {res}")
+            _req(check(head + row("VERIFIED"))["valid"], "one-row ledger rejected")
+            _req(check(head, require_rows=False)["valid"], "require_rows=False must still allow an empty ledger")
+
+            # Through audit-check: an explicit empty log fails, a freshly scaffolded workspace still passes.
+            ws = root / "ws"
+            init_workspace(ws, domain="spectral")
+            ledger = ws / "verification" / "AUDIT_LOG.md"
+            _req(run_audit_check(ws)["passed"], "fresh workspace with an empty auto-discovered ledger must pass")
+            rc, out, _ = _run_cli(["audit-check", str(ws), "--audit-log", str(ledger), "--json"])
+            obj = json.loads(out)
+            _req(rc == 1 and not obj["passed"] and obj["audit_log"]["errors"][0]["code"] == "NO_AUDIT_ROWS",
+                 f"explicit empty --audit-log passed: rc={rc} {obj['failures']}")
+
 
 if __name__ == "__main__":
     unittest.main()

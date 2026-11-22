@@ -168,8 +168,17 @@ def _foreign_bytecode_items(entries: Sequence[Path], own: set[Path]) -> list[Pat
     return [p for p in entries if p in kept]
 
 
-def validate_audit_log_markdown(path: Path) -> dict[str, Any]:
-    """Parse and validate a markdown AUDIT_LOG.md table under Gate 8 & Gate 9."""
+_VERDICT_TOKEN_RE = re.compile(
+    "(" + "|".join(re.escape(v) for v in sorted(VALID_VERDICTS, key=len, reverse=True)) + ")(?![A-Za-z0-9_/])"
+)
+
+
+def validate_audit_log_markdown(path: Path, *, require_rows: bool = True) -> dict[str, Any]:
+    """
+    Parse and validate a markdown AUDIT_LOG.md table under Gate 8 & Gate 9.
+    The verdict cell must open with one whole verdict token (markdown emphasis aside), so `NOT VERIFIED`
+    is rejected rather than read as `VERIFIED`. With `require_rows`, a ledger with no audit rows is invalid.
+    """
     require_ok(path.is_file(), "AUDIT_LOG_NOT_FOUND", f"audit log not found: {path}")
     text = path.read_text(encoding="utf-8")
     errors: list[dict[str, Any]] = []
@@ -199,14 +208,10 @@ def validate_audit_log_markdown(path: Path) -> dict[str, Any]:
         verdict_cell = cells[7] if len(cells) >= 9 else cells[-2]
         evidence_cell = cells[8] if len(cells) >= 9 else cells[-1]
 
-        # Extract primary verdict token deterministically (earliest match in cell, longest tie-break)
-        matched_positions: list[tuple[int, int, str]] = []
-        for v in sorted(VALID_VERDICTS):
-            pos = verdict_cell.find(v)
-            if pos >= 0:
-                matched_positions.append((pos, -len(v), v))
+        # The verdict is the whole token that opens the cell (after markdown emphasis such as ** or `).
         v_main: str | None = None
-        if not matched_positions:
+        m_verdict = _VERDICT_TOKEN_RE.match(verdict_cell.lstrip("*`_~ \t"))
+        if m_verdict is None:
             errors.append({
                 "line": lineno,
                 "audit_id": audit_id,
@@ -214,8 +219,7 @@ def validate_audit_log_markdown(path: Path) -> dict[str, Any]:
                 "message": f"unrecognized verdict cell {verdict_cell!r}",
             })
         else:
-            matched_positions.sort()
-            v_main = matched_positions[0][2]
+            v_main = m_verdict.group(1)
             verdict_counts[v_main] = verdict_counts.get(v_main, 0) + 1
 
         # Extract oracle class tokens
@@ -261,6 +265,14 @@ def validate_audit_log_markdown(path: Path) -> dict[str, Any]:
                 "code": "PROVENANCE_INFLATION",
                 "message": "row mixes uncompiled_source with kernel-verified claim",
             })
+
+    if require_rows and rows_checked == 0:
+        errors.append({
+            "line": 0,
+            "audit_id": "",
+            "code": "NO_AUDIT_ROWS",
+            "message": "audit log has no audit rows (expected at least one `AUDIT-...` table row)",
+        })
 
     return {
         "path": str(path),
@@ -1138,7 +1150,9 @@ def run_audit_check(
         if cand.is_file():
             log_path = cand
     if log_path is not None:
-        audit_log_report = validate_audit_log_markdown(log_path)
+        # An explicit --audit-log must hold rows. A freshly scaffolded workspace has an empty ledger, so the
+        # auto-discovered one may still be empty.
+        audit_log_report = validate_audit_log_markdown(log_path, require_rows=audit_log is not None)
 
     # Optional JSON audit receipt validation
     receipt_report: dict[str, Any] | None = None
