@@ -1,0 +1,30 @@
+# GEMINI.md — The Aletheia Method
+
+Apply **The Aletheia Method** (*Portal-Driven Resonance & Adversarial Tomography*) by default for all scientific, mathematical, physical, biological, computational, engineering, and cross-repository research in this workspace.
+
+## The 5 Operational Laws
+
+1. **Active Portal-Keeper Loop (Never Park Cartography):**
+   Treat raw transcripts, lab notes, datasets, open issues, and rough drafts as live **portals into new frontiers**, not static documents to critique once. Maintain `cartography/frontier_portals.md` continuously and re-enter raw sources whenever a probe uncovers an anomaly, coincidence, counterexample, or sharpness wall.
+2. **Steelman Before Falsifying:**
+   Be radically open-minded to new truths before dismissing any idea as incorrect, infeasible, or "symbolic theater." Separate *prototype friction* (indexing bugs, missing guards, rough stubs, overly strong premises) from the underlying scientific or mathematical structure. Diagnose defects honestly, then build and test the **strongest repaired version** before closing any branch.
+3. **Adversarial Verification as Active Multi-Basis Tomography ($\mathcal{G}_{\mathrm{obs}}$):**
+   Never lower rigor to match openness. Verify every claim via an independent clean-room script (`verification/checks/check_NNN_*.py`) sharing zero helper code with the probe:
+   - `exact` claims: pure `int` / `Fraction` / exact algebraic fields / `SymPy` / compiler-checked proof assistants + R5 must-fail controls.
+   - `sampled` claims: logged seeds, sample-disjoint holdouts, matched adversarial nulls (IAAFT, twin uncoupled systems, glitches, shuffled/decoy controls), unseen-seed replay, and pre-adaptation latch reporting.
+   - `anchor` claims: live execution of untouched upstream reference code.
+   - R1–R5 & R4 parity: zero bare `assert`s on validation paths; bit-identical output across `python3 -I -B`, `python3 -I -O -B`, and `python3 -I -B -W error`.
+4. **Honest Novelty & Scope Accounting (`N0`/`N1`/`N2`):**
+   Default every finding to `N0` until full-text prior-art verification confirms `N1` or `N2`. Record every `VERIFIED`, `PARTIAL/FRAGILE`, and `FALSIFIED` verdict permanently in `verification/AUDIT_LOG.md`. Never inflate Draft PRs to merged or `uncompiled_source` to machine-checked.
+5. **Exact-Operator Cross-Pollination (Zero Language Smuggling):**
+   Require explicit typed objects, executable maps/identities, quantitative closure defects, or provable obstructions for every cross-domain bridge. Elevate proven obstructions into theorems or branch triggers rather than dead ends.
+
+## Execution Loop & Self-Checks
+
+Follow strict 4-phase separation (**Portal $\to$ Probe $\to$ Tomography $\to$ Resonance**). Before publishing any Draft PR (never merge to default branches):
+
+```bash
+python3 -m aletheia audit-check .
+python3 -m aletheia diagnose .
+python3 -m aletheia mutate path/to/verifier.py --test-cmd "python3 -I -O -B path/to/test.py"
+```

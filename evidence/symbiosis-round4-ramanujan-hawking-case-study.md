@@ -1,0 +1,63 @@
+# Empirical Case Study IV: Wave 2 Round 4 — Ramanujan, Hawking, Formal-Math Tomography & the 8-Glyph Operator Calculus (`v1.2` $\to$ `v1.3`)
+
+This case study documents **Wave 2 — Round 4** (including Rounds 4B, 4C, 4D, and 4E, `2026-11-21`) of the Cave Expedition, indexing strictly independently **`VERIFIED`** audits (`AUDIT-041`–`AUDIT-054`), live Foundation-0 repositories, and the exact technical discoveries that evolved `Foundation-0/aletheia` from `v1.2.0` to **`v1.3.0`**.
+
+> **Strict Read-Only Ethics & Provenance Standing:** All external third-party repositories (`judegomila/*`, `tristanbuckmaster/*`, `openai/*`, `google-deepmind/*`, `anthropics/*`) were audited strictly locally and read-only (`0` writes, PRs, issues, or comments to any third-party organization). Every theorem, counterexample, and commutator law below was independently re-verified from scratch by zero-shared-code oracles (pure $\mathbb{Q}/\mathbb{Z}$ + independent symbolic `SymPy`), with all intermediate `PARTIAL/FRAGILE` audits preserved permanently in `AUDIT_LOG.md`.
+
+---
+
+## 1. Live Own-Org Repositories & PRs Spawned in Round 4
+
+| Repository & PR | Standing | Head Commit | Verified Scope |
+|---|---|---|---|
+| **[`Foundation-0/hawking#1`](https://github.com/Foundation-0/hawking/pull/1)** | Open PR (`feat/hawking-bridge-v1`) | `2cc38330` | Bundles `hawking` v0.1.0 (`AUDIT-041`, `042`, `043` `N1` + **`AUDIT-047R` `N2` CONFIRMED**): *The Boundary Double-Schur Holographic Hodge-1, Surgical Krein-Severing, Parallel-Sum Horizon-Screening & Ramanujan 2-Lift Theorem* (strictly finite-graph exact $\mathbb{Q}$, explicit 3-gap continuum ledger). |
+| **[`Foundation-0/ramanujan#1`](https://github.com/Foundation-0/ramanujan/pull/1)** | Open Draft PR | `9bafe2c7` | Bundles `ramanujan` v0.1.0 (`AUDIT-044`, `045`, `046`, `048R`, all `VERIFIED` `exact+anchor` `N1`): zero-float Ramanujan-graph certifier, mock modular shadows & additive-Hankel refutation, $PGL(2,\mathbb{Q}[[q]])$ / Mellin regulator equalizer, and cross-org Ramanujan synthesis. |
+| **[`Foundation-0/continuum#3`](https://github.com/Foundation-0/continuum/pull/3)** | Open Draft PR (`expedition/synthesis-instruments`) | `7fe4ee22` | Adds `expedition-double-slit-continuum/` (`AUDIT-054` `VERIFIED` `exact` `N1`, `38/38` R5 killed): 4-regime exact $\mathbb{Q}/\mathbb{Q}[i]$ double-slit & Sorkin triple-slit continuum–observer backaction, deck-splitting eraser, 16-vertex Fine–Farkas CHSH witness, and looped-Schur vs. Kerr scaling separation. |
+
+---
+
+## 2. Verified Round-4 Audit Scorecard (Strictly `VERIFIED` Entries)
+
+| Audit ID | Round / Target | Oracle | Novelty | Verdict | Key Independently Verified Results |
+|---|---|---|---|---|---|
+| **`AUDIT-041`–`043`** | Round 4 Foundation (`hawking` arms: horizon Schur/Krein, $p$-adic BTZ/Leech, observer-sheaf MDR) | `exact`+`anchor` | `N1` | **`VERIFIED`** | Exact singular-kernel Haynsworth–Krein shadow law (`n_- = rk(M ⧅ B)`), $p$-adic BTZ depth-2 quotient-in-stages, and discrete Hodge-1 resistance identity `⧇(e) = 1 - w_e R_eff(e)`. |
+| **`AUDIT-044`** | Round 4 Arm R4-1 (Ramanujan graphs, `840`-class $H^1(G,\mathbb{Z}_2)$ 2-lifts, 24 Niemeier companions) | `exact` | `N1` | **`VERIFIED`** | Zero-float integer PSD Ramanujan-graph certifier (Petersen `n_-=0`, Dumbbell14 `n_-=1`), `840`-class signed 2-lift sweep uncovering BTZ wormhole parity bifurcation & balanced Krein signature `(k, |B|-2k, k)`, and exact certification across all 24 Niemeier lattices. |
+| **`AUDIT-045`** | Round 4 Arm R4-2 (Ramanujan mock modular shadows & 3-lab Lean forensics) | `exact`+`anchor` | `N1` | **`VERIFIED`** | Law-3 refutation of naive additive-Hankel mock-shadow signature (`r_add` stays at `14` on true mock $f(q)$ & false theta), steelmanned into exact 4-tier Euler–Witt / Hankel rank filtration + column-space Rank–Crank Schur complement $S_{\mathrm{shadow}}(p,r)$, BigInt $\tau(n)$ / cubic-theta AGM, and 20-file 3-lab `--lean-audit` forensics. |
+| **`AUDIT-046`** | Round 4 Arm R4-3 ($PGL(2,\mathbb{Q}[[q]])$ continued fractions & Mellin regulator equalizer) | `exact` | `N1` | **`VERIFIED`** | Exact $PGL(2,\mathbb{Q}[[q]])$ Schur-tridiagonal hard-core transfer & tropical peeling, plus exact $\mathbb{Q}((\varepsilon))$ Master-Theorem regulator-net equalizer proving `N1 ⟠ G_mult ⩩ -1/12` across multiplicative cutoffs while exposing shift-broken observer nets. |
+| **`AUDIT-047R`** | Round 4 Arm R4-4 (`Foundation-0/hawking#1` pre-push gate) | `exact`+`anchor` | **`N2` CONFIRMED** | **`VERIFIED`** | Four-part finite-graph unifying theorem proved in exact $\mathbb{Q}$ and independently torture-tested over symbolic `SymPy` (`check_040`, `0` counterexamples across 25 random graphs & 50 single-edge perturbations): Boundary Double-Schur Holographic Hodge-1, Surgical Krein-Severing, Parallel-Sum Horizon Screening, and Ramanujan 2-Lift Deck Splitting; `36/36` (`100%`) R5 killed. |
+| **`AUDIT-048R`** | Round 4 Arm R4-5 (Cross-org practical Ramanujan synthesis) | `exact`+`anchor` | `N1` | **`VERIFIED`** | Coordinate-free BFS 2-coloring exact integer Ramanujan certifier (refuses non-bipartite graphs cleanly), cyclic-shift equivariant exact integer Ramanujan subspace projectors $P_q = M_q/24$ (`C = 10^30` gauge-invariant vs. float64 erasure), 48-gate `20-21-29` Givens spectral + ordered-layer obstruction, exact Pell/CF bracketing, and `59/59` (`100%`) R5 killed. |
+| **`AUDIT-049`** | Round 4B Arm R4B-1 (`judegomila/{zeta-explorer@694eb35f, dbn-lambda-01787854-candidate-audit@a74738de}`, read-only) | `exact`+`anchor` | `N1` | **`VERIFIED`** | Full `aletheia --lean-audit` census of `326` `.lean` files (`0` bound-invalidating defects; `dbn-audit` `25/25` `0` findings), hardened exact Dini verifier, and live discovery of **`ALETHEIA-CLI-01`** (repeated `--allow-project-import` flags overwriting prior prefixes in `aletheia/cli.py:94`) — directly fixed in `aletheia` v1.3.0. |
+| **`AUDIT-050`** | Round 4B Arm R4B-2 (`judegomila/{canculus@ef76861b, OnCo@d4384208}`, read-only) | `exact`+`anchor` | `N1` | **`VERIFIED`** | Live Node.js reproduction of `CANC-B1..B4` on untouched `calculus.ts` (`0` FPs) + hardened exact $\mathbb{Q}$ normal-form/De Morgan involution, $2\times 2$ Schur complement & $PGL(2,\mathbb{Q})$ cross-ratio (`3/2`) closing float64 boundary flip (`7/27`), tropical Bellman–Ford closure, and `33/33` (`100%`) R5 killed. |
+| **`AUDIT-051`** | Round 4C Arm R4C (**The Aletheia 8-Glyph Operator Calculus**) | `exact` | `N1` *(with `C1` & `C6` airtight theorems)* | **`VERIFIED`** | Canonical 8-glyph Unicode `Sm` basis (`⧄ ⧅ ⦷ ⟠ ⧇ ⦺ ⩩ ⫩`) with a reported **`0 / 227,540` Lean 4 corpus collisions** (not reproduced here), pure-$\mathbb{Q}$ Unicode + ASCII fallback parser/evaluator, `13/13` 1-line compressed expedition theorems, `6/6` commutator discovery probes (`C1`–`C6`, independently torture-tested over `SymPy` `check_042` with `0` counterexamples across `30/30` extreme-weight random graphs + `1,000` quadruples), and `68/68` (`100%`) R5 killed. |
+| **`AUDIT-052`** | Round 4D Arm R4D-1 (`tristanbuckmaster/{navier-stokes@ad53419d, fluid_lean@d0124689}` & `openai/NavierStokesAndEuler@f9e8bc5b`, read-only) | `exact`+`anchor` | `N1` | **`VERIFIED`** | Complete `8,678`-file (`3,077,719`-line) Lean 4 forensics (`0` non-sorry escapes, `0/6` `enable_nanoda: false` in `navier-stokes` vs `3/3` `fluid_lean` & `2/2` `oai_nse`, `0` pairwise SHA-256 overlap vs OpenAI) + standalone pure-$\mathbb{Q}$ `SignedTree` multifrontal Schur-complement verifier (`SF-01 #24`, `O(6,Q)` invariant, `6/6` domain mutants killed), symbolic weight-shift (`1521/1445` at $\kappa=19$), and 2D Kuhn Sperner parity (`1` at `p=7, 11`). |
+| **`AUDIT-053R`** | Round 4D Arm R4D-2 (Alpöge–Buckmaster–Coiculescu `tristanbuckmaster-cc.pdf`, read-only) | `exact`+`anchor` | `N1` | **`VERIFIED`** | Zero-float rational Farkas duals (`3` active facets on canonical `(3/4, 1/2, 2/3, 1/12)`), pure-integer Appendix C Lemma 1.3 tower (`b=1,2,3`), exact $4\times 4$ saddle-point Leray Schur complement (`SF-01 #23`), symbolic `SymPy` proof of Sections 2–6 ODEs & Arnold–Brenier `(4.7)` (`0` false alarms on the preprint), and `17/17` (`100%`) R5 killed. |
+| **`AUDIT-054`** | Round 4E Arm R4E (Double- & Triple-Slit Continuum–Observer Backaction, Deck-Splitting Eraser & Sorkin $I_{ABC}$ Separation) | `exact` | `N1` | **`VERIFIED`** | Pure-$\mathbb{Q}/\mathbb{Q}[i]$ four-regime separation proved over symbolic `SymPy` (`check_045`): exact $SO(2)$ complementarity, `16x16` GKSL Pauli Schur rate $2g^2/\Gamma$, surgical severing & 2-lift deck-splitting eraser; 16-vertex Fine–Farkas CHSH infeasibility (`14/5 > 2`); exact Sorkin separation between Regime I ($I_{ABC}\equiv 0$), linear looped-Schur III-A (degree-0 intensity invariance), and nonlinear Kerr III-B ($\lambda^2$ scaling vs `DS-N0-08` ceiling); `38/38` (`100%`) R5 killed. |
+
+---
+
+## 3. The 8-Glyph Aletheia Operator Calculus (`AUDIT-051`) & Commutator Discoveries
+
+To eliminate disciplinary vocabulary drag (*Beyond-Language Perception*, `THEORY.md` §3.5) without introducing symbolic theater, Round 4C audited `392` Unicode `Sm` codepoints across `U+27C0..U+2AFF` against a reported **`227,540` Lean 4 files** (scan script and corpus not in this repository) (`google-deepmind/formal-conjectures`, `openai/math`, `anthropics/formal-math`, `anthropics/flt`) and registered **8 zero-collision operators** with 1-to-1 exact $\mathbb{Q}/\mathbb{Z}$ executable semantics:
+
+| Glyph | Codepoint | ASCII | Operator | Exact Semantics |
+|---|---|---|---|---|
+| `⧄` | `U+29C4` | `\|/\|` | Schur Pushforward | $M \mathbin{⧄} B = M_{AA} - M_{AB} M_{BB}^+ M_{BA}$ (`SF-01`) |
+| `⧅` | `U+29C5` | `\|\\\|` | Dark-Mode Shadow | $M \mathbin{⧅} B = (\ker M_{BB},\, M_{AB}|_{\ker},\, \dim_{\mathrm{dark}},\, r_{\mathrm{cross}})$ |
+| `⦷` | `U+29B7` | `(||)` | Holonomy Unmasking | $L \mathbin{⦷} \chi = (L^\chi \mathbin{⧄} I) - (L \mathbin{⧄} I)$ |
+| `⟠` | `U+27E0` | `<=>` | Observer-Net Equalizer | $X \mathbin{⟠} G$ exact Reynolds or Mellin regulator-net equalizer (`SF-07`) |
+| `⧇` | `U+29C7` | `[o]` | Cohomological Obstruction | $\mathbin{⧇}(\omega) = \|\omega_{\mathrm{harm}}\|_w^2 / \|\omega\|_w^2 \in [0,1]\cap\mathbb{Q}$ (`SF-05`) |
+| `⦺` | `U+29BA` | `(+-0)` | Krein Inertia Functor | $\mathbin{⦺}(A) = (n_+, n_0, n_-)$ (with projections `⦺_+`, `⦺_0`, `⦺_-`) |
+| `⩩` | `U+2A69` | `=#=` | Exact Null-Equivalence | $X \mathbin{⩩} Y \iff X - Y = 0$ identically (forbids floats; `CS-11`) |
+| `⫩` | `U+2AE9` | `_|T` | R5 Refusal-Verified Gate | $T \mathbin{⫩} x \iff T(x) \land \forall m \in M(x),\,\neg T(m)$ (`SF-04`) |
+
+Testing pairwise commutators directly inside the calculus uncovered two sharp exact theorems (`check_042`):
+1. **`C1` (`[⧄_D, ⦷_χ]` Nonlinear Loewner Screening Positivity):** Across any 3-layer screened graph $B \mid C \mid D$, the Schur-unmasking commutator defect $H^\top ((L \mathbin{⧄} D) \mathbin{⦷} \chi) H - (L \mathbin{⦷} \chi)$ is unconditionally PSD — even on asymmetric odd-cycle $K_3$ signatures `(1, 0, 2)` — forcing nested Krein contraction on both $n_+$ and $n_-$ and monotonic monopole screening $\Phi_B(\chi) \le \Phi_C(\chi)$.
+2. **`C6` (Unconditional Linear Monopole Subadditivity & Rational Metric on $H^1(G, B; \mathbb{Z}_2)$):** Using the explicit 1-Lipschitz rational witness $z_v = \operatorname{sgn}(x_1)\operatorname{sgn}(x_2)\min(|x_1|, |x_2|)$, $\Phi_B(L \mathbin{⦷} (\chi_1 \chi_2)) \le \mathcal{E}_{\chi_1 \chi_2}(z) \le \Phi_B(L \mathbin{⦷} \chi_1) + \Phi_B(L \mathbin{⦷} \chi_2)$ holds unconditionally across all positive edge weights, making $d([\chi_1], [\chi_2]) = \Phi_B(L \mathbin{⦷} (\chi_1 \chi_2))$ an exact rational metric on relative cohomology classes.
+
+---
+
+## 4. How Round 4 Directly Evolved `Foundation-0/aletheia` (`v1.2.0` $\to$ `v1.3.0`)
+
+1. **Bug Fix `ALETHEIA-CLI-01` (`aletheia/cli.py`, caught live in `AUDIT-049`):** Changed `--allow-project-import` from `nargs="*"` (`action="store"`) to `action="extend", nargs="+"` so repeated `--allow-project-import A --allow-project-import B` flags accumulate all module prefixes cleanly, verified by a dedicated regression test (`test_13`).
+2. **Executable 8-Glyph Operator Calculus (`aletheia/calculus.py` + `aletheia calculus` CLI):** Bundled the `AUDIT-051`-verified zero-dependency, zero-float engine with embedded registry, Unicode & ASCII fallback parser/evaluator, default exact-$\mathbb{Q}$ sandbox, and full 13-theorem + 6-commutator self-test (`--list`, `--eval EXPR`, `--self-test`, `--json`).
+3. **Updated Specification & Multi-Platform Plugins (`v1.3.0`):** Synchronized `THEORY.md`, `spec/LAWS_AND_GATES.md`, `AGENTS.md`, `.agents/plugins/aletheia-research/`, and `adapters/claude-code/.claude-plugin/plugin.json` to `v1.3.0`.

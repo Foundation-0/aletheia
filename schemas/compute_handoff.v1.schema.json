@@ -1,0 +1,214 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Foundation-0/aletheia/schemas/compute_handoff.v1.schema.json",
+  "title": "Aletheia Portable Compute Handoff Manifest v1",
+  "description": "Machine-readable compute-tiered Wave 2+ handoff manifest validated by `aletheia handoff <manifest.json>`. Supports both canonical `aletheia.compute_handoff.v1` and legacy `expedition.next_waves.v1` (with optional parenthetical oracle qualifiers).",
+  "type": "object",
+  "required": [
+    "schema",
+    "generated_by",
+    "snapshot_date",
+    "compute_tiers",
+    "waves"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "enum": [
+        "aletheia.compute_handoff.v1",
+        "expedition.next_waves.v1"
+      ]
+    },
+    "generated_by": {
+      "type": "string",
+      "minLength": 1
+    },
+    "snapshot_date": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}(?!\\n)$"
+    },
+    "source_repo": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Primary repository URL or identifier (required when schema == 'aletheia.compute_handoff.v1')."
+    },
+    "umbrella_repo": {
+      "type": "string",
+      "minLength": 1
+    },
+    "compute_tiers": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "label",
+          "hardware",
+          "toolchain"
+        ],
+        "properties": {
+          "label": {
+            "type": "string",
+            "minLength": 1
+          },
+          "hardware": {
+            "type": "string",
+            "minLength": 1
+          },
+          "toolchain": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "waves": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "wave_id",
+          "name",
+          "tasks"
+        ],
+        "properties": {
+          "wave_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "tasks": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "title",
+                "compute_tier",
+                "target_repos",
+                "bootstrap_command",
+                "oracle_class",
+                "falsification_gate"
+              ],
+              "anyOf": [
+                {
+                  "required": [
+                    "hypothesis"
+                  ]
+                },
+                {
+                  "required": [
+                    "mathematical_hypothesis"
+                  ]
+                }
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "title": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "compute_tier": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Must match a key declared in top-level `compute_tiers`."
+                },
+                "target_repos": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "target_prs": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "starting_commits": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string",
+                    "minLength": 7
+                  }
+                },
+                "target_paths": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "wave1_audits": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "bootstrap_command": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "hypothesis": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "mathematical_hypothesis": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "oracle_class": {
+                  "type": "string",
+                  "pattern": "^(exact|sampled|anchor|reference_replay)(\\s*\\([^()]+\\))?(\\s*\\+\\s*(exact|sampled|anchor|reference_replay)(\\s*\\([^()]+\\))?)*(?!\\n)$"
+                },
+                "falsification_gate": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "additionalProperties": true
+            }
+          }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "schema": {
+            "const": "aletheia.compute_handoff.v1"
+          }
+        },
+        "required": [
+          "schema"
+        ]
+      },
+      "then": {
+        "required": [
+          "source_repo"
+        ]
+      }
+    }
+  ],
+  "additionalProperties": true
+}

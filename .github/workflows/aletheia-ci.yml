@@ -1,0 +1,62 @@
+name: Aletheia Self-Verification CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  verify-r4-r5:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install aletheia-method (zero external dependencies)
+        run: |
+          python3 -m pip install --no-deps .
+
+      - name: Run full CLI test & R5 mutation suite across all 3 isolated R4 modes
+        run: |
+          python3 -I -B tests/run_all.py > /tmp/aletheia_b.json
+          python3 -I -O -B tests/run_all.py > /tmp/aletheia_ob.json
+          python3 -I -B -W error tests/run_all.py > /tmp/aletheia_we.json
+          diff -u /tmp/aletheia_b.json /tmp/aletheia_ob.json
+          diff -u /tmp/aletheia_b.json /tmp/aletheia_we.json
+          cat /tmp/aletheia_b.json
+
+      - name: Run worked resonance cycle demo across all 3 isolated R4 modes
+        run: |
+          python3 -I -B examples/worked_resonance_cycle/run_demo.py > /tmp/demo_b.out
+          python3 -I -O -B examples/worked_resonance_cycle/run_demo.py > /tmp/demo_ob.out
+          python3 -I -B -W error examples/worked_resonance_cycle/run_demo.py > /tmp/demo_we.out
+          diff -u /tmp/demo_b.out /tmp/demo_ob.out
+          diff -u /tmp/demo_b.out /tmp/demo_we.out
+
+      - name: Self-audit repository with aletheia audit-check (R1-R4 + worked demo)
+        run: |
+          python3 -I -O -B -W error -m aletheia audit-check . \
+            --scripts tests/run_all.py examples/worked_resonance_cycle/run_demo.py \
+            --json
+
+      - name: Run R5 AST refusal-site mutation test via CLI
+        run: |
+          python3 -I -O -B -W error -m aletheia mutate tests/fixture_verifier.py \
+            --test-cmd "python3 fixture_verifier_test.py" \
+            --work-root tests \
+            --json
+
+      - name: Verify portable compute handoff template, v1.1 ratchet/mde demos & dry-run installers
+        run: |
+          python3 -I -O -B -W error -m aletheia ratchet --demo --json
+          python3 -I -O -B -W error -m aletheia mde --manifest --json
+          python3 -I -O -B -W error -m aletheia mde --demo --json
+          python3 -I -O -B -W error -m aletheia handoff /tmp/ci_handoff.json --init-template --json
+          python3 -I -O -B -W error -m aletheia handoff /tmp/ci_handoff.json --json
+          for tgt in antigravity claude-code codex cursor gemini-cli repo; do
+            python3 -I -O -B -W error -m aletheia install --target "$tgt" --dry-run --json
+          done

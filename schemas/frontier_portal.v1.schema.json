@@ -1,0 +1,152 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Foundation-0/aletheia/schemas/frontier_portal.v1.schema.json",
+  "title": "Aletheia Frontier Portal Catalog v1",
+  "description": "Structured catalog of active discovery portals and steelmanned hypotheses maintained continuously by the Portal Keeper (`cartography/entry_points.json`). All regexes use `(?!\\n)$` so Python `re` and ECMA-262 both reject trailing newlines.",
+  "type": "object",
+  "required": [
+    "schema",
+    "generated_by",
+    "updated_date",
+    "domain",
+    "portals"
+  ],
+  "properties": {
+    "schema": {
+      "const": "aletheia.frontier_portal.v1"
+    },
+    "generated_by": {
+      "type": "string",
+      "minLength": 1
+    },
+    "updated_date": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}(?!\\n)$"
+    },
+    "domain": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]{0,47}(?!\\n)$"
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "Read-only identifiers or relative references to raw source material mined."
+    },
+    "portals": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "status",
+          "trigger_type",
+          "raw_anchors",
+          "prototype_friction",
+          "steelmanned_hypothesis",
+          "oracle_class",
+          "falsification_criterion"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{1,63}(?!\\n)$",
+            "description": "Unique portal or entry-point identifier (e.g. portal-01, ep-01-rank-envelope)."
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "probing",
+              "verified",
+              "obstructed",
+              "handoff",
+              "falsified"
+            ]
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "critical",
+              "high",
+              "medium",
+              "low"
+            ]
+          },
+          "trigger_type": {
+            "type": "string",
+            "enum": [
+              "raw_source",
+              "anomaly",
+              "coincidence",
+              "counterexample",
+              "sharpness_wall",
+              "peer_seam"
+            ],
+            "description": "What triggered portal creation or re-entry."
+          },
+          "raw_anchors": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Exact relative file, line, formula, issue, or PR pointers (never personal home-directory paths)."
+          },
+          "prototype_friction": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Known repairable implementation bugs, missing guards, or rough stubs separated from the core truth."
+          },
+          "steelmanned_hypothesis": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Strongest repaired scientific, mathematical, or computational statement to test."
+          },
+          "exact_operator_or_object": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Explicit typed mathematical object, operator equation, or measurable observable (Law 5 anti-language-smuggling)."
+          },
+          "oracle_class": {
+            "type": "string",
+            "pattern": "^(exact|sampled|anchor|reference_replay)(\\s*\\+\\s*(exact|sampled|anchor|reference_replay))*(?!\\n)$"
+          },
+          "falsification_criterion": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Concrete observation or counterexample that would refute the steelmanned hypothesis."
+          },
+          "target_roles": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "linked_audits": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^AUDIT-[0-9]{3,4}[A-Za-z0-9_-]*(?!\\n)$"
+            }
+          }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}
