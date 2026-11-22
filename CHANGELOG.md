@@ -4,6 +4,9 @@ All notable changes to `Foundation-0/aletheia` are documented in this file. Spec
 
 ## [Unreleased]
 
+### Added
+- **`aletheia twin-check` (`aletheia/twin_check.py`, contract `spec/twin_contract.json`):** machine-checks the claims the aletheia and cave-expedition repos make about each other. Nine checks cover the audit id range in the cave ledger, the audit ids aletheia cites, the number of check scripts each side counts, the set of results labelled `N2`, the seam and portal counts, the cave README claim that every track reached `VERIFIED`, the byte identity of the two `LICENSE` files, and the CI in each repo. Each check reports `OK`, `DRIFT`, `PENDING` or `SKIP` with the file and line it used, and a `PENDING` entry names the pull request that clears it. `DRIFT` exits `1`, `PENDING` and `SKIP` exit `0`, and a missing twin repo is `SKIP`, so a repo's own CI never fails because a sibling repo was not checked out. The contract pins every count, so a number that changes in one repo needs a reviewed edit in the other.
+
 ### Changed
 - Recorded the project owner's 2026-11-23 ruling that Own-Terms-First is adopted as a flexible rule (`spec/LAWS_AND_GATES.md` §1.1 and the status line of `spec/proposals/OWN_TERMS_FIRST.md`). Text only, no version bump.
 

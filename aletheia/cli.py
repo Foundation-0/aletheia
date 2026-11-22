@@ -11,6 +11,7 @@ Subcommands:
   - ratchet      Run Aletheia Ratchet 5-gate demo or verify float-free hash-chained ratchet ledgers
   - mde          Emit/verify Plane-1 `zone-canon-v0` Aletheia-MDE manifests, lineage DAGs & SYM-2P packets
   - calculus     List, evaluate, or self-test the 8-glyph Aletheia Operator Calculus
+  - twin-check   Machine-check the claims aletheia and cave-expedition make about each other
 """
 from __future__ import annotations
 
@@ -33,6 +34,7 @@ from .ratchet import run_ratchet_demo, verify_ratchet_ledger_file
 from .safety import scan_directory_safety_surface
 from .scaffold import init_workspace
 from .strict_io import AletheiaError
+from .twin_check import format_twin_table, resolve_contract_path, resolve_roots, run_twin_check
 
 
 def _emit(payload: dict[str, Any], as_json: bool) -> None:
@@ -200,6 +202,13 @@ def build_parser() -> argparse.ArgumentParser:
     p_saf.add_argument("--include-host-hygiene", action="store_true", help="Include CYA-GAP-06 alias-rm and cloud-sync rules")
     p_saf.add_argument("--json", action="store_true", help="Emit JSON output")
 
+    # 12. twin-check (machine-checked coupling with the sibling cave-expedition repo)
+    p_twin = sub.add_parser("twin-check", help="Check the claims aletheia and cave-expedition make about each other against spec/twin_contract.json")
+    p_twin.add_argument("--aletheia-root", type=Path, default=None, help="Aletheia repo root (default: $ALETHEIA_ROOT, else this package's repo)")
+    p_twin.add_argument("--cave-root", type=Path, default=None, help="cave-expedition repo root (default: $CAVE_ROOT, else the sibling 'cave-expedition' directory)")
+    p_twin.add_argument("--contract", type=Path, default=None, help="Twin contract JSON (default: <aletheia-root>/spec/twin_contract.json, else the packaged one)")
+    p_twin.add_argument("--json", action="store_true", help="Emit the machine-readable report as JSON")
+
     return parser
 
 
@@ -331,6 +340,15 @@ def main(argv: Sequence[str] | None = None) -> int:
                 raise AletheiaError("SAFETY_SCAN_ERROR", str(exc)) from exc
             _emit(res, as_json)
             return 0 if res["clean"] else 1
+
+        if args.command == "twin-check":
+            a_root, c_root = resolve_roots(args.aletheia_root, args.cave_root)
+            res = run_twin_check(a_root, c_root, resolve_contract_path(args.contract, a_root))
+            if as_json:
+                _emit(res, True)
+            else:
+                print(format_twin_table(res))
+            return 0 if res["passed"] else 1
 
         raise AletheiaError("UNKNOWN_COMMAND", f"unknown command: {args.command}")
 

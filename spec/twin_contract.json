@@ -1,0 +1,253 @@
+{
+  "schema": "aletheia.twin_contract.v1",
+  "purpose": "Pins every claim the aletheia and cave-expedition repos make about each other. A count or id set changes in one repo only together with a reviewed edit to this file, so drift is a visible diff instead of silent. PENDING entries name the pull request that clears them and are removed in the same change that merges it.",
+  "repos": {
+    "aletheia": "Foundation-0/aletheia",
+    "cave": "Foundation-0/cave-expedition"
+  },
+  "checks": {
+    "cave.audit_ids_contiguous": {
+      "description": "AUDIT-xxx ids in cave verification/AUDIT_LOG.md form a contiguous range with no gaps and no duplicate ids.",
+      "locator": {
+        "log_file": "verification/AUDIT_LOG.md"
+      },
+      "expected": {
+        "first": 1,
+        "gaps": [],
+        "duplicates": []
+      }
+    },
+    "aletheia.cites_known_audits": {
+      "description": "Every AUDIT-xxx id cited in aletheia README.md, THEORY.md and evidence/*.md exists in the cave AUDIT_LOG or is declared pending here with its tracking pull request.",
+      "locator": {
+        "files": [
+          "README.md",
+          "THEORY.md"
+        ],
+        "globs": [
+          "evidence/*.md"
+        ],
+        "cave_log_file": "verification/AUDIT_LOG.md"
+      },
+      "expected": {
+        "every_cited_id": "known or declared pending"
+      },
+      "pending": [
+        {
+          "tracking": [
+            "Foundation-0/cave-expedition#1"
+          ],
+          "clears_when": "cave-expedition#1 merges, so verification/AUDIT_LOG.md on main carries these rows; then delete this entry",
+          "ids": [
+            "AUDIT-020",
+            "AUDIT-020R",
+            "AUDIT-021",
+            "AUDIT-023",
+            "AUDIT-024",
+            "AUDIT-025",
+            "AUDIT-026",
+            "AUDIT-026R",
+            "AUDIT-027",
+            "AUDIT-028",
+            "AUDIT-029",
+            "AUDIT-030",
+            "AUDIT-031",
+            "AUDIT-032",
+            "AUDIT-033",
+            "AUDIT-034R",
+            "AUDIT-035",
+            "AUDIT-036",
+            "AUDIT-037",
+            "AUDIT-038R",
+            "AUDIT-039",
+            "AUDIT-041",
+            "AUDIT-043",
+            "AUDIT-044",
+            "AUDIT-045",
+            "AUDIT-046",
+            "AUDIT-047R",
+            "AUDIT-048R",
+            "AUDIT-049",
+            "AUDIT-050",
+            "AUDIT-051",
+            "AUDIT-052",
+            "AUDIT-053R",
+            "AUDIT-054",
+            "AUDIT-061",
+            "AUDIT-061R",
+            "AUDIT-062R",
+            "AUDIT-063R2",
+            "AUDIT-064",
+            "AUDIT-065",
+            "AUDIT-084R",
+            "AUDIT-085R",
+            "AUDIT-088R"
+          ]
+        }
+      ]
+    },
+    "cave.check_script_count_matches_citation": {
+      "description": "The number of verification/checks/check_*.py files in cave equals the number of verifier scripts aletheia cites.",
+      "locator": {
+        "cave_glob": "verification/checks/check_*.py",
+        "aletheia_citation": {
+          "file": "README.md",
+          "regex": "`(\\d+)` verifier scripts"
+        }
+      },
+      "expected": {
+        "aletheia_cited_check_scripts": 14
+      },
+      "pending": [
+        {
+          "tracking": [
+            "Foundation-0/cave-expedition#1"
+          ],
+          "clears_when": "cave-expedition#1 merges and adds check_013 and check_014, bringing cave main to 14 check scripts; then delete this entry",
+          "cave_count_after_merge": 14
+        }
+      ]
+    },
+    "cave.n2_set_matches": {
+      "description": "The audits cave README labels N2 equal the set aletheia describes as N2 (plus the one it lists as borderline N1/N2).",
+      "locator": {
+        "cave_readme_file": "README.md",
+        "cave_n2_heading_regex": "^### Confirmed `N2` Breakthroughs",
+        "aletheia_file": "evidence/cave-expedition-case-study.md",
+        "n2_row_regex": "^\\| \\*\\*Internally Labelled `N2`",
+        "borderline_row_regex": "^\\| \\*\\*Borderline `N1`/`N2`"
+      },
+      "expected": {
+        "aletheia_n2_ids": [
+          "AUDIT-002",
+          "AUDIT-004",
+          "AUDIT-009",
+          "AUDIT-010",
+          "AUDIT-011R",
+          "AUDIT-014",
+          "AUDIT-017",
+          "AUDIT-018",
+          "AUDIT-019",
+          "AUDIT-020R"
+        ],
+        "aletheia_borderline_n2_ids": [
+          "AUDIT-015R"
+        ]
+      },
+      "pending": [
+        {
+          "tracking": [
+            "Foundation-0/cave-expedition#1"
+          ],
+          "clears_when": "cave-expedition#1 merges and adds AUDIT-020R to the cave ledger and README; then delete this entry",
+          "ids": [
+            "AUDIT-020R"
+          ]
+        }
+      ]
+    },
+    "cave.seam_count_consistent": {
+      "description": "len(peer-web/frontier_seams.json) equals every seam count stated in peer-web/PEER_WEB.md.",
+      "locator": {
+        "json_file": "peer-web/frontier_seams.json",
+        "json_key": "frontier_seams",
+        "stated_in_file": "peer-web/PEER_WEB.md",
+        "stated_patterns": {
+          "swarm_consequence_bullet": "\\*\\*(\\d+|[A-Za-z]+)\\s+explicit\\s+seams",
+          "section_4_heading": "^##\\s+\\d+\\.\\s+Category C\\s+\u2014\\s+(\\d+|[A-Za-z]+)\\s+High-Leverage\\s+Uncharted\\s+Seams"
+        }
+      },
+      "expected": {
+        "stated_equals_json_len": true
+      }
+    },
+    "cave.portal_count_consistent": {
+      "description": "len(cartography/entry_points.json) equals the number of portals in cartography/frontier_portals.md.",
+      "locator": {
+        "json_file": "cartography/entry_points.json",
+        "json_key": "entry_points",
+        "portals_file": "cartography/frontier_portals.md",
+        "portal_heading_regex": "^## Portal (\\d+)\\b"
+      },
+      "expected": {
+        "entry_points_equals_portals": true
+      }
+    },
+    "cave.readme_verified_claim_consistent": {
+      "description": "Cave README does not assert every track reached VERIFIED unless every FALSIFIED/PARTIAL ledger row has a closing row or the README carries an explicit caveat.",
+      "locator": {
+        "readme_file": "README.md",
+        "ledger_file": "verification/AUDIT_LOG.md"
+      },
+      "expected": {
+        "assertion_strings": [
+          "Every active expedition track has reached `VERIFIED` status",
+          "Every active expedition track reached `VERIFIED` status"
+        ],
+        "caveat_strings": [
+          "have no closing row"
+        ]
+      }
+    },
+    "twin.license_verbatim": {
+      "description": "Both LICENSE files are byte-identical to each other and to the canonical Apache-2.0 text (SHA-256 pinned).",
+      "locator": {
+        "file": "LICENSE"
+      },
+      "expected": {
+        "canonical_sha256": "c95bae1d1ce0235ecccd3560b772ec1efb97f348a79f0fbe0a634f0c2ccefe2c",
+        "also_accepted_sha256": [
+          "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        ],
+        "note": "The pinned hash is the text both open pull requests ship. The also-accepted hash is the byte form served at apache.org/licenses/LICENSE-2.0.txt, which differs only in the position of one blank line."
+      },
+      "pending": [
+        {
+          "repo": "aletheia",
+          "tracking": [
+            "Foundation-0/aletheia#14"
+          ],
+          "clears_when": "aletheia#14 merges and LICENSE is the verbatim Apache-2.0 text; then delete this entry"
+        },
+        {
+          "repo": "cave",
+          "tracking": [
+            "Foundation-0/cave-expedition#11"
+          ],
+          "clears_when": "cave-expedition#11 merges and LICENSE is the verbatim Apache-2.0 text; then delete this entry"
+        }
+      ]
+    },
+    "twin.ci_present": {
+      "description": "Each repo has a CI workflow that runs its own checks.",
+      "expected": {
+        "repos": {
+          "aletheia": {
+            "workflow_globs": [
+              ".github/workflows/*.yml",
+              ".github/workflows/*.yaml"
+            ],
+            "run_markers": [
+              "tests/run_all.py"
+            ],
+            "if_missing": "DRIFT"
+          },
+          "cave": {
+            "workflow_globs": [
+              ".github/workflows/*.yml",
+              ".github/workflows/*.yaml"
+            ],
+            "run_markers": [
+              "verification/checks/check_"
+            ],
+            "if_missing": "PENDING",
+            "tracking": [
+              "Foundation-0/cave-expedition#12"
+            ],
+            "clears_when": "cave-expedition#12 merges and adds a workflow that runs verification/checks scripts; then set if_missing to DRIFT"
+          }
+        }
+      }
+    }
+  }
+}
