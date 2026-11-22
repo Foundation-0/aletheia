@@ -20,8 +20,9 @@ ZERO bare `assert` statements (R1-R5 compliant; bit-identical under -I -B,
       4th-moment Stieltjes-Hankel bound R_H4 breaks straight through the quadratic wall
       on the exact same non-commuting indefinite matrix (certifying rank(P) >= 2)
       while correctly respecting the rank-1 decoy (returning exact 1).
-  Stage 5 — R5 Must-Fail Controls & Live Refusal-Site Mutation Suite (Gate 7):
-      7 negative controls blocked + 3 live guard-deletion mutants caught & killed.
+  Stage 5 — R5 Must-Fail Controls & Simulated Guard-Deletion Mutations (Gate 7):
+      7 negative controls blocked + 3 guard-skip flags built into the certifier, each caught
+      & killed (simulated; the AST mutator `aletheia mutate` is not run here).
 
 Run:
   python3 -I -O -B -W error examples/worked_resonance_cycle/run_demo.py
@@ -973,7 +974,7 @@ def run_stage4_resonance_breakthrough(sys_data: dict[str, Any], H_decoy: CMat) -
 
 
 def run_stage5_r5_controls_and_mutations() -> dict[str, Any]:
-    """Stage 5: 7 must-fail controls + 3 live refusal-site mutations (Gate 7 R5)."""
+    """Stage 5: 7 must-fail controls + 3 simulated guard-deletion mutations (Gate 7 R5)."""
     controls_spec: list[tuple[str, str, Any]] = [
         (
             "C1_missing_P_psd_forgery",
@@ -1034,7 +1035,7 @@ def run_stage5_r5_controls_and_mutations() -> dict[str, Any]:
         )
         control_results.append({"control": name, "expected": expected_code, "caught": caught_code, "passed": True})
 
-    # Live Refusal-Site Mutation Suite (R5): deleting any guard MUST allow a forgery!
+    # Simulated guard-deletion mutations (R5; skip flags, not the AST mutator): deleting any guard MUST allow a forgery!
     mutations: list[dict[str, Any]] = []
 
     # Mutant 1: Delete P >= 0 guard -> C1 forges rank >= 117 on 2x2 matrix!
@@ -1081,7 +1082,7 @@ def run_stage5_r5_controls_and_mutations() -> dict[str, Any]:
 
     return {
         "stage": 5,
-        "name": "R5 Must-Fail Controls & Live Refusal-Site Mutation Suite (Gate 7)",
+        "name": "R5 Must-Fail Controls & Simulated Guard-Deletion Mutations (Gate 7)",
         "controls_passed": len(control_results),
         "controls_total": len(control_results),
         "controls": control_results,
@@ -1153,7 +1154,7 @@ def print_human_report(res: dict[str, Any]) -> None:
 
     print(f"\n[STAGE 5] {s5['name']}")
     print(f"  Must-fail negative controls: {s5['controls_passed']}/{s5['controls_total']} rejected with exact error codes")
-    print(f"  Live refusal-site mutations: {s5['mutants_killed']}/{s5['mutants_total']} guard deletions caught & killed:")
+    print(f"  Simulated guard-deletion mutations (skip flags, not aletheia mutate): {s5['mutants_killed']}/{s5['mutants_total']} guard deletions caught & killed:")
     for mut in s5["mutations"]:
         print(f"    - {mut['mutant']} -> {mut['forged_result']} [KILLED by {mut['killed_by_control']}]")
 

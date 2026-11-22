@@ -46,7 +46,7 @@ Aletheia was not designed abstractly—it emerged from a live natural experiment
 
 ### 1. Run the 3-Second Live Resonance Demo (Zero Dependencies)
 
-Experience a complete 5-stage Aletheia cycle—*Pass-1 forgery $\to$ Steelman $W\oplus W^\perp$ projection $\to$ Clean-room Faddeev–LeVerrier/Descartes tomography & sharpness wall $\to$ Higher-moment $R_{H4}$ breakthrough $\to$ R5 mutant catches*—in pure Python 3 stdlib:
+Experience a complete 5-stage Aletheia cycle—*Pass-1 forgery $\to$ Steelman $W\oplus W^\perp$ projection $\to$ Clean-room Faddeev–LeVerrier/Descartes tomography & sharpness wall $\to$ Higher-moment $R_{H4}$ breakthrough $\to$ R5 simulated-mutant catches*—in pure Python 3 stdlib:
 
 ```bash
 git clone https://github.com/Foundation-0/aletheia.git

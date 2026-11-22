@@ -1559,6 +1559,29 @@ class TestAletheiaCLI(unittest.TestCase):
                     stray.append(f"{rel}: {pat.pattern}")
         _req(not stray, f"a fourth R4 mode is still stated: {stray}")
 
+    def test_29_demo_stage5_is_labelled_simulated(self) -> None:
+        import importlib.util
+
+        demo = CLI_ROOT / "examples" / "worked_resonance_cycle" / "run_demo.py"
+        spec = importlib.util.spec_from_file_location("aletheia_worked_demo", demo)
+        _req(spec is not None and spec.loader is not None, "cannot load the demo")
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = mod
+        try:
+            spec.loader.exec_module(mod)
+        finally:
+            sys.modules.pop(spec.name, None)
+        stage5 = mod.run_all()["stages"][4]
+        _req("simulated" in stage5["name"].lower(), f"stage 5 name does not say simulated: {stage5['name']}")
+        _req(stage5["mutants_total"] == 3 and stage5["mutants_killed"] == 3, "stage 5 counts changed")
+
+        # The demo uses skip flags in the certifier, not the AST mutator, so no text may call these mutations live.
+        for path in (demo, demo.with_name("README.md")):
+            text = path.read_text(encoding="utf-8").lower()
+            _req("live refusal-site" not in text and "3 live" not in text and "live mutation" not in text,
+                 f"{path.name} still calls the simulated mutations live")
+            _req("simulated" in text and "ast mutator" in text, f"{path.name} does not say the mutations are simulated")
+
 
 if __name__ == "__main__":
     unittest.main()
