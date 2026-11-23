@@ -2,6 +2,11 @@
 
 All notable changes to `Foundation-0/aletheia` are documented in this file. Specification changes follow [`CONTRIBUTING.md`](CONTRIBUTING.md) (issue/audit reference, version bump, and regression tests).
 
+## [Unreleased]
+
+### Changed
+- Recorded the project owner's 2026-11-23 ruling that Own-Terms-First is adopted as a flexible rule (`spec/LAWS_AND_GATES.md` §1.1 and the status line of `spec/proposals/OWN_TERMS_FIRST.md`). Text only, no version bump.
+
 ## [2.0.0] — 2026-11-22
 
 Major governance, gate-contract, CLI, schema, and epistemic-honesty release integrating the complete external cross-model review (`aletheia#1`–`#9`, PR `#7` merged at `aa471867`, PR `#8` merged at `aa920b1a`, PR `#9` head `d43cb1c7` merged at `0b60322` confirming direction points on 2026-11-22 followed by owner authorization of v2.0.0 adoption), **Law 2b (Transformational Steelman)** (`AUDIT-088R`), and deterministic safety-surface scanning (`CYA-GAP-01..06`, `AUDIT-078R`).
