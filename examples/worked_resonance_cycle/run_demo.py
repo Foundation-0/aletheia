@@ -9,14 +9,15 @@ ZERO bare `assert` statements (R1-R5 compliant; bit-identical under -I -B,
 
   Stage 1 — Pass-1 Buggy Prototype (AUDIT-001 FALSIFIED):
       Omitting P = H - Q >= 0 forges rank(P) >= 117 on a 2x2 matrix.
-  Stage 2 — Steelman Projection (AUDIT-002 VERIFIED N2):
+  Stage 2 — Steelman Projection (AUDIT-002 VERIFIED, N1):
       Exact W (+) W^perp block slack identity & guarded scale-invariant R_opt(u, t, S, b).
+      Label per the outside check: Foundation-0/cave-expedition#4, verification/outside/rulings.json.
   Stage 3 — Active Observer Tomography & Sharpness Wall (G_obs, AUDIT-002):
       Zero-shared-code Faddeev-LeVerrier + Cayley-Hamilton + Descartes exact inertia
       oracle over Q(i) on a dense, strictly complex, non-commuting indefinite 4x4
       matrix H = P + Q (rank(P) = 2, n_+(H_perp) = 2, b = 1), PLUS an exact rational
       rank-1 decoy proving the 2nd-moment wall min rank(P) = max(1, ceil(R_opt)) = 1.
-  Stage 4 — Resonance Breakthrough (AUDIT-014 VERIFIED N2):
+  Stage 4 — Resonance Breakthrough (AUDIT-014 VERIFIED):
       4th-moment Stieltjes-Hankel bound R_H4 breaks straight through the quadratic wall
       on the exact same non-commuting indefinite matrix (certifying rank(P) >= 2)
       while correctly respecting the rank-1 decoy (returning exact 1).
@@ -486,7 +487,7 @@ def R_G_fable(u: Fraction, t: Fraction, S: Fraction, b: int) -> Fraction:
 
 def R_opt_guarded(u: Fraction, t: Fraction, S: Fraction, b: int) -> Fraction:
     """
-    Theorem A1 (AUDIT-002, VERIFIED N2):
+    Theorem A1 (AUDIT-002, VERIFIED, N1):
     Guarded scale-invariant projected-inertia envelope on W (+) W^perp:
       n_+(Pi_{W^perp} H Pi_{W^perp}) >= R_opt(u, t, S, b).
     """
@@ -565,7 +566,7 @@ def certify_stieltjes_hankel_deg4(
     _mutate_skip_nonneg_hankel: bool = False,
 ) -> dict[str, Any]:
     """
-    Theorem A2 (AUDIT-014, VERIFIED N2) exact degree-4 Stieltjes-Hankel TCB certifier:
+    Theorem A2 (AUDIT-014, VERIFIED) exact degree-4 Stieltjes-Hankel TCB certifier:
       Given a = (s, p) with s >= 0, p >= 0:
         q_{s,p}(lam) = 1 - s*lam + p*lam^2,
         phi_{s,p}(lam) = 1 - q_{s,p}(lam)^2 <= 1_{(0, +inf)}(lam) on ALL of R!
@@ -813,7 +814,7 @@ def run_stage2_steelman_projection(sys_data: dict[str, Any]) -> dict[str, Any]:
 
     return {
         "stage": 2,
-        "name": "Steelman Projection on W (+) W^perp (AUDIT-002 VERIFIED N2)",
+        "name": "Steelman Projection on W (+) W^perp (AUDIT-002 VERIFIED, N1)",
         "slack_lhs_gap_c2": frac_str(lhs_gap),
         "slack_explicit_nonneg_lb_c2": frac_str(rhs_slack_lb),
         "scale_invariance_lambda_17_5_exact": True,
@@ -959,7 +960,7 @@ def run_stage4_resonance_breakthrough(sys_data: dict[str, Any], H_decoy: CMat) -
 
     return {
         "stage": 4,
-        "name": "Resonance Breakthrough — 4th-Moment Stieltjes-Hankel R_H4 (AUDIT-014 VERIFIED N2)",
+        "name": "Resonance Breakthrough — 4th-Moment Stieltjes-Hankel R_H4 (AUDIT-014 VERIFIED)",
         "noncommuting_H_moments_S1_to_S4": [frac_str(moms_H[k]) for k in (1, 2, 3, 4)],
         "optimal_witness_s_p": [frac_str(s_star), frac_str(p_star)],
         "phi_at_eigenvalues_16_4_m1": eig_evals,
