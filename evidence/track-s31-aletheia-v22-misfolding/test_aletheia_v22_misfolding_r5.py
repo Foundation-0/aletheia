@@ -704,11 +704,52 @@ class TestTrackS31AletheiaV22Misfolding(unittest.TestCase):
 
     def test_04_live_renameat2_toctou_and_concurrent_hardlink_races(self) -> None:
         if sys.platform != "linux":
-            return
+            self.skipTest("test_04 requires Linux renameat2/RENAME_EXCHANGE (libc.so.6); skipped on " + sys.platform)
         libc = ctypes.CDLL("libc.so.6", use_errno=True)
         AT_FDCWD = -100
         RENAME_EXCHANGE = 2
 
+    def test_05_review_6026860908_boundary_witnesses(self) -> None:
+        """Review 6026860908 item 3: one boundary witness per unprobed comparison flip."""
+        # oracle ~398: while power >= cutoff with defect_rate = target_risk = 1/2.
+        # q = cutoff = 1/2, so the >= loop runs twice: k* = 2 (a > loop would stop at k* = 1).
+        r = oracle.asymmetry_threshold_exact(Fraction(1, 2), target_risk=Fraction(1, 2))
+        _check(r["k_star"] == 2, f"398 witness k*={r['k_star']}")
+        # oracle ~631: overload_sq exactly 25. vec [5, 0, ...] -> linf^2=25, l2^2=25, n*coh = n.
+        # need n = 25: vec of one 5 and 24 zeros gives overload_sq = 25 exactly.
+        v = [Fraction(5)] + [Fraction(0)] * 24
+        r = oracle.peak_coherence_ratio_exact(v)
+        _check(r["exceeds_5sigma_sq_threshold_25"] is False, f"631 witness flag={r['exceeds_5sigma_sq_threshold_25']}")
+        # oracle ~844: two sites, zero unmatched difference. curves with equal ends,
+        # matched values straddling zero.
+        curve_a = [(Fraction(0), Fraction(1, 10)), (Fraction(1), Fraction(1, 10))]   # flat: end 1/10
+        curve_b = [(Fraction(0), Fraction(1, 10)), (Fraction(1), Fraction(1, 10))]   # flat: end 1/10
+        r = oracle.matched_gain_pareto_compare_exact(curve_a, curve_b, Fraction(1, 2))
+        _check(r["fa_unmatched_end"] == "1/10" and r["fb_unmatched_end"] == "1/10"
+               and r["fa_matched"] == "1/10" and r["fb_matched"] == "1/10"
+               and r["unmatched_vs_matched_sign_flipped"] is False, f"844 witness {r}")
+        # fb_matched must stay > 0 (require_ok site): give b a positive matched value.
+        curve_b2 = [(Fraction(0), Fraction(1, 10)), (Fraction(1), Fraction(2, 10))]
+        r = oracle.matched_gain_pareto_compare_exact(curve_a, curve_b2, Fraction(1, 2))
+        _check(r["fb_matched"] == "3/20" and r["matched_ratio_fa_over_fb"] == "2/3", f"844b witness {r}")
+        # oracle ~904: shift exactly equal to the limit is NOT rejected.
+        r = oracle.detect_sunk_cost_escalation_exact(Fraction(1, 10), Fraction(1, 10) + Fraction(1, 20), max_shift=Fraction(1, 20))
+        _check(r["escalation_shift"] == "1/20" and r["escalation_rejected"] is False, f"904 witness {r}")
+        # audit ~162: read cap — a file of exactly max_bytes reads fine, max_bytes+1 fails.
+        with tempfile.TemporaryDirectory(prefix="s31_bnd_") as td:
+            p = Path(td) / "cap.bin"
+            payload = b"x" * 64
+            p.write_bytes(payload)
+            got = audit.read_regular_bytes_capped(p, "cap", max_bytes=64)
+            _check(got == payload, "162 witness exact-cap read")
+            _expect_err(lambda: audit.read_regular_bytes_capped(p, "cap", max_bytes=63), code="FILE_TOO_LARGE")
+
+    def test_06_race_witness_renameat2_toctou_and_hardlink(self) -> None:
+        if sys.platform != "linux":
+            self.skipTest("race witness uses renameat2/RENAME_EXCHANGE via libc.so.6; skipped on " + sys.platform)
+        libc = ctypes.CDLL("libc.so.6", use_errno=True)
+        AT_FDCWD = -100
+        RENAME_EXCHANGE = 2
         with tempfile.TemporaryDirectory(prefix="s31_race_") as td:
             root = Path(td)
             secret = root / "secret.txt"; secret.write_bytes(b"S31_SECRET_SENTINEL")
