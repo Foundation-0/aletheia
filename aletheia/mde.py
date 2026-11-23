@@ -502,7 +502,7 @@ def run_mde_demo() -> dict[str, Any]:
     rep = dag.append(kind="STEELMAN_REPAIR", actor="probe", target_id="portal1", target_sha256=s2, parent_ids=[a1["record_id"]], repair_summary="added Q(i) PSD guard + R_opt")
     dag.append(
         kind="AUDIT_VERDICT", actor="verifier", target_id="portal1", target_sha256=s2, parent_ids=[rep["record_id"]],
-        audit_id="AUDIT-002", verdict="VERIFIED", novelty="N2", oracle_class="exact", r4_parity=True,
+        audit_id="AUDIT-002", verdict="VERIFIED", novelty="N1", oracle_class="exact", r4_parity=True,
         prior_art_checked=True, prior_art_refs=["arXiv:2610.08965"], evidence="0/420 Q(i) violations",
     )
 
