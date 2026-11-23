@@ -21,7 +21,7 @@ Under **Law 1 (Active Portal-Keeper Loop)** and **Law 2 (Steelman Before Falsify
 
 ## 2. Worked Resonance Case Studies (Verified in `AUDIT_LOG`)
 
-### Case 1: Dimensionless Coincidence $r_{\mathrm{zero}}/\mu^2 \equiv 1$ + $\lambda_s \to 0^+$ $\longrightarrow$ Exact AeST Hamiltonian Schur-Complement Theorem (`AUDIT-011` / `AUDIT-011R`, `N2`)
+### Case 1: Dimensionless Coincidence $r_{\mathrm{zero}}/\mu^2 \equiv 1$ + $\lambda_s \to 0^+$ $\longrightarrow$ Exact AeST Hamiltonian Schur-Complement Theorem (`AUDIT-011` / `AUDIT-011R`, `N1` (outside check: `Foundation-0/cave-expedition#4`, `verification/outside/rulings.json`))
 
 1. **Raw Portal:** In constrained linear Aether-Scalar-Tensor (AeST) cosmology (`Foundation-0/gravity`, `research/aest-response-gate-20261112/slow-mode`), both local fluid closures failed the 1% benchmark catastrophically (`24.6%–27.4%` for zero-pressure; `117.6%–185.4%` for adiabatic pressure).
 2. **Steelman Closure (Zero Free Parameters):** Eliminating the fast scalar-vector pair $(\chi, Z)$ directly from the exact quadratic ADM action with $\mathcal{F}(\mathcal{Y},\mathcal{Q}) = (2-K_B)\lambda_s \mathcal{Y} - \mathcal{K}(\mathcal{Q})$ yielded a **non-local Helmholtz pressure law**:
@@ -35,7 +35,7 @@ Under **Law 1 (Active Portal-Keeper Loop)** and **Law 2 (Steelman Before Falsify
    - **Boundary Portal ($\lambda_s \to 0^+$):** Pushing to $\lambda_s = 0$ sends $\mu^2 \to +\infty$, leaving $S_P = -\frac{\mathcal{K}''}{4r(\mathcal{K}''+2r)} < 0$ strictly for all finite $r > 0$ — a **zero-sound-speed spatial Yukawa cutoff** $G_{AA}/\widetilde{G} = M_0^2/(M_0^2 + k^2/a^2)$ with uniform inertia `[2, 0, 1]` (certified with zero floats on $[9/10, 11/10] \times [-1/10, 1/10] \times [1, 4]$ in `907` boxes in `AUDIT-013R`), evading Wave-10's local barotropic sound-speed no-go (`C-25`).
    - **Coupled Baryon Duality:** Minimally coupled baryons leave the fast $(\chi, Z)$ block identically independent of $D_b$, giving $\Phi_{\mathrm{static}}/\Phi_{\mathrm{Newton}} \equiv 1 - 1/G_{AA}(k/a)$ and out-of-sample 6-state ODE agreement `err_b <= 0.0087%`, `err_A <= 0.21%` on 4 untested $(K_B, \lambda_s, k)$ tuples.
 
-### Case 2: Reconciling a Two-Panel Quantum/Astrophysical Paradox via Exact $16\times 16$ GKSL Zeno Schur Complement (`AUDIT-018`, `N2`)
+### Case 2: Reconciling a Two-Panel Quantum/Astrophysical Paradox via Exact $16\times 16$ GKSL Zeno Schur Complement (`AUDIT-018`, `N0` for the mathematics, `N1` at most for the calibration (outside check: `Foundation-0/cave-expedition#4`, `verification/outside/rulings.json`))
 
 1. **Raw Portal:** In `Foundation-0/fractals/witness-map/model.js`, single-particle decoherence (`rates()`, witness number $W = \Gamma \cdot m\Delta x^2/\hbar$) and $N \sim 10^{93}$ wave dark-matter lumps (`crowd()`) were split into two disconnected panels: a single particle has $W \ll 1$, a crowd has overwhelming gravitational witnessing, yet internal wave interference lumps survive.
 2. **Exact Operator Realization (Pure $\mathbb{Q}$ / $\mathbb{Q}(i)$, Zero Floats):**

@@ -56,7 +56,7 @@ Real exploits caught during the Cave Expedition (`AUDIT-001`, `AUDIT-006`, `AUDI
 
 Aletheia forbids claiming algorithmic or safety unifications from shared vocabulary. Every bridge must compile to an exact operator, certificate, or counterexample:
 
-### Pattern A: Exact LP / Farkas Dual Certificates & Iterative Multi-Quotient Peeling (`AUDIT-004` `N2`)
+### Pattern A: Exact LP / Farkas Dual Certificates & Iterative Multi-Quotient Peeling (`AUDIT-004` Part A, `N0` (outside check: `Foundation-0/cave-expedition#4`, `verification/outside/rulings.json`))
 In heuristic search, model checking, and quotient abstraction (`Foundation-0/quotient-lp-bounds`, `ahrazzle/soko`):
 - **Cohomological Optimality & Sequential Peeling (Saturated Cost Partitioning):** Rather than combining abstraction heuristics only via `zeroSelfLoop_deficit` (which yields `+0` when moves modify multiple resources simultaneously), solve exact-rational 1-Lipschitz quotient LPs sequentially with independent Farkas dual flow certificates (`primal == dual`) and update concrete edge costs by the **exact 1-cochain gauge shift** (known in automated planning as **saturated state-dependent cost partitioning**, Keller et al. IJCAI 2016 Def. 4; Seipp, Keller & Helmert JAIR 2020 Def. 13; the transition-level form gives an exact per-state gap certificate):
   $$c^{(j)}(s, s') = c^{(j-1)}(s, s') + h_j^*(\pi_j(s')) - h_j^*(\pi_j(s)) \ge 0.$$
@@ -124,6 +124,6 @@ See also: [Domains Rosetta Stone](./README.md) · [Laws & Gates Specification](.
 
 - **`AUDIT-001` & `AUDIT-016R` (`Foundation-0/spectral-inertia`):** 6 TCB exploits caught and closed; hardened dual-oracle $\mathbb{Q}(i)$ certifier + **`41/41` R5 mutants killed (`0` survivors)** + honestly tagged `uncompiled_source` Lean 4 module.
 - **`AUDIT-015R` (`Foundation-0/spectral-inertia`):** Complex-Hermitian Bernstein box certifier hardened against `8/8` symbolic & callable non-Hermitian forgeries.
-- **`AUDIT-004` (`VERIFIED`, `exact`, `N2` — `Foundation-0/quotient-lp-bounds#5`):** Iterative Multi-Quotient Farkas Peeling Tower, bidirectional linear-vs-tropical emergence separation, and `docs/08` Contextual Compute cellular sheaf.
-- **`AUDIT-006R` (`VERIFIED`, `exact`, `N1`/`N2` — `Foundation-0/project-asma#101`):** Hardened canonical R3/direct-API TCB + `SEAM-06` `warp#15` stacked-adapter Gram eliminating $16\times$ Cauchy–Schwarz tax.
+- **`AUDIT-004` (`VERIFIED`, `exact`, Part A `N0` (outside check: `Foundation-0/cave-expedition#4`, `verification/outside/rulings.json`) — `Foundation-0/quotient-lp-bounds#5`):** Iterative Multi-Quotient Farkas Peeling Tower, bidirectional linear-vs-tropical emergence separation, and `docs/08` Contextual Compute cellular sheaf.
+- **`AUDIT-006R` (`VERIFIED`, `exact`, `N0` (outside check: `Foundation-0/cave-expedition#4`, `verification/outside/rulings.json`) — `Foundation-0/project-asma#101`):** Hardened canonical R3/direct-API TCB + `SEAM-06` `warp#15` stacked-adapter Gram eliminating $16\times$ Cauchy–Schwarz tax.
 - **`AUDIT-008R` (`VERIFIED`, `exact`, `N1` — `Foundation-0/quotient-lp-bounds#5`):** $\mathbb{Q}[q]$ Maslov–Doob homotopy + row-normalized Boltzmann accidental single-$q$ lumpability witness.

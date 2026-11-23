@@ -60,7 +60,7 @@ For a periodic bar-joint framework at wavevector $q = 0$, the equilibrium/compat
 - **Self-stress space $H^1$:** Equilibrium bar tensions $\tau$ with zero net vertex forces.
 - **Macroscopic stiffness tensor $C_{\mathrm{el}} = S_{\mathrm{cell}} / \operatorname{vol}$:** Computed in exact rational `Fraction` arithmetic by Schur-complement elimination of internal displacements — eliminating floating-point rank ambiguity between floppy (`rank = 0`), extremal/pentamode (`rank = 1`), and rigid (`full rank`) regimes.
 
-### Three Verified Exact Mechanical Phenomena (`AUDIT-019`, `N2`)
+### Three Verified Exact Mechanical Phenomena (`AUDIT-019`, `N1` (outside check: `Foundation-0/cave-expedition#4`, `verification/outside/rulings.json`))
 
 1. **Universal Instantaneous Rank-1 Elastic Collapse Along $F_n \to D_n$ ($\forall n \ge 3$):**
    Using the exact rational parametrization $a(k) = \frac{4k}{2k^2+1}$, $t(k) = \frac{2k^2-1}{2k^2+1}$ ($a^2 + 2t^2 \equiv 2$ identically in $\mathbb{Q}(k)$), the unfolded lattice $F_n$ at $s = 0$ has macroscopic stiffness rank $n$ (pure axial, zero shear). **The instant $s > 0$** (across the entire interior $s \in (0, 1]$), rotational locking has exact rank $n - 1$, dropping both sheaf Betti numbers by $-(n-1)$ and collapsing $C_{\mathrm{el}}(s)$ discontinuously from rank $n$ to **rank 1** (all-dimension pentamode/extremal class), governed by the **Master Rank-1 Macroscopic Stress Formula**:
