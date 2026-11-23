@@ -25,6 +25,17 @@ from .strict_io import AletheiaError, require_ok
 
 RATCHET_LEDGER_SCHEMA = "aletheia-ratchet-step/v1.1"
 IMMUTABLE_RING0_SECTIONS = frozenset({"oracle", "verifier", "heldout", "gates", "r4_modes"})
+VALID_RATCHET_DECISIONS = frozenset({"KEEP", "DISCARD", "REVERT", "LATCH_HALT"})
+_HEX_LOWER = frozenset("0123456789abcdef")
+
+
+def _is_canonical_sha256_digest(val: Any) -> bool:
+    """Return True iff `val` is exact ASCII `sha256:<64 lowercase hex>`."""
+    if type(val) is not str:
+        return False
+    if len(val) != 71 or not val.startswith("sha256:"):
+        return False
+    return all(ch in _HEX_LOWER for ch in val[7:])
 
 
 def check_ring0_lock(base_config: Mapping[str, Any], candidate_config: Mapping[str, Any]) -> bool:
@@ -134,9 +145,10 @@ def build_ratchet_record(
 
 
 def verify_ratchet_ledger_records(records: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
-    """Fail-closed SHA-256 hash-chain verifier for float-free `zone-canon-v0` ratchet ledgers."""
+    """Fail-closed SHA-256 hash-chain, decision/digest, and Gate-1 AST-progression verifier for ratchet ledgers."""
     require_ok(len(records) >= 1, "EMPTY_LEDGER", "ratchet ledger must contain >= 1 record")
     expected_prev = "sha256:" + ("0" * 64)
+    last_kept_ast: str | None = None
     for idx, rec in enumerate(records):
         require_ok(isinstance(rec, Mapping), "INVALID_RECORD", f"record[{idx}] must be object")
         require_ok(rec.get("schema") == RATCHET_LEDGER_SCHEMA, "INVALID_SCHEMA", f"record[{idx}] bad schema")
@@ -153,6 +165,26 @@ def verify_ratchet_ledger_records(records: Sequence[Mapping[str, Any]]) -> dict[
             "RECORD_HASH_MISMATCH",
             f"record[{idx}] tampered: {stored} != {computed}",
         )
+        decision = rec.get("decision")
+        require_ok(
+            type(decision) is str and decision in VALID_RATCHET_DECISIONS,
+            "INVALID_DECISION",
+            f"record[{idx}] unsupported decision: {decision!r}",
+        )
+        ast_digest = rec.get("ast_sha256")
+        require_ok(
+            _is_canonical_sha256_digest(ast_digest),
+            "INVALID_AST_DIGEST",
+            f"record[{idx}] ast_sha256 must match canonical sha256:<64 lowercase hex>",
+        )
+        if decision == "KEEP":
+            if last_kept_ast is not None:
+                require_ok(
+                    not hmac.compare_digest(ast_digest, last_kept_ast),
+                    "AST_UNCHANGED_KEEP",
+                    f"record[{idx}] KEEP has unchanged ast_sha256 relative to previous kept record",
+                )
+            last_kept_ast = ast_digest
         expected_prev = stored
     return {
         "valid": True,
@@ -164,7 +196,11 @@ def verify_ratchet_ledger_records(records: Sequence[Mapping[str, Any]]) -> dict[
 
 def verify_ratchet_ledger_file(path: Path) -> dict[str, Any]:
     require_ok(path.is_file(), "LEDGER_NOT_FOUND", f"ledger file not found: {path}")
-    lines = [ln for ln in path.read_text(encoding="utf-8").splitlines() if ln.strip()]
+    try:
+        raw_text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        raise AletheiaError("LEDGER_READ_ERROR", f"cannot read UTF-8 ledger file: {type(exc).__name__}") from exc
+    lines = [ln for ln in raw_text.splitlines() if ln.strip()]
     parsed = [parse_zone_canon_text(ln) for ln in lines]
     res = verify_ratchet_ledger_records(parsed)
     return {**res, "path": str(path)}
