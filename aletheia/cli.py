@@ -124,6 +124,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_aud.add_argument("--data-commit", default=None, help="Explicit data/audit commit SHA for --prereg-check")
     p_aud.add_argument("--safety-scan", action="store_true", help="Run CYA-GAP-01..05 deterministic agent safety-surface scan")
     p_aud.add_argument("--include-host-hygiene", action="store_true", help="Include CYA-GAP-06 host-hygiene rules when using --safety-scan")
+    p_aud.add_argument("--allow-symlinks", action="store_true", help="Downgrade SYMLINK_DIR, SYMLINK_OUTSIDE_ROOT and BROKEN_SYMLINK path findings to non-fatal (default: fail closed). NON_REGULAR_FILE and UNREADABLE_FILE stay fatal")
     p_aud.add_argument("--timeout", type=int, default=120, help="Per-mode script timeout in seconds")
     p_aud.add_argument("--json", action="store_true", help="Emit JSON output")
 
@@ -233,6 +234,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 data_commit=args.data_commit,
                 safety_scan=args.safety_scan,
                 include_host_hygiene=args.include_host_hygiene,
+                allow_symlinks=args.allow_symlinks,
             )
             _emit(res, as_json)
             return 0 if res["passed"] else 1
