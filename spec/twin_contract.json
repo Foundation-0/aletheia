@@ -18,14 +18,17 @@
       }
     },
     "aletheia.cites_known_audits": {
-      "description": "Every AUDIT-xxx id cited in aletheia README.md, THEORY.md and evidence/*.md exists in the cave AUDIT_LOG or is declared pending here with its tracking pull request.",
+      "description": "Every AUDIT-xxx id cited in the aletheia claim-bearing docs listed in locator.citation_scope exists in the cave AUDIT_LOG or is declared pending here with its tracking pull request.",
       "locator": {
+        "citation_scope": "README.md, THEORY.md, spec/**/*.md, domains/**/*.md, and evidence/**/*.md (AUDIT-xxx citations only; CHANGELOG and other paths are out of scope until listed here).",
         "files": [
           "README.md",
           "THEORY.md"
         ],
         "globs": [
-          "evidence/*.md"
+          "spec/**/*.md",
+          "domains/**/*.md",
+          "evidence/**/*.md"
         ],
         "cave_log_file": "verification/AUDIT_LOG.md"
       },
@@ -79,6 +82,7 @@
             "AUDIT-063R2",
             "AUDIT-064",
             "AUDIT-065",
+            "AUDIT-078R",
             "AUDIT-084R",
             "AUDIT-085R",
             "AUDIT-088R"
