@@ -12,7 +12,12 @@ import os
 from pathlib import Path
 from typing import Any
 
-from .scaffold import _audit_log_markdown, _protocol_markdown, _symlink_offenders
+from .scaffold import (
+    _audit_log_markdown,
+    _protocol_markdown,
+    _require_no_symlink_target,
+    _symlink_offenders,
+)
 from .strict_io import AletheiaError, require_ok, write_lf_text
 
 VALID_TARGETS = ("antigravity", "claude-code", "codex", "cursor", "gemini-cli", "repo")
@@ -83,12 +88,25 @@ jobs:
 
 def _detect_repo_root(source_dir: Path | None) -> Path | None:
     if source_dir is not None:
-        return source_dir.resolve()
+        return _require_no_symlink_target(source_dir, role="source directory")
     # Package is at <repo>/aletheia/installer.py
     cand = Path(__file__).resolve().parent.parent
     if (cand / "adapters").is_dir() or (cand / ".agents").is_dir():
         return cand
     return None
+
+
+def _resolve_source_path(repo_root: Path | None, rel: str) -> Path | None:
+    """Return repo_root / rel after refusing any symlinked component along rel (even if broken)."""
+    if repo_root is None:
+        return None
+    offenders = _symlink_offenders(repo_root, [rel])
+    if offenders:
+        raise AletheiaError(
+            "SYMLINK_REFUSED",
+            f"refusing to read through symlinked source component(s) in {repo_root}: {', '.join(offenders)} (force never follows links; replace the symlink with a real file or directory)",
+        )
+    return repo_root / rel
 
 
 def _read_source_text(path: Path) -> str:
@@ -144,8 +162,9 @@ def _build_install_plan(target: str, repo_root: Path | None) -> list[tuple[str, 
     from . import __version__
 
     if target == "antigravity":
-        if repo_root is not None and (repo_root / ".agents" / "plugins" / "aletheia-research").is_dir():
-            return _collect_tree(repo_root / ".agents" / "plugins" / "aletheia-research")
+        ag_dir = _resolve_source_path(repo_root, ".agents/plugins/aletheia-research")
+        if ag_dir is not None and ag_dir.is_dir():
+            return _collect_tree(ag_dir)
         plugin_json = json.dumps(
             {
                 "name": "aletheia-research",
@@ -164,7 +183,7 @@ def _build_install_plan(target: str, repo_root: Path | None) -> list[tuple[str, 
         ]
 
     if target == "claude-code":
-        cc_dir = repo_root / "adapters" / "claude-code" if repo_root is not None else None
+        cc_dir = _resolve_source_path(repo_root, "adapters/claude-code")
         if cc_dir is not None and cc_dir.is_dir():
             files: list[tuple[str, str]] = []
             for rel, content in _collect_tree(cc_dir):
@@ -192,27 +211,31 @@ def _build_install_plan(target: str, repo_root: Path | None) -> list[tuple[str, 
         ]
 
     if target == "codex":
-        if repo_root is not None and (repo_root / "adapters" / "codex" / "AGENTS.md").is_file():
-            return [("AGENTS.md", _read_source_text(repo_root / "adapters" / "codex" / "AGENTS.md"))]
-        if repo_root is not None and (repo_root / "AGENTS.md").is_file():
-            return [("AGENTS.md", _read_source_text(repo_root / "AGENTS.md"))]
+        codex_src = _resolve_source_path(repo_root, "adapters/codex/AGENTS.md")
+        if codex_src is not None and codex_src.is_file():
+            return [("AGENTS.md", _read_source_text(codex_src))]
+        root_agents = _resolve_source_path(repo_root, "AGENTS.md")
+        if root_agents is not None and root_agents.is_file():
+            return [("AGENTS.md", _read_source_text(root_agents))]
         return [("AGENTS.md", _EMBEDDED_AGENTS_MD)]
 
     if target == "cursor":
-        if repo_root is not None and (repo_root / "adapters" / "cursor" / ".cursor" / "rules" / "aletheia-research.mdc").is_file():
-            src = repo_root / "adapters" / "cursor" / ".cursor" / "rules" / "aletheia-research.mdc"
-            return [(".cursor/rules/aletheia-research.mdc", _read_source_text(src))]
+        cursor_src = _resolve_source_path(repo_root, "adapters/cursor/.cursor/rules/aletheia-research.mdc")
+        if cursor_src is not None and cursor_src.is_file():
+            return [(".cursor/rules/aletheia-research.mdc", _read_source_text(cursor_src))]
         return [(".cursor/rules/aletheia-research.mdc", _EMBEDDED_CURSOR_MDC)]
 
     if target == "gemini-cli":
-        if repo_root is not None and (repo_root / "adapters" / "gemini-cli" / "GEMINI.md").is_file():
-            return [("GEMINI.md", _read_source_text(repo_root / "adapters" / "gemini-cli" / "GEMINI.md"))]
+        gemini_src = _resolve_source_path(repo_root, "adapters/gemini-cli/GEMINI.md")
+        if gemini_src is not None and gemini_src.is_file():
+            return [("GEMINI.md", _read_source_text(gemini_src))]
         return [("GEMINI.md", _EMBEDDED_AGENTS_MD)]
 
     if target == "repo":
         agents_text = _EMBEDDED_AGENTS_MD
-        if repo_root is not None and (repo_root / "AGENTS.md").is_file():
-            agents_text = _read_source_text(repo_root / "AGENTS.md")
+        repo_agents = _resolve_source_path(repo_root, "AGENTS.md")
+        if repo_agents is not None and repo_agents.is_file():
+            agents_text = _read_source_text(repo_agents)
         return [
             ("AGENTS.md", agents_text),
             ("verification/PROTOCOL.md", _protocol_markdown("repo")),
@@ -236,29 +259,18 @@ def install_adapter(
 
     if dest is None:
         if target == "antigravity":
-            dest_root = (Path.cwd() / ".agents" / "plugins" / "aletheia-research").resolve()
+            cwd = Path.cwd()
+            offenders = _symlink_offenders(cwd, [".agents/plugins/aletheia-research"])
+            if offenders:
+                raise AletheiaError(
+                    "SYMLINK_REFUSED",
+                    f"refusing to install through symlinked default destination component(s) in {cwd}: {', '.join(offenders)} (force never follows links; remove the symlink and retry)",
+                )
+            dest_root = (cwd / ".agents" / "plugins" / "aletheia-research").resolve()
         else:
             dest_root = Path.cwd().resolve()
     else:
-        # A symlinked destination is refused before resolve() can hide it.
-        # Relative destinations are checked component by component below the
-        # working directory. Absolute destinations are checked at the leaf,
-        # and every component under the resolved root is checked per file.
-        if dest.is_symlink():
-            raise AletheiaError(
-                "SYMLINK_REFUSED",
-                f"refusing to install into symlinked destination {dest} (force never follows links; pass a real directory)",
-            )
-        if not dest.is_absolute():
-            current = Path.cwd()
-            for part in dest.parts:
-                current = current / part
-                if current.is_symlink():
-                    raise AletheiaError(
-                        "SYMLINK_REFUSED",
-                        f"refusing to install through symlinked destination component {current} (force never follows links; pass a real directory)",
-                    )
-        dest_root = dest.resolve()
+        dest_root = _require_no_symlink_target(dest, role="destination")
 
     repo_root = _detect_repo_root(source_dir)
     plan = _build_install_plan(target, repo_root)

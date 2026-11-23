@@ -19,6 +19,30 @@ from .strict_io import AletheiaError, require_ok, write_lf_text
 _DOMAIN_RE = re.compile(r"\A[a-z0-9][a-z0-9_-]{0,47}\Z", re.ASCII)
 
 
+def _require_no_symlink_target(target: Path, *, role: str) -> Path:
+    """Refuse symlinked targets (and symlinked relative components) before resolve().
+
+    Absolute paths are checked at the leaf so OS-level symlinks (such as macOS
+    /var -> /private/var) never false-positive; relative paths are walked
+    component by component below Path.cwd() so caller-supplied symlinked
+    parents are always rejected before resolve() can hide them."""
+    if target.is_symlink():
+        raise AletheiaError(
+            "SYMLINK_REFUSED",
+            f"refusing to use symlinked {role} {target} (force never follows links; pass a real directory)",
+        )
+    if not target.is_absolute():
+        current = Path.cwd()
+        for part in target.parts:
+            current = current / part
+            if current.is_symlink():
+                raise AletheiaError(
+                    "SYMLINK_REFUSED",
+                    f"refusing to traverse symlinked {role} component {current} (force never follows links; pass a real directory)",
+                )
+    return target.resolve()
+
+
 def _symlink_offenders(root: Path, rel_paths: Iterable[str]) -> list[str]:
     """Return sorted relative paths whose existing component under root is a symlink.
 
@@ -119,7 +143,7 @@ def init_workspace(
         "INVALID_DOMAIN_NAME",
         f"domain must match [a-z0-9][a-z0-9_-]{{0,47}}, got {domain!r}",
     )
-    root = target_dir.resolve()
+    root = _require_no_symlink_target(target_dir, role="workspace")
 
     created_dirs = [
         "cartography",
