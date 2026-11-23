@@ -1,5 +1,11 @@
 # Aletheia — Portal-Driven Scientific Discovery & Adversarial Verification Framework
 
+**Start here:** [foundation-0.github.io/aletheia](https://foundation-0.github.io/aletheia/) · [Method](https://foundation-0.github.io/aletheia/method/) · [Joint map](https://foundation-0.github.io/aletheia/joint-map/) · [Start](https://foundation-0.github.io/aletheia/start/) · Twin site: [Cave Expedition](https://foundation-0.github.io/cave-expedition/)
+
+Aletheia helps people and AI agents search for new results without fooling themselves. It keeps a rough idea alive long enough to find the sound claim inside it. Then it checks that claim with independent code before anyone calls it new.
+
+The method and its first field test were born in the same run. The field test is the [Cave Expedition](https://github.com/Foundation-0/cave-expedition). Its ledger backs every claim on the site. Its outside check cut several early claims down. Those cuts are in this spec as Gates 9 and 10 and Law 2b.
+
 > **Alētheia** (ἀλήθεια — *unconcealment*, stepping out of Plato's cave): an open, domain-general scientific discovery methodology, zero-dependency Python 3 CLI (`v2.0.0`), multi-platform agent adapter suite, and formal verification standard (`R1`–`R7`, Own-Terms-First, Law 2b Transformational Steelman) for human researchers and AI research swarms.
 >
 > **Law-4 Prior-Art & Naming Disambiguation:** Google DeepMind independently publishes a proprietary Gemini-Deep-Think mathematical proving agent named *Aletheia* (`google-deepmind/superhuman@9b620a9`, `aletheia/README.md` / `Aletheia.pdf`). **`Foundation-0/aletheia` is completely orthogonal:** an open-source (Apache-2.0), model-agnostic, zero-dependency anti-Cave research methodology, Own-Terms-First & Transformational Steelman protocol, and `R1`–`R7` adversarial verification CLI.
@@ -147,6 +153,7 @@ aletheia/
 ├── schemas/                                   # JSON Schemas (draft/2020-12): audit_receipt, frontier_portal, compute_handoff
 ├── adapters/                                  # Drop-in adapters for Antigravity, Claude Code, Codex, Cursor, Gemini CLI & Generic LLMs
 ├── .agents/plugins/aletheia-research/         # Native Antigravity workspace plugin bundle
+├── docs/                                      # GitHub Pages site (foundation-0.github.io/aletheia), twin of cave-expedition site
 └── .github/workflows/aletheia-ci.yml          # Self-verifying CI across -I -B, -I -O -B, -I -B -W error
 ```
 

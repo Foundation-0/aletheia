@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Start · Aletheia</title>
+<meta name="description" content="Run Aletheia in 60 seconds: the live demo, the command line, adapters for 6 platforms, workspace layout, domain packs, prompts and schemas.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Start · Aletheia">
+<meta property="og:description" content="Zero dependencies. Clone, run the demo, scaffold a workspace.">
+<meta property="og:url" content="https://foundation-0.github.io/aletheia/start/">
+<link rel="canonical" href="https://foundation-0.github.io/aletheia/start/">
+<meta name="theme-color" content="#070b0e" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f0e6" media="(prefers-color-scheme: light)">
+<link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,400;0,500;1,400&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<script>(function(){var d=document.documentElement;try{var q=new URLSearchParams(location.search),t=q.get("theme")||localStorage.getItem("joint-theme"),m=q.get("motion")||localStorage.getItem("joint-motion");if(t==="dark"||t==="light")d.setAttribute("data-theme",t);var r=window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches;d.setAttribute("data-motion",(m==="on"||m==="off")?m:(r?"off":"on"));}catch(e){d.setAttribute("data-motion","on");}})();</script>
+<script defer src="../assets/site.js"></script>
+<script defer src="../assets/figures.js"></script>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><symbol id="zero" viewBox="-50 -50 100 100"><path d="M-40-40L40 40M40-40L-40 40" fill="none" stroke-width="2" style="stroke:var(--ink-3)"/><g fill="none" stroke-width="4"><circle cy="-23.431" r="16.569" style="stroke:var(--bio)"/><circle cy="23.431" r="16.569" style="stroke:var(--bio)"/><circle cx="-23.431" r="16.569" style="stroke:var(--dig)"/><circle cx="23.431" r="16.569" style="stroke:var(--dig)"/></g><rect x="-40" y="-40" width="80" height="80" fill="none" stroke-width="4.4" style="stroke:var(--ink)"/></symbol></defs></svg>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-head"><div class="wrap">
+  <a class="brand" href="../" aria-label="Aletheia home"><svg aria-hidden="true"><use href="#zero"/></svg>Aletheia</a>
+  <span class="twin"><span class="pair" aria-hidden="true"><i></i><i></i></span>Twin site <a href="https://foundation-0.github.io/cave-expedition/">Cave Expedition</a></span>
+  <nav class="nav" aria-label="Main">
+    <a href="../">Home</a><a href="../method/">Method</a><a href="../joint-map/">Joint map</a><a href="./" aria-current="page">Start</a><a href="https://github.com/Foundation-0/aletheia">Source</a>
+  </nav>
+  <div class="tools">
+    <button class="tbtn" type="button" data-motion-toggle aria-pressed="true"><span class="t-txt">Motion</span></button>
+    <button class="tbtn" type="button" data-theme-toggle><span class="t-txt">Theme</span></button>
+  </div>
+</div></header>
+<main id="main">
+<section class="page-head">
+  <div class="wrap">
+    <p class="kicker"><span class="pair" aria-hidden="true"><i></i><i></i></span>Start · Zero dependencies, Python 3 only</p>
+    <h1>Start</h1>
+    <p class="promise">Clone the repo and run one full loop in about 3 seconds. No install step is required. The program runs on the Python 3 standard library alone.</p>
+    <p class="hint">Each command below comes from the repo <a href="https://github.com/Foundation-0/aletheia#readme">readme</a>. Run them from the repo root.</p>
+    <nav class="toc" aria-label="On this page">
+      <a href="#quickstart">60 second quickstart</a><a href="#cli">Command line</a><a href="#adapters">Adapters</a><a href="#workspace">Workspace layout</a><a href="#packs">Packs, prompts, schemas</a>
+    </nav>
+  </div>
+</section>
+
+<section class="sec" id="quickstart">
+  <div class="wrap">
+    <div class="sec-head"><p class="sec-label"><b>01</b><i>//</i>Quickstart</p><span class="chip">60 seconds, 0 dependencies</span></div>
+    <h2 class="h2" data-reveal>Run one full loop first.</h2>
+    <p class="lede" data-reveal>The demo runs all 5 loop steps on one small case: a forged bound, a steelman on W plus W-perp, a clean room second check with a sharpness wall, a higher moment fix and mutation catches.</p>
+    <pre data-reveal><code>git clone https://github.com/Foundation-0/aletheia.git
+cd aletheia
+python3 -I -O -B -W error examples/worked_resonance_cycle/run_demo.py</code></pre>
+    <p class="prose" data-reveal style="margin-top:16px">Then run the self test suite in all 3 required modes. All 3 must agree under R4.</p>
+    <pre data-reveal><code>python3 -I -B tests/run_all.py && python3 -I -O -B tests/run_all.py && python3 -I -B -W error tests/run_all.py</code></pre>
+  </div>
+</section>
+
+<section class="sec alt" id="cli">
+  <div class="wrap">
+    <div class="sec-head"><p class="sec-label"><b>02</b><i>//</i>Command line</p><span class="chip">aletheia v2.0.0</span></div>
+    <h2 class="h2" data-reveal>One program for the full loop.</h2>
+    <p class="lede" data-reveal>Run the program with no install, or install it with <code>pip install -e .</code> from the repo root.</p>
+    <pre data-reveal><code># Help, with no install
+PYTHONPATH=. python3 -m aletheia --help
+
+# Scaffold a new expedition workspace
+PYTHONPATH=. python3 -m aletheia init /tmp/my-expedition --domain physics
+
+# Audit this repo: 3 mode parity, bare asserts, strict JSON, leaks and Lean purity
+PYTHONPATH=. python3 -m aletheia audit-check . --strict-ancestors
+
+# Gate contract self test: R6 and R7, R3 both ways, NOT_SHOWN, Gate 8 latch, Law 2b, Own-Terms-First
+PYTHONPATH=. python3 -m aletheia gate-v2 --self-test --json
+
+# Static safety scan on package code
+PYTHONPATH=. python3 -m aletheia safety-scan aletheia --json
+
+# Mutation test a verifier and prove each guard can still say no
+PYTHONPATH=. python3 -m aletheia mutate path/to/verifier.py --work-root . --add-cwd --max-mutants 0 --test-cmd "python3 path/to/tests.py"
+
+# Diagnose relapse patterns CS-01 to CS-12 in a workspace
+PYTHONPATH=. python3 -m aletheia diagnose /tmp/my-expedition
+
+# List, run and self test the 8 glyph operator calculus
+PYTHONPATH=. python3 -m aletheia calculus --list --json
+PYTHONPATH=. python3 -m aletheia calculus --eval "⦺(L_odd ⦷ chi1) ⩩ (1, 2, 1)" --json
+PYTHONPATH=. python3 -m aletheia calculus --self-test --json</code></pre>
+    <p class="quiet" data-reveal style="margin-top:14px">Two more demos ship in the same program: <code>aletheia ratchet --demo</code> and <code>aletheia mde --demo</code>. See <code>--help</code> for flags.</p>
+  </div>
+</section>
+
+<section class="sec" id="adapters">
+  <div class="wrap">
+    <div class="sec-head"><p class="sec-label"><b>03</b><i>//</i>Adapters</p><span class="chip">6 platforms, one spec</span></div>
+    <h2 class="h2" data-reveal>Drop it into your agent.</h2>
+    <p class="lede" data-reveal>Each adapter carries the same laws, gates and contracts. Pick your platform, copy one file set, then scaffold a workspace and run audit-check. Add <code>--dry-run</code> to an install command to preview it with no writes.</p>
+    <div class="table-wrap" data-reveal>
+      <table class="data">
+        <thead><tr><th scope="col">Platform</th><th scope="col">Setup</th><th scope="col">Files</th></tr></thead>
+        <tbody>
+          <tr><td>Antigravity</td><td>Workspace plugin, or <code>python3 -m aletheia install --target antigravity</code></td><td><a href="https://github.com/Foundation-0/aletheia/tree/main/adapters/antigravity">adapters/antigravity</a></td></tr>
+          <tr><td>Claude Code</td><td>Copy the adapter with CLAUDE.md, plugin manifest, /aletheia command and keeper and verifier subagents</td><td><a href="https://github.com/Foundation-0/aletheia/tree/main/adapters/claude-code">adapters/claude-code</a></td></tr>
+          <tr><td>OpenAI Codex</td><td>Use the repo root AGENTS.md rule file</td><td><a href="https://github.com/Foundation-0/aletheia/tree/main/adapters/codex">adapters/codex</a></td></tr>
+          <tr><td>Cursor</td><td>Copy the always apply rule file to .cursor/rules/</td><td><a href="https://github.com/Foundation-0/aletheia/tree/main/adapters/cursor">adapters/cursor</a></td></tr>
+          <tr><td>Gemini CLI</td><td>Copy GEMINI.md to your repo or home config</td><td><a href="https://github.com/Foundation-0/aletheia/tree/main/adapters/gemini-cli">adapters/gemini-cli</a></td></tr>
+          <tr><td>Any LLM loop</td><td>Paste the system prompt and follow the single agent loop</td><td><a href="https://github.com/Foundation-0/aletheia/tree/main/adapters/generic-llm">adapters/generic-llm</a></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:16px"><a class="more" href="https://github.com/Foundation-0/aletheia/blob/main/adapters/README.md">Read the adapter guide</a></p>
+  </div>
+</section>
+
+<section class="sec alt" id="workspace">
+  <div class="wrap">
+    <div class="sec-head"><p class="sec-label"><b>04</b><i>//</i>Workspace</p><span class="chip">What init writes</span></div>
+    <h2 class="h2" data-reveal>One folder per role.</h2>
+    <p class="lede" data-reveal>The init command writes a small workspace with fixed read and write scopes per role. It refuses to overwrite files in place. Pass <code>--force</code> only when you mean to replace them.</p>
+    <pre data-reveal><code>PYTHONPATH=. python3 -m aletheia init /tmp/my-expedition --domain physics</code></pre>
+    <div class="table-wrap" data-reveal>
+      <table class="data">
+        <thead><tr><th scope="col">Path</th><th scope="col">Role and use</th></tr></thead>
+        <tbody>
+          <tr><td>aletheia.json</td><td>Workspace config: schema, domain, role scopes and the 3 R4 modes.</td></tr>
+          <tr><td>cartography/</td><td>Portal keeper writes here and loops all run. Holds frontier_portals.md.</td></tr>
+          <tr><td>probes/&lt;domain&gt;/</td><td>Domain probe writes here. Reads cartography and peer-web.</td></tr>
+          <tr><td>synthesis/</td><td>Synthesizer writes here. Reads cartography, probes and peer-web.</td></tr>
+          <tr><td>peer-web/</td><td>Peer weaver writes here for cross front links.</td></tr>
+          <tr><td>verification/</td><td>Verifier writes here. Holds PROTOCOL.md and AUDIT_LOG.md, with check scripts in verification/checks/.</td></tr>
+          <tr><td>manifests/</td><td>Holds compute_handoff.v1.json for pinned handoffs.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="prose" data-reveal style="margin-top:16px">Keep the keeper in cartography for the whole run. That one habit is Law 1. Test claims from probes and let verification hold its own write scope with no shared code.</p>
+  </div>
+</section>
+
+<section class="sec" id="packs">
+  <div class="wrap">
+    <div class="sec-head"><p class="sec-label"><b>05</b><i>//</i>Go deeper</p><span class="chip">Packs, prompts, schemas</span></div>
+    <h2 class="h2" data-reveal>Field packs and role prompts.</h2>
+    <div class="cards">
+      <article class="card" data-reveal style="--acc:var(--bio)">
+        <p class="kick"><span>Domains</span><span>6 packs</span></p>
+        <h3><a href="https://github.com/Foundation-0/aletheia/blob/main/domains/README.md">Domain packs</a></h3>
+        <p class="dek">One pack per field: mathematics and formal proof; theoretical and computational physics; biology and life sciences; computer science and systems; materials, geometry and engineering; empirical data and complex systems. Each pack gives portals, steelman moves, oracle picks and field traps.</p>
+        <p class="links"><a href="https://github.com/Foundation-0/aletheia/blob/main/domains/README.md">Rosetta index</a><a href="https://github.com/Foundation-0/aletheia/tree/main/domains">All packs</a></p>
+      </article>
+      <article class="card" data-reveal style="--acc:var(--dig)">
+        <p class="kick"><span>Prompts</span><span>Role briefs</span></p>
+        <h3><a href="https://github.com/Foundation-0/aletheia/tree/main/prompts">Role prompts</a></h3>
+        <p class="dek">Briefs for coordinator, portal keeper, domain probe, synthesizer, verifier tomography and peer weaver, plus advocate, outside observer, single agent loop and wave handoff. Pair them with your platform adapter.</p>
+        <p class="links"><a href="https://github.com/Foundation-0/aletheia/tree/main/prompts">Prompt files</a><a href="../method/">Method page</a></p>
+      </article>
+      <article class="card" data-reveal style="--acc:var(--acc)">
+        <p class="kick"><span>Schemas</span><span>3 records</span></p>
+        <h3><a href="https://github.com/Foundation-0/aletheia/tree/main/schemas">JSON schemas</a></h3>
+        <p class="dek">Fixed record shapes for audit receipts, frontier portals and compute handoffs. The command line validators read the same rules.</p>
+        <p class="links"><a href="https://github.com/Foundation-0/aletheia/tree/main/schemas">Schema files</a><a href="https://github.com/Foundation-0/aletheia/blob/main/CONTRIBUTING.md">Contributing</a></p>
+      </article>
+    </div>
+    <div class="prose" data-reveal style="margin-top:24px">
+      <p>To contribute, read <a href="https://github.com/Foundation-0/aletheia/blob/main/CONTRIBUTING.md">CONTRIBUTING.md</a>. In short: link an issue or audit entry, bump the version with a changelog line, and pair each new rule with a test that runs in all 3 modes. New tool code needs zero bare asserts on trust paths and full mutation kill under <code>aletheia mutate --max-mutants 0</code>.</p>
+      <p>New here? Read the <a href="../method/">method page</a>, then the <a href="../joint-map/">joint map</a> for proof, then run the demo above.</p>
+    </div>
+  </div>
+</section>
+</main>
+<footer class="coda"><div class="wrap">
+  <span>Aletheia is a <a href="https://foundation-0.github.io/f0/">Foundation0</a> project. Twin site: <a href="https://foundation-0.github.io/cave-expedition/">Cave Expedition</a>.</span>
+  <span>Code Apache-2.0 · <a href="https://github.com/Foundation-0/aletheia">Source</a> · Design after <a href="https://foundation-0.github.io/f0/">F0</a> and <a href="https://moissanite-labs.github.io/weft-eido/">Eido</a></span>
+</div></footer>
+</body>
+</html>

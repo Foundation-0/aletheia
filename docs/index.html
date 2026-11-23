@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Aletheia · A method for discovery that checks itself</title>
+<meta name="description" content="Aletheia is an open method for people and AI agents to find new results without fooling themselves. It keeps rough ideas alive long enough to test them, then checks them hard.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Aletheia">
+<meta property="og:description" content="An open method for discovery that checks itself. Born with the Cave Expedition.">
+<meta property="og:url" content="https://foundation-0.github.io/aletheia/">
+<link rel="canonical" href="https://foundation-0.github.io/aletheia/">
+<meta name="theme-color" content="#070b0e" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f0e6" media="(prefers-color-scheme: light)">
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,400;0,500;1,400&display=swap">
+<link rel="stylesheet" href="assets/site.css">
+<script>(function(){var d=document.documentElement;try{var q=new URLSearchParams(location.search),t=q.get("theme")||localStorage.getItem("joint-theme"),m=q.get("motion")||localStorage.getItem("joint-motion");if(t==="dark"||t==="light")d.setAttribute("data-theme",t);var r=window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches;d.setAttribute("data-motion",(m==="on"||m==="off")?m:(r?"off":"on"));}catch(e){d.setAttribute("data-motion","on");}})();</script>
+<script defer src="assets/site.js"></script>
+<script defer src="assets/figures.js"></script>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><symbol id="zero" viewBox="-50 -50 100 100"><path d="M-40-40L40 40M40-40L-40 40" fill="none" stroke-width="2" style="stroke:var(--ink-3)"/><g fill="none" stroke-width="4"><circle cy="-23.431" r="16.569" style="stroke:var(--bio)"/><circle cy="23.431" r="16.569" style="stroke:var(--bio)"/><circle cx="-23.431" r="16.569" style="stroke:var(--dig)"/><circle cx="23.431" r="16.569" style="stroke:var(--dig)"/></g><rect x="-40" y="-40" width="80" height="80" fill="none" stroke-width="4.4" style="stroke:var(--ink)"/></symbol></defs></svg>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-head"><div class="wrap">
+  <a class="brand" href="./" aria-label="Aletheia home"><svg aria-hidden="true"><use href="#zero"/></svg>Aletheia</a>
+  <span class="twin"><span class="pair" aria-hidden="true"><i></i><i></i></span>Twin site <a href="https://foundation-0.github.io/cave-expedition/">Cave Expedition</a></span>
+  <nav class="nav" aria-label="Main">
+    <a href="./" aria-current="page">Home</a><a href="method/">Method</a><a href="joint-map/">Joint map</a><a href="start/">Start</a><a href="https://github.com/Foundation-0/aletheia">Source</a>
+  </nav>
+  <div class="tools">
+    <button class="tbtn" type="button" data-motion-toggle aria-pressed="true"><span class="t-txt">Motion</span></button>
+    <button class="tbtn" type="button" data-theme-toggle><span class="t-txt">Theme</span></button>
+  </div>
+</div></header>
+<main id="main">
+<section class="hero">
+  <canvas id="weft-bg" aria-hidden="true"></canvas>
+  <div class="wrap">
+    <div>
+      <p class="kicker"><span class="pair" aria-hidden="true"><i></i><i></i></span>Foundation0 · Open method, checked in public</p>
+      <h1 class="display">Aletheia</h1>
+      <p class="promise">Aletheia is a way for people and AI agents to search for new results without fooling themselves. It keeps a rough idea alive long enough to find the sound claim inside it. Then it checks that claim hard, with independent code, before anyone calls it new.</p>
+      <p class="hint">The name is the Greek word for truth as something uncovered. The method and its first field test were born together in one run. The field test has its own site: the <a href="https://foundation-0.github.io/cave-expedition/">Cave Expedition</a>. Every claim on this site links to the ledger entry that backs it there.</p>
+      <div class="cta">
+        <a class="btn primary" href="start/">Run it in 60 seconds</a>
+        <a class="btn" href="joint-map/">See how the pair fits</a>
+      </div>
+      <dl class="stats" aria-label="Aletheia in numbers">
+        <div><dt class="k">Laws and gates</dt><dd class="v">5 + 10</dd></div>
+        <div><dt class="k">Gate contracts</dt><dd class="v">R1 to R7</dd></div>
+        <div><dt class="k">Dependencies</dt><dd class="v">0</dd></div>
+        <div><dt class="k">Version</dt><dd class="v">2.0.0</dd></div>
+      </dl>
+      <p style="margin-top:16px"><span class="chip"><span class="dot" aria-hidden="true"></span>Python 3 standard library only</span> <span class="chip">Apache-2.0</span></p>
+    </div>
+    <figure class="fig" aria-labelledby="cavity-title">
+      <div class="frame">
+        <canvas class="stage" id="cavity" role="img" aria-label="Two-wave figure. The gold trace is openness, the cyan trace is rigor. A whole-number ratio between them closes into a still figure. The same numbers follow as text."></canvas>
+        <span class="corner tl" id="cavity-title">Resonance cavity</span>
+        <span class="corner tr">Live in your browser</span>
+        <span class="corner bl">Gold: openness</span>
+        <span class="corner br">Cyan: rigor</span>
+      </div>
+      <div class="controls">
+        <label for="ratio">Ratio rigor : openness</label>
+        <input type="range" id="ratio" min="1" max="2" step="0.001" value="1.5">
+        <output id="ratio-out" for="ratio">1.500</output>
+        <button class="tbtn" type="button" data-ratio="5/4">5/4</button>
+        <button class="tbtn" type="button" data-ratio="4/3">4/3</button>
+        <button class="tbtn" type="button" data-ratio="3/2">3/2</button>
+        <button class="tbtn" type="button" data-ratio="7/4">7/4</button>
+      </div>
+      <p class="numbers" id="cavity-numbers" style="margin-top:10px"></p>
+      <figcaption class="figcap"><span><b>How to read:</b> each trace is one half of the method. Openness returns to the source. Rigor checks from a second angle. Where the ratio is a whole-number fraction, the figure closes and holds still. That stillness is the point: the two halves lock.</span><span>No picture is stored. The lines are the equation above.</span></figcaption>
+    </figure>
+  </div>
+</section>
+
+<section class="sec alt" id="trap">
+  <div class="wrap">
+    <div class="sec-head"><p class="sec-label"><b>00</b><i>//</i>The trap it answers</p><span class="chip">Plato's cave, in working form</span></div>
+    <h2 class="h2" data-reveal>Two ways to miss the truth.</h2>
+    <p class="lede" data-reveal>A reviewer trained on finished papers grades a rough draft like a finished paper. It finds the first bug, files a clean rejection, and stops. Ask the same system to be open minded with no hard checks and it does the opposite. It praises word matches and decimal coincidences as breakthroughs.</p>
+    <div class="prose" data-reveal style="margin-top:24px">
+      <p>Aletheia treats those two failures as separate dials, not one slider. Openness and rigor each go to full, in separate steps of one loop. The loop has a keeper who never leaves. When a test surprises anyone, the keeper goes back into the raw source with that surprise as a lens and looks again. Bugs get logged in full. Then the team states the strongest sound claim near the broken draft and tests that claim instead.</p>
+      <p>Checks run from a second angle with no shared code. A result that only holds in one set of coordinates, one unit, or one program is treated as a shadow of the setup, not a fact about the world. Every claim starts as known material. It earns a stronger label only after a full-text search of prior work.</p>
+    </div>
+    <a class="more" href="method/">Read the method</a>
+  </div>
+</section>
+
+<section class="sec" id="proof">
+  <div class="wrap">
+    <div class="sec-head"><p class="sec-label"><b>01</b><i>//</i>Proof it changed the outcome</p><span class="chip">Same team, same sources, one instruction apart</span></div>
+    <h2 class="h2" data-reveal>First pass found nothing new. Second pass filled a ledger.</h2>
+    <p class="lede" data-reveal>In November 2026 one team of agents worked the same raw transcripts twice. The first pass used normal review habits and closed with no new ground. One instruction from the lead kept the map maker inside the loop and asked the team to stay open before dismissing anything. The second pass produced a full audit ledger across maths and physics.</p>
+    <div class="table-wrap" data-reveal>
+      <table class="data">
+        <thead><tr><th scope="col">Side by side</th><th scope="col">First pass</th><th scope="col">Second pass onward</th></tr></thead>
+        <tbody>
+          <tr><td>Map maker</td><td>One static map, then parked as done.</td><td>Stayed active. Re-entered raw sources after every surprise.</td></tr>
+          <tr><td>Rough drafts</td><td>Bugs listed. Files closed.</td><td>Bugs logged. Sound claims beside them found and tested.</td></tr>
+          <tr><td>Checker</td><td>Said yes or no.</td><td>Supplied counterexamples and exact walls that told the team what to build next.</td></tr>
+          <tr><td>Yield</td><td>0 results the team could stand behind as new.</td><td>19 audited results in the expedition ledger. An outside check later confirmed the central sums it covered, kept one as new with medium confidence, one as a strong candidate, and moved the rest to local advances or known material under other names.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="quiet" data-reveal style="margin-top:14px">This was a before and after comparison, not a controlled trial. The second pass also ran longer. The full record, including the outside check that cut several claims down, sits in <a href="https://foundation-0.github.io/cave-expedition/ledger/">the Cave Expedition ledger</a>. The cuts improved the method. They are why prior-art search now hunts by mechanism, not by name.</p>
+    <a class="more" href="joint-map/">Open the joint map</a>
+  </div>
+</section>
+<section class="sec alt" id="inside">
+  <div class="wrap">
+    <div class="sec-head"><p class="sec-label"><b>02</b><i>//</i>What you get</p><span class="chip">Spec, program, prompts, adapters</span></div>
+    <h2 class="h2" data-reveal>A spec you can read. A program you can run.</h2>
+    <div class="cards">
+      <article class="card" data-reveal style="--acc:var(--bio)">
+        <p class="kick"><span>Spec</span><span>v2.0.0</span></p>
+        <h3><a href="method/">Laws, gates and contracts</a></h3>
+        <p class="dek">Five laws, ten gates and seven gate contracts in one file. The rules say what counts as checked, what counts as new, and what a checker must survive before you trust it.</p>
+        <p class="links"><a href="method/">Method page</a><a href="https://github.com/Foundation-0/aletheia/blob/main/spec/LAWS_AND_GATES.md">Full spec</a></p>
+      </article>
+      <article class="card" data-reveal style="--acc:var(--dig)">
+        <p class="kick"><span>Program</span><span>0 dependencies</span></p>
+        <h3><a href="start/">The aletheia command line</a></h3>
+        <p class="dek">Scaffold a workspace. Audit a repo. Mutate a checker to prove it can still say no. Diagnose relapse patterns. Run the gate self-tests. All in the Python standard library.</p>
+        <p class="links"><a href="start/">Start page</a><a href="https://github.com/Foundation-0/aletheia">Repository</a></p>
+      </article>
+      <article class="card" data-reveal style="--acc:var(--acc)">
+        <p class="kick"><span>Adapters</span><span>6 platforms</span></p>
+        <h3><a href="start/#adapters">Drop it into your agent</a></h3>
+        <p class="dek">Ready files for Claude Code, Codex, Cursor, Gemini CLI, Antigravity and any other model loop. Role prompts for keeper, probe and checker ship with the repo.</p>
+        <p class="links"><a href="start/#adapters">Adapters</a><a href="https://github.com/Foundation-0/aletheia/tree/main/adapters">Files</a></p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="style">
+  <div class="wrap">
+    <div class="sec-head"><p class="sec-label"><b>03</b><i>//</i>Style is a point</p><span class="chip">After Eido: drag it, read the weights</span></div>
+    <h2 class="h2" data-reveal>This page takes its own advice.</h2>
+    <p class="lede" data-reveal>The accent colour and corner rounding on both twin sites come from one point in a triangle. Drag the point. Its three weights always add to one. Hue blends on the circle, so two nearby hues never jump across the wheel. Your choice carries to the Cave Expedition site in the same browser.</p>
+    <div class="pad-wrap" data-reveal>
+      <svg class="pad" id="style-pad" viewBox="0 0 280 250" role="img" aria-label="Style triangle. Corners are Open, Exact and Field. The point inside sets the mix."></svg>
+      <div>
+        <p class="numbers" id="style-readout" aria-live="polite">Weights loading.</p>
+        <p class="quiet" style="margin-top:10px">Open stands for the portal side of the method. Exact stands for the checking side. Field stands for the expedition that tested both. The point is the whole control. There is no hidden theme list behind it.</p>
+        <p style="margin-top:14px"><a href="https://foundation-0.github.io/cave-expedition/">Carry this style to the twin site</a></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sec alt" id="names">
+  <div class="wrap">
+    <div class="sec-head"><p class="sec-label"><b>04</b><i>//</i>Same name, different thing</p><span class="chip">Read this before citing</span></div>
+    <h2 class="h2" data-reveal>Not the DeepMind prover.</h2>
+    <div class="prose" data-reveal style="margin-top:20px">
+      <p>Google DeepMind publishes a maths proving agent with the same name. The two projects share a word and nothing else. This Aletheia is an open method, a checking standard and a small program. It works with any model or with no model at all. The repo states the split in full near the top of its readme, with links to the other project.</p>
+    </div>
+    <a class="more" href="https://github.com/Foundation-0/aletheia#readme">Read the repo readme</a>
+  </div>
+</section>
+</main>
+<footer class="coda"><div class="wrap">
+  <span>Aletheia is a <a href="https://foundation-0.github.io/f0/">Foundation0</a> project. Twin site: <a href="https://foundation-0.github.io/cave-expedition/">Cave Expedition</a>.</span>
+  <span>Code Apache-2.0 · <a href="https://github.com/Foundation-0/aletheia">Source</a> · Design after <a href="https://foundation-0.github.io/f0/">F0</a> and <a href="https://moissanite-labs.github.io/weft-eido/">Eido</a></span>
+</div></footer>
+</body>
+</html>
