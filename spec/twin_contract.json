@@ -98,15 +98,7 @@
       "expected": {
         "aletheia_cited_check_scripts": 14
       },
-      "pending": [
-        {
-          "tracking": [
-            "Foundation-0/cave-expedition#1"
-          ],
-          "clears_when": "cave-expedition#1 merges and adds check_013 and check_014, bringing cave main to 14 check scripts; then delete this entry",
-          "cave_count_after_merge": 14
-        }
-      ]
+      "pending": []
     },
     "cave.n2_set_matches": {
       "description": "The audits cave README labels N2 equal the set aletheia describes as N2 (plus the one it lists as borderline N1/N2).",
@@ -201,22 +193,8 @@
         ],
         "note": "The pinned hash is the text both open pull requests ship. The also-accepted hash is the byte form served at apache.org/licenses/LICENSE-2.0.txt, which differs only in the position of one blank line."
       },
-      "pending": [
-        {
-          "repo": "aletheia",
-          "tracking": [
-            "Foundation-0/aletheia#14"
-          ],
-          "clears_when": "aletheia#14 merges and LICENSE is the verbatim Apache-2.0 text; then delete this entry"
-        },
-        {
-          "repo": "cave",
-          "tracking": [
-            "Foundation-0/cave-expedition#11"
-          ],
-          "clears_when": "cave-expedition#11 merges and LICENSE is the verbatim Apache-2.0 text; then delete this entry"
-        }
-      ]
+      "pending": [],
+      "note": "The pinned hash is the verbatim Apache-2.0 text that both license pull requests ship, merged in the 2.1.0 batch. The byte form served at apache.org/licenses/LICENSE-2.0.txt differs from it by one blank line, so that hash is accepted too."
     },
     "twin.ci_present": {
       "description": "Each repo has a CI workflow that runs its own checks.",
@@ -240,14 +218,11 @@
             "run_markers": [
               "verification/checks/check_"
             ],
-            "if_missing": "PENDING",
-            "tracking": [
-              "Foundation-0/cave-expedition#12"
-            ],
-            "clears_when": "cave-expedition#12 merges and adds a workflow that runs verification/checks scripts; then set if_missing to DRIFT"
+            "if_missing": "DRIFT"
           }
         }
-      }
+      },
+      "pending": []
     }
   }
 }

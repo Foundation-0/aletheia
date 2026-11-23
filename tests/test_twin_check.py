@@ -165,6 +165,9 @@ def build_contract(
     checks["twin.license_verbatim"]["expected"]["also_accepted_sha256"] = []
     ci_cave = checks["twin.ci_present"]["expected"]["repos"]["cave"]
     ci_cave["if_missing"] = cave_ci_if_missing
+    if cave_ci_if_missing == "PENDING":
+        ci_cave["tracking"] = ["Foundation-0/cave-expedition#12"]
+        ci_cave["clears_when"] = "the CI workflow pull request merges"
     for check_id, entries in (pending or {}).items():
         checks[check_id]["pending"] = entries
     write_lf_text(path, json.dumps(contract, indent=2) + "\n")

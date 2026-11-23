@@ -6,7 +6,7 @@ Aletheia helps people and AI agents search for new results without fooling thems
 
 The method and its first field test were born in the same run. The field test is the [Cave Expedition](https://github.com/Foundation-0/cave-expedition). Its ledger backs every claim on the site. Its outside check cut several early claims down. Those cuts are in this spec as Gates 9 and 10 and Law 2b.
 
-> **Alētheia** (ἀλήθεια — *unconcealment*, stepping out of Plato's cave): an open, domain-general scientific discovery methodology, zero-dependency Python 3 CLI (`v2.0.0`), multi-platform agent adapter suite, and formal verification standard (`R1`–`R7`, Own-Terms-First, Law 2b Transformational Steelman) for human researchers and AI research swarms.
+> **Alētheia** (ἀλήθεια — *unconcealment*, stepping out of Plato's cave): an open, domain-general scientific discovery methodology, zero-dependency Python 3 CLI (`v2.1.0`), multi-platform agent adapter suite, and formal verification standard (`R1`–`R7`, Own-Terms-First, Law 2b Transformational Steelman) for human researchers and AI research swarms.
 >
 > **Law-4 Prior-Art & Naming Disambiguation:** Google DeepMind independently publishes a proprietary Gemini-Deep-Think mathematical proving agent named *Aletheia* (`google-deepmind/superhuman@9b620a9`, `aletheia/README.md` / `Aletheia.pdf`). **`Foundation-0/aletheia` is completely orthogonal:** an open-source (Apache-2.0), model-agnostic, zero-dependency anti-Cave research methodology, Own-Terms-First & Transformational Steelman protocol, and `R1`–`R7` adversarial verification CLI.
 
@@ -60,7 +60,7 @@ cd aletheia
 python3 -I -O -B -W error examples/worked_resonance_cycle/run_demo.py
 ```
 
-### 2. Run the Zero-Dependency `aletheia` v2.0.0 CLI & Self-Test Suite
+### 2. Run the Zero-Dependency `aletheia` v2.1.0 CLI & Self-Test Suite
 
 ```bash
 # Run directly without installing (or: pip install -e .)
@@ -98,6 +98,9 @@ PYTHONPATH=. python3 -m aletheia calculus --list --json
 PYTHONPATH=. python3 -m aletheia calculus --eval "⦺(L_odd ⦷ chi1) ⩩ (1, 2, 1)" --json
 PYTHONPATH=. python3 -m aletheia calculus --self-test --json
 
+# Machine-check the claims this repo and Foundation-0/cave-expedition make about each other
+PYTHONPATH=. python3 -m aletheia twin-check --aletheia-root . --cave-root ../cave-expedition --json
+
 # Run Aletheia's own self-verification suite across all 3 R4 modes
 python3 -I -B tests/run_all.py && python3 -I -O -B tests/run_all.py && python3 -I -B -W error tests/run_all.py
 ```
@@ -126,11 +129,12 @@ aletheia/
 ├── AGENTS.md                                  # Universal root rule file (Codex / Antigravity / AGENTS.md-compatible tools)
 ├── THEORY.md                                  # First-principles mathematical & epistemological treatise on Aletheia
 ├── CONTRIBUTING.md                            # Spec-change process, reviewer/automated-authorship disclosure & pre-PR checks
-├── CHANGELOG.md                               # Versioned release history (v1.4.0 -> v2.0.0)
-├── pyproject.toml                             # Zero-dependency PEP 621 Python 3 stdlib package config (v2.0.0)
+├── CHANGELOG.md                               # Versioned release history (v1.4.0 -> v2.1.0)
+├── pyproject.toml                             # Zero-dependency PEP 621 Python 3 stdlib package config (v2.1.0)
 ├── spec/
 │   ├── LAWS_AND_GATES.md                      # Canonical v2.0 spec: Laws 1–5 + Law 2b, Own-Terms-First, 10 Gates, R1–R7, CS-01..CS-14
-│   └── proposals/OWN_TERMS_FIRST.md           # Own-Terms-First rule (direction confirmed 2026-11-22 in d43cb1c7; adopted in v2.0.0) + OTF-TIGHT-01..05
+│   ├── proposals/OWN_TERMS_FIRST.md           # Own-Terms-First rule (direction confirmed 2026-11-22 in d43cb1c7; adopted in v2.0.0) + OTF-TIGHT-01..05
+│   └── twin_contract.json                      # Pinned claims this repo and cave-expedition make about each other (aletheia twin-check)
 ├── evidence/
 │   ├── outside/README.md                      # Permanent index of external audits & two-pass Advocate rulings
 │   ├── cave-expedition-case-study.md          # Wave 1 empirical case study (Pass 1 vs Pass 2+, 5 chains, AUDIT-001..021)
@@ -138,8 +142,8 @@ aletheia/
 │   ├── symbiosis-round3-10labs-case-study.md  # Wave 2 Round 3 10-lab epistemic web, Beyond-Language & v1.2 (AUDIT-035..039)
 │   ├── symbiosis-round4-ramanujan-hawking-case-study.md  # Wave 2 Round 4 Ramanujan/Hawking, Operator Calculus & v1.3 (AUDIT-041..054)
 │   └── symbiosis-round6-warp-drive-case-study.md         # Wave 2 Round 6 Moissanite-Labs/warp-drive 5-arm audit & v1.4 (AUDIT-061R..065)
-├── aletheia/                                  # Executable Python 3 stdlib CLI v2.0.0 (init, audit-check, mutate, diagnose, gate-v2, safety-scan, ratchet, mde, calculus, handoff, install)
-├── tests/                                     # Self-verifying stdlib test & R5 mutation suite (tests/run_all.py, test_gates_v2_r5.py, test_safety_r5.py)
+├── aletheia/                                  # Executable Python 3 stdlib CLI v2.1.0 (init, audit-check, mutate, diagnose, gate-v2, safety-scan, ratchet, mde, calculus, handoff, install, twin-check)
+├── tests/                                     # Self-verifying stdlib test & R5 mutation suite (tests/run_all.py, test_gates_v2_r5.py, test_safety_r5.py, test_audit_walk_fail_closed.py, test_twin_check.py)
 ├── examples/
 │   └── worked_resonance_cycle/                # 3-second zero-float executable demo of a full Aletheia breakthrough cycle
 ├── domains/                                   # 6 practitioner Domain Adaptation Packs + Rosetta Stone index (domains/README.md)
