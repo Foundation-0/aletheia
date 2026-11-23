@@ -23,6 +23,11 @@ from aletheia.strict_io import AletheiaError, write_lf_text
 from aletheia.twin_check import (
     CHECK_IDS,
     _extract_cited_ids,
+    _ledger_rows,
+    _ledger_verdict,
+    _read_json,
+    _read_text,
+    _verdict_tokens_in_cell,
     format_twin_table,
     load_contract,
     resolve_roots,
@@ -395,7 +400,7 @@ class TestTwinCheck(unittest.TestCase):
             (cave / "peer-web" / "PEER_WEB.md").unlink()
             report = run_twin_check(ale, cave, build_contract(base / "contract.json"))
             row = _row(report, "cave.seam_count_consistent")
-            _req(row["status"] == "DRIFT" and "missing file" in row["note"], f"missing file must be DRIFT: {row}")
+            _req(row["status"] == "DRIFT" and "PEER_WEB.md" in row["note"], f"missing file must be DRIFT: {row}")
 
     def test_14_contract_validation(self) -> None:
         with tempfile.TemporaryDirectory(prefix="aletheia_t_twin_contract_") as td:
@@ -454,6 +459,97 @@ class TestTwinCheck(unittest.TestCase):
             table = format_twin_table(report)
             _req("status=DRIFT" in table and "cave.check_script_count_matches_citation" in table, f"table incomplete: {table}")
             _req(json.loads(json.dumps(report)) == report, "report must be plain JSON data")
+
+    def test_18_ledger_verdict_whole_tokens_fail_closed(self) -> None:
+        cases = {
+            "UNVERIFIED": [],
+            "NOT VERIFIED": [],
+            "verified": [],
+            "VERIFIED FALSIFIED": ["VERIFIED", "FALSIFIED"],
+            "NOT_SHOWN": ["NOT_SHOWN"],
+            "**`VERIFIED`**": ["VERIFIED"],
+            "**`PARTIAL/FRAGILE`**": ["PARTIAL/FRAGILE"],
+            "**`FALSIFIED`**": ["FALSIFIED"],
+        }
+        for cell, want_tokens in cases.items():
+            got = _verdict_tokens_in_cell(cell)
+            _req(got == want_tokens, f"tokens({cell!r}) = {got!r}, want {want_tokens!r}")
+        _req(_ledger_verdict("UNVERIFIED") == "", "UNVERIFIED must not become VERIFIED")
+        _req(_ledger_verdict("NOT VERIFIED") == "", "NOT VERIFIED must fail closed")
+        _req(_ledger_verdict("verified") == "", "lowercase verdict must fail closed")
+        _req(_ledger_verdict("VERIFIED FALSIFIED") == "", "two verdict tokens must fail closed")
+        _req(_ledger_verdict("NOT_SHOWN") == "", "NOT_SHOWN must not count as VERIFIED/FALSIFIED/PARTIAL for twin ledger")
+        log = _log_table([("AUDIT-001", "UNVERIFIED"), ("AUDIT-002", "VERIFIED")])
+        rows = _ledger_rows(log)
+        by_id = {rid: r["verdict"] for r in rows for rid in r["ids"]}
+        _req(by_id["AUDIT-001"] == "", f"UNVERIFIED row verdict must be empty, got {by_id['AUDIT-001']!r}")
+        _req(by_id["AUDIT-002"] == "VERIFIED", f"expected VERIFIED: {by_id}")
+
+    def test_18b_math_pipe_in_ledger_verdict_cell(self) -> None:
+        log = (
+            "# Ledger\n\n| Audit ID | Date/Time | Author | Target | Gates | Oracle | Novelty | Verdict | Evidence |\n"
+            "|---|---|---|---|---|---|---|---|---|\n"
+            "| **AUDIT-009** | d | a | t | g | exact | N1 | $a|b$ `VERIFIED` | e |\n"
+        )
+        rows = _ledger_rows(log)
+        _req(len(rows) == 1 and rows[0]["verdict"] == "VERIFIED", f"math-aware split failed: {rows}")
+
+    def test_19_symlinked_paths_refused(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="aletheia_t_twin_sym_") as td:
+            base = Path(td)
+            outside = Path(td) / "outside"
+            outside.mkdir()
+            write_lf_text(outside / "secret.md", "AUDIT-666\n")
+            cave = base / "cave"
+            cave.mkdir()
+            # symlinked README at repo root
+            (cave / "README.md").symlink_to(outside / "secret.md")
+            with self.assertRaises(Exception) as ctx:
+                _read_text(cave, "README.md")
+            _req("symlink" in str(ctx.exception).lower(), f"expected symlink refusal, got {ctx.exception}")
+            # symlinked directory component
+            real = cave / "peer-web"
+            real.mkdir(parents=True)
+            write_lf_text(real / "PEER_WEB.md", "ok\n")
+            (cave / "linked").symlink_to(real, target_is_directory=True)
+            write_lf_text(cave / "linked" / "inside.json", '{"x":1}\n')
+            with self.assertRaises(Exception) as ctx2:
+                _read_text(cave, "linked/inside.json")
+            _req("symlink" in str(ctx2.exception).lower(), f"symlinked dir must refuse: {ctx2.exception}")
+            # symlink inside root pointing outside
+            (cave / "peer-web" / "leak.md").symlink_to(outside / "secret.md")
+            with self.assertRaises(Exception) as ctx3:
+                _read_text(cave, "peer-web/leak.md")
+            _req("symlink" in str(ctx3.exception).lower(), f"in-root symlink must refuse: {ctx3.exception}")
+
+    def test_20_strict_json_rejects_nan_and_duplicate_keys(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="aletheia_t_twin_json_") as td:
+            root = Path(td)
+            bad_nan = root / "nan.json"
+            write_lf_text(bad_nan, '{"n": NaN}\n')
+            with self.assertRaises(Exception) as ctx:
+                _read_json(root, "nan.json")
+            _req("NaN" in str(ctx.exception) or "invalid JSON" in str(ctx.exception), ctx.exception)
+            bad_dup = root / "dup.json"
+            write_lf_text(bad_dup, '{"a": 1, "a": 2}\n')
+            with self.assertRaises(Exception) as ctx2:
+                _read_json(root, "dup.json")
+            _req("invalid JSON" in str(ctx2.exception).lower() or "duplicate" in str(ctx2.exception).lower(), ctx2.exception)
+            good = root / "ok.json"
+            write_lf_text(good, '{"n": 1}\n')
+            _req(_read_json(root, "ok.json") == {"n": 1}, "clean json must load")
+
+    def test_21_citation_scope_includes_spec_and_domains(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="aletheia_t_twin_scope_") as td:
+            base = Path(td)
+            ale, cave = build_repos(base, aletheia_cites="AUDIT-001")
+            write_lf_text(ale / "spec" / "note.md", "Lineage cites AUDIT-999.\n")
+            contract = build_contract(base / "contract.json")
+            report = run_twin_check(ale, cave, contract)
+            row = _row(report, "aletheia.cites_known_audits")
+            scanned = row["evidence"].get("scanned_files", [])
+            _req(any(p.startswith("spec/") for p in scanned), f"spec files must be scanned: {scanned}")
+            _req(row["status"] == "DRIFT" and "AUDIT-999" in row["evidence"]["unknown_first_seen"], f"spec cite must DRIFT: {row}")
 
 
 if __name__ == "__main__":
