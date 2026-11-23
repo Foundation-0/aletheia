@@ -20,8 +20,11 @@ import json
 import os
 from pathlib import Path, PurePosixPath
 import re
+import stat
 from typing import Any, Callable, Mapping
 
+from .audit_check import _VERDICT_TOKEN_RE, _split_audit_table_row
+from .scaffold import _symlink_offenders
 from .strict_io import AletheiaError, load_strict_json_file, require_ok
 
 TWIN_REPORT_SCHEMA = "aletheia.twin_report.v1"
@@ -47,7 +50,7 @@ _CITE = re.compile(
 )
 _MORE_PART = re.compile(rf"/(\d{{3}})({_SUFFIX})?")
 _UNESCAPED_PIPE = re.compile(r"(?<!\\)\|")
-_VERDICT = re.compile(r"FALSIFIED|PARTIAL|VERIFIED")
+_NOT_VERIFIED = re.compile(r"\bNOT\s+VERIFIED\b", re.IGNORECASE)
 
 _NUMBER_WORDS = {
     "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8,
@@ -109,10 +112,35 @@ def _safe_rel(rel: str) -> PurePosixPath:
     return pure
 
 
+def _repo_path(root: Path, rel: str) -> Path:
+    """Resolve rel under root; refuse symlinked components, non-regular files, and paths outside root."""
+    rel_posix = _safe_rel(rel).as_posix()
+    offenders = _symlink_offenders(root, [rel_posix])
+    if offenders:
+        raise _InputError(
+            f"refusing symlinked path component {offenders[0]!r} under {rel} (never follow links out of the repo root)",
+        )
+    path = root.joinpath(*PurePosixPath(rel_posix).parts)
+    try:
+        st = os.lstat(path)
+    except OSError as exc:
+        raise _InputError(f"missing or unreadable file: {rel} ({exc.strerror or exc})") from exc
+    if stat.S_ISLNK(st.st_mode):
+        raise _InputError(f"refusing symlinked file: {rel}")
+    if not stat.S_ISREG(st.st_mode):
+        raise _InputError(f"refusing non-regular file: {rel}")
+    try:
+        resolved = path.resolve()
+        root_resolved = root.resolve()
+    except OSError as exc:
+        raise _InputError(f"cannot resolve path for {rel}: {exc.strerror or exc}") from exc
+    if resolved != root_resolved and root_resolved not in resolved.parents:
+        raise _InputError(f"path resolves outside repo root: {rel}")
+    return path
+
+
 def _read_text(root: Path, rel: str) -> str:
-    path = root.joinpath(*_safe_rel(rel).parts)
-    if not path.is_file():
-        raise _InputError(f"missing file: {rel}")
+    path = _repo_path(root, rel)
     try:
         raw = path.read_bytes()
     except OSError as exc:
@@ -124,16 +152,59 @@ def _read_text(root: Path, rel: str) -> str:
 
 
 def _read_json(root: Path, rel: str) -> Any:
-    text = _read_text(root, rel)
+    path = _repo_path(root, rel)
     try:
-        return json.loads(text)
-    except ValueError as exc:
+        return load_strict_json_file(path, allow_float=True, require_object=False)
+    except AletheiaError as exc:
         raise _InputError(f"invalid JSON in {rel}: {exc}") from exc
 
 
 def _glob(root: Path, pattern: str) -> list[str]:
     _safe_rel(pattern)
-    return sorted(p.relative_to(root).as_posix() for p in root.glob(pattern) if p.is_file())
+    found: list[str] = []
+    for p in root.glob(pattern):
+        try:
+            rel = p.relative_to(root).as_posix()
+        except ValueError:
+            continue
+        try:
+            _repo_path(root, rel)
+        except _InputError:
+            continue
+        found.append(rel)
+    return sorted(found)
+
+
+def _verdict_tokens_in_cell(cell: str) -> list[str]:
+    """Whole-token verdict scan (audit_check `_VERDICT_TOKEN_RE`); never treat UNVERIFIED or NOT VERIFIED as VERIFIED."""
+    if _NOT_VERIFIED.search(cell):
+        return []
+    tokens: list[str] = []
+    i, n = 0, len(cell)
+    while i < n:
+        if i > 0 and (cell[i - 1].isalnum() or cell[i - 1] in "_/-."):
+            i += 1
+            continue
+        m = _VERDICT_TOKEN_RE.match(cell, i)
+        if m is not None:
+            tokens.append(m.group(1))
+            i = m.end()
+        else:
+            i += 1
+    return tokens
+
+
+def _ledger_verdict(cell: str) -> str:
+    """Simplified ledger verdict for twin checks; unknown or ambiguous cells fail closed (empty string)."""
+    tokens = _verdict_tokens_in_cell(cell)
+    if len(tokens) != 1:
+        return ""
+    token = tokens[0]
+    if token == "PARTIAL/FRAGILE":
+        return "PARTIAL"
+    if token in ("VERIFIED", "FALSIFIED"):
+        return token
+    return ""
 
 
 def _split_cells(line: str) -> list[str]:
@@ -178,11 +249,10 @@ def _ledger_rows(text: str) -> list[dict[str, Any]]:
                 ids.append(_id_text(full.group(1), full.group(2)))
             elif bare is not None:
                 ids.append(_id_text(bare.group(1), bare.group(2)))
-        cells = _split_cells(line)
+        cells = _split_audit_table_row(line) if line.lstrip().startswith("|") else _split_cells(line)
         verdict = ""
         if verdict_col is not None and verdict_col < len(cells):
-            vm = _VERDICT.search(cells[verdict_col])
-            verdict = vm.group(0) if vm is not None else ""
+            verdict = _ledger_verdict(cells[verdict_col])
         rows.append({"ids": ids, "line": lineno, "verdict": verdict})
     return rows
 
@@ -278,6 +348,7 @@ def _check_cites_known_audits(ctx: _Ctx) -> dict[str, Any]:
     files = [str(f) for f in ctx.locator["files"]]
     for pattern in ctx.locator.get("globs", []):
         files.extend(_glob(aletheia, str(pattern)))
+    files = sorted(dict.fromkeys(files))
     known: set[str] = set()
     for row in _ledger_rows(_read_text(cave, str(ctx.locator["cave_log_file"]))):
         known.update(row["ids"])
@@ -299,7 +370,9 @@ def _check_cites_known_audits(ctx: _Ctx) -> dict[str, Any]:
         "unknown": len(unknown),
     }
     evidence = {
-        "files_scanned": len(set(files)),
+        "files_scanned": len(files),
+        "citation_scope": str(ctx.locator.get("citation_scope", "")),
+        "scanned_files": files,
         "cave_ledger_ids": len(known),
         "unknown_first_seen": {i: where[i] for i in unknown},
         "pending_first_seen": {i: where[i] for i in pending_hit},
@@ -579,8 +652,10 @@ def _check_readme_verified_claim(ctx: _Ctx) -> dict[str, Any]:
     return _result(OK, expected, actual, "assertion present and every FALSIFIED/PARTIAL row has a closing row", evidence)
 
 
-def _sha256_file(path: Path) -> str | None:
-    if not path.is_file():
+def _sha256_file(root: Path, rel: str) -> str | None:
+    try:
+        path = _repo_path(root, rel)
+    except _InputError:
         return None
     try:
         return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -593,7 +668,7 @@ def _check_license(ctx: _Ctx) -> dict[str, Any]:
     _safe_rel(rel)
     accepted = {str(ctx.expected["canonical_sha256"])} | {str(s) for s in ctx.expected.get("also_accepted_sha256", [])}
     repos = {"aletheia": ctx.aletheia, "cave": ctx.cave}
-    hashes = {name: _sha256_file(root.joinpath(*PurePosixPath(rel).parts)) for name, root in repos.items()}
+    hashes = {name: _sha256_file(root, rel) for name, root in repos.items()}
     bad = sorted(name for name, h in hashes.items() if h not in accepted)
     expected = {"canonical_sha256": ctx.expected["canonical_sha256"], "byte_identical": True}
     actual = {name: (h or "missing") for name, h in hashes.items()}
@@ -635,8 +710,8 @@ def _check_ci_present(ctx: _Ctx) -> dict[str, Any]:
         matched: list[str] = []
         for rel in workflows:
             try:
-                body = root.joinpath(*PurePosixPath(rel).parts).read_text(encoding="utf-8", errors="replace")
-            except OSError:
+                body = _read_text(root, rel)
+            except _InputError:
                 continue
             if any(str(m) in body for m in cfg["run_markers"]):
                 matched.append(rel)
