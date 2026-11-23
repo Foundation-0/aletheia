@@ -2,8 +2,10 @@
 Regression tests for `Foundation-0/aletheia#11`:
 Verify that `spec/LAWS_AND_GATES.md` Section 6 explicitly states both the
 Plane-2 oracle-compilation ban (`plane2_oracle_compilation_forbidden: true`)
-and all five autonomous ratchet clauses, aligned with live fail-closed
-enforcement in `aletheia/mde.py` and `aletheia/ratchet.py`.
+and all five autonomous ratchet clauses as standalone visible sentences:
+text hidden behind comments or fenced code blocks, mid-sentence hedges, and
+post-sentence tails do not satisfy them. The spec's enforcement notes must
+also match what `aletheia/mde.py` and `aletheia/ratchet.py` actually check.
 
 Zero external dependencies. Zero bare assert statements (100% R4 parity
 across `-I -B`, `-I -O -B`, and `-I -B -W error`).
@@ -14,7 +16,12 @@ import copy
 from fractions import Fraction
 from pathlib import Path
 import re
+import sys
 import unittest
+
+ROOT = Path(__file__).resolve().parent.parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 from aletheia.mde import (
     build_aletheia_mde_manifest,
@@ -31,7 +38,6 @@ from aletheia.ratchet import (
 )
 from aletheia.strict_io import AletheiaError
 
-ROOT = Path(__file__).resolve().parent.parent
 SPEC_PATH = ROOT / "spec" / "LAWS_AND_GATES.md"
 
 
@@ -49,31 +55,77 @@ def _extract_section_6(spec_text: str) -> str:
     return match.group(0) if match is not None else ""
 
 
+def _visible_section_6() -> str:
+    """Section 6 text with HTML comments and fenced code blocks removed.
+
+    Clauses hidden behind comments or fences, or stated only inside code
+    samples, do not count as spec text.
+    """
+    section = _extract_section_6(SPEC_PATH.read_text(encoding="utf-8"))
+    without_comments = re.sub(r"<!--.*?-->", "", section, flags=re.DOTALL)
+    without_fences = re.sub(
+        r"(?ms)^[ \t]*```.*?^[ \t]*```[ \t]*$",
+        "",
+        without_comments,
+    )
+    return without_fences
+
+
+_PLANE2_SENTENCE = (
+    "Verification oracles MUST NEVER be compiled into neural weights; "
+    "Plane-2 weight adapters are strictly disposable caches subordinate to "
+    "Plane-1 deterministic verification."
+)
+_RATCHET_SENTENCE = (
+    "Any automated hill-climbing or autoresearch loop running under Aletheia "
+    "MUST enforce: (i) immutable Ring-0 evaluation harness lock, (ii) float-free "
+    "canonical hash-chained receipts, (iii) AST-identity unchanged-baseline null "
+    "rejection, (iv) Pre-Adaptation Goodhart Latch halt + blind portal re-entry "
+    "preserving informative failed branches, and (v) a fixed-compute `CS-08` "
+    "survival cap."
+)
+
+
+def _assert_standalone_sentence(section: str, sentence: str) -> None:
+    start = section.find(sentence)
+    _req(start != -1, f"Required sentence missing from visible Section 6 text: {sentence!r}")
+    head = section[:start].rstrip()
+    boundary_ok = head == "" or head.endswith((".", "**", "-"))
+    _req(
+        boundary_ok,
+        f"Required sentence is embedded mid-sentence (hedged or contradicted): {sentence!r}",
+    )
+    tail = section[start + len(sentence) :].lstrip()
+    tail_ok = tail == "" or tail[0].isupper() or tail[0] in "-*`#"
+    _req(
+        tail_ok,
+        f"Required sentence has a hedging or contradicting tail after its final full stop: {sentence!r}",
+    )
+
+
 class TestSpecSection6Clauses(unittest.TestCase):
     def test_spec_section6_restores_plane2_ban_and_ratchet_clauses(self) -> None:
-        spec_text = SPEC_PATH.read_text(encoding="utf-8")
-        section_6 = _extract_section_6(spec_text)
+        section_6 = _visible_section_6()
 
-        required_phrases = (
-            # Plane-2 ban (restored verbatim from v1.3.0 58207b4)
+        # Restored obligations must stand as whole, visible, unhedged sentences.
+        _assert_standalone_sentence(section_6, _PLANE2_SENTENCE)
+        _assert_standalone_sentence(section_6, _RATCHET_SENTENCE)
+
+        required_visible_phrases = (
+            # Plane-2 ban key (restored verbatim from v1.3.0 58207b4)
             "plane2_oracle_compilation_forbidden: true",
-            "Verification oracles MUST NEVER be compiled into neural weights",
-            "Plane-2 weight adapters are strictly disposable caches subordinate to Plane-1 deterministic verification",
-            # Five autonomous ratchet clauses (restored verbatim from v1.3.0 58207b4)
-            "Any automated hill-climbing or autoresearch loop running under Aletheia MUST enforce:",
-            "(i) immutable Ring-0 evaluation harness lock",
-            "(ii) float-free canonical hash-chained receipts",
-            "(iii) AST-identity unchanged-baseline null rejection",
-            "(iv) Pre-Adaptation Goodhart Latch halt + blind portal re-entry preserving informative failed branches",
-            "(v) a fixed-compute `CS-08` survival cap",
+            # Enforcement notes must state what the code actually checks
+            "when a manifest is checked",
+            "for an enforcing loop to call",
+            "checks only the hash chain",
             # Existing v2.0.0 Section 6 items preserved intact
             "aletheia/gates_v2.py",
             "aletheia/safety.py",
             "aletheia calculus",
             "aletheia/audit_check.py",
         )
-        for phrase in required_phrases:
-            _req(phrase in section_6, f"Missing required Section 6 clause in spec/LAWS_AND_GATES.md: {phrase!r}")
+        for phrase in required_visible_phrases:
+            _req(phrase in section_6, f"Missing required Section 6 clause in visible spec/LAWS_AND_GATES.md text: {phrase!r}")
 
     def test_mde_code_enforces_plane2_ban_fail_closed(self) -> None:
         manifest = build_aletheia_mde_manifest()
