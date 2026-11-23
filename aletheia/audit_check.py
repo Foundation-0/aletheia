@@ -232,14 +232,14 @@ def _foreign_bytecode_items(entries: Sequence[Path], own: set[Path]) -> list[Pat
 
 
 _VERDICT_TOKEN_RE = re.compile(
-    "(" + "|".join(re.escape(v) for v in sorted(VALID_VERDICTS, key=len, reverse=True)) + ")(?![A-Za-z0-9_/-])"
+    "(" + "|".join(re.escape(v) for v in sorted(VALID_VERDICTS, key=len, reverse=True)) + r")(?![A-Za-z0-9_/-]|\.[A-Za-z0-9])"
 )
 _ORACLE_TOKEN_RES = {
-    tok: re.compile(r"(?<![A-Za-z0-9_-])" + re.escape(tok) + r"(?![A-Za-z0-9_-])")
+    tok: re.compile(r"(?<![A-Za-z0-9_-])" + re.escape(tok) + r"(?![A-Za-z0-9_-]|\.[A-Za-z0-9])")
     for tok in VALID_ORACLE_TOKENS
 }
 _NOVELTY_TOKEN_RE = re.compile(
-    r"(?<![A-Za-z0-9_-])(" + "|".join(re.escape(n) for n in sorted(VALID_NOVELTY_TOKENS)) + r")(?![A-Za-z0-9_-])"
+    r"(?<![A-Za-z0-9_-])(" + "|".join(re.escape(n) for n in sorted(VALID_NOVELTY_TOKENS)) + r")(?![A-Za-z0-9_-]|\.[A-Za-z0-9])"
 )
 
 
@@ -255,10 +255,7 @@ def _split_audit_table_row(line: str) -> list[str]:
     code_len = 0
     while i < n:
         ch = line[i]
-        if ch == "\\" and i + 1 < n and line[i + 1] in "|$`\\":
-            buf.append(line[i : i + 2])
-            i += 2
-        elif code_len:
+        if code_len:
             if ch == "`":
                 j = i
                 while j < n and line[j] == "`":
@@ -283,22 +280,45 @@ def _split_audit_table_row(line: str) -> list[str]:
             else:
                 buf.append(ch)
                 i += 1
+        elif ch == "\\" and i + 1 < n and line[i + 1] in "|$`\\":
+            buf.append(line[i : i + 2])
+            i += 2
         elif ch == "`":
             j = i
             while j < n and line[j] == "`":
                 j += 1
-            code_len = j - i
+            run = j - i
+            # Only open a code span when a matching closing run exists later on
+            # this line; otherwise the backticks are literal text and must not
+            # swallow the remaining delimiters.
+            closes = False
+            k = j
+            while k < n:
+                if line[k] == "`":
+                    m = k
+                    while m < n and line[m] == "`":
+                        m += 1
+                    if m - k == run:
+                        closes = True
+                        break
+                    k = m
+                else:
+                    k += 1
+            if closes:
+                code_len = run
             buf.append(line[i:j])
             i = j
         elif ch == "$":
             if line.startswith("$$", i):
                 buf.append("$$")
-                in_math = True
-                math_block = True
+                if "$$" in line[i + 2 :]:
+                    in_math = True
+                    math_block = True
                 i += 2
             else:
                 buf.append(ch)
-                in_math = True
+                if "$" in line[i + 1 :]:
+                    in_math = True
                 i += 1
         elif ch == "|":
             cells.append("".join(buf))
@@ -335,6 +355,15 @@ def validate_audit_log_markdown(path: Path, *, require_rows: bool = True) -> dic
             continue
         cells = _split_audit_table_row(stripped)
         if len(cells) < 8:
+            if cells and _AUDIT_ID_RE.search(cells[0]) is not None:
+                errors.append(
+                    {
+                        "code": "MALFORMED_AUDIT_ROW",
+                        "line": lineno,
+                        "message": f"audit row has {len(cells)} cells, expected at least 8",
+                    }
+                )
+                rows_checked += 1
             continue
         first_cell = cells[0]
         if _AUDIT_ID_RE.search(first_cell) is None:

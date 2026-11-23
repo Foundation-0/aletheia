@@ -48,17 +48,27 @@ def canonical_sha256_text(text: str) -> str:
 
 
 def _require_no_lone_surrogates(value: Any) -> None:
-    """Reject lone surrogates in any parsed string (they crash later UTF-8 encodes)."""
-    if isinstance(value, str):
-        if any(0xD800 <= ord(ch) <= 0xDFFF for ch in value):
-            raise AletheiaError("JSON_LONE_SURROGATE", "lone surrogate in JSON string")
-    elif isinstance(value, dict):
-        for key, item in value.items():
-            _require_no_lone_surrogates(key)
-            _require_no_lone_surrogates(item)
-    elif isinstance(value, list):
-        for item in value:
-            _require_no_lone_surrogates(item)
+    """Reject lone surrogates in any parsed string (they crash later UTF-8 encodes).
+
+    Iterative stack walk with an explicit depth cap: the C JSON parser accepts
+    arbitrarily deep nesting, and a recursive walk would crash with an uncaught
+    RecursionError instead of failing closed.
+    """
+    stack: list[tuple[Any, int]] = [(value, 0)]
+    while stack:
+        item, depth = stack.pop()
+        if depth > 10_000:
+            raise AletheiaError("JSON_DEPTH_EXCEEDED", "JSON nesting exceeds depth cap")
+        if isinstance(item, str):
+            if any(0xD800 <= ord(ch) <= 0xDFFF for ch in item):
+                raise AletheiaError("JSON_LONE_SURROGATE", "lone surrogate in JSON string")
+        elif isinstance(item, dict):
+            for key, sub in item.items():
+                stack.append((key, depth + 1))
+                stack.append((sub, depth + 1))
+        elif isinstance(item, list):
+            for sub in item:
+                stack.append((sub, depth + 1))
 
 
 def parse_strict_json_text(
