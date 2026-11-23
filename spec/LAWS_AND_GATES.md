@@ -17,6 +17,8 @@
 | **Law 5** | **Exact-Operator Cross-Pollination (Zero Language Smuggling)** | Reject cross-domain claims based on shared vocabulary alone. Require typed objects in both domains, an explicit map/intertwiner/reduction, an exact identity or quantitative closure defect beating matched nulls, and non-trivial predictive transfer. |
 
 ### 1.1 Own-Terms-First Rule (`aletheia#9`, Direction Confirmed 2026-11-22 in `d43cb1c7`, Adopted in `v2.0.0`, `AUDIT-084R`)
+The project owner ruled on 2026-11-23 that this is adopted as a flexible rule: "flexible rule, i feel that data should always be considered this way for novel findings but judgement can still be used". Recorder's reading, not the owner's words: for a novel finding the own-terms pass on the data is always done first, and judgment may shape how much of it a case needs, with the reason stated.
+
 When probing raw sensor or primary data without leaning on existing theorems (`spec/proposals/OWN_TERMS_FIRST.md`):
 1. **Separate Phase 1 and Phase 2 (`OTF-TIGHT-05` — workflow/process discipline, prose):** Phase 1 tests a pattern on its own terms (raw rerun, held-out unseen data, second instrument); Phase 2 compares with existing mathematics separately afterward.
 2. **Pre-Pinned Multi-Axis Net-Invariance & Non-Vacuous Bonferroni FWER (`OTF-TIGHT-01` — code: `aletheia.gates_v2.certify_own_terms_phase1`):** Require `>= 2` pre-pinned nets spanning `>= 2` distinct axes (`rate`, `quantization`, `scale`, `window`, `instrument`), explicit `held_out_verified=True` and `second_instrument_verified=True`, non-vacuous ceilings (`per_net_alpha <= 1/10`, `max_fwer <= 1/4`, $\sum_j \alpha_j \le \alpha_{\mathrm{FWER}}$), and per-net `observed_p_value <= per_net_alpha`.
