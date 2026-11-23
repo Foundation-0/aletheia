@@ -218,17 +218,46 @@ def _parse_exact_rational(value: object) -> Fraction:
     return Fraction(num, den)
 
 
+def _typed_key(key: object) -> tuple[type, object]:
+    return (type(key), key)
+
+
 def _strict_typed_equal(left: object, right: object) -> bool:
-    """Recursive equality preserving exact runtime types (1 != True, 1 != 1.0)."""
-    if type(left) is not type(right):
-        return False
-    if isinstance(left, dict):
-        if set(left.keys()) != set(right.keys()):
+    """Iterative equality preserving exact runtime types (1 != True, 1 != 1.0).
+
+    Dict keys and set elements are compared by (type, value) so int/bool/float
+    collisions (1 == True == 1.0) cannot pass as equal. The walk is iterative
+    so deeply nested configs fail closed instead of raising RecursionError.
+    """
+    stack: list[tuple[object, object]] = [(left, right)]
+    while stack:
+        a, b = stack.pop()
+        if type(a) is not type(b):
             return False
-        return all(_strict_typed_equal(left[k], right[k]) for k in left)
-    if isinstance(left, (list, tuple)):
-        return len(left) == len(right) and all(_strict_typed_equal(x, y) for x, y in zip(left, right))
-    return left == right
+        if isinstance(a, dict):
+            typed_b = {_typed_key(k): v for k, v in b.items()}  # type: ignore[union-attr]
+            if len(typed_b) != len(a):
+                return False
+            for k, v in a.items():
+                tk = _typed_key(k)
+                if tk not in typed_b:
+                    return False
+                stack.append((v, typed_b[tk]))
+        elif isinstance(a, (list, tuple)):
+            if len(a) != len(b):  # type: ignore[arg-type]
+                return False
+            stack.extend(zip(a, b))  # type: ignore[arg-type]
+        elif isinstance(a, (set, frozenset)):
+            try:
+                typed_a = {_typed_key(x) for x in a}
+                typed_b_set = {_typed_key(x) for x in b}  # type: ignore[union-attr]
+            except TypeError:
+                return False
+            if typed_a != typed_b_set:
+                return False
+        elif a != b:
+            return False
+    return True
 
 
 def _reject_json_float(raw: str) -> Any:

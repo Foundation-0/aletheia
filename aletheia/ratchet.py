@@ -19,6 +19,7 @@ from pathlib import Path
 import random
 from typing import Any, Mapping, Sequence
 
+from .gates_v2 import _strict_typed_equal
 from .mde import compute_zone_canon_id, parse_zone_canon_text
 from .strict_io import AletheiaError, require_ok
 
@@ -33,7 +34,7 @@ def check_ring0_lock(base_config: Mapping[str, Any], candidate_config: Mapping[s
     for sec in IMMUTABLE_RING0_SECTIONS:
         if sec in base_config:
             require_ok(
-                sec in candidate_config and candidate_config[sec] == base_config[sec],
+                sec in candidate_config and _strict_typed_equal(candidate_config[sec], base_config[sec]),
                 "RING0_TAMPER",
                 f"immutable Ring-0 section {sec!r} was modified or removed",
             )

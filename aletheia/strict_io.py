@@ -6,8 +6,10 @@ so this module never contains literal personal path or secret tokens.
 """
 from __future__ import annotations
 
+from decimal import Decimal, InvalidOperation
 import hashlib
 import json
+import math
 from pathlib import Path
 import re
 from typing import Any
@@ -28,12 +30,45 @@ def require_ok(cond: bool, code: str, message: str) -> None:
         raise AletheiaError(code, message)
 
 
+def _literal_denotes_exact_zero(literal: str) -> bool:
+    """True when a decimal float literal denotes exactly zero, so a silent underflow is distinguishable."""
+    try:
+        exact = Decimal(literal)
+    except (InvalidOperation, ValueError):
+        return False
+    return exact.is_zero()
+
+
 def canonical_sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
 def canonical_sha256_text(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _require_no_lone_surrogates(value: Any) -> None:
+    """Reject lone surrogates in any parsed string (they crash later UTF-8 encodes).
+
+    Iterative stack walk with an explicit depth cap: the C JSON parser accepts
+    arbitrarily deep nesting, and a recursive walk would crash with an uncaught
+    RecursionError instead of failing closed.
+    """
+    stack: list[tuple[Any, int]] = [(value, 0)]
+    while stack:
+        item, depth = stack.pop()
+        if depth > 10_000:
+            raise AletheiaError("JSON_DEPTH_EXCEEDED", "JSON nesting exceeds depth cap")
+        if isinstance(item, str):
+            if any(0xD800 <= ord(ch) <= 0xDFFF for ch in item):
+                raise AletheiaError("JSON_LONE_SURROGATE", "lone surrogate in JSON string")
+        elif isinstance(item, dict):
+            for key, sub in item.items():
+                stack.append((key, depth + 1))
+                stack.append((sub, depth + 1))
+        elif isinstance(item, list):
+            for sub in item:
+                stack.append((sub, depth + 1))
 
 
 def parse_strict_json_text(
@@ -46,7 +81,9 @@ def parse_strict_json_text(
     R1/R3 strict JSON parser:
       - Rejects empty/blank strings
       - Rejects duplicate keys anywhere in the JSON tree
-      - Rejects NaN, Infinity, -Infinity
+      - Rejects NaN, Infinity, -Infinity, including respelled overflow such as 1e999
+      - Rejects a literal that silently underflows to zero, such as 1e-999
+      - Rejects lone surrogates in strings
       - Optionally rejects floats (allow_float=False)
       - Optionally requires top-level JSON object (dict).
     """
@@ -58,6 +95,14 @@ def parse_strict_json_text(
 
     def reject_float(s: str) -> Any:
         raise AletheiaError("JSON_FLOAT_FORBIDDEN", f"float literal forbidden in exact JSON: {s!r}")
+
+    def finite_float(s: str) -> float:
+        value = float(s)
+        if not math.isfinite(value):
+            raise AletheiaError("JSON_FLOAT_NOT_FINITE", f"non-finite float literal forbidden: {s!r}")
+        if value == 0.0 and not _literal_denotes_exact_zero(s):
+            raise AletheiaError("JSON_FLOAT_UNDERFLOW", f"float literal underflows to zero: {s!r}")
+        return value
 
     def reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
         out: dict[str, Any] = {}
@@ -73,6 +118,8 @@ def parse_strict_json_text(
     }
     if not allow_float:
         kwargs["parse_float"] = reject_float
+    else:
+        kwargs["parse_float"] = finite_float
 
     try:
         obj = json.loads(raw_text, **kwargs)
@@ -80,6 +127,8 @@ def parse_strict_json_text(
         raise
     except Exception as exc:
         raise AletheiaError("JSON_SYNTAX_ERROR", str(exc)) from exc
+
+    _require_no_lone_surrogates(obj)
 
     if require_object and not isinstance(obj, dict):
         raise AletheiaError("JSON_ROOT_NOT_OBJECT", "top-level JSON payload must be an object")
