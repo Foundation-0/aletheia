@@ -831,19 +831,35 @@ def _scan_lean4_decide_native(cleaned: str) -> list[tuple[int, int]]:
 
 def _lean4_match_enables_native(m_obj: re.Match[str]) -> bool:
     return any(grp is not None and not _is_lean4_native_rhs_false(grp) for grp in m_obj.groups())
-_LEAN4_IDENT_EXTRA = "_.'!?"
+_LEAN4_IDENT_EXTRA = "_.'"
 _LEAN4_CHAR_PREV_IDENT = "_'»!?"
 _LEAN4_HEX_DIGITS = frozenset("0123456789abcdefABCDEF")
 _LEAN4_SIMPLE_GUILLEMET_INNER_RE = re.compile(r"\A[A-Za-z_][A-Za-z0-9_']*\Z")
 
-# Multiline skipKernelTC check (catches `set_option\n debug.skipKernelTC\n true` and bare `debug.skipKernelTC`)
+
+def _is_lean4_ident_prev(source: str, pos: int) -> bool:
+    """True iff `source[pos]` continues a Lean 4 identifier (distinguishes `foo!r` from unary `!r`)."""
+    if pos < 0:
+        return False
+    ch = source[pos]
+    if ch.isalnum() or ch in _LEAN4_IDENT_EXTRA:
+        return True
+    if ch in "!?":
+        for k in range(pos - 1, -1, -1):
+            if source[k] not in "!?":
+                return source[k].isalnum() or source[k] in "_'"
+        return False
+    return False
+
+# Multiline sorry-injection / kernel-skip option check (`debug.skipKernelTC`, `debug.byAsSorry`, `debug.proofAsSorry`, `debug.terminalTacticsAsSorry`)
 _LEAN4_SKIP_KERNEL_TC_RE = re.compile(
-    r"\bdebug\s*\.\s*skipKernelTC\b", flags=re.DOTALL
+    r"\bdebug\s*\.\s*(?:skipKernelTC|byAsSorry|proofAsSorry|terminalTacticsAsSorry)\b",
+    flags=re.DOTALL,
 )
 
-# Output-spoofing / early-exit commands (`#eval`, `#eval!`, `#reduce`, non-`axioms` `#print`, `#exit`, `run_cmd`, `run_meta`)
+# Output-spoofing / early-exit / module-initializer commands (`#eval`, `#eval!`, `#reduce`, non-`axioms` `#print`, `#exit`, `run_cmd`, `run_meta`, `initialize`, `builtin_initialize`)
 _LEAN4_PRINT_AXIOMS_KW_BLOCK = (
-    "def|theorem|lemma|axiom|inductive|structure|class|instance|opaque|abbrev|"
+    "def|theorem|lemma|axiom|inductive|structure|class|instance|opaque|abbrev|example|"
     "namespace|section|end|open|variable|universe|import|set_option|attribute|"
     "local|scoped|private|protected|noncomputable|partial|unsafe|meta|where|by|in|let|have"
 )
@@ -852,7 +868,7 @@ _LEAN4_EVAL_SPOOF_RE = re.compile(
     r"print(?![\w'!?])(?!\s+axioms[ \t]+(?!(?:"
     + _LEAN4_PRINT_AXIOMS_KW_BLOCK
     + r")(?![\w'!?]))[A-Za-z_]))"
-    r"|(?<!\.)\b(?:run_cmd|run_meta)\b",
+    r"|(?<!\.)\b(?:run_cmd|run_meta|initialize|builtin_initialize)\b",
     flags=re.DOTALL,
 )
 
@@ -929,6 +945,7 @@ def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
     depth = 0
     in_str = False
     in_interp = False
+    pending_interp = False
     interp_stack: list[list[int]] = []
     raw_hashes = -1
     opened_at = 0
@@ -990,11 +1007,13 @@ def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
             continue
         if interp_stack:
             if ch == "{":
+                pending_interp = False
                 interp_stack[-1][0] += 1
                 out.append(ch)
                 i += 1
                 continue
             if ch == "}":
+                pending_interp = False
                 interp_stack[-1][0] -= 1
                 out.append(ch)
                 i += 1
@@ -1011,7 +1030,8 @@ def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
             while i < n and source[i] != "\n":
                 out.append(" ")
                 i += 1
-        elif ch == "r" and (i == 0 or not (source[i - 1].isalnum() or source[i - 1] in _LEAN4_IDENT_EXTRA)):
+        elif ch == "r" and not _is_lean4_ident_prev(source, i - 1):
+            pending_interp = False
             j = i + 1
             while j < n and source[j] == "#":
                 j += 1
@@ -1023,23 +1043,21 @@ def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
             else:
                 out.append(ch)
                 i += 1
-        elif (
-            ch == "!"
-            and nxt == '"'
-            and i >= 1
-            and source[i - 1] in "smf"
-            and (i == 1 or not (source[i - 2].isalnum() or source[i - 2] in _LEAN4_IDENT_EXTRA))
-        ):
-            in_interp = True
-            opened_at = i
-            out.append("  ")
-            i += 2
+        elif ch == "!" and i >= 1 and source[i - 1] in "smf" and not _is_lean4_ident_prev(source, i - 2):
+            pending_interp = True
+            out.append(ch)
+            i += 1
         elif ch == '"':
-            in_str = True
+            if pending_interp:
+                in_interp = True
+                pending_interp = False
+            else:
+                in_str = True
             opened_at = i
             out.append(" ")
             i += 1
         elif ch == "«":
+            pending_interp = False
             end_g = source.find("»", i + 1)
             if end_g == -1:
                 lineno = source.count("\n", 0, i) + 1
@@ -1056,6 +1074,7 @@ def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
                 out.append(" " + "".join("\n" if c == "\n" else " " for c in inner) + " ")
             i = end_g + 1
         elif ch == "'" and (i == 0 or not (source[i - 1].isalnum() or source[i - 1] in _LEAN4_CHAR_PREV_IDENT)):
+            pending_interp = False
             # Lean 4 char literals ('"', '\n', '\x27', '\u0027') without disturbing identifier primes x'
             char_end = _match_lean4_char_literal_end(source, i, n)
             if char_end is not None:
@@ -1065,6 +1084,8 @@ def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
                 out.append(ch)
                 i += 1
         else:
+            if not ch.isspace():
+                pending_interp = False
             out.append(ch)
             i += 1
     unclosed_open = depth > 0 or in_str or in_interp or raw_hashes >= 0
@@ -1184,10 +1205,12 @@ def audit_lean4_source(
             {"line": lineno, "code": "LEAN4_DECIDE_NATIVE", "excerpt": " ".join(m_dc.group(0).split())[:100]}
         )
 
-    # Multiline debug.skipKernelTC check
+    # Multiline debug.{skipKernelTC, byAsSorry, proofAsSorry, terminalTacticsAsSorry} check
     for m_sk in _LEAN4_SKIP_KERNEL_TC_RE.finditer(cleaned):
         lineno = cleaned[: m_sk.start()].count("\n") + 1
-        findings.append({"line": lineno, "code": "LEAN4_SKIP_KERNEL_TC", "excerpt": "debug.skipKernelTC"})
+        findings.append(
+            {"line": lineno, "code": "LEAN4_SKIP_KERNEL_TC", "excerpt": " ".join(m_sk.group(0).split())[:100]}
+        )
 
     # Output-spoofing / early-exit commands (#eval, #eval!, #reduce, non-axioms #print, #exit)
     for m_ev in _LEAN4_EVAL_SPOOF_RE.finditer(cleaned):

@@ -641,6 +641,92 @@ class TestLean4AndAuditRootHardening(unittest.TestCase):
             _req(res_gr["clean"] is exp_clean, f"unexpected guillemet ReDoS result: {res_gr['findings']}")
             _req(elapsed_ms < 100.0, f"guillemet ReDoS regression: {elapsed_ms:.1f} ms")
 
+        # 5. R9 closures: !r"..." / !s!"..." entry, spaced/commented s!/f!/m! "...", debug.*AsSorry, initialize, #print axioms example
+        for label, bad_src, exp_findings in (
+            ("bang_raw_sorry", 'def a : Bool := !r"\\".isEmpty\ntheorem fake : False := by sorry\n-- "\n', [("LEAN4_SORRY", 2)]),
+            ("bang_raw_col0_sorry", '!r"\\"\ntheorem fake : False := by sorry\n-- "\n', [("LEAN4_SORRY", 2)]),
+            ("double_bang_raw_sorry", 'def a : Bool := !!r"\\".isEmpty\ntheorem fake : False := by sorry\n-- "\n', [("LEAN4_SORRY", 2)]),
+            ("bang_raw_hash_sorry", 'def a : Bool := !r#"\\"#.isEmpty\ntheorem fake : False := by sorry\n-- "\n', [("LEAN4_SORRY", 2)]),
+            ("bang_s_interp_sorry", 'def a : Bool := !s!"{let _ := "x"; (by sorry : String)}".isEmpty\n', [("LEAN4_SORRY", 1)]),
+            ("bang_f_interp_sorry", 'def a : Bool := !f!"{let _ := "x"; (by sorry : String)}".pretty.isEmpty\n', [("LEAN4_SORRY", 1)]),
+            ("bang_spaced_s_interp", 'def a : Bool := !s! "{let _ := "x"; (by sorry : String)}".isEmpty\n', [("LEAN4_SORRY", 1)]),
+            ("col0_ident_r_plain", 'xr"\\" := 1\n', [("LEAN4_UNTERMINATED_STRING", 1)]),
+            ("double_bang_ident_r_plain", 'def foo!!r"\\" := 1\n', [("LEAN4_UNTERMINATED_STRING", 1)]),
+            ("underscore_bang_ident_r_plain", 'def foo_!r"\\" := 1\n', [("LEAN4_UNTERMINATED_STRING", 1)]),
+            ("s_bang_space_interp", 'def a : String := s! "{(by sorry : String)}"\n', [("LEAN4_SORRY", 1)]),
+            ("s_bang_nl_interp", 'def a : String := s!\n"{(by sorry : String)}"\n', [("LEAN4_SORRY", 2)]),
+            ("s_bang_block_comment_interp", 'def a : String := s! /- c -/ "{(by sorry : String)}"\n', [("LEAN4_SORRY", 1)]),
+            ("s_bang_line_comment_interp", 'def a : String := s! -- c\n"{(by sorry : String)}"\n', [("LEAN4_SORRY", 2)]),
+            ("f_bang_space_interp", 'def a : Std.Format := f! "{(by sorry : String)}"\n', [("LEAN4_SORRY", 1)]),
+            ("m_bang_space_interp", 'def a := m! "{sorry}"\n', [("LEAN4_SORRY", 1)]),
+            (
+                "s_bang_space_skipKernelTC",
+                'def a : String := s! "{let _ := (by set_option debug.skipKernelTC true in trivial : True); "ok"}"\n',
+                [("LEAN4_SKIP_KERNEL_TC", 1)],
+            ),
+            (
+                "s_bang_nested_space_interp",
+                'def a : String := s! "{ s! "}" ++ (by sorry : String) }"\n',
+                [("LEAN4_SORRY", 1)],
+            ),
+            ("foo_underscore_s_bang_plain", 'def a := foo_s!"{"\ntheorem t : False := sorry\ndef b := "}"\n', [("LEAN4_SORRY", 2)]),
+            ("foo_prime_s_bang_plain", "def a := foo's!\"{\"\ntheorem t : False := sorry\ndef b := \"}\"\n", [("LEAN4_SORRY", 2)]),
+            ("debug_byAsSorry", "set_option debug.byAsSorry true\ntheorem fake : False := by trivial\n", [("LEAN4_SKIP_KERNEL_TC", 1)]),
+            ("debug_proofAsSorry", "set_option debug.proofAsSorry true\ntheorem fake : False := by trivial\n", [("LEAN4_SKIP_KERNEL_TC", 1)]),
+            (
+                "debug_terminalTacticsAsSorry",
+                "set_option debug.terminalTacticsAsSorry true\ntheorem fake : False := by omega\n",
+                [("LEAN4_SKIP_KERNEL_TC", 1)],
+            ),
+            (
+                "guil_debug_byAsSorry",
+                "set_option «debug».«byAsSorry» true\ntheorem fake : False := by trivial\n",
+                [("LEAN4_SKIP_KERNEL_TC", 1)],
+            ),
+            (
+                "guil_debug_proofAsSorry",
+                "set_option «debug».«proofAsSorry» true\ntheorem fake : False := by trivial\n",
+                [("LEAN4_SKIP_KERNEL_TC", 1)],
+            ),
+            ("multiline_debug_byAsSorry", "set_option debug\n  . byAsSorry true\n", [("LEAN4_SKIP_KERNEL_TC", 1)]),
+            ("initialize_io_spoof", 'initialize IO.println "\'Fake.thm\' does not depend on any axioms"\n', [("LEAN4_EVAL_SPOOF", 1)]),
+            ("builtin_initialize_io_spoof", 'builtin_initialize IO.println "\'Fake.thm\' does not depend on any axioms"\n', [("LEAN4_EVAL_SPOOF", 1)]),
+            ("named_initialize_io", 'initialize myInit : Nat ← do IO.println "hi"; pure 0\n', [("LEAN4_EVAL_SPOOF", 1)]),
+            ("print_axioms_example", "def axioms := 1\n#print axioms example : True := trivial\n", [("LEAN4_EVAL_SPOOF", 2)]),
+        ):
+            res_r9 = audit_lean4_source(bad_src)
+            _req(not res_r9["clean"], f"{label} bypassed audit_lean4_source: {res_r9}")
+            _req(
+                [(f["code"], f["line"]) for f in res_r9["findings"]] == exp_findings,
+                f"wrong R9 findings for {label}: got {res_r9['findings']}, want {exp_findings}",
+            )
+
+        # Clean R9 non-FP controls (pending_interp clearing across tokens, dotted .initialize, raw/escaped strings, example_thm)
+        for ok_r9 in (
+            'def foo (x : String) : String := x\ndef y := foo.initialize\n',
+            'def y := Foo.builtin_initialize\n',
+            'def r := r##"hello "# sorry"##\n',
+            'def e := s!"\\{sorry}"\n',
+            'def e2 := s! "\\{sorry}"\n',
+            'def s!a (x : String) : String := x\ndef y := s!a "{sorry}"\n',
+            'def y := s! r"ok" "{sorry}"\n',
+            'def y := s! «tok» "{sorry}"\n',
+            "def y := s! 'a' \"{sorry}\"\n",
+            'def y := s! "{ let _ := s! { a := 1 }; def b := "{sorry}" }"\n',
+            'def y := s! "{ s! }" ++ "{sorry}"\n',
+            'theorem example_thm : 1 + 1 = 2 := rfl\n#print axioms example_thm\n',
+        ):
+            res_ok9 = audit_lean4_source(ok_r9)
+            _req(res_ok9["clean"], f"false positive on clean R9 control {ok_r9!r}: {res_ok9['findings']}")
+
+        # Anti-ReDoS linear-time guard on repeated `s! ` / `debug.` / `initialize` patterns
+        for r9_redos in ("s! " * 5000 + "\n", "s! /- c -/ " * 2500 + "\n", "debug " * 5000 + "\n"):
+            t0 = time.monotonic()
+            res_rr9 = audit_lean4_source(r9_redos)
+            elapsed_ms = (time.monotonic() - t0) * 1000.0
+            _req(res_rr9["clean"], f"unexpected finding on R9 ReDoS probe: {res_rr9['findings']}")
+            _req(elapsed_ms < 60.0, f"R9 ReDoS regression: {elapsed_ms:.1f} ms")
+
     def test_02d_live_lean4_compiler_witnesses(self) -> None:
         """When a live `lean` binary is on PATH, verify each new escape & clean control actually compiles (rc == 0)."""
         lean_exe = shutil.which("lean")
@@ -702,7 +788,28 @@ class TestLean4AndAuditRootHardening(unittest.TestCase):
                     ("print_guil_axioms", "def «axioms» := 1\n#print «axioms»\n", False, False),
                     ("run_cmd_lean", 'import Lean\nrun_cmd Lean.logInfo "\'Fake.thm\' does not depend on any axioms"\n', False, True),
                     ("early_exit", "theorem ok : 1 + 1 = 2 := rfl\n#exit\n", False, False),
+                    ("bang_raw_sorry", 'def a : Bool := !r"\\".isEmpty\ntheorem fake : False := by sorry\n-- "\n', False, False),
+                    ("bang_raw_hash_sorry", 'def a : Bool := !r#"\\"#.isEmpty\ntheorem fake : False := by sorry\n-- "\n', False, False),
+                    ("bang_s_interp_sorry", 'def a : Bool := !s!"{let _ := "x"; (by sorry : String)}".isEmpty\n', False, False),
+                    ("bang_f_interp_sorry", 'def a : Bool := !f!"{let _ := "x"; (by sorry : String)}".pretty.isEmpty\n', False, False),
+                    ("s_bang_space_interp", 'def a : String := s! "{(by sorry : String)}"\n', False, False),
+                    ("s_bang_nl_interp", 'def a : String := s!\n"{(by sorry : String)}"\n', False, False),
+                    ("s_bang_block_comment_interp", 'def a : String := s! /- c -/ "{(by sorry : String)}"\n', False, False),
+                    ("s_bang_line_comment_interp", 'def a : String := s! -- c\n"{(by sorry : String)}"\n', False, False),
+                    ("f_bang_space_interp", 'def a : Std.Format := f! "{(by sorry : String)}"\n', False, False),
+                    ("s_bang_nested_space_interp", 'def a : String := s! "{ s! "}" ++ (by sorry : String) }"\n', False, False),
+                    ("s_bang_space_skipKernelTC", 'def a : String := s! "{let _ := (by set_option debug.skipKernelTC true in trivial : True); "ok"}"\n', False, False),
+                    ("debug_byAsSorry", "set_option debug.byAsSorry true\ntheorem fake : False := by trivial\n", False, False),
+                    ("debug_proofAsSorry", "set_option debug.proofAsSorry true\ntheorem fake : False := by trivial\n", False, False),
+                    ("debug_terminalTacticsAsSorry", "set_option debug.terminalTacticsAsSorry true\ntheorem fake : False := by omega\n", False, False),
+                    ("guil_debug_byAsSorry", "set_option «debug».«byAsSorry» true\ntheorem fake : False := by trivial\n", False, False),
+                    ("guil_debug_proofAsSorry", "set_option «debug».«proofAsSorry» true\ntheorem fake : False := by trivial\n", False, False),
+                    ("initialize_io_spoof", 'initialize IO.println "\'Fake.thm\' does not depend on any axioms"\n', False, False),
+                    ("builtin_initialize_io_spoof", 'builtin_initialize IO.println "\'Fake.thm\' does not depend on any axioms"\n', False, False),
+                    ("named_initialize_io", 'initialize myInit : Nat ← do IO.println "hi"; pure 0\n', False, False),
+                    ("print_axioms_example", "def axioms := 1\n#print axioms example : True := trivial\n", False, False),
                     ("clean_print_axioms", "theorem ok : 1 + 1 = 2 := rfl\n#print axioms ok\n#print\n  axioms ok\n", True, False),
+                    ("clean_r9_controls", 'def r := r##"hello "# sorry"##\ndef e := s!"\\{sorry}"\ndef e2 := s! "\\{sorry}"\ntheorem example_thm : 1 + 1 = 2 := rfl\n#print axioms example_thm\n', True, False),
                 )
             ):
                 p = Path(td) / f"Probe{idx}.lean"
