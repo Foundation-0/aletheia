@@ -2054,15 +2054,15 @@ def serialize_calculus_value(val: Any, *, _depth: int = 0, max_depth: int = MAX_
             [_require_serializable_int(a), _require_serializable_int(b), _require_serializable_int(c)],
         )
     if isinstance(val, IndexSet):
-        return ("index_set", list(val.indices))
+        return ("index_set", [_require_serializable_int(i) for i in val.indices])
     if isinstance(val, CocycleZ2):
         return ("cocycle_z2", list(val.signs))
     if isinstance(val, ShadowRecord):
         return (
             "shadow_record",
             {
-                "dim_dark": val.dim_dark,
-                "r_cross": val.r_cross,
+                "dim_dark": _require_serializable_int(val.dim_dark),
+                "r_cross": _require_serializable_int(val.r_cross),
                 "kernel_basis": [[frac_str(c) for c in vec] for vec in val.kernel_basis],
                 "coupling_map": (
                     [[frac_str(c) for c in row] for row in val.coupling_map]
@@ -2077,8 +2077,8 @@ def serialize_calculus_value(val: Any, *, _depth: int = 0, max_depth: int = MAX_
             {
                 "passed": val.passed,
                 "accept_target": val.accept_target,
-                "killed": val.killed,
-                "total_mutants": val.total_mutants,
+                "killed": _require_serializable_int(val.killed),
+                "total_mutants": _require_serializable_int(val.total_mutants),
                 "kill_ratio": frac_str(val.kill_ratio),
             },
         )

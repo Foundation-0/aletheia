@@ -161,7 +161,7 @@ def diagnose_expedition(
             if len(keeper_msgs) == 1 and "[done]" in str(keeper_msgs[0].get("text", "")).lower() and max_seq >= 4:
                 r1 += 60
                 ev1.append("portal-keeper posted [done] once in Round 1 and went silent")
-            elif max_seq >= 8 and last_seq < max_seq * 0.35:
+            elif max_seq >= 8 and last_seq * 20 < max_seq * 7:
                 r1 += 35
                 ev1.append(f"portal-keeper last posted at seq {last_seq}/{max_seq} (inactive in later waves)")
 

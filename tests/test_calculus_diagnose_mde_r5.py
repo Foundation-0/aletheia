@@ -304,6 +304,77 @@ class TestCalculusDiagnoseMdeHardening(unittest.TestCase):
             calculus.eval_calculus_expression("big", env={"big": 1 << 15000})
         self.assertEqual(cm_env.exception.code, "VALUE_SERIALIZATION_LIMIT")
 
+        # Bounded serialization across IndexSet, ShadowRecord, and GateResult integer fields.
+        idx_ok = calculus.IndexSet((0, max_val, -max_val))
+        self.assertEqual(calculus.serialize_calculus_value(idx_ok), ("index_set", [0, max_val, -max_val]))
+        self.assertEqual(
+            calculus.eval_calculus_expression("idx", env={"idx": idx_ok})["value"],
+            [0, max_val, -max_val],
+        )
+
+        sh_ok = calculus.ShadowRecord(kernel_basis=(), coupling_map=None, dim_dark=max_val, r_cross=max_val)
+        sh_ser = calculus.serialize_calculus_value(sh_ok)
+        self.assertEqual(sh_ser[0], "shadow_record")
+        self.assertEqual(sh_ser[1]["dim_dark"], max_val)
+        self.assertEqual(sh_ser[1]["r_cross"], max_val)
+        sh_eval = calculus.eval_calculus_expression("sh", env={"sh": sh_ok})
+        self.assertEqual(sh_eval["value"]["dim_dark"], max_val)
+        self.assertEqual(sh_eval["value"]["r_cross"], max_val)
+
+        gr_ok = calculus.GateResult(
+            passed=True,
+            accept_target=True,
+            killed=max_val,
+            total_mutants=max_val,
+            kill_ratio=Fraction(1, 1),
+        )
+        gr_ser = calculus.serialize_calculus_value(gr_ok)
+        self.assertEqual(gr_ser[0], "gate_result")
+        self.assertEqual(gr_ser[1]["killed"], max_val)
+        self.assertEqual(gr_ser[1]["total_mutants"], max_val)
+        gr_eval = calculus.eval_calculus_expression("gr", env={"gr": gr_ok})
+        self.assertEqual(gr_eval["value"]["killed"], max_val)
+        self.assertEqual(gr_eval["value"]["total_mutants"], max_val)
+
+        for over_obj in (
+            calculus.IndexSet((over_val,)),
+            calculus.IndexSet((-over_val,)),
+            calculus.ShadowRecord(kernel_basis=(), coupling_map=None, dim_dark=over_val, r_cross=0),
+            calculus.ShadowRecord(kernel_basis=(), coupling_map=None, dim_dark=-over_val, r_cross=0),
+            calculus.ShadowRecord(kernel_basis=(), coupling_map=None, dim_dark=0, r_cross=over_val),
+            calculus.ShadowRecord(kernel_basis=(), coupling_map=None, dim_dark=0, r_cross=-over_val),
+            calculus.GateResult(passed=True, accept_target=True, killed=over_val, total_mutants=1, kill_ratio=Fraction(1, 1)),
+            calculus.GateResult(passed=True, accept_target=True, killed=-over_val, total_mutants=1, kill_ratio=Fraction(1, 1)),
+            calculus.GateResult(passed=True, accept_target=True, killed=1, total_mutants=over_val, kill_ratio=Fraction(1, 1)),
+            calculus.GateResult(passed=True, accept_target=True, killed=1, total_mutants=-over_val, kill_ratio=Fraction(1, 1)),
+        ):
+            with self.assertRaises(calculus.CalculusError) as cm_ov:
+                calculus.serialize_calculus_value(over_obj)
+            self.assertEqual(cm_ov.exception.code, "VALUE_SERIALIZATION_LIMIT")
+            with self.assertRaises(calculus.CalculusError) as cm_ove:
+                calculus.eval_calculus_expression("obj", env={"obj": over_obj})
+            self.assertEqual(cm_ove.exception.code, "VALUE_SERIALIZATION_LIMIT")
+
+        for bad_type_obj in (
+            calculus.IndexSet((True,)),  # type: ignore[arg-type]
+            calculus.IndexSet((_SubInt(1),)),
+            calculus.IndexSet((_Color.ONE,)),
+            calculus.ShadowRecord(kernel_basis=(), coupling_map=None, dim_dark=True, r_cross=0),  # type: ignore[arg-type]
+            calculus.ShadowRecord(kernel_basis=(), coupling_map=None, dim_dark=_SubInt(1), r_cross=0),
+            calculus.ShadowRecord(kernel_basis=(), coupling_map=None, dim_dark=0, r_cross=False),  # type: ignore[arg-type]
+            calculus.ShadowRecord(kernel_basis=(), coupling_map=None, dim_dark=0, r_cross=_SubInt(1)),
+            calculus.GateResult(passed=True, accept_target=True, killed=True, total_mutants=1, kill_ratio=Fraction(1, 1)),  # type: ignore[arg-type]
+            calculus.GateResult(passed=True, accept_target=True, killed=_SubInt(1), total_mutants=1, kill_ratio=Fraction(1, 1)),
+            calculus.GateResult(passed=True, accept_target=True, killed=1, total_mutants=False, kill_ratio=Fraction(1, 1)),  # type: ignore[arg-type]
+            calculus.GateResult(passed=True, accept_target=True, killed=1, total_mutants=_SubInt(1), kill_ratio=Fraction(1, 1)),
+        ):
+            with self.assertRaises(calculus.CalculusError) as cm_bt:
+                calculus.serialize_calculus_value(bad_type_obj)
+            self.assertEqual(cm_bt.exception.code, "INVALID_INT_TYPE")
+            with self.assertRaises(calculus.CalculusError) as cm_bte:
+                calculus.eval_calculus_expression("obj", env={"obj": bad_type_obj})
+            self.assertEqual(cm_bte.exception.code, "INVALID_INT_TYPE")
+
         prod_5000 = "*".join([f"({nines})"] * 5)
         for huge_expr in (
             prod_5000,
@@ -398,6 +469,45 @@ class TestCalculusDiagnoseMdeHardening(unittest.TestCase):
             with self.assertRaises(AletheiaError) as cm_u:
                 diagnose.diagnose_expedition(ws, board_path=bad_utf8)
             self.assertEqual(cm_u.exception.code, "INVALID_BOARD_UTF8")
+
+            # Exact integer threshold (max_seq >= 8 and last_seq * 20 < max_seq * 7) and huge seqs beyond float64 range.
+            huge_1024 = (1 << 1024) - 1
+            huge_400 = 10**400
+            big_scale = 1 << 60
+            threshold_cases: list[tuple[str, int, int, int, str]] = [
+                ("below_min_max_seq", 0, 7, 0, "HEALTHY"),
+                ("exact_min_max_seq", 1, 8, 35, "WATCH"),
+                ("exact_below_7_20", 6, 20, 35, "WATCH"),
+                ("exact_at_7_20", 7, 20, 0, "HEALTHY"),
+                ("exact_above_7_20", 8, 20, 0, "HEALTHY"),
+                ("above_2p53_below_7_20", 7 * big_scale - 1, 20 * big_scale, 35, "WATCH"),
+                ("above_2p53_at_7_20", 7 * big_scale, 20 * big_scale, 0, "HEALTHY"),
+                ("huge_1024_inactive", 1, huge_1024, 35, "WATCH"),
+                ("huge_1024_active", huge_1024, huge_1024, 0, "HEALTHY"),
+                ("huge_1e400_inactive", 1, huge_400, 35, "WATCH"),
+                ("huge_1e400_active", huge_400, huge_400, 0, "HEALTHY"),
+            ]
+            for label, keeper_seq, worker_seq, exp_cs01_risk, exp_overall in threshold_cases:
+                bp = root / f"thresh_{label}.jsonl"
+                write_lf_text(
+                    bp,
+                    "\n".join([
+                        json.dumps({"seq": keeper_seq, "agent": "portal-keeper", "text": "Updated Portal 1"}),
+                        json.dumps({"seq": worker_seq, "agent": "worker", "text": "Completed wave verification"}),
+                    ]) + "\n",
+                )
+                res_t = diagnose.diagnose_expedition(ws, board_path=bp)
+                self.assertEqual(res_t["overall_status"], exp_overall, label)
+                cs01 = next(p for p in res_t["patterns"] if p["id"] == "CS-01")
+                self.assertEqual(cs01["risk_score"], exp_cs01_risk, label)
+
+                rc_t, out_t, err_t = _run_cli(["diagnose", str(ws), "--board", str(bp), "--json"])
+                self.assertEqual(rc_t, 0, label)
+                self.assertEqual(err_t, "", label)
+                cli_obj = parse_strict_json_text(out_t, allow_float=True)
+                self.assertEqual(cli_obj["overall_status"], exp_overall, label)
+                cli_cs01 = next(p for p in cli_obj["patterns"] if p["id"] == "CS-01")
+                self.assertEqual(cli_cs01["risk_score"], exp_cs01_risk, label)
 
     def test_04_mde_sym2_rcp_structural_validation_and_resigned_forgeries(self) -> None:
         # Existing demo passes untouched.
