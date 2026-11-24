@@ -1052,6 +1052,10 @@ def _scan_structured_auto_yes_config(text: str) -> list[tuple[int, str]]:
         runner = base if base in (_NPX_TOKEN, _BUNX_TOKEN) else ""
         events.append((m_cmd.start(), m_cmd.end(), "cmd", runner))
 
+    bracket_floor = 0
+    bracket_yes_start = -1
+    yaml_floor = 0
+    yaml_yes_pos = -1
     for m_args in _STRUCTURED_ARGS_KEY_RE.finditer(text):
         pos = m_args.end()
         while pos < n and text[pos] in " \t":
@@ -1059,30 +1063,44 @@ def _scan_structured_auto_yes_config(text: str) -> list[tuple[int, str]]:
         has_yes = False
         end_pos = pos
         if pos < n and text[pos] == "[":
-            close_idx = text.find("]", pos + 1)
-            end_pos = close_idx + 1 if close_idx != -1 else n
-            if _STRUCTURED_INLINE_YES_RE.search(text[pos + 1 : end_pos]) is not None:
-                has_yes = True
+            if m_args.start() < bracket_floor:
+                end_pos = bracket_floor
+                has_yes = bracket_yes_start >= pos
+            else:
+                close_idx = text.find("]", pos + 1)
+                end_pos = close_idx + 1 if close_idx != -1 else n
+                bracket_floor = end_pos
+                bracket_yes_start = -1
+                for m_yes in _STRUCTURED_INLINE_YES_RE.finditer(text[pos + 1 : end_pos]):
+                    bracket_yes_start = pos + 1 + m_yes.start()
+                has_yes = bracket_yes_start >= pos + 1
         elif pos < n and text[pos] == "\n":
-            cur = pos + 1
-            while True:
-                nl = text.find("\n", cur)
-                line_end = nl if nl != -1 else n
-                stripped = text[cur:line_end].lstrip(" \t")
-                if not stripped.startswith("-"):
-                    break
-                after_dash = stripped[1:]
-                if after_dash and after_dash[0] not in " \t":
-                    break
-                parts = after_dash.strip().split()
-                if parts:
-                    tok = parts[0].strip("\"'")
-                    if tok in ("-" + "y", "--" + "yes"):
-                        has_yes = True
-                end_pos = line_end
-                if nl == -1:
-                    break
-                cur = nl + 1
+            if m_args.start() < yaml_floor:
+                end_pos = yaml_floor - 1
+                has_yes = yaml_yes_pos >= pos + 1
+            else:
+                cur = pos + 1
+                yaml_yes_pos = -1
+                while True:
+                    nl = text.find("\n", cur)
+                    line_end = nl if nl != -1 else n
+                    stripped = text[cur:line_end].lstrip(" \t")
+                    if not stripped.startswith("-"):
+                        break
+                    after_dash = stripped[1:]
+                    if after_dash and after_dash[0] not in " \t":
+                        break
+                    parts = after_dash.strip().split()
+                    if parts:
+                        tok = parts[0].strip("\"'")
+                        if _YES_FLAG_EXACT_RE.fullmatch(tok) is not None:
+                            yaml_yes_pos = cur
+                    end_pos = line_end
+                    if nl == -1:
+                        break
+                    cur = nl + 1
+                yaml_floor = end_pos + 1
+                has_yes = yaml_yes_pos >= pos + 1
         events.append((m_args.start(), end_pos, "args", "yes" if has_yes else ""))
 
     events.sort(key=lambda item: item[0])

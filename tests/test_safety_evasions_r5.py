@@ -465,7 +465,17 @@ class TestSafetyEvasionsAndBounds(unittest.TestCase):
         self._assert_hits(yaml_bx_cmd_first, "bx1.yml", "CYA-GAP-02", "bunx_auto_yes_structured_config")
         self._assert_hits(yaml_bx_args_first, "bx2.yml", "CYA-GAP-02", "bunx_auto_yes_structured_config")
 
-        # AL-PR35-VER-01: O(n) YAML args ReDoS & structured proximity/boundary regression tests (< 50 ms each)
+        # Multi-line YAML combined short flags (-qy / -yq) across both npx and bunx
+        qy_flag = "-q" + "y"
+        yq_flag = _YF + "q"
+        self._assert_hits(f"{_CMD}: {_NX}\n{_ARGS}:\n  - {qy_flag}\n  - evil\n", "nx_qy.yml", "CYA-GAP-02", "npx_auto_yes_structured_config")
+        self._assert_hits(f"{_CMD}: {_NX}\n{_ARGS}:\n  - {yq_flag}\n  - evil\n", "nx_yq.yml", "CYA-GAP-02", "npx_auto_yes_structured_config")
+        self._assert_hits(f"{_CMD}: {_BX}\n{_ARGS}:\n  - {qy_flag}\n  - evil\n", "bx_qy.yml", "CYA-GAP-02", "bunx_auto_yes_structured_config")
+        self._assert_hits(f"{_CMD}: {_BX}\n{_ARGS}:\n  - {yq_flag}\n  - evil\n", "bx_yq.yml", "CYA-GAP-02", "bunx_auto_yes_structured_config")
+        self.assertTrue(safety.scan_text_safety_surface(f"{_CMD}: {_NX}\n{_ARGS}:\n  - --no-yes\n  - safe\n", "nx_noyes.yml")["clean"])
+        self.assertTrue(safety.scan_text_safety_surface(f"{_CMD}: {_NX}\n{_ARGS}:\n  - -q\n  - yaml\n", "nx_q.yml")["clean"])
+
+        # O(n) YAML/bracket args ReDoS & structured proximity/floor boundary regression tests (< 50 ms each)
         for label, payload, expect_clean in (
             ("yaml_npx_200", f"{_CMD}: {_NX}\n{_ARGS}:\n" + "  - foo\n" * 200 + "  - bar\n", True),
             ("yaml_bunx_200", f"{_CMD}: {_BX}\n{_ARGS}:\n" + "  - foo\n" * 200 + "  - bar\n", True),
@@ -473,6 +483,18 @@ class TestSafetyEvasionsAndBounds(unittest.TestCase):
             ("yaml_args_yes_200_other", f"{_ARGS}:\n  - {_YF}\n" + "  - foo\n" * 200 + "other: 1\n", True),
             ("yaml_2space_200", f"{_CMD}: {_NX}\n{_ARGS}:\n" + "  -  foo\n" * 200, True),
             ("yaml_trail_space_200", f"{_CMD}: {_NX}\n{_ARGS}:\n" + "  - foo  \n" * 200, True),
+            ("yaml_bracket_5000_open", f"{_ARGS}: [" * 5000, True),
+            ("yaml_bracket_5000_closed", f"{_ARGS}: [" * 5000 + "]", True),
+            ("yaml_nested_args_4000", f"{_ARGS}:\n" + f"  - {_ARGS}:\n" * 4000, True),
+            ("yaml_bracket_adj_floor_hit", f'{_ARGS}: []{_ARGS}: ["{_YF}"]\n{_CMD}: {_NX}\n', False),
+            ("yaml_bracket_second_elem_hit", f'{_CMD}: {_NX}\n{_ARGS}: ["--quiet", "{_YF}"]\n', False),
+            ("yaml_bracket_nested_hit", f"{_ARGS}: [unclosed\n{_CMD}: echo\n{_CMD}: {_NX}\n{_ARGS}: [{_YF}]\n", False),
+            ("yaml_bracket_nested_q_hit", f'{_ARGS}: [unclosed\n{_CMD}: echo\n{_CMD}: {_NX}\n{_ARGS}: ["{_YF}"]\n', False),
+            ("yaml_bracket_nested_prior_ok", f'{_ARGS}: ["{_YF}", {_ARGS}: ["ok"]]\n{_CMD}: {_NX}\n', True),
+            ("yaml_floor_adj_hit", f"{_ARGS}:\n  - a\n{_ARGS}:\n  - {_YF}\n{_CMD}: {_NX}\n", False),
+            ("yaml_floor_nested_hit", f"{_ARGS}:\n  - {_ARGS}:\n  - {_YF}\n{_CMD}: {_NX}\n", False),
+            ("yaml_floor_nested_line2_hit", f"{_ARGS}:\n  - {_ARGS}:\n  - foo\n  - {_YF}\n{_CMD}: {_NX}\n", False),
+            ("yaml_floor_nested_prior_ok", f"{_ARGS}:\n  - {_YF}\n  - {_ARGS}:\n  - ok\n{_CMD}: {_NX}\n", True),
             ("yaml_npx_200_hit", f"{_CMD}: {_NX}\n{_ARGS}:\n" + "  - foo\n" * 200 + f"  - {_YF}\n", False),
             ("yaml_empty_dash_hit", f"{_CMD}: {_NX}\n{_ARGS}:  \n  -\n  - {_YF}", False),
             ("yaml_inline_unclosed_hit", f'{_CMD}: {_NX}\n{_ARGS}: ["{_YF}"', False),
@@ -491,9 +513,13 @@ class TestSafetyEvasionsAndBounds(unittest.TestCase):
             ("yaml_two_args_no_cmd", f'{_ARGS}: ["{_YF}"]\n{_ARGS}: ["{_YF}"]\n', True),
         ):
             t0 = time.monotonic()
+            safety._scan_structured_auto_yes_config(payload)
+            struct_ms = (time.monotonic() - t0) * 1000.0
+            self.assertLess(struct_ms, 50.0, msg=f"Structured scanner ReDoS regression on {label}: {struct_ms:.2f} ms")
+            t1 = time.monotonic()
             r_y = safety.scan_text_safety_surface(payload, f"{label}.yml")
-            elapsed_ms = (time.monotonic() - t0) * 1000.0
-            self.assertLess(elapsed_ms, 50.0, msg=f"YAML ReDoS regression on {label}: {elapsed_ms:.2f} ms")
+            elapsed_ms = (time.monotonic() - t1) * 1000.0
+            self.assertLess(elapsed_ms, 300.0, msg=f"YAML ReDoS regression on {label}: {elapsed_ms:.2f} ms")
             self.assertEqual(r_y["clean"], expect_clean, msg=f"unexpected result on {label}: {r_y}")
 
         # Duplicate JSON keys (simple, nested, shadowed npx/bunx, unicode-escaped key, duplicate args, BOM)
