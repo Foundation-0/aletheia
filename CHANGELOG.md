@@ -2,7 +2,20 @@
 
 All notable changes to `Foundation-0/aletheia` are documented in this file. Specification changes follow [`CONTRIBUTING.md`](CONTRIBUTING.md) (issue/audit reference, version bump, and regression tests).
 
-## [Unreleased]
+## [2.1.0] — 2026-11-22
+
+Twin-coherence release. The method repo and the Cave Expedition ledger now machine-check the claims they make about each other, and the audit of 2026-11-22 (`aletheia#13`) closed its fail-open and label findings.
+
+### Added
+- **`aletheia twin-check` (`aletheia/twin_check.py`, contract `spec/twin_contract.json`):** machine-checks the claims the aletheia and cave-expedition repos make about each other. Nine checks cover the audit id range in the cave ledger, the audit ids aletheia cites, the number of check scripts each side counts, the set of results labelled `N2`, the seam and portal counts, the cave README claim that every track reached `VERIFIED`, the byte identity of the two `LICENSE` files, and the CI in each repo. Each check reports `OK`, `DRIFT`, `PENDING` or `SKIP` with the file and line it used, and a `PENDING` entry names the pull request that clears it. `DRIFT` exits `1`, `PENDING` and `SKIP` exit `0`, and a missing twin repo is `SKIP`, so a repo's own CI never fails because a sibling repo was not checked out. The contract pins every count, so a number that changes in one repo needs a reviewed edit in the other.
+- **CI job `twin-coherence`:** checks out `Foundation-0/cave-expedition` next to this repo and runs `twin-check` on every push and pull request.
+
+### Fixed
+- **`aletheia audit-check` (`aletheia#13`, "Audit scan fails open"):** the file walk now fails closed. A scan root that is not a regular file or directory is refused with the coded error `TARGET_NOT_REGULAR`; every entry is classified with `os.lstat` before anything is read; symlinks are never followed; new codes `SYMLINK_DIR`, `SYMLINK_OUTSIDE_ROOT`, `BROKEN_SYMLINK`, `NON_REGULAR_FILE` and `UNREADABLE_FILE` fail the run; files are opened with `O_NONBLOCK` so a path swapped for a FIFO cannot block the scan. `--allow-symlinks` downgrades the three symlink codes, and the default is fail closed.
+- **Strict JSON (`aletheia#13`):** a float literal that silently underflows to zero, such as `1e-999`, is now refused with `JSON_FLOAT_UNDERFLOW`, so a value cannot disappear into `0.0` without a trace.
+
+### Changed
+- **Novelty labels (`aletheia#13`, "Flat VERIFIED N2 wording"):** every label in the domain packs, the case study and the worked example now matches the outside two-pass check of the Cave Expedition ledger, which lowered several results from `N2` to `N1` or `N0` because the same mechanism exists under another name in a neighbouring field. Each changed label carries a pointer to the ruling.
 
 ### Changed
 - Recorded the project owner's 2026-11-23 ruling that Own-Terms-First is adopted as a flexible rule (`spec/LAWS_AND_GATES.md` §1.1 and the status line of `spec/proposals/OWN_TERMS_FIRST.md`). Text only, no version bump.

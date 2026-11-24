@@ -4,6 +4,9 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   verify-r4-r5:
     runs-on: ubuntu-latest
@@ -60,3 +63,28 @@ jobs:
           for tgt in antigravity claude-code codex cursor gemini-cli repo; do
             python3 -I -O -B -W error -m aletheia install --target "$tgt" --dry-run --json
           done
+
+  twin-coherence:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check out the twin repo (Foundation-0/cave-expedition)
+        uses: actions/checkout@v4
+        with:
+          repository: Foundation-0/cave-expedition
+          path: cave-expedition
+
+      - name: Install aletheia-method (zero external dependencies)
+        run: |
+          python3 -m pip install --no-deps .
+
+      - name: Machine-check the claims the two repos make about each other
+        run: |
+          python3 -I -O -B -W error -m aletheia twin-check \
+            --aletheia-root "$GITHUB_WORKSPACE" \
+            --cave-root "$GITHUB_WORKSPACE/cave-expedition" \
+            --json

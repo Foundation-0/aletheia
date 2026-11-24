@@ -1167,11 +1167,12 @@ class TestAletheiaCLI(unittest.TestCase):
     def test_15_ci_install_step_needs_no_preinstalled_setuptools(self) -> None:
         wf = (CLI_ROOT / ".github" / "workflows" / "aletheia-ci.yml").read_text(encoding="utf-8")
         install_lines = [ln.strip() for ln in wf.splitlines() if "pip install" in ln]
-        _req(len(install_lines) == 1, f"expected exactly one pip install line in CI, got {install_lines}")
+        _req(len(install_lines) >= 1, f"expected an install line in CI, got {install_lines}")
         # `--no-build-isolation` needs setuptools in the runner's own environment, which
         # setup-python does not provide (ModuleNotFoundError: No module named 'setuptools').
-        _req("--no-build-isolation" not in install_lines[0], f"CI install needs preinstalled setuptools: {install_lines[0]}")
-        _req("--no-deps" in install_lines[0], f"CI install must stay dependency-free: {install_lines[0]}")
+        for line in install_lines:
+            _req("--no-build-isolation" not in line, f"CI install needs preinstalled setuptools: {line}")
+            _req("--no-deps" in line, f"CI install must stay dependency-free: {line}")
 
         # An in-tree install leaves build/ and *.egg-info in the repo root; the self-audit must not trip on them.
         with tempfile.TemporaryDirectory(prefix="aletheia_t_ci_") as td:
@@ -1825,9 +1826,9 @@ class TestAletheiaCLI(unittest.TestCase):
                  f"unclosed raw string missed: {lean_raw_unclosed}")
 
     def test_35_v20_cli_gate_v2_and_safety_scan(self) -> None:
-        """v2.0 CLI subcommands: gate-v2 --self-test, safety-scan, audit-check --safety-scan, version 2.0.0."""
+        """v2.x CLI subcommands: gate-v2 --self-test, safety-scan, audit-check --safety-scan, version 2.1.0."""
         from aletheia import __version__
-        _req(__version__ == "2.0.0", f"expected version 2.0.0, got {__version__}")
+        _req(__version__ == "2.1.0", f"expected version 2.1.0, got {__version__}")
 
         rc_g, out_g, _ = _run_cli(["gate-v2", "--self-test", "--json"])
         jg = parse_strict_json_text(out_g, allow_float=False)
