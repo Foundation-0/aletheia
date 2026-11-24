@@ -194,6 +194,21 @@ class TestSafetyEvasionsAndBounds(unittest.TestCase):
                 f"{_FN} . -exec timeout \\; {_RM} {_RF} {{}} +\n",
                 f"{_FN} . -exec timeout\n",
                 f"{_FN} . -exec env\n",
+                f"{_FN} . -exec env -u\n",
+                f"{_FN} . -exec env \\; -name {_RM}\n",
+                f"{_FN} . -exec env -u \\; {_RM} {_RF} {{}} +\n",
+                f"{_FN} . -exec env -u \\; -name {_RM}\n",
+                f"{_FN} . -exec env -u + -name {_RM}\n",
+                f"{_FN} . -exec sudo -u \\; -name {_RM}\n",
+                f"{_FN} . -exec nice -n \\; -name {_RM}\n",
+                f"{_FN} . -exec stdbuf -o \\; -name {_RM}\n",
+                f"{_FN} . -exec {_XA} \\; -name {_RM}\n",
+                f"{_FN} . -exec {_XA} -I \\; -name {_RM}\n",
+                f"{_FN} . -exec {_XA} -I\n",
+                f"{_FN} . -exec {_XA} --arg-file \\; -name {_RM}\n",
+                f"{_FN} . -exec {_XA} --arg-file\n",
+                f"{_FN} . -exec {_XA}-I \\; -name {_RM}\n",
+                f"{_FN} . -exec {_XA}-I\n",
                 f"{_FN} . -exec\n",
                 f"# {_FN} /tmp {_DEL}\n",
             )
@@ -393,6 +408,7 @@ class TestSafetyEvasionsAndBounds(unittest.TestCase):
         self.assertEqual(safety._strip_cmd_token(f"'{_RM}"), f"'{_RM}")
         self.assertEqual(safety._strip_cmd_token(""), "")
         self.assertTrue(safety._is_spaceless_xargs_rm_tail(f"-0{_RM}"))
+        self.assertTrue(safety._is_spaceless_xargs_rm_tail(f"-9{_RM}"))
         self.assertTrue(safety._is_spaceless_xargs_rm_tail(f"-I{{}}{_RM}"))
         self.assertFalse(safety._is_spaceless_xargs_rm_tail(f"--0{_RM}"))
         self.assertFalse(safety._is_spaceless_xargs_rm_tail(f"x0{_RM}"))
@@ -448,6 +464,37 @@ class TestSafetyEvasionsAndBounds(unittest.TestCase):
         yaml_bx_args_first = f"{_ARGS}:\n  - {_YESF}\n  - evil\n{_CMD}: /opt/bin/{_BX}\n"
         self._assert_hits(yaml_bx_cmd_first, "bx1.yml", "CYA-GAP-02", "bunx_auto_yes_structured_config")
         self._assert_hits(yaml_bx_args_first, "bx2.yml", "CYA-GAP-02", "bunx_auto_yes_structured_config")
+
+        # AL-PR35-VER-01: O(n) YAML args ReDoS & structured proximity/boundary regression tests (< 50 ms each)
+        for label, payload, expect_clean in (
+            ("yaml_npx_200", f"{_CMD}: {_NX}\n{_ARGS}:\n" + "  - foo\n" * 200 + "  - bar\n", True),
+            ("yaml_bunx_200", f"{_CMD}: {_BX}\n{_ARGS}:\n" + "  - foo\n" * 200 + "  - bar\n", True),
+            ("yaml_args_only_200", f"{_ARGS}:\n" + "  - foo\n" * 200 + "  - bar\n", True),
+            ("yaml_args_yes_200_other", f"{_ARGS}:\n  - {_YF}\n" + "  - foo\n" * 200 + "other: 1\n", True),
+            ("yaml_2space_200", f"{_CMD}: {_NX}\n{_ARGS}:\n" + "  -  foo\n" * 200, True),
+            ("yaml_trail_space_200", f"{_CMD}: {_NX}\n{_ARGS}:\n" + "  - foo  \n" * 200, True),
+            ("yaml_npx_200_hit", f"{_CMD}: {_NX}\n{_ARGS}:\n" + "  - foo\n" * 200 + f"  - {_YF}\n", False),
+            ("yaml_empty_dash_hit", f"{_CMD}: {_NX}\n{_ARGS}:  \n  -\n  - {_YF}", False),
+            ("yaml_inline_unclosed_hit", f'{_CMD}: {_NX}\n{_ARGS}: ["{_YF}"', False),
+            ("yaml_non_item_break", f"{_CMD}: {_NX}\n{_ARGS}:\n  --not-item\n  - {_YF}\n", True),
+            ("yaml_eof_args_only", f"{_CMD}: {_NX}\n{_ARGS}:", True),
+            ("yaml_eof_args_nl", f"{_CMD}: {_NX}\n{_ARGS}:\n", True),
+            ("yaml_cmd_barrier_fwd", f"{_CMD}: {_NX}\n{_CMD}: echo\n{_ARGS}: [\"{_YF}\"]\n", True),
+            ("yaml_cmd_barrier_bwd", f"{_ARGS}: [\"{_YF}\"]\n{_CMD}: echo\n{_CMD}: {_NX}\n", True),
+            ("yaml_args_barrier_bwd", f"{_ARGS}: [\"{_YF}\"]\n{_ARGS}: [\"--help\"]\n{_CMD}: {_NX}\n", True),
+            ("yaml_prox_fwd_600_hit", f"{_CMD}: {_NX}" + "\n" + "x" * 598 + f"\n{_ARGS}: [\"{_YF}\"]\n", False),
+            ("yaml_prox_fwd_601_ok", f"{_CMD}: {_NX}" + "\n" + "x" * 599 + f"\n{_ARGS}: [\"{_YF}\"]\n", True),
+            ("yaml_prox_bwd_600_hit", f"{_ARGS}: [\"{_YF}\"]" + " " * 600 + f"{_CMD}: {_NX}\n", False),
+            ("yaml_prox_bwd_601_ok", f"{_ARGS}: [\"{_YF}\"]" + " " * 601 + f"{_CMD}: {_NX}\n", True),
+            ("yaml_other_cmd_only", f"{_CMD}: echo\n{_ARGS}: [\"{_YF}\"]\n", True),
+            ("yaml_inline_dash_scalar", f"{_CMD}: {_NX}\n{_ARGS}: -- {_YF}\n", True),
+            ("yaml_two_args_no_cmd", f'{_ARGS}: ["{_YF}"]\n{_ARGS}: ["{_YF}"]\n', True),
+        ):
+            t0 = time.monotonic()
+            r_y = safety.scan_text_safety_surface(payload, f"{label}.yml")
+            elapsed_ms = (time.monotonic() - t0) * 1000.0
+            self.assertLess(elapsed_ms, 50.0, msg=f"YAML ReDoS regression on {label}: {elapsed_ms:.2f} ms")
+            self.assertEqual(r_y["clean"], expect_clean, msg=f"unexpected result on {label}: {r_y}")
 
         # Duplicate JSON keys (simple, nested, shadowed npx/bunx, unicode-escaped key, duplicate args, BOM)
         self._assert_hits('{"a":1,"a":2}\n', "dup1.json", "CYA-GAP-02", "duplicate_json_key")

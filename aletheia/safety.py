@@ -67,28 +67,16 @@ _MCP_BYPASS_RULES: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"\bSession" + r"Start\b"), "session_start_hook"),
 )
 
-_YAML_ARGS_YES_LIST_RE = (
-    r"(?:[ \t]*\n[ \t]*-[ \t]*[^\n]+)*?[ \t]*\n[ \t]*-[ \t]*[\"']?" + _YES_FLAG_CORE + r"[\"']?(?:\s|$)"
+_STRUCTURED_CMD_LINE_RE = re.compile(
+    r"(?<![A-Za-z0-9_])[\"']?com" + r"mand[\"']?[ \t]*:[ \t]*([^\n,}\]]+)"
 )
-_STRUCTURED_RUNNER_VAL_RE = r"(?:[A-Za-z0-9._/-]+/)?(?P<runner>" + _AUTO_YES_RUNNER_RE + r")"
-_STRUCTURED_NPX_YES_CMD_FIRST_RE = re.compile(
-    r"(?:[\"']?com" + r"mand[\"']?\s*:\s*[\"']?"
-    + _STRUCTURED_RUNNER_VAL_RE
-    + r"[\"']?)"
-    r"(?:(?!\bcom" + r"mand\s*:)[\s\S]){0,600}?"
-    r"(?:[\"']?a" + r"rgs[\"']?\s*:\s*"
-    r"(?:\[[^\]]*?[\"']" + _YES_FLAG_CORE + r"[\"']"
-    r"|" + _YAML_ARGS_YES_LIST_RE + r"))"
+_STRUCTURED_ARGS_KEY_RE = re.compile(
+    r"(?<![A-Za-z0-9_])[\"']?a" + r"rgs[\"']?[ \t]*:"
 )
-_STRUCTURED_NPX_YES_ARGS_FIRST_RE = re.compile(
-    r"(?:[\"']?a" + r"rgs[\"']?\s*:\s*"
-    r"(?:\[[^\]]*?[\"']" + _YES_FLAG_CORE + r"[\"'][^\]]*\]"
-    r"|" + _YAML_ARGS_YES_LIST_RE + r"(?:[ \t]*\n[ \t]*-[ \t]*[^\n]+)*))"
-    r"(?:(?!\ba" + r"rgs\s*:)[\s\S]){0,600}?"
-    r"[\"']?com" + r"mand[\"']?\s*:\s*[\"']?"
-    + _STRUCTURED_RUNNER_VAL_RE
-    + r"[\"']?\b"
+_STRUCTURED_INLINE_YES_RE = re.compile(
+    r"(?:^|[,\[\s\"'])" + _YES_FLAG_CORE + r"(?:$|[,\s\]\"'])"
 )
+_STRUCTURED_PROXIMITY_CHARS = 600
 
 _FIND_EXEC_FLAGS = frozenset({"-exec", "-execdir", "-ok", "-okdir"})
 _FIND_EXEC_END = frozenset({";", "\\;", "+"})
@@ -456,25 +444,32 @@ def _split_shell_tokens(text: str) -> list[tuple[str, int, int]]:
     return tokens
 
 
-def _skip_xargs_options(tokens: list[str], idx: int) -> tuple[int, bool]:
+def _skip_xargs_options(
+    tokens: list[str],
+    idx: int,
+    *,
+    stop_tokens: frozenset[str] = frozenset(),
+) -> tuple[int, bool]:
     """Advance idx past xargs options in strictly linear O(n) time."""
     n = len(tokens)
     while idx < n:
         t = tokens[idx]
+        if t in stop_tokens:
+            break
         if t == "--":
             idx += 1
             break
         if _is_spaceless_xargs_rm_tail(t):
             return (idx + 1, True)
         if t in _XARGS_LONG_VAL_OPTS:
-            idx += 2
+            idx += 2 if idx + 1 < n and tokens[idx + 1] not in stop_tokens else 1
             continue
         if t.startswith("--"):
             idx += 1
             continue
         if t.startswith("-") and len(t) >= 2:
             if len(t) == 2 and t[1] in _XARGS_SHORT_VAL_FLAGS:
-                idx += 2
+                idx += 2 if idx + 1 < n and tokens[idx + 1] not in stop_tokens else 1
             else:
                 idx += 1
             continue
@@ -488,18 +483,21 @@ def _skip_wrapper_flag_args(
     val_opts: frozenset[str],
     *,
     allow_env_assign: bool = False,
+    stop_tokens: frozenset[str] = frozenset(),
 ) -> int:
     """Advance idx past a wrapper command's options in strictly linear O(n) time."""
     n = len(tokens)
     while idx < n:
         t = tokens[idx]
+        if t in stop_tokens:
+            break
         if t == "--":
             return idx + 1
         if allow_env_assign and _is_env_assign(t):
             idx += 1
             continue
         if t in val_opts:
-            idx += 2
+            idx += 2 if idx + 1 < n and tokens[idx + 1] not in stop_tokens else 1
             continue
         if t.startswith("-") and len(t) >= 2:
             idx += 1
@@ -530,16 +528,16 @@ def _skip_command_wrappers(
             if _is_spaceless_xargs_rm_tail(tail):
                 return (idx + 1, saw_busybox, True, True)
             if len(tail) == 2 and tail[1] in _XARGS_SHORT_VAL_FLAGS:
-                idx += 2
+                idx += 2 if idx + 1 < n and tokens[idx + 1] not in stop_tokens else 1
             else:
                 idx += 1
-            idx, hit = _skip_xargs_options(tokens, idx)
+            idx, hit = _skip_xargs_options(tokens, idx, stop_tokens=stop_tokens)
             if hit:
                 return (idx, saw_busybox, True, True)
             continue
         if cmd == _XARGS_TOKEN:
             saw_xargs = True
-            idx, hit = _skip_xargs_options(tokens, idx + 1)
+            idx, hit = _skip_xargs_options(tokens, idx + 1, stop_tokens=stop_tokens)
             if hit:
                 return (idx, saw_busybox, True, True)
             continue
@@ -548,30 +546,34 @@ def _skip_command_wrappers(
             idx += 1
             continue
         if cmd == "env":
-            idx = _skip_wrapper_flag_args(tokens, idx + 1, _ENV_VAL_OPTS, allow_env_assign=True)
+            idx = _skip_wrapper_flag_args(
+                tokens, idx + 1, _ENV_VAL_OPTS, allow_env_assign=True, stop_tokens=stop_tokens
+            )
             continue
         if cmd == "sudo":
-            idx = _skip_wrapper_flag_args(tokens, idx + 1, _SUDO_VAL_OPTS, allow_env_assign=True)
+            idx = _skip_wrapper_flag_args(
+                tokens, idx + 1, _SUDO_VAL_OPTS, allow_env_assign=True, stop_tokens=stop_tokens
+            )
             continue
         if cmd == "command":
-            idx = _skip_wrapper_flag_args(tokens, idx + 1, frozenset())
+            idx = _skip_wrapper_flag_args(tokens, idx + 1, frozenset(), stop_tokens=stop_tokens)
             continue
         if cmd == "nice":
-            idx = _skip_wrapper_flag_args(tokens, idx + 1, _NICE_VAL_OPTS)
+            idx = _skip_wrapper_flag_args(tokens, idx + 1, _NICE_VAL_OPTS, stop_tokens=stop_tokens)
             continue
         if cmd == "stdbuf":
-            idx = _skip_wrapper_flag_args(tokens, idx + 1, _STDBUF_VAL_OPTS)
+            idx = _skip_wrapper_flag_args(tokens, idx + 1, _STDBUF_VAL_OPTS, stop_tokens=stop_tokens)
             continue
         if cmd == "timeout":
-            idx = _skip_wrapper_flag_args(tokens, idx + 1, _TIMEOUT_VAL_OPTS)
+            idx = _skip_wrapper_flag_args(tokens, idx + 1, _TIMEOUT_VAL_OPTS, stop_tokens=stop_tokens)
             if idx < n and tokens[idx] not in stop_tokens:
                 idx += 1
             continue
         if cmd == "exec":
-            idx = _skip_wrapper_flag_args(tokens, idx + 1, frozenset({"-a"}))
+            idx = _skip_wrapper_flag_args(tokens, idx + 1, frozenset({"-a"}), stop_tokens=stop_tokens)
             continue
         if cmd == "time":
-            idx = _skip_wrapper_flag_args(tokens, idx + 1, frozenset())
+            idx = _skip_wrapper_flag_args(tokens, idx + 1, frozenset(), stop_tokens=stop_tokens)
             continue
         if cmd in ("nohup", "builtin"):
             idx += 1
@@ -1039,6 +1041,81 @@ def scan_hidden_unicode(text: str, file_label: str = "<input>") -> list[dict[str
     return findings
 
 
+def _scan_structured_auto_yes_config(text: str) -> list[tuple[int, str]]:
+    """Detect non-JSON structured (YAML/fenced-JSON) npx/bunx auto-yes configs in strictly O(n) time."""
+    n = len(text)
+    events: list[tuple[int, int, str, str]] = []
+
+    for m_cmd in _STRUCTURED_CMD_LINE_RE.finditer(text):
+        raw_val = m_cmd.group(1).strip().strip("\"'")
+        base = raw_val.rsplit("/", 1)[-1].rsplit("\\", 1)[-1]
+        runner = base if base in (_NPX_TOKEN, _BUNX_TOKEN) else ""
+        events.append((m_cmd.start(), m_cmd.end(), "cmd", runner))
+
+    for m_args in _STRUCTURED_ARGS_KEY_RE.finditer(text):
+        pos = m_args.end()
+        while pos < n and text[pos] in " \t":
+            pos += 1
+        has_yes = False
+        end_pos = pos
+        if pos < n and text[pos] == "[":
+            close_idx = text.find("]", pos + 1)
+            end_pos = close_idx + 1 if close_idx != -1 else n
+            if _STRUCTURED_INLINE_YES_RE.search(text[pos + 1 : end_pos]) is not None:
+                has_yes = True
+        elif pos < n and text[pos] == "\n":
+            cur = pos + 1
+            while True:
+                nl = text.find("\n", cur)
+                line_end = nl if nl != -1 else n
+                stripped = text[cur:line_end].lstrip(" \t")
+                if not stripped.startswith("-"):
+                    break
+                after_dash = stripped[1:]
+                if after_dash and after_dash[0] not in " \t":
+                    break
+                parts = after_dash.strip().split()
+                if parts:
+                    tok = parts[0].strip("\"'")
+                    if tok in ("-" + "y", "--" + "yes"):
+                        has_yes = True
+                end_pos = line_end
+                if nl == -1:
+                    break
+                cur = nl + 1
+        events.append((m_args.start(), end_pos, "args", "yes" if has_yes else ""))
+
+    events.sort(key=lambda item: item[0])
+    hits: list[tuple[int, str]] = []
+    ev_count = len(events)
+    for i, (c_start, c_end, kind, runner) in enumerate(events):
+        if kind != "cmd" or not runner:
+            continue
+        matched = False
+        for j in range(i + 1, ev_count):
+            ev_start, _ev_end, ev_kind, ev_val = events[j]
+            if ev_start - c_end > _STRUCTURED_PROXIMITY_CHARS:
+                break
+            if ev_kind == "cmd":
+                break
+            if ev_val == "yes":
+                hits.append((text.count("\n", 0, c_start) + 1, runner))
+                matched = True
+                break
+        if matched:
+            continue
+        for j in range(i - 1, -1, -1):
+            ev_start, ev_end, ev_kind, ev_val = events[j]
+            if c_start - ev_end > _STRUCTURED_PROXIMITY_CHARS:
+                break
+            if ev_kind == "cmd":
+                break
+            if ev_val == "yes":
+                hits.append((text.count("\n", 0, ev_start) + 1, runner))
+            break
+    return hits
+
+
 def scan_text_safety_surface(
     text: str,
     file_label: str = "<input>",
@@ -1111,16 +1188,15 @@ def scan_text_safety_surface(
                 }
             )
     if not json_handled:
-        for pat in (_STRUCTURED_NPX_YES_CMD_FIRST_RE, _STRUCTURED_NPX_YES_ARGS_FIRST_RE):
-            for m_struct in pat.finditer(text):
-                findings.append(
-                    {
-                        "gap_id": "CYA-GAP-02",
-                        "file": file_label,
-                        "line": text.count("\n", 0, m_struct.start()) + 1,
-                        "detail": f"{m_struct.group('runner')}_auto_yes_structured_config",
-                    }
-                )
+        for hit_line, hit_runner in _scan_structured_auto_yes_config(text):
+            findings.append(
+                {
+                    "gap_id": "CYA-GAP-02",
+                    "file": file_label,
+                    "line": hit_line,
+                    "detail": f"{hit_runner}_auto_yes_structured_config",
+                }
+            )
 
     # CYA-GAP-03: Unguarded recursive force-delete & command-wrapper evasions
     nounset_active = False
