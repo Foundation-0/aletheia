@@ -24,7 +24,7 @@ import re
 from typing import Any
 
 from .audit_check import SKIP_DIRS, validate_audit_log_markdown
-from .strict_io import loads_strict_json, require_ok
+from .strict_io import AletheiaError, loads_strict_json, require_ok
 
 _BUZZWORDS = (
     "sheaf", "duality", "curvature", "emergence", "holonomy",
@@ -72,20 +72,37 @@ _TRAILING_NEWLINE_DIGEST_RE = re.compile(
 )
 
 
+def _require_board_seq(msg: dict[str, Any], fallback_seq: int, context: str) -> int:
+    if "seq" not in msg:
+        return fallback_seq
+    raw = msg["seq"]
+    require_ok(
+        type(raw) is int and raw >= 0,
+        "INVALID_BOARD_SEQ",
+        f"{context}: board seq must be non-negative int, got {raw!r} ({type(raw).__name__})",
+    )
+    return raw
+
+
 def _load_board_jsonl(board_path: Path | None) -> list[dict[str, Any]]:
     if board_path is None:
         return []
     require_ok(board_path.is_file(), "BOARD_NOT_FOUND", f"board file not found: {board_path}")
+    try:
+        raw_text = board_path.read_text(encoding="utf-8")
+    except UnicodeDecodeError as exc:
+        raise AletheiaError("INVALID_BOARD_UTF8", f"invalid UTF-8 in {board_path}: {exc}") from exc
     msgs: list[dict[str, Any]] = []
-    for lineno, line in enumerate(board_path.read_text(encoding="utf-8").splitlines(), start=1):
+    for lineno, line in enumerate(raw_text.splitlines(), start=1):
         s = line.strip()
         if not s:
             continue
         try:
             obj = loads_strict_json(s, allow_float=True, require_object=False)
         except Exception as exc:
-            raise ValueError(f"invalid JSONL on line {lineno} of {board_path}: {exc}") from exc
+            raise AletheiaError("INVALID_BOARD_JSONL", f"invalid JSONL on line {lineno} of {board_path}: {exc}") from exc
         if isinstance(obj, dict):
+            _require_board_seq(obj, len(msgs) + 1, f"{board_path}:{lineno}")
             msgs.append(obj)
     return msgs
 
@@ -146,12 +163,12 @@ def diagnose_expedition(
             r1 += 50
             ev1.append("board JSONL has 0 posts from cartographer / portal-keeper")
         else:
-            last_seq = max(int(m.get("seq", i + 1)) for i, m in enumerate(keeper_msgs))
-            max_seq = max(int(m.get("seq", i + 1)) for i, m in enumerate(board_msgs))
+            last_seq = max(_require_board_seq(m, i + 1, "keeper_msg") for i, m in enumerate(keeper_msgs))
+            max_seq = max(_require_board_seq(m, i + 1, "board_msg") for i, m in enumerate(board_msgs))
             if len(keeper_msgs) == 1 and "[done]" in str(keeper_msgs[0].get("text", "")).lower() and max_seq >= 4:
                 r1 += 60
                 ev1.append("portal-keeper posted [done] once in Round 1 and went silent")
-            elif max_seq >= 8 and last_seq < max_seq * 0.35:
+            elif max_seq >= 8 and last_seq * 20 < max_seq * 7:
                 r1 += 35
                 ev1.append(f"portal-keeper last posted at seq {last_seq}/{max_seq} (inactive in later waves)")
 
