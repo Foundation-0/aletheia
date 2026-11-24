@@ -1006,14 +1006,71 @@ def validate_comparator_config(
     return {"path": str(config_path), "passed": len(errors) == 0, "errors": errors, "warnings": warnings}
 
 
+def _git_revision_with_sha256(base_dir: Path, target: Path, want: str) -> tuple[str | None, str]:
+    """
+    Find the newest commit on HEAD at which `target` held bytes whose SHA-256 is `want`.
+
+    Searches the git work tree holding `base_dir`: the commits that touched the path
+    (`git log --full-history`, renames not followed), newest first, hashing each revision's blob
+    bytes (`git cat-file blob`), so a match is measured, never declared. Returns `(commit, history)`
+    where history is `complete` (git reports a full clone), `partial` (a shallow clone, or git could
+    not say), or `unavailable` (no git, no work tree, the target lies outside it, or `git log` failed).
+    No match in `partial` history does not show that the bytes never existed.
+    """
+    def _git(cwd: Path, args: list[str]) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            ["git", "-C", str(cwd), *args], capture_output=True, text=True, errors="replace", check=False
+        )
+
+    try:
+        top_res = _git(base_dir, ["rev-parse", "--show-toplevel"])
+        top_out = top_res.stdout.strip()
+        if top_res.returncode != 0 or not top_out or not target.is_relative_to(Path(top_out).resolve()):
+            return None, "unavailable"
+        top = Path(top_out).resolve()
+        rel = target.relative_to(top).as_posix()
+        shallow_res = _git(top, ["rev-parse", "--is-shallow-repository"])
+        history = "complete" if shallow_res.returncode == 0 and shallow_res.stdout.strip() == "false" else "partial"
+        log_res = _git(top, ["log", "--no-show-signature", "--full-history", "--format=%H", "--", rel])
+        if log_res.returncode != 0:
+            return None, "unavailable"
+        for commit in log_res.stdout.split():
+            blob = subprocess.run(
+                ["git", "-C", str(top), "cat-file", "blob", f"{commit}:{rel}"], capture_output=True, check=False
+            )
+            if blob.returncode == 0 and canonical_sha256_bytes(blob.stdout) == want:
+                return commit, history
+    except OSError:  # no git binary
+        return None, "unavailable"
+    return None, history
+
+
+def _classify_pinned_mismatch(base_dir: Path, target: Path, rel: str, want: str, actual: str) -> dict[str, Any]:
+    """`STALE` when the pinned hash is an older revision of the file in git history, else `UNKNOWN`."""
+    commit, history = _git_revision_with_sha256(base_dir, target, want)
+    return {
+        "path": rel,
+        "status": "UNKNOWN" if commit is None else "STALE",
+        "stale_commit": commit,
+        "history": history,
+        "expected_sha256": want,
+        "actual_sha256": actual,
+    }
+
+
 def validate_pinned_manifest(manifest_path: Path, *, root: Path | None = None) -> dict[str, Any]:
     """
     Validate a cryptographic pinning manifest (`CORE_MANIFEST.json` SHA-256 spec pinning
     from DeepMind/cryptids OR `SafeVerify` 40-hex commit-SHA manifest from Mistral/FLTEval).
+
+    Each `PINNED_FILE_SHA256_MISMATCH` also gets an entry in `mismatches`: `STALE` with the commit when
+    the pinned hash equals an older revision of that file in the git history holding the root, else
+    `UNKNOWN`, with how complete that history was. Both still fail the manifest.
     """
     data = load_strict_json_file(manifest_path, allow_float=True, require_object=True)
     base_dir = (root if root is not None else manifest_path.parent).resolve()
     errors: list[str] = []
+    mismatches: list[dict[str, Any]] = []
     files_verified = 0
     commits_verified = 0
 
@@ -1038,6 +1095,7 @@ def validate_pinned_manifest(manifest_path: Path, *, root: Path | None = None) -
                 want = expected.split(":", 1)[-1].lower()
                 if actual != want:
                     errors.append(f"PINNED_FILE_SHA256_MISMATCH:{rel}")
+                    mismatches.append(_classify_pinned_mismatch(base_dir, target, rel, want, actual))
                 else:
                     files_verified += 1
 
@@ -1066,6 +1124,7 @@ def validate_pinned_manifest(manifest_path: Path, *, root: Path | None = None) -
                 want = expected.split(":", 1)[-1].lower()
                 if actual != want:
                     errors.append(f"PINNED_FILE_SHA256_MISMATCH:{rel}")
+                    mismatches.append(_classify_pinned_mismatch(base_dir, target, rel, want, actual))
                 else:
                     files_verified += 1
 
@@ -1101,6 +1160,7 @@ def validate_pinned_manifest(manifest_path: Path, *, root: Path | None = None) -
         "files_verified": files_verified,
         "commits_verified": commits_verified,
         "errors": errors,
+        "mismatches": mismatches,
     }
 
 
@@ -1733,6 +1793,12 @@ def run_audit_check(
                 audit_log_report["verified_n2_without_outside_ruling"] if audit_log_report is not None else 0
             ),
             "n2_novelty_not_shown": audit_log_report["n2_novelty_not_shown"] if audit_log_report is not None else 0,
+            "pinned_mismatch_stale_count": (
+                sum(1 for m in manifest_report["mismatches"] if m["status"] == "STALE") if manifest_report is not None else 0
+            ),
+            "pinned_mismatch_unknown_count": (
+                sum(1 for m in manifest_report["mismatches"] if m["status"] == "UNKNOWN") if manifest_report is not None else 0
+            ),
             "path_findings_count": len(path_findings),
             "symlink_count": len(symlinks),
             "non_regular_count": non_regular_count,
