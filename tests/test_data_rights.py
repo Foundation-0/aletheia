@@ -34,6 +34,11 @@ DISCLOSED = (
     "Mock matrix stands in for the cohort: participant consent does not cover this use.",
     "Toy stub in place of the real files; authorisation for the real data is pending.",
 )
+# The rights words match as whole words only: these lines contain them inside other words and stay scored.
+NOT_DISCLOSED_SUBSTRINGS = (
+    "Used an unauthorized synthetic proxy for the headline table.",
+    "Synthetic proxy for the copyrights table.",
+)
 
 
 def _req(cond: bool, msg: str) -> None:
@@ -72,6 +77,22 @@ class TestCS04DataRights(unittest.TestCase):
             _req(
                 cs04["evidence"] == ["probes/biology/notes.md:4: possible unaddressed toy/proxy substitution"],
                 f"evidence must name only the undisclosed line: {cs04['evidence']}",
+            )
+
+    def test_rights_words_inside_other_words_do_not_exempt(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="aletheia_t_cs04_sub_") as td:
+            ws = Path(td) / "ws"
+            init_workspace(ws, domain="biology")
+            body = "".join(f"{line}\n" for line in NOT_DISCLOSED_SUBSTRINGS)
+            write_lf_text(ws / "probes" / "biology" / "notes.md", f"# Notes\n\n{body}")
+            cs04 = _cs04(ws)
+            _req(cs04["risk_score"] == 80, f"both substring-only lines must score 40 each: {cs04}")
+            _req(
+                cs04["evidence"] == [
+                    "probes/biology/notes.md:3: possible unaddressed toy/proxy substitution",
+                    "probes/biology/notes.md:4: possible unaddressed toy/proxy substitution",
+                ],
+                f"evidence must name both substring-only lines: {cs04['evidence']}",
             )
 
     def test_remediation_allows_for_rights_and_authorization(self) -> None:

@@ -34,12 +34,12 @@ _OPERATOR_MARKERS = re.compile(r"(=|:=|->|\\to|\\ge|\\le|\\equiv|def\s+\w+|\.py\
 _FLOAT_CUTOFF_RE = re.compile(r"(?:1e-(?:9|10|11|12|13|14|15)|math\.isclose|np\.allclose|eigvalsh)")
 _PROXY_HINT_RE = re.compile(r"\b(?:synthetic\s+proxy|toy\s+stub|mock\s+matrix|placeholder\s+model)\b", re.IGNORECASE)
 # CS-04 is passing a proxy off as the real target. A proxy line is exempt when it records a repaired or
-# rejected substitution, or discloses that the real data are not used because rights, consent or
-# authorization are not in place (domains/biology-and-life-sciences.md, "Data Rights, Consent & Disclosure").
-_CS04_ADDRESSED_MARKERS = (
-    "replaced", "rejected", "falsified", "caught", "avoid", "never", "anti-pattern",
-    "rights", "consent", "authoriz", "authoris",
-)
+# rejected substitution (substring markers below), or when it names rights, consent or authorization as
+# words (domains/biology-and-life-sciences.md, "Data Rights, Consent & Disclosure"). The rights match is
+# word-bounded, so "copyrights" and "unauthorized" do not exempt a line; it is still only a heuristic and
+# cannot tell whether the stated reason is true.
+_CS04_ADDRESSED_MARKERS = ("replaced", "rejected", "falsified", "caught", "avoid", "never", "anti-pattern")
+_CS04_RIGHTS_RE = re.compile(r"\b(?:rights|consent\w*|authori[sz]\w*)\b", re.IGNORECASE)
 _OBSTRUCTION_RE = re.compile(r"\b(?:sharpness\s+wall|obstructions?|counterexamples?|no-go|impossib\w*)\b", re.IGNORECASE)
 _ELEVATION_RE = re.compile(r"\b(?:theorems?|higher[- ]moment|spawn\w*|branch(?:es)?|elevat\w*|new\s+invariants?|generaliz\w*)\b", re.IGNORECASE)
 _PORTAL_HEADING_RE = re.compile(r"^#{1,3}\s+Portal\s+[0-9A-Za-z]+", re.MULTILINE)
@@ -254,7 +254,7 @@ def diagnose_expedition(
                 # lines that disclose a synthetic input used because rights or authorization
                 # for the real data are not in place (disclosed, so not passed off as the target).
                 low = line.lower()
-                if any(ok in low for ok in _CS04_ADDRESSED_MARKERS):
+                if any(ok in low for ok in _CS04_ADDRESSED_MARKERS) or _CS04_RIGHTS_RE.search(line) is not None:
                     continue
                 r4 += 40
                 ev4.append(f"{mf.relative_to(root)}:{lineno}: possible unaddressed toy/proxy substitution")
