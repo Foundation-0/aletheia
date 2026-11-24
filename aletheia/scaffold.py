@@ -6,6 +6,7 @@ research expedition workspace with exclusive write boundaries, active portals,
 from __future__ import annotations
 
 from datetime import date
+import errno
 import json
 import os
 from pathlib import Path
@@ -19,28 +20,74 @@ from .strict_io import AletheiaError, require_ok, write_lf_text
 _DOMAIN_RE = re.compile(r"\A[a-z0-9][a-z0-9_-]{0,47}\Z", re.ASCII)
 
 
-def _require_no_symlink_target(target: Path, *, role: str) -> Path:
-    """Refuse symlinked targets (and symlinked relative components) before resolve().
-
-    Absolute paths are checked at the leaf so OS-level symlinks (such as macOS
-    /var -> /private/var) never false-positive; relative paths are walked
-    component by component below Path.cwd() so caller-supplied symlinked
-    parents are always rejected before resolve() can hide them."""
-    if target.is_symlink():
+def _lstat_refuse_symlink(path: Path, *, role: str, detail: str) -> None:
+    """Refuse a path with SYMLINK_REFUSED when lstat reports a symlink or symlink loop."""
+    try:
+        st = os.lstat(path)
+    except OSError as exc:
+        if exc.errno == errno.ELOOP:
+            raise AletheiaError(
+                "SYMLINK_REFUSED",
+                f"refusing to traverse symlink loop in {role} {detail} {path} (force never follows links; pass a real directory)",
+            ) from exc
+        return
+    if stat.S_ISLNK(st.st_mode):
         raise AletheiaError(
             "SYMLINK_REFUSED",
-            f"refusing to use symlinked {role} {target} (force never follows links; pass a real directory)",
+            f"refusing to traverse symlinked {role} {detail} {path} (force never follows links; pass a real directory)",
         )
-    if not target.is_absolute():
-        current = Path.cwd()
-        for part in target.parts:
-            current = current / part
-            if current.is_symlink():
-                raise AletheiaError(
-                    "SYMLINK_REFUSED",
-                    f"refusing to traverse symlinked {role} component {current} (force never follows links; pass a real directory)",
-                )
-    return target.resolve()
+
+
+def _require_no_symlink_target(
+    target: Path,
+    *,
+    role: str,
+    anchor_root: Path | None = None,
+) -> Path:
+    """Refuse symlinked targets and symlinked ancestors via a single left-to-right stack walk.
+
+    Boundary:
+      - Checks `target` itself with `os.lstat()` first (catching leaf symlinks
+        and direct `ELOOP` chains).
+      - Walks `target` (anchored at `Path.cwd()` when relative, or the
+        filesystem root / `anchor_root` when absolute) strictly left-to-right
+        with an explicit component stack.
+      - Every pushed component at depth >= 2 below the root is checked
+        immediately with `os.lstat()` BEFORE any subsequent `..` can pop it,
+        so nonexistent segments (`no_such/..`), regular files (`reg_file/..`),
+        and trailing `..` (`link_sub/..`) cannot mask a symlink or loop.
+      - The depth-1 root entry (such as macOS `/var -> /private/var`,
+        `/tmp -> /private/tmp`, `/etc -> /private/etc`) is permitted solely as
+        a strict downward ancestor; traversing `..` directly out of a depth-1
+        symlink (e.g. `/var/..`) and targeting a symlink leaf at any depth are
+        both refused with `SYMLINK_REFUSED`.
+      - Resolves and returns the verified `..`-free stack path.
+    """
+    target = Path(target)
+    _lstat_refuse_symlink(target, role=role, detail="target")
+    base = target if target.is_absolute() else Path.cwd()
+    root = Path(base.anchor) if anchor_root is None else anchor_root
+    if target.is_absolute():
+        stack: list[str] = []
+        raw_parts = target.relative_to(root).parts
+    else:
+        stack = list(base.relative_to(root).parts)
+        raw_parts = target.parts
+
+    for part in raw_parts:
+        if part == "..":
+            if len(stack) == 1:
+                _lstat_refuse_symlink(root / stack[0], role=role, detail="component")
+            if stack:
+                stack.pop()
+            continue
+        stack.append(part)
+        if len(stack) >= 2:
+            _lstat_refuse_symlink(root.joinpath(*stack), role=role, detail="component")
+
+    final_path = root.joinpath(*stack) if stack else root
+    _lstat_refuse_symlink(final_path, role=role, detail="target")
+    return final_path.resolve()
 
 
 def _symlink_offenders(root: Path, rel_paths: Iterable[str]) -> list[str]:
@@ -144,7 +191,13 @@ def init_workspace(
     domain: str = "general",
     force: bool = False,
 ) -> dict[str, Any]:
-    """Scaffold a clean Aletheia expedition workspace in `target_dir`."""
+    """Scaffold a clean Aletheia expedition workspace in `target_dir`.
+
+    Refuses symlinked targets, symlinked relative components, symlinked
+    absolute ancestors at depth >= 2 (exempting only depth-1 OS-managed root
+    links such as macOS /var, /tmp, /etc), and symlinked workspace subpaths,
+    with or without `force`.
+    """
     require_ok(
         isinstance(domain, str) and _DOMAIN_RE.match(domain) is not None,
         "INVALID_DOMAIN_NAME",

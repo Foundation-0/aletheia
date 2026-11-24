@@ -14,6 +14,9 @@ Checks:
      verifying exit code 0 and bit-identical stdout SHA-256 across all 3 modes!
   3. `AUDIT_LOG.md` ledger validation (verdicts, oracle classes, novelty tags, Gate 9 prior-art
      citation check on N2 rows) and `aletheia.audit_receipt.v1` JSON receipt validation.
+     A `VERIFIED` `N2` row that lists no `G10` and that no `--outside-rulings` file
+     (`outside_observer.rulings.v1`) names gets novelty status `NOT_SHOWN`
+     (warning, or error under `--strict-novelty`).
 """
 from __future__ import annotations
 
@@ -26,7 +29,7 @@ import re
 import stat
 import subprocess
 import sys
-from typing import Any, Sequence
+from typing import Any, Mapping, Sequence
 
 from .safety import scan_directory_safety_surface
 from .strict_io import (
@@ -47,6 +50,8 @@ TEXT_SUFFIXES = {
 VALID_VERDICTS = {"VERIFIED", "PARTIAL/FRAGILE", "FALSIFIED", "NOT_SHOWN", "EXPOSED"}
 VALID_ORACLE_TOKENS = {"exact", "sampled", "anchor", "reference_replay"}
 VALID_NOVELTY_TOKENS = {"N0", "N1", "N2"}
+OUTSIDE_RULINGS_SCHEMA = "outside_observer.rulings.v1"
+VALID_OUTSIDE_RULINGS = {"stands", "stands_narrowed", "falls"}
 
 _UNSEEDED_RANDOM_FUNCS = {
     "random", "randint", "randrange", "uniform", "gauss", "normalvariate",
@@ -337,11 +342,118 @@ def _split_audit_table_row(line: str) -> list[str]:
     return [c.strip() for c in cells]
 
 
-def validate_audit_log_markdown(path: Path, *, require_rows: bool = True) -> dict[str, Any]:
+_OUTSIDE_AUDIT_ENTRY_RE = re.compile(r"\A(AUDIT-[0-9]{3,4}[A-Za-z0-9_-]*)(?:[ \t]+(\S.*))?\Z")
+_AUDIT_ID_SLASH_TAIL_RE = re.compile(r"[ \t]*/[ \t]*([0-9]{3,4}[A-Za-z0-9_-]*)")
+
+
+def _first_cell_audit_ids(first_cell: str) -> list[str]:
+    """
+    Every audit id a ledger row's first cell names, in order, without repeats.
+
+    A combined row such as `AUDIT-015R / 016R` or `AUDIT-006R / 007R / 008R` writes its later ids as
+    slash shorthand; each is expanded to a full id (`AUDIT-016R`). Full ids anywhere in the cell count too.
+    The first id is the row's leading id, the one the row is matched on.
+    """
+    ids: list[str] = []
+    for m_id in _AUDIT_ID_RE.finditer(first_cell):
+        ids.append(m_id.group(0))
+        pos = m_id.end()
+        while (m_tail := _AUDIT_ID_SLASH_TAIL_RE.match(first_cell, pos)) is not None:
+            ids.append("AUDIT-" + m_tail.group(1))
+            pos = m_tail.end()
+    return list(dict.fromkeys(ids))
+
+
+def load_outside_rulings(path: Path) -> dict[str, list[dict[str, str]]]:
+    """
+    Load an `outside_observer.rulings.v1` file and map each audit id it names to the areas naming it.
+
+    The accepted shape is the one in cave-expedition `verification/outside/rulings.json`: a non-empty
+    `areas` list; each area has a name (`area`), an `audits` string of comma-separated audit ids (an id
+    may carry a qualifier such as `Part A`, kept verbatim in `entry`), and a non-empty `findings` list
+    in which every finding carries a ruling `stands`, `stands_narrowed` or `falls`. Anything else is
+    refused (R1), so a malformed file never counts as an outside ruling.
+
+    Only presence is read: which audit ids an outside two-pass review ruled on. What a ruling decided
+    about a novelty label is prose in the file and is not read here. Ids match exactly, so a ruling on
+    `AUDIT-011R` does not cover a ledger row `AUDIT-011`.
+    """
+    data = load_strict_json_file(path, allow_float=False, require_object=True)
+    require_ok(
+        data.get("schema") == OUTSIDE_RULINGS_SCHEMA,
+        "OUTSIDE_RULINGS_BAD_SCHEMA",
+        f"{path}: schema must be {OUTSIDE_RULINGS_SCHEMA!r}",
+    )
+    areas = data.get("areas")
+    require_ok(isinstance(areas, list) and len(areas) > 0, "OUTSIDE_RULINGS_NO_AREAS", f"{path}: areas must be a non-empty list")
+    coverage: dict[str, list[dict[str, str]]] = {}
+    for idx, area in enumerate(areas):
+        require_ok(isinstance(area, dict), "OUTSIDE_RULINGS_BAD_AREA", f"{path}: areas[{idx}] is not an object")
+        name = area.get("area")
+        require_ok(
+            isinstance(name, str) and name.strip() != "",
+            "OUTSIDE_RULINGS_BAD_AREA",
+            f"{path}: areas[{idx}].area must be a non-empty string",
+        )
+        audits = area.get("audits")
+        require_ok(
+            isinstance(audits, str) and audits.strip() != "",
+            "OUTSIDE_RULINGS_BAD_AUDITS",
+            f"{path}: areas[{idx}].audits must be a non-empty string",
+        )
+        findings = area.get("findings")
+        require_ok(
+            isinstance(findings, list) and len(findings) > 0,
+            "OUTSIDE_RULINGS_NO_FINDINGS",
+            f"{path}: areas[{idx}].findings must be a non-empty list",
+        )
+        for fidx, finding in enumerate(findings):
+            ruling = finding.get("ruling") if isinstance(finding, dict) else None
+            require_ok(
+                isinstance(ruling, str) and ruling in VALID_OUTSIDE_RULINGS,
+                "OUTSIDE_RULINGS_BAD_RULING",
+                f"{path}: areas[{idx}].findings[{fidx}].ruling must be one of {sorted(VALID_OUTSIDE_RULINGS)}",
+            )
+        for piece in audits.split(","):
+            entry = piece.strip()
+            m_entry = _OUTSIDE_AUDIT_ENTRY_RE.match(entry)
+            require_ok(
+                m_entry is not None,
+                "OUTSIDE_RULINGS_BAD_AUDIT_ID",
+                f"{path}: areas[{idx}].audits entry {entry!r} does not start with an audit id",
+            )
+            # A qualifier is prose (`Part A`). One that holds another id (`AUDIT-002 AUDIT-003`, a missing
+            # comma) would drop that id without notice, so it is refused.
+            require_ok(
+                _AUDIT_ID_RE.search(m_entry.group(2) or "") is None,  # type: ignore[union-attr]
+                "OUTSIDE_RULINGS_BAD_AUDIT_ID",
+                f"{path}: areas[{idx}].audits entry {entry!r} holds more than one audit id; separate ids with commas",
+            )
+            coverage.setdefault(m_entry.group(1), []).append({"area": name, "entry": entry})  # type: ignore[union-attr]
+    return coverage
+
+
+def validate_audit_log_markdown(
+    path: Path,
+    *,
+    require_rows: bool = True,
+    outside_rulings: Mapping[str, Sequence[Mapping[str, str]]] | None = None,
+    strict_novelty: bool = False,
+) -> dict[str, Any]:
     """
     Parse and validate a markdown AUDIT_LOG.md table under Gate 8 & Gate 9.
     The verdict cell must open with one whole verdict token (markdown emphasis aside), so `NOT VERIFIED`
     is rejected rather than read as `VERIFIED`. With `require_rows`, a ledger with no audit rows is invalid.
+
+    Every `VERIFIED` `N2` row gets a novelty status. It is `SECOND_PASS_RECORDED` when the row's gates
+    cell lists `G10` or `outside_rulings` (from `load_outside_rulings`) names the row's audit id, and
+    `NOT_SHOWN` otherwise. `NOT_SHOWN` is the warning `N2_NOVELTY_NOT_SHOWN`, or an error when
+    `strict_novelty` is set. `SECOND_PASS_RECORDED` says only that a second pass is on record; it does
+    not say the pass kept the label.
+
+    A combined row such as `AUDIT-015R / 016R` is matched on its leading id (`AUDIT-015R`): a ruling on a
+    later id does not cover the row. Every id the first cell names (`row_ids`, slash shorthand expanded)
+    counts as in the ledger for `outside_ruling_ids_not_in_ledger`.
     """
     require_ok(path.is_file(), "AUDIT_LOG_NOT_FOUND", f"audit log not found: {path}")
     text = path.read_text(encoding="utf-8")
@@ -350,6 +462,8 @@ def validate_audit_log_markdown(path: Path, *, require_rows: bool = True) -> dic
     rows_checked = 0
     verdict_counts: dict[str, int] = {}
     novelty_counts: dict[str, int] = {}
+    n2_novelty: list[dict[str, Any]] = []
+    ledger_ids: set[str] = set()
 
     for lineno, line in enumerate(text.splitlines(), start=1):
         stripped = line.strip()
@@ -371,7 +485,11 @@ def validate_audit_log_markdown(path: Path, *, require_rows: bool = True) -> dic
         if _AUDIT_ID_RE.search(first_cell) is None:
             continue
         rows_checked += 1
-        audit_id = _AUDIT_ID_RE.search(first_cell).group(0)  # type: ignore[union-attr]
+        # The row is matched on its leading id; a combined row's later ids (`AUDIT-015R / 016R`) still
+        # count as ledger ids for `outside_ruling_ids_not_in_ledger`.
+        row_ids = _first_cell_audit_ids(first_cell)
+        audit_id = row_ids[0]
+        ledger_ids.update(row_ids)
 
         # Standard 9-column table: ID | Date | Author | Target | Gates | Oracle | Novelty | Verdict | Evidence
         # Also tolerate 8-column variations by scanning from right for Verdict/Novelty/Oracle
@@ -428,6 +546,30 @@ def validate_audit_log_markdown(path: Path, *, require_rows: bool = True) -> dic
                         "code": "N2_MISSING_PRIOR_ART_NOTE",
                         "message": "VERIFIED N2 entry neither lists G9 nor cites prior-art/baseline check in row",
                     })
+                # Gate 10 / outside observer: N2 needs Gates 1-10 (spec §2.3), so an N2 label with no second
+                # pass on record is NOT_SHOWN, never certified by this row alone.
+                rulings_for_row = [dict(r) for r in (outside_rulings or {}).get(audit_id, ())]
+                basis = (["G10_LISTED"] if re.search(r"\bG10\b", gates_cell) is not None else []) + (
+                    ["OUTSIDE_RULING"] if rulings_for_row else []
+                )
+                n2_novelty.append({
+                    "line": lineno,
+                    "audit_id": audit_id,
+                    "row_ids": row_ids,
+                    "novelty_status": "SECOND_PASS_RECORDED" if basis else "NOT_SHOWN",
+                    "basis": basis,
+                    "outside_rulings": rulings_for_row,
+                })
+                if not basis:
+                    (errors if strict_novelty else warnings).append({
+                        "line": lineno,
+                        "audit_id": audit_id,
+                        "code": "N2_NOVELTY_NOT_SHOWN",
+                        "message": (
+                            "VERIFIED N2 row lists no G10 and no outside ruling names it: "
+                            "novelty is NOT_SHOWN (no second pass on the label is on record)"
+                        ),
+                    })
 
         # Provenance inflation check: Lean compiled claim vs uncompiled_source
         row_lower = stripped.lower()
@@ -452,6 +594,12 @@ def validate_audit_log_markdown(path: Path, *, require_rows: bool = True) -> dic
         "rows_checked": rows_checked,
         "verdict_counts": verdict_counts,
         "novelty_counts": novelty_counts,
+        "n2_novelty": n2_novelty,
+        "verified_n2_rows": len(n2_novelty),
+        "verified_n2_without_outside_ruling": sum(1 for r in n2_novelty if not r["outside_rulings"]),
+        "n2_novelty_not_shown": sum(1 for r in n2_novelty if r["novelty_status"] == "NOT_SHOWN"),
+        "outside_rulings_checked": outside_rulings is not None,
+        "outside_ruling_ids_not_in_ledger": sorted(set(outside_rulings or {}) - ledger_ids),
         "errors": errors,
         "warnings": warnings,
         "valid": len(errors) == 0,
@@ -893,14 +1041,130 @@ def validate_comparator_config(
     return {"path": str(config_path), "passed": len(errors) == 0, "errors": errors, "warnings": warnings}
 
 
+# What `git rev-parse --local-env-vars` lists. Inherited (for example inside a git hook), these would point
+# the history search at another repository, index, object store or config, so they are removed for it.
+_GIT_LOCAL_ENV_VARS = frozenset({
+    "GIT_ALTERNATE_OBJECT_DIRECTORIES", "GIT_CONFIG", "GIT_CONFIG_PARAMETERS", "GIT_CONFIG_COUNT",
+    "GIT_OBJECT_DIRECTORY", "GIT_DIR", "GIT_WORK_TREE", "GIT_IMPLICIT_WORK_TREE", "GIT_GRAFT_FILE",
+    "GIT_INDEX_FILE", "GIT_NO_REPLACE_OBJECTS", "GIT_REPLACE_REF_BASE", "GIT_PREFIX", "GIT_SHALLOW_FILE",
+    "GIT_COMMON_DIR",
+})
+_GIT_HISTORY_TIMEOUT_S = 60
+
+
+def _git_history_env() -> dict[str, str]:
+    """Environment for the read-only history search: local repository variables removed, no network."""
+    env = {k: v for k, v in os.environ.items() if k not in _GIT_LOCAL_ENV_VARS}
+    env.update({
+        "GIT_LITERAL_PATHSPECS": "1",  # the pinned path is a file name, never a glob or `:(magic)` pathspec
+        "GIT_NO_LAZY_FETCH": "1",  # never fetch a missing object from a promisor remote
+        "GIT_ALLOW_PROTOCOL": "",  # and allow no transport should a fetch be attempted anyway
+        "GIT_TERMINAL_PROMPT": "0",
+        "GIT_NO_REPLACE_OBJECTS": "1",  # hash the stored objects, not `git replace` substitutes
+    })
+    return env
+
+
+def _git_revision_with_sha256(base_dir: Path, target: Path, want: str) -> tuple[str | None, str]:
+    """
+    Find the newest commit on HEAD at which `target` held bytes whose SHA-256 is `want`.
+
+    Searches the git work tree holding `base_dir`: the commits on HEAD that touched the path
+    (`git rev-list --full-history`, renames not followed), newest first, hashing the blob bytes each
+    revision holds at the path (`git cat-file blob`), so a match is measured, never declared. A revision
+    at which the path is absent (a deletion) or is not a file has no blob to read and is skipped.
+    Returns `(commit, history)`; `history` says how much a miss shows:
+
+    - `complete`: a full clone (not shallow, no promisor remote), at least one commit touched the path,
+      and the blob of every listed revision was read.
+    - `partial`: a shallow or partial (promisor) clone, git could not say which, or the blob of a listed
+      revision could not be read (missing objects are never fetched). A miss does not show that the
+      bytes never existed; a match names the newest matching commit among the blobs read.
+    - `untracked`: no commit on HEAD touched the path (an untracked file, or a directory inside an
+      unrelated repository). No history of these bytes was searched.
+    - `unavailable`: no git, no work tree holding `base_dir`, the target outside it, an unborn HEAD,
+      or a git call failed or timed out.
+    """
+    env = _git_history_env()
+
+    def _git(cwd: Path, *args: str) -> subprocess.CompletedProcess[bytes]:
+        return subprocess.run(
+            ["git", "-C", str(cwd), *args],
+            capture_output=True, env=env, timeout=_GIT_HISTORY_TIMEOUT_S, check=False,
+        )
+
+    try:
+        top_res = _git(base_dir, "rev-parse", "--show-toplevel")
+        top_out = os.fsdecode(top_res.stdout).strip()
+        top = Path(top_out).resolve()
+        if top_res.returncode != 0 or not top_out or not target.is_relative_to(top):
+            return None, "unavailable"
+        rel = target.relative_to(top).as_posix()
+        shallow_res = _git(top, "rev-parse", "--is-shallow-repository")
+        promisor_res = _git(top, "config", "--get-regexp", r"^(extensions\.partialclone|remote\..+\.promisor)$")
+        full_clone = (
+            shallow_res.returncode == 0 and shallow_res.stdout.strip() == b"false"
+            and promisor_res.returncode == 1 and promisor_res.stdout.strip() == b""
+        )
+        list_res = _git(top, "rev-list", "--full-history", "HEAD", "--", rel)
+        if list_res.returncode != 0:
+            return None, "unavailable"
+        commits = list_res.stdout.decode("ascii", "replace").split()
+        if not commits:
+            return None, "untracked"
+        unread = False
+        rel_bytes = os.fsencode(rel)
+        for commit in commits:
+            tree_res = _git(top, "ls-tree", "-z", commit, "--", rel)
+            if tree_res.returncode != 0:
+                unread = True
+                continue
+            blob_oid: str | None = None
+            for record in tree_res.stdout.split(b"\0"):
+                meta, _, name = record.partition(b"\t")
+                fields = meta.split(b" ")
+                if name == rel_bytes and len(fields) == 3 and fields[1] == b"blob":
+                    blob_oid = fields[2].decode("ascii", "replace")
+            if blob_oid is None:
+                continue  # the path is absent at this revision, or is not a file there
+            blob = _git(top, "cat-file", "blob", blob_oid)
+            if blob.returncode != 0:
+                unread = True
+                continue
+            if canonical_sha256_bytes(blob.stdout) == want:
+                return commit, ("complete" if full_clone and not unread else "partial")
+    except (OSError, subprocess.TimeoutExpired):  # no git binary, or a git call hung
+        return None, "unavailable"
+    return None, ("complete" if full_clone and not unread else "partial")
+
+
+def _classify_pinned_mismatch(base_dir: Path, target: Path, rel: str, want: str, actual: str) -> dict[str, Any]:
+    """`STALE` when the pinned hash is an older revision of the file in git history, else `UNKNOWN`."""
+    commit, history = _git_revision_with_sha256(base_dir, target, want)
+    return {
+        "path": rel,
+        "status": "UNKNOWN" if commit is None else "STALE",
+        "stale_commit": commit,
+        "history": history,
+        "expected_sha256": want,
+        "actual_sha256": actual,
+    }
+
+
 def validate_pinned_manifest(manifest_path: Path, *, root: Path | None = None) -> dict[str, Any]:
     """
     Validate a cryptographic pinning manifest (`CORE_MANIFEST.json` SHA-256 spec pinning
     from DeepMind/cryptids OR `SafeVerify` 40-hex commit-SHA manifest from Mistral/FLTEval).
+
+    Each `PINNED_FILE_SHA256_MISMATCH` also gets an entry in `mismatches`: `STALE` with the commit when
+    the pinned hash equals an older revision of that file in the git history holding the root, else
+    `UNKNOWN`, with how much a miss shows (`history`: `complete`, `partial`, `untracked` or `unavailable`,
+    see `_git_revision_with_sha256`). Both still fail the manifest. The search reads local objects only.
     """
     data = load_strict_json_file(manifest_path, allow_float=True, require_object=True)
     base_dir = (root if root is not None else manifest_path.parent).resolve()
     errors: list[str] = []
+    mismatches: list[dict[str, Any]] = []
     files_verified = 0
     commits_verified = 0
 
@@ -925,6 +1189,7 @@ def validate_pinned_manifest(manifest_path: Path, *, root: Path | None = None) -
                 want = expected.split(":", 1)[-1].lower()
                 if actual != want:
                     errors.append(f"PINNED_FILE_SHA256_MISMATCH:{rel}")
+                    mismatches.append(_classify_pinned_mismatch(base_dir, target, rel, want, actual))
                 else:
                     files_verified += 1
 
@@ -953,6 +1218,7 @@ def validate_pinned_manifest(manifest_path: Path, *, root: Path | None = None) -
                 want = expected.split(":", 1)[-1].lower()
                 if actual != want:
                     errors.append(f"PINNED_FILE_SHA256_MISMATCH:{rel}")
+                    mismatches.append(_classify_pinned_mismatch(base_dir, target, rel, want, actual))
                 else:
                     files_verified += 1
 
@@ -988,6 +1254,7 @@ def validate_pinned_manifest(manifest_path: Path, *, root: Path | None = None) -
         "files_verified": files_verified,
         "commits_verified": commits_verified,
         "errors": errors,
+        "mismatches": mismatches,
     }
 
 
@@ -1364,8 +1631,16 @@ def run_audit_check(
     safety_scan: bool = False,
     include_host_hygiene: bool = False,
     allow_symlinks: bool = False,
+    outside_rulings: Path | None = None,
+    strict_novelty: bool = False,
 ) -> dict[str, Any]:
-    """Run the Aletheia R1-R4 hygiene & Gate 1-9 audit check on `target_path` (R5 is `aletheia mutate`; R6/R7 not automated by this command)."""
+    """Run the Aletheia R1-R4 hygiene & Gate 1-9 audit check on `target_path`, plus a Gate 10 record check
+    (R5 is `aletheia mutate`; R6/R7 not automated by this command).
+
+    `outside_rulings` (an `outside_observer.rulings.v1` file) and `strict_novelty` feed the novelty
+    status of `VERIFIED` `N2` ledger rows (see `validate_audit_log_markdown`): whether a second pass
+    (a `G10` entry or an outside ruling) is on record, not what it decided. Both need a ledger.
+    """
     root = target_path.resolve()
     require_ok(root.exists(), "TARGET_NOT_FOUND", f"target path does not exist: {root}")
     root_mode = os.stat(root).st_mode
@@ -1467,10 +1742,28 @@ def run_audit_check(
         cand = root / "verification" / "AUDIT_LOG.md"
         if cand.is_file():
             log_path = cand
+    outside_coverage: dict[str, list[dict[str, str]]] | None = None
+    if outside_rulings is not None:
+        require_ok(
+            log_path is not None,
+            "OUTSIDE_RULINGS_WITHOUT_AUDIT_LOG",
+            "--outside-rulings needs a ledger: pass --audit-log or audit a directory with verification/AUDIT_LOG.md",
+        )
+        outside_coverage = load_outside_rulings(outside_rulings)
+    require_ok(
+        log_path is not None or not strict_novelty,
+        "STRICT_NOVELTY_WITHOUT_AUDIT_LOG",
+        "--strict-novelty needs a ledger: pass --audit-log or audit a directory with verification/AUDIT_LOG.md",
+    )
     if log_path is not None:
         # An explicit --audit-log must hold rows. A freshly scaffolded workspace has an empty ledger, so the
         # auto-discovered one may still be empty.
-        audit_log_report = validate_audit_log_markdown(log_path, require_rows=audit_log is not None)
+        audit_log_report = validate_audit_log_markdown(
+            log_path,
+            require_rows=audit_log is not None,
+            outside_rulings=outside_coverage,
+            strict_novelty=strict_novelty,
+        )
 
     # Optional JSON audit receipt validation
     receipt_report: dict[str, Any] | None = None
@@ -1596,6 +1889,18 @@ def run_audit_check(
             "lean_notices_count": len(lean_report["notices"]) if lean_report is not None else 0,
             "ancestor_permission_findings_count": len(ancestor_report["findings"]) if ancestor_report is not None else 0,
             "safety_findings_count": safety_report["finding_count"] if safety_report is not None else 0,
+            "verified_n2_rows": audit_log_report["verified_n2_rows"] if audit_log_report is not None else 0,
+            "verified_n2_without_outside_ruling": (
+                audit_log_report["verified_n2_without_outside_ruling"] if audit_log_report is not None else 0
+            ),
+            "n2_novelty_not_shown": audit_log_report["n2_novelty_not_shown"] if audit_log_report is not None else 0,
+            "outside_rulings_checked": outside_coverage is not None,
+            "pinned_mismatch_stale_count": (
+                sum(1 for m in manifest_report["mismatches"] if m["status"] == "STALE") if manifest_report is not None else 0
+            ),
+            "pinned_mismatch_unknown_count": (
+                sum(1 for m in manifest_report["mismatches"] if m["status"] == "UNKNOWN") if manifest_report is not None else 0
+            ),
             "path_findings_count": len(path_findings),
             "symlink_count": len(symlinks),
             "non_regular_count": non_regular_count,
