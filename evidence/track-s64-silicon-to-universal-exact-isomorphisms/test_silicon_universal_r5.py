@@ -116,11 +116,11 @@ class TestTrackS64SiliconUniversalR5(unittest.TestCase):
         with self.assertRaises(ValueError):
             oracle.deterministic_coprime_shuffle([1, 2, 3, 4], 2)
 
-        # Disk 0o600 cert check if present
+        # Disk cert check if present (0o600 local atomic write or 0o644 git checkout)
         disk_cert = HERE / "silicon_universal_certificate.json"
         if disk_cert.exists():
             st = os.lstat(disk_cert)
-            self.assertEqual(stat.S_IMODE(st.st_mode), 0o600)
+            self.assertIn(stat.S_IMODE(st.st_mode), (0o600, 0o644))
             chk = audit.check_certificate_file(disk_cert)
             self.assertTrue(chk["valid"])
             self.assertEqual(chk["certificate_sha256"], cert["certificate_sha256"])
@@ -684,6 +684,7 @@ class TestTrackS64SiliconUniversalR5(unittest.TestCase):
                 self.assertEqual(audit.main(["--write", str(out_p)]), 0)
             w_obj = json.loads(buf.getvalue())
             self.assertTrue(w_obj["valid"] and w_obj["written"])
+            self.assertEqual(stat.S_IMODE(os.lstat(out_p).st_mode), 0o600)
             self.assertEqual(out_p.read_bytes(), raw)
 
             buf = io.StringIO()

@@ -85,4 +85,4 @@ All exact universal invariants are computed live in pure $\mathbb{Z}/\mathbb{Q}$
 | `silicon_universal_oracle.py` | `865` | `42,950` | `0o644` | `29bd0324cec3c1e8cbbcced13988c26af434097c5cd242d6892f73515e83e8dc` |
 | `silicon_universal_audit.py` | `873` | `38,910` | `0o644` | `3b6f81653766566496114018b7bfbc8733d668160707928830f32775dfb3d591` |
 | `silicon_universal_certificate.json` | `1` | `13,803` | `0o600` | `746bdc294df03dbebfea8cb42bea84a45d1506c69b8ad1fa9a15f858a52b401f` |
-| `test_silicon_universal_r5.py` | `762` | `42,922` | `0o644` | `c701c6665d518629312ebd4effe2746acd0e5550bcce7fbe48d45b73c9e93675` |
+| `test_silicon_universal_r5.py` | `763` | `43,046` | `0o644` | `759e1ea57e312ceb11d938078b1166bc76e53996b1efd19810c95d771dab6dd3` |
