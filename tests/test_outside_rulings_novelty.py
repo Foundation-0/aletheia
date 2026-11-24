@@ -152,6 +152,11 @@ class TestOutsideRulingsNovelty(unittest.TestCase):
             (_rulings([_area("AUDIT-002, ")]), "OUTSIDE_RULINGS_BAD_AUDIT_ID"),
             (_rulings([_area("Part A of AUDIT-002")]), "OUTSIDE_RULINGS_BAD_AUDIT_ID"),
             (_rulings([_area("AUDIT-02")]), "OUTSIDE_RULINGS_BAD_AUDIT_ID"),
+            # The entry must end after the id or a whitespace-separated qualifier (tail anchor).
+            (_rulings([_area("AUDIT-002;AUDIT-003")]), "OUTSIDE_RULINGS_BAD_AUDIT_ID"),
+            # A missing comma would hide AUDIT-003 inside the qualifier of AUDIT-002.
+            (_rulings([_area("AUDIT-002 AUDIT-003")]), "OUTSIDE_RULINGS_BAD_AUDIT_ID"),
+            (_rulings([_area("AUDIT-004 Part A, AUDIT-002 and AUDIT-003")]), "OUTSIDE_RULINGS_BAD_AUDIT_ID"),
         ]
         with tempfile.TemporaryDirectory(prefix="aletheia_t_nov_") as td:
             path = Path(td) / "rulings.json"
@@ -178,12 +183,15 @@ class TestOutsideRulingsNovelty(unittest.TestCase):
             plain = run_audit_check(root)
             _req(plain["passed"], f"warnings must not fail the run: {plain['failures']}")
             _req(plain["summary"]["n2_novelty_not_shown"] == 2 and plain["summary"]["verified_n2_rows"] == 2, f"{plain['summary']}")
+            # Without a rulings file the summary says so, so `verified_n2_without_outside_ruling` is not misread.
+            _req(plain["summary"]["outside_rulings_checked"] is False, f"{plain['summary']}")
 
             with_rul = run_audit_check(root, outside_rulings=rul)
             s = with_rul["summary"]
             _req(
                 with_rul["passed"]
-                and (s["verified_n2_rows"], s["verified_n2_without_outside_ruling"], s["n2_novelty_not_shown"]) == (2, 1, 1),
+                and (s["verified_n2_rows"], s["verified_n2_without_outside_ruling"], s["n2_novelty_not_shown"]) == (2, 1, 1)
+                and s["outside_rulings_checked"] is True,
                 f"{s}",
             )
 
@@ -202,6 +210,12 @@ class TestOutsideRulingsNovelty(unittest.TestCase):
             with self.assertRaises(AletheiaError) as ctx:
                 run_audit_check(bare, outside_rulings=rul)
             _req(ctx.exception.code == "OUTSIDE_RULINGS_WITHOUT_AUDIT_LOG", f"got {ctx.exception.code}")
+            # So is --strict-novelty: with no ledger it would otherwise pass without checking anything.
+            with self.assertRaises(AletheiaError) as ctx_strict:
+                run_audit_check(bare, strict_novelty=True)
+            _req(ctx_strict.exception.code == "STRICT_NOVELTY_WITHOUT_AUDIT_LOG", f"got {ctx_strict.exception.code}")
+            rc_bare, out_bare, _ = _run_cli(["audit-check", str(bare), "--strict-novelty", "--json"])
+            _req(rc_bare == 2 and json.loads(out_bare)["code"] == "STRICT_NOVELTY_WITHOUT_AUDIT_LOG", f"cli: rc={rc_bare} {out_bare!r}")
             no_ledger = run_audit_check(bare)
             _req(no_ledger["summary"]["verified_n2_rows"] == 0 and no_ledger["audit_log"] is None, "no-ledger defaults")
 

@@ -421,6 +421,13 @@ def load_outside_rulings(path: Path) -> dict[str, list[dict[str, str]]]:
                 "OUTSIDE_RULINGS_BAD_AUDIT_ID",
                 f"{path}: areas[{idx}].audits entry {entry!r} does not start with an audit id",
             )
+            # A qualifier is prose (`Part A`). One that holds another id (`AUDIT-002 AUDIT-003`, a missing
+            # comma) would drop that id without notice, so it is refused.
+            require_ok(
+                _AUDIT_ID_RE.search(m_entry.group(2) or "") is None,  # type: ignore[union-attr]
+                "OUTSIDE_RULINGS_BAD_AUDIT_ID",
+                f"{path}: areas[{idx}].audits entry {entry!r} holds more than one audit id; separate ids with commas",
+            )
             coverage.setdefault(m_entry.group(1), []).append({"area": name, "entry": entry})  # type: ignore[union-attr]
     return coverage
 
@@ -1626,10 +1633,11 @@ def run_audit_check(
     outside_rulings: Path | None = None,
     strict_novelty: bool = False,
 ) -> dict[str, Any]:
-    """Run complete Aletheia R1-R5 & Gate 1-9 audit check on `target_path`.
+    """Run complete Aletheia R1-R5 & Gate 1-9 audit check on `target_path`, plus a Gate 10 record check.
 
     `outside_rulings` (an `outside_observer.rulings.v1` file) and `strict_novelty` feed the novelty
-    status of `VERIFIED` `N2` ledger rows (see `validate_audit_log_markdown`).
+    status of `VERIFIED` `N2` ledger rows (see `validate_audit_log_markdown`): whether a second pass
+    (a `G10` entry or an outside ruling) is on record, not what it decided. Both need a ledger.
     """
     root = target_path.resolve()
     require_ok(root.exists(), "TARGET_NOT_FOUND", f"target path does not exist: {root}")
@@ -1740,6 +1748,11 @@ def run_audit_check(
             "--outside-rulings needs a ledger: pass --audit-log or audit a directory with verification/AUDIT_LOG.md",
         )
         outside_coverage = load_outside_rulings(outside_rulings)
+    require_ok(
+        log_path is not None or not strict_novelty,
+        "STRICT_NOVELTY_WITHOUT_AUDIT_LOG",
+        "--strict-novelty needs a ledger: pass --audit-log or audit a directory with verification/AUDIT_LOG.md",
+    )
     if log_path is not None:
         # An explicit --audit-log must hold rows. A freshly scaffolded workspace has an empty ledger, so the
         # auto-discovered one may still be empty.
@@ -1879,6 +1892,7 @@ def run_audit_check(
                 audit_log_report["verified_n2_without_outside_ruling"] if audit_log_report is not None else 0
             ),
             "n2_novelty_not_shown": audit_log_report["n2_novelty_not_shown"] if audit_log_report is not None else 0,
+            "outside_rulings_checked": outside_coverage is not None,
             "pinned_mismatch_stale_count": (
                 sum(1 for m in manifest_report["mismatches"] if m["status"] == "STALE") if manifest_report is not None else 0
             ),
