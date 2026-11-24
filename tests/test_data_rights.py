@@ -96,6 +96,21 @@ class TestInstallerEmbeddedTemplates(unittest.TestCase):
             _req("zero synthetic proxy substitution" not in text, f"{name} still demands live data unconditionally")
 
 
+class TestPostingSignOff(unittest.TestCase):
+    """Role prompts route sign-off for posting outside the workspace to a named human, not an agent."""
+
+    def test_no_prompt_lets_the_coordinator_authorize_posting(self) -> None:
+        for path in sorted((ROOT / "prompts").glob("*.md")):
+            text = path.read_text(encoding="utf-8")
+            _req("coordinator sign-off" not in text.lower(), f"{path.name} still lets the coordinator agent sign off")
+
+    def test_posting_roles_name_the_accountable_human(self) -> None:
+        for name in ("coordinator.md", "peer-weaver.md", "domain-probe.md", "synthesizer.md"):
+            text = (ROOT / "prompts" / name).read_text(encoding="utf-8")
+            _req("`<ACCOUNTABLE_HUMAN>`" in text, f"prompts/{name} does not name the accountable human")
+            _req("not enforce" in text, f"prompts/{name} does not say the rule is unenforced by the tools")
+
+
 class TestDiagnoseMustFailControls(unittest.TestCase):
     """Must-fail controls for the two refusal sites in aletheia/diagnose.py (R5)."""
 

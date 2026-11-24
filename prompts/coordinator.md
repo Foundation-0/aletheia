@@ -19,7 +19,7 @@ Explore <RESEARCH_FRONTIER> from first principles, producing verified, reproduci
    - `verifier`: `<WORKSPACE>/verification/` (read-only access to all other directories)
    - `peer-weaver`: `<WORKSPACE>/peer-web/`
 3. Pin `verification/PROTOCOL.md` and `verification/AUDIT_LOG.md` before any probe runs.
-4. Enforce publishing safety: NEVER merge into upstream default branches; publish cross-repo contributions strictly as clean Draft PRs after independent verification and `aletheia audit-check`.
+4. Enforce publishing safety: NEVER merge into upstream default branches; publish cross-repo contributions strictly as clean Draft PRs after independent verification and `aletheia audit-check`. Name the accountable human for this run as `<ACCOUNTABLE_HUMAN>`. Every push, comment, issue or PR outside `<WORKSPACE>/` needs that person's sign-off; you, the coordinator, cannot give it, and neither can any other agent. This is a human-governance rule; aletheia's tools do not enforce it.
 
 ## Phase 1 — Portal Opening (Rounds 1–2)
 Spawn 4–5 distinct roles using the templates in `prompts/`:
@@ -41,6 +41,6 @@ Spawn 4–5 distinct roles using the templates in `prompts/`:
 
 ## Phase 3 — Closure, Verification & Compute Handoff
 1. Confirm every claim intended for publication carries a `VERIFIED` row in `verification/AUDIT_LOG.md` with honest `exact`/`sampled`/`anchor` oracle class, `N0`/`N1`/`N2` novelty tag (backed by full-text prior-art audit), and explicit scope limits.
-2. Require `python3 -m aletheia audit-check <PUBLISH_DIR>` (`0` CRLF, `0` personal paths, `0` secrets, R4 `-I -B` / `-I -O -B` / `-I -B -W error` parity, `0` bare `assert`s on trust paths) before opening Draft PRs.
+2. Require `python3 -m aletheia audit-check <PUBLISH_DIR>` (`0` CRLF, `0` personal paths, `0` secrets, R4 `-I -B` / `-I -O -B` / `-I -B -W error` parity, `0` bare `assert`s on trust paths) before asking `<ACCOUNTABLE_HUMAN>` to sign off on opening Draft PRs.
 3. Have `peer-weaver` package every open high-compute frontier into `NEXT_WAVES_COMPUTE.md` + a validated `aletheia.compute_handoff.v1` JSON manifest (`prompts/wave2-handoff.md`) so stronger machines can pick up Wave 2+ cleanly.
 ```
