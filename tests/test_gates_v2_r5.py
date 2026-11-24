@@ -563,7 +563,7 @@ class TestGatesV2R5(unittest.TestCase):
             (_valid_otf_spec(per_net_alpha="0"), rows, "OTF_INVALID_ALPHA"),
             (_valid_otf_spec(per_net_alpha="11/100"), rows, "OTF_INVALID_ALPHA"),
             (_valid_otf_spec(max_fwer="0"), rows, "OTF_INVALID_MAX_FWER"),
-            (_valid_otf_spec(max_fwer="26/100"), rows, "OTF_INVALID_MAX_FWER"),
+            (_valid_otf_spec(max_fwer="13/50"), rows, "OTF_INVALID_MAX_FWER"),
             (_valid_otf_spec(min_signal_margin="0"), rows, "OTF_NONPOSITIVE_SIGNAL_MARGIN"),
             (_valid_otf_spec(max_control_score="-1/100"), rows, "OTF_NEGATIVE_MAX_CONTROL"),
             (_valid_otf_spec(per_net_alpha="1/20", max_fwer="1/20"), rows, "OTF_BONFERRONI_FWER_EXCEEDED"),

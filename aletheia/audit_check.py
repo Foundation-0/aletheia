@@ -552,6 +552,11 @@ _LEAN4_PARTIAL_DECL_RE = re.compile(
     r"(?<!\.)\bpartial\s+(?:def|instance|abbrev)\b", flags=re.DOTALL
 )
 
+# Lean 4.16+ `decide +native` trust escape (bypasses kernel via native compiler, like `native_decide`)
+_LEAN4_DECIDE_NATIVE_RE = re.compile(
+    r"\bdecide(?:\s+\+[A-Za-z0-9_]+)*\s+\+native\b", flags=re.DOTALL
+)
+
 # Multiline skipKernelTC check (catches `set_option\n debug.skipKernelTC\n true` and bare `debug.skipKernelTC`)
 _LEAN4_SKIP_KERNEL_TC_RE = re.compile(
     r"\bdebug\s*\.\s*skipKernelTC\b", flags=re.DOTALL
@@ -579,8 +584,8 @@ _LEAN4_EXISTS_IMP_RE = re.compile(r"∃[^,\n]+,\s*(?!.*(?:∀|∧))[^,\n]*(?:→
 
 def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
     """
-    Char-literal-safe, raw-string-safe (`r#"..."#`), and nested-block-comment-safe Lean 4
-    stripper preserving line count. Reports one finding per block comment or string still
+    Char-literal-safe, raw-string-safe (`r"..."` and `r#"..."#`), and nested-block-comment-safe
+    Lean 4 stripper preserving line count. Reports one finding per block comment or string still
     open at end of file so callers treat unterminated escapes as failed audits (R1).
     """
     out: list[str] = []
@@ -588,7 +593,7 @@ def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
     n = len(source)
     depth = 0
     in_str = False
-    raw_hashes = 0
+    raw_hashes = -1
     opened_at = 0
     unterminated: list[dict[str, Any]] = []
     while i < n:
@@ -607,12 +612,12 @@ def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
                 out.append("\n" if ch == "\n" else " ")
                 i += 1
             continue
-        if raw_hashes > 0:
+        if raw_hashes >= 0:
             close_seq = '"' + ("#" * raw_hashes)
             if source.startswith(close_seq, i):
                 out.append(" " * len(close_seq))
                 i += len(close_seq)
-                raw_hashes = 0
+                raw_hashes = -1
             else:
                 out.append("\n" if ch == "\n" else " ")
                 i += 1
@@ -638,7 +643,7 @@ def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
             while i < n and source[i] != "\n":
                 out.append(" ")
                 i += 1
-        elif ch == "r" and nxt == "#" and (i == 0 or not (source[i - 1].isalnum() or source[i - 1] == "_")):
+        elif ch == "r" and (i == 0 or not (source[i - 1].isalnum() or source[i - 1] == "_")):
             j = i + 1
             while j < n and source[j] == "#":
                 j += 1
@@ -669,7 +674,7 @@ def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
         else:
             out.append(ch)
             i += 1
-    if depth > 0 or in_str or raw_hashes > 0:
+    if depth > 0 or in_str or raw_hashes >= 0:
         lineno = source.count("\n", 0, opened_at) + 1
         excerpt = source.splitlines()[lineno - 1].strip()[:100]
         unterminated.append(
@@ -758,6 +763,13 @@ def audit_lean4_source(
     for m_part in _LEAN4_PARTIAL_DECL_RE.finditer(cleaned):
         lineno = cleaned[: m_part.start()].count("\n") + 1
         findings.append({"line": lineno, "code": "LEAN4_PARTIAL", "excerpt": " ".join(m_part.group(0).split())[:100]})
+
+    # Lean 4.16+ `decide +native` trust escape
+    for m_dn in _LEAN4_DECIDE_NATIVE_RE.finditer(cleaned):
+        lineno = cleaned[: m_dn.start()].count("\n") + 1
+        findings.append(
+            {"line": lineno, "code": "LEAN4_DECIDE_NATIVE", "excerpt": " ".join(m_dn.group(0).split())[:100]}
+        )
 
     # Multiline debug.skipKernelTC check
     for m_sk in _LEAN4_SKIP_KERNEL_TC_RE.finditer(cleaned):
@@ -1365,6 +1377,17 @@ def run_audit_check(
     allow_symlinks: bool = False,
 ) -> dict[str, Any]:
     """Run complete Aletheia R1-R5 & Gate 1-9 audit check on `target_path`."""
+    try:
+        raw_st = os.lstat(target_path)
+    except FileNotFoundError as exc:
+        raise AletheiaError("TARGET_NOT_FOUND", f"target path does not exist: {target_path}") from exc
+    except OSError as exc:
+        raise AletheiaError("TARGET_UNREADABLE", f"cannot stat target path ({_err_detail(exc)}): {target_path}") from exc
+    require_ok(
+        not (stat.S_ISLNK(raw_st.st_mode) and not allow_symlinks),
+        "TARGET_IS_SYMLINK",
+        f"target path is a symlink (pass --allow-symlinks to follow): {target_path}",
+    )
     root = target_path.resolve()
     require_ok(root.exists(), "TARGET_NOT_FOUND", f"target path does not exist: {root}")
     root_mode = os.stat(root).st_mode
