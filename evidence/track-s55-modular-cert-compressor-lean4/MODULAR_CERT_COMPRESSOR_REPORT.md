@@ -118,5 +118,5 @@ All checks below ran after the final edit with `OPENBLAS_NUM_THREADS=1 OMP_NUM_T
 | `ModularCertSoundness.lean` | `167` | `8,043` | `0o644` | `b5990eaf048919d3e77c037f3cf68067cbf2fd931c93422692256f6448546148` |
 | `modular_cert_compressor_oracle.py` | `1,149` | `46,022` | `0o644` | `d619f7f7002f0049ed1bd2a8d25551f83bfb4fd3a43966a153369af7fa32489b` |
 | `modular_cert_compressor_audit.py` | `768` | `36,930` | `0o644` | `197e4033855f07034e3ef087d9fcee714b45a5813bf20652dbbc7c0e7728b30e` |
-| `test_modular_cert_compressor_r5.py` | `1,289` | `72,763` | `0o644` | `4c40c4237421bb0f427a18e9b551ab0ab52a2a89bc86264861c2935ce146e59e` |
+| `test_modular_cert_compressor_r5.py` | `1,289` | `72,810` | `0o644` | `1a4ceb5236769527ee98aeb5dbf5e2f58f3369f3d55bb98da66ce928979b60e2` |
 | `modular_cert_compressor_certificate.json` | `1` | `3,558` | `0o600` | `7e87af3d3e40228c6609ccb2e7e7f70573fa5961609e4ef59c3c684661b66d59` |

@@ -1278,11 +1278,11 @@ class TestModularCertCompressorR5(unittest.TestCase):
             leaks = [p.name for p in root.iterdir() if ".tmp." in p.name]
             self.assertEqual(leaks, [])
 
-        # On-disk frozen certificate parity (when present)
+        # On-disk frozen certificate parity (when present; 0o600 locally, 0o644 under git checkout)
         if _CERT_DISK.is_file():
             raw_disk = audit.read_regular_bytes_capped(_CERT_DISK)
             self.assertEqual(raw_disk, oracle.canonical_json_bytes(oracle.build_certificate()) + b"\n")
-            self.assertEqual(stat.S_IMODE(os.lstat(_CERT_DISK).st_mode), 0o600)
+            self.assertIn(stat.S_IMODE(os.lstat(_CERT_DISK).st_mode), (0o600, 0o644))
 
 
 if __name__ == "__main__":
