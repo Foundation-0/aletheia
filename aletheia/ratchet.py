@@ -127,6 +127,16 @@ def build_ratchet_record(
     require_ok(type(step) is int and step >= 0, "INVALID_STEP", "step must be non-negative int")
     require_ok(type(proxy_den) is int and proxy_den > 0 and type(outside_den) is int and outside_den > 0,
                "INVALID_DENOM", "denominators must be positive int")
+    require_ok(
+        type(decision) is str and decision in VALID_RATCHET_DECISIONS,
+        "INVALID_DECISION",
+        f"unsupported decision: {decision!r}",
+    )
+    require_ok(
+        _is_canonical_sha256_digest(ast_sha256),
+        "INVALID_AST_DIGEST",
+        "ast_sha256 must match canonical sha256:<64 lowercase hex>",
+    )
     body = {
         "schema": RATCHET_LEDGER_SCHEMA,
         "step": step,
@@ -148,7 +158,7 @@ def verify_ratchet_ledger_records(records: Sequence[Mapping[str, Any]]) -> dict[
     """Fail-closed SHA-256 hash-chain, decision/digest, and Gate-1 AST-progression verifier for ratchet ledgers."""
     require_ok(len(records) >= 1, "EMPTY_LEDGER", "ratchet ledger must contain >= 1 record")
     expected_prev = "sha256:" + ("0" * 64)
-    last_kept_ast: str | None = None
+    last_active_ast: str | None = None
     for idx, rec in enumerate(records):
         require_ok(isinstance(rec, Mapping), "INVALID_RECORD", f"record[{idx}] must be object")
         require_ok(rec.get("schema") == RATCHET_LEDGER_SCHEMA, "INVALID_SCHEMA", f"record[{idx}] bad schema")
@@ -178,13 +188,15 @@ def verify_ratchet_ledger_records(records: Sequence[Mapping[str, Any]]) -> dict[
             f"record[{idx}] ast_sha256 must match canonical sha256:<64 lowercase hex>",
         )
         if decision == "KEEP":
-            if last_kept_ast is not None:
+            if last_active_ast is not None:
                 require_ok(
-                    not hmac.compare_digest(ast_digest, last_kept_ast),
+                    not hmac.compare_digest(ast_digest, last_active_ast),
                     "AST_UNCHANGED_KEEP",
-                    f"record[{idx}] KEEP has unchanged ast_sha256 relative to previous kept record",
+                    f"record[{idx}] KEEP has unchanged ast_sha256 relative to active baseline",
                 )
-            last_kept_ast = ast_digest
+            last_active_ast = ast_digest
+        elif decision == "REVERT":
+            last_active_ast = ast_digest
         expected_prev = stored
     return {
         "valid": True,

@@ -34,6 +34,7 @@ from aletheia.mde import (
     verify_aletheia_mde_manifest,
 )
 from aletheia.ratchet import (
+    RATCHET_LEDGER_SCHEMA,
     ast_canonical_digest,
     build_ratchet_record,
     check_fixed_compute_survival,
@@ -60,20 +61,30 @@ def _extract_section_6(spec_text: str) -> str:
     return match.group(0) if match is not None else ""
 
 
-def _visible_section_6() -> str:
+def _raw_section_6() -> str:
+    """Raw Section 6 text directly from spec/LAWS_AND_GATES.md without stripping fences or comments."""
+    return _extract_section_6(SPEC_PATH.read_text(encoding="utf-8"))
+
+
+def _visible_section_6(raw_section: str | None = None) -> str:
     """Section 6 text with HTML comments and fenced code blocks removed.
 
     Clauses hidden behind comments or fences, or stated only inside code
     samples, do not count as spec text.
     """
-    section = _extract_section_6(SPEC_PATH.read_text(encoding="utf-8"))
+    section = _raw_section_6() if raw_section is None else raw_section
     without_comments = re.sub(r"<!--.*?-->", "", section, flags=re.DOTALL)
-    without_fences = re.sub(
+    without_backtick_fences = re.sub(
         r"(?ms)^[ \t]*```.*?^[ \t]*```[ \t]*$",
         "",
         without_comments,
     )
-    return without_fences
+    without_tilde_fences = re.sub(
+        r"(?ms)^[ \t]*~~~.*?^[ \t]*~~~[ \t]*$",
+        "",
+        without_backtick_fences,
+    )
+    return without_tilde_fences
 
 
 _PLANE2_LEAD_IN = "**Plane-2 Mechanical Obstruction (`plane2_oracle_compilation_forbidden: true`):**"
@@ -112,25 +123,29 @@ _RATCHET_ENFORCEMENT_BULLET = (
     "Clauses (i), (ii), (iii), the Pre-Adaptation Goodhart Latch halt of (iv), and (v) "
     "are stated obligations on the loop author, backed by fail-closed library functions "
     "for an enforcing loop to call: `check_ring0_lock` / `RING0_TAMPER`, "
-    "`build_ratchet_record` & `verify_ratchet_ledger_records` "
-    "(`aletheia ratchet --verify-ledger` checks the hash chain, strict decision enum, "
-    "canonical `sha256` AST digest format, and Gate-1 AST progression across `KEEP` steps "
-    "over declared digest strings in the submitted ledger: `BROKEN_HASH_CHAIN`, "
-    "`RECORD_HASH_MISMATCH`, `INVALID_DECISION`, `INVALID_AST_DIGEST`, "
-    "`AST_UNCHANGED_KEEP`), `ast_canonical_digest` (canonical AST hash whose "
-    "unchanged-baseline `KEEP` invariant is enforced on submitted ledger digests by "
-    "`verify_ratchet_ledger_records` via `AST_UNCHANGED_KEEP`), "
-    "`exact_pythagorean_latch_check` / `LATCH_HALT`, and "
+    "`build_ratchet_record` (validating `decision` and canonical `ast_sha256` at build "
+    "time) & `verify_ratchet_ledger_records` (`aletheia ratchet --verify-ledger` checks "
+    "the hash chain, strict decision enum, canonical `sha256` AST digest format, and "
+    "Gate-1 adjacent-baseline AST progression over declared digest strings in the "
+    "submitted ledger: `BROKEN_HASH_CHAIN`, `RECORD_HASH_MISMATCH`, `INVALID_DECISION`, "
+    "`INVALID_AST_DIGEST`, `AST_UNCHANGED_KEEP`, where `KEEP` and `REVERT` update the "
+    "active baseline digest — `REVERT`'s `ast_sha256` records the restored baseline — "
+    "while `DISCARD` and `LATCH_HALT` leave the active baseline unchanged, so "
+    "`KEEP A -> KEEP B -> KEEP A` is valid under adjacent-baseline progression whereas "
+    "`KEEP A -> KEEP B -> REVERT A -> KEEP A` fails closed with `AST_UNCHANGED_KEEP`), "
+    "`ast_canonical_digest` (canonical AST hash whose unchanged-baseline `KEEP` invariant "
+    "is enforced on submitted ledger digests by `verify_ratchet_ledger_records` via "
+    "`AST_UNCHANGED_KEEP`), `exact_pythagorean_latch_check` / `LATCH_HALT`, and "
     "`check_fixed_compute_survival` / `EXCEEDED_FIXED_COMPUTE_CAP` & "
     "`FORMAT_BREAKING_COT_ESCAPE`. No runtime supervisor forces an external loop to call "
-    "clauses (i), (iv), or (v), and `--verify-ledger` verifies declared digest strings in "
-    "the submitted ledger rather than re-parsing external source files, whereas any "
-    "submitted ledger violating hash-chain integrity, decision/digest validity, or keeping "
-    "an unchanged `ast_sha256` across `KEEP` steps fails closed under "
-    "`verify_ratchet_ledger_records`. Blind portal re-entry preserving informative failed "
-    "branches in clause (iv) is a normative loop-orchestration discipline (`AUDIT-026R`), "
-    "paired with the `LATCH_HALT` trigger rather than a standalone function in "
-    "`aletheia/ratchet.py`."
+    "clauses (i)–(v); clauses (ii) and (iii) are enforced when running `--verify-ledger` "
+    "on a submitted ledger (verifying declared digest strings rather than re-parsing "
+    "external source files), where any submitted ledger violating hash-chain integrity, "
+    "decision/digest validity, or keeping an unchanged `ast_sha256` relative to the "
+    "active baseline fails closed under `verify_ratchet_ledger_records`. Blind portal "
+    "re-entry preserving informative failed branches in clause (iv) is a normative "
+    "loop-orchestration discipline (`AUDIT-026R`), paired with the `LATCH_HALT` trigger "
+    "rather than a standalone function in `aletheia/ratchet.py`."
 )
 
 
@@ -175,24 +190,77 @@ def _extract_block_bullets(block: str) -> list[str]:
     return bullets
 
 
+_SECTION6_OUTSIDE_WAIVER_PATTERNS = (
+    re.compile(
+        r"(?i)\b(?:nothing|none)\b[^\n.;!?]*\b(?:is|are)\s+binding\b"
+    ),
+    re.compile(
+        r"(?i)\bno\b[^\n.;!?]*\b(?:clauses?|items?|requirements?|obligations?|rules?|parts?)\b"
+        r"[^\n.;!?]*\b(?:is|are)\s+binding\b"
+    ),
+    re.compile(
+        r"(?i)\b(?:nothing|none|clauses?|items?|requirements?|obligations?|rules?|section)\b"
+        r"[^\n.;!?]*\b(?:not\s+binding|non[-\s]?binding|optional|advisory\s+only|"
+        r"waiv(?:e|ed|er|ing)|opt[\s-]?out|do(?:es)?\s+not\s+apply|exempt(?:ed|ion)?|"
+        r"discretionary|superseded)\b"
+    ),
+    re.compile(
+        r"(?i)\b(?:not\s+binding|non[-\s]?binding|waiv(?:e|ed|er|ing)|opt[\s-]?out|advisory\s+only)\b"
+        r"[^\n.;!?]*\b(?:section|clauses?|items?|requirements?|obligations?|plane[-\s]?2|ratchet)\b"
+    ),
+    re.compile(
+        r"(?i)\b(?:plane[-\s]?2|oracle\s+compilation|ratchet|item\s*[45]|clauses?\s*\(?i\)?|"
+        r"this\s+section|section\s*6)\b[^\n.;!?]*\b(?:optional|waiv(?:e|ed|er|ing)|"
+        r"non[-\s]?binding|not\s+binding|advisory|opt[\s-]?out|do(?:es)?\s+not\s+apply|"
+        r"exempt(?:ed|ion)?|discretionary|may\s+skip|need\s+not|supersed(?:e|ed|ing))\b"
+    ),
+)
+
+
+def _assert_no_section6_waiver_outside_clauses(raw_section: str) -> None:
+    """Section-wide deny-check over Section 6 outside the exact verified clause blocks."""
+    for ch in raw_section:
+        if unicodedata.category(ch) == "Cf":
+            raise AssertionError(f"Invisible format character U+{ord(ch):04X} forbidden in Section 6")
+    norm_section = unicodedata.normalize("NFKC", raw_section)
+    remainder = norm_section
+    for sentence in (_PLANE2_SENTENCE, _RATCHET_SENTENCE):
+        norm_s = unicodedata.normalize("NFKC", sentence)
+        pos = remainder.find(norm_s)
+        if pos != -1:
+            block = _enclosing_clause_block(remainder, pos)
+            remainder = remainder.replace(block, "\n", 1)
+    for line in remainder.splitlines():
+        for rx in _SECTION6_OUTSIDE_WAIVER_PATTERNS:
+            if rx.search(line) is not None:
+                raise AssertionError(
+                    f"Waiver or non-binding override forbidden in Section 6 outside clause blocks: {line!r}"
+                )
+
+
 def _assert_exact_obligation_clause(
-    section: str,
+    raw_section: str,
     sentence: str,
     *,
     lead_in: str = "",
     allowed_block_bullets: tuple[str, ...] | None = None,
 ) -> None:
-    """Whole-bullet and whole-block allow-list check (NFKC + Cf-free, zero leaky deny-list)."""
-    for ch in section:
+    """Raw-block fence/comment/Cf rejection + NFKC whole-bullet/whole-block allow-list check."""
+    for ch in raw_section:
         if unicodedata.category(ch) == "Cf":
             raise AssertionError(f"Invisible format character U+{ord(ch):04X} forbidden in Section 6")
-    norm_section = unicodedata.normalize("NFKC", section)
+    norm_section = unicodedata.normalize("NFKC", raw_section)
     norm_sentence = unicodedata.normalize("NFKC", sentence)
     expected_bullet = f"{unicodedata.normalize('NFKC', lead_in)} {norm_sentence}" if lead_in else norm_sentence
 
     start = norm_section.find(norm_sentence)
-    _req(start != -1, f"Required sentence missing from visible Section 6 text: {sentence!r}")
+    _req(start != -1, f"Required sentence missing from Section 6 text: {sentence!r}")
     clause_block = _enclosing_clause_block(norm_section, start)
+    if "```" in clause_block or "~~~" in clause_block:
+        raise AssertionError(f"Markdown code fence forbidden inside Section 6 clause block: {clause_block!r}")
+    if "<!--" in clause_block or "-->" in clause_block:
+        raise AssertionError(f"HTML comment forbidden inside Section 6 clause block: {clause_block!r}")
+
     bullets = _extract_block_bullets(clause_block)
     _req(
         expected_bullet in bullets,
@@ -206,13 +274,46 @@ def _assert_exact_obligation_clause(
         )
 
 
+def _forge_ratchet_record(
+    *,
+    step: int,
+    prev_hash: str,
+    decision: object,
+    ast_sha256: object,
+    wall_ms: int,
+    proxy_num: int,
+    proxy_den: int,
+    outside_num: int,
+    outside_den: int,
+    note: str,
+) -> dict[str, object]:
+    """Construct a validly hash-signed ratchet record bypassing build_ratchet_record validation."""
+    body: dict[str, object] = {
+        "schema": RATCHET_LEDGER_SCHEMA,
+        "step": step,
+        "prev_hash": prev_hash,
+        "decision": decision,
+        "ast_sha256": ast_sha256,
+        "wall_ms": wall_ms,
+        "proxy_num": proxy_num,
+        "proxy_den": proxy_den,
+        "outside_num": outside_num,
+        "outside_den": outside_den,
+        "note": note,
+    }
+    body["record_hash"] = compute_zone_canon_id(body, exclude_key="record_hash")
+    return body
+
+
 class TestSpecSection6Clauses(unittest.TestCase):
     def test_spec_section6_restores_plane2_ban_and_ratchet_clauses(self) -> None:
-        section_6 = _visible_section_6()
+        raw_section_6 = _raw_section_6()
+        section_6 = _visible_section_6(raw_section_6)
 
-        # Restored obligations must match exact canonical whole-bullet and whole-block allow-lists.
+        # Restored obligations must match exact canonical whole-bullet and whole-block allow-lists
+        # on the RAW enclosing item (before any fence or comment stripping).
         _assert_exact_obligation_clause(
-            section_6,
+            raw_section_6,
             _PLANE2_SENTENCE,
             lead_in=_PLANE2_LEAD_IN,
             allowed_block_bullets=(
@@ -222,13 +323,14 @@ class TestSpecSection6Clauses(unittest.TestCase):
             ),
         )
         _assert_exact_obligation_clause(
-            section_6,
+            raw_section_6,
             _RATCHET_SENTENCE,
             allowed_block_bullets=(
                 _RATCHET_SENTENCE,
                 _RATCHET_ENFORCEMENT_BULLET,
             ),
         )
+        _assert_no_section6_waiver_outside_clauses(raw_section_6)
 
         required_visible_phrases = (
             # Plane-2 ban key (restored verbatim from v1.3.0 58207b4)
@@ -239,7 +341,8 @@ class TestSpecSection6Clauses(unittest.TestCase):
             "INVALID_DECISION",
             "INVALID_AST_DIGEST",
             "AST_UNCHANGED_KEEP",
-            "declared digest strings in the submitted ledger",
+            "declared digest strings",
+            "clauses (i)\u2013(v)",
             # Existing v2.0.0 Section 6 items preserved intact
             "aletheia/gates_v2.py",
             "aletheia/safety.py",
@@ -250,8 +353,8 @@ class TestSpecSection6Clauses(unittest.TestCase):
             _req(phrase in section_6, f"Missing required Section 6 clause in visible spec/LAWS_AND_GATES.md text: {phrase!r}")
 
     def test_spec_clause_boundary_rejects_contradicting_tails_and_waivers(self) -> None:
-        """Regression tests for `Foundation-0/aletheia#29` Gap 1 whole-bullet allow-list."""
-        section_6 = _visible_section_6()
+        """Regression tests for exact clause-block allow-list, raw fence/comment rejection, and Section 6 waiver checks."""
+        raw_section_6 = _raw_section_6()
         plane2_allowed = (
             _PLANE2_CONTEXT_BULLET,
             f"{_PLANE2_LEAD_IN} {_PLANE2_SENTENCE}",
@@ -259,10 +362,10 @@ class TestSpecSection6Clauses(unittest.TestCase):
         )
         ratchet_allowed = (_RATCHET_SENTENCE, _RATCHET_ENFORCEMENT_BULLET)
 
-        # All #29 same-line tails, pre-sentence hedges, continuation lines, zero-width Cf chars,
-        # and arbitrary rephrased waiver bullets (even with zero deny-list words!) MUST fail closed.
+        # All #29 same-line tails, pre-sentence hedges, continuation lines, fenced code blocks,
+        # HTML comments, zero-width Cf chars, and arbitrary rephrased waiver bullets MUST fail closed.
         bad_mutations = (
-            # Exact `@orda-aska` #29 trailing sentences
+            # Exact #29 trailing sentences
             (_PLANE2_SENTENCE, _PLANE2_SENTENCE + " Unless the owner waives this.", _PLANE2_LEAD_IN, plane2_allowed),
             (_RATCHET_SENTENCE, _RATCHET_SENTENCE + " All of these are optional.", "", ratchet_allowed),
             (_PLANE2_SENTENCE, _PLANE2_SENTENCE + " This does not apply to adapters.", _PLANE2_LEAD_IN, plane2_allowed),
@@ -274,6 +377,13 @@ class TestSpecSection6Clauses(unittest.TestCase):
             (_RATCHET_SENTENCE, _RATCHET_SENTENCE + " Additional prose on the same line.", "", ratchet_allowed),
             # Same-paragraph continuation line
             (_RATCHET_SENTENCE, _RATCHET_SENTENCE + "\n   Continuing the same paragraph without a bullet.", "", ratchet_allowed),
+            # Fenced code blocks inside clause block (backtick & tilde fences)
+            (_RATCHET_SENTENCE, _RATCHET_SENTENCE + "\n   ```\n   All of these are optional.\n   ```", "", ratchet_allowed),
+            (_PLANE2_SENTENCE, _PLANE2_SENTENCE + "\n   ```\n   Unless the owner waives this.\n   ```", _PLANE2_LEAD_IN, plane2_allowed),
+            (_RATCHET_SENTENCE, _RATCHET_SENTENCE + "\n   ~~~\n   All of these are optional.\n   ~~~", "", ratchet_allowed),
+            # HTML comments inside clause block (block & inline)
+            (_PLANE2_SENTENCE, _PLANE2_SENTENCE + "\n   <!-- Unless the owner waives this. -->", _PLANE2_LEAD_IN, plane2_allowed),
+            (_RATCHET_SENTENCE, _RATCHET_SENTENCE + " <!-- optional -->", "", ratchet_allowed),
             # Rephrased added waiver bullets with ZERO classic deny-list words
             (_PLANE2_SENTENCE, _PLANE2_SENTENCE + "\n   - Non-binding guidance only.", _PLANE2_LEAD_IN, plane2_allowed),
             (_RATCHET_SENTENCE, _RATCHET_SENTENCE + "\n   - Waiving these requirements is permitted.", "", ratchet_allowed),
@@ -282,14 +392,46 @@ class TestSpecSection6Clauses(unittest.TestCase):
             (_PLANE2_SENTENCE, _PLANE2_SENTENCE + "\u200b", _PLANE2_LEAD_IN, plane2_allowed),
         )
         for sentence, replacement, lead_in, allowed in bad_mutations:
-            mutated = section_6.replace(sentence, replacement, 1)
-            _req(mutated != section_6, f"Test setup failed to mutate sentence: {sentence!r}")
+            mutated = raw_section_6.replace(sentence, replacement, 1)
+            _req(mutated != raw_section_6, f"Test setup failed to mutate sentence: {sentence!r}")
             try:
                 _assert_exact_obligation_clause(mutated, sentence, lead_in=lead_in, allowed_block_bullets=allowed)
             except AssertionError:
                 pass
             else:
                 raise AssertionError(f"Tampered clause was not rejected: {replacement!r}")
+
+        # Section-wide waiver overrides outside items 4 & 5 MUST also fail closed
+        outside_waiver_mutations = (
+            raw_section_6.replace(
+                "## 6. v1.1\u2013v2.0 Executable Modules & Epistemic Accounting\n",
+                "## 6. v1.1\u2013v2.0 Executable Modules & Epistemic Accounting\n\nNothing in this section is binding.\n",
+                1,
+            ),
+            raw_section_6.replace(
+                "schema alignment.\n",
+                "schema alignment.\n   - Clauses (i)-(v) of item 5 and the Plane-2 ban are optional.\n",
+                1,
+            ),
+            raw_section_6.replace(
+                "schema alignment.\n",
+                "schema alignment.\n7. **Override:** Item 4 and item 5 requirements may be waived by teams.\n",
+                1,
+            ),
+            raw_section_6.replace(
+                "schema alignment.\n",
+                "schema alignment.\n   ```\n   Clauses (i)-(v) of item 5 are optional.\n   ```\n",
+                1,
+            ),
+        )
+        for mutated_s6 in outside_waiver_mutations:
+            _req(mutated_s6 != raw_section_6, "Test setup failed to mutate Section 6 outside clause blocks")
+            try:
+                _assert_no_section6_waiver_outside_clauses(mutated_s6)
+            except AssertionError:
+                pass
+            else:
+                raise AssertionError(f"Section-6 outside waiver was not rejected: {mutated_s6[-160:]!r}")
 
         # Positive controls: clean standalone clause block passes
         _assert_exact_obligation_clause(
@@ -494,7 +636,7 @@ class TestSpecSection6Clauses(unittest.TestCase):
         else:
             raise AssertionError("KEEP(d1)->DISCARD(d1)->KEEP(d1) was not rejected")
 
-        # KEEP(d1) -> DISCARD(d2) -> KEEP(d2) MUST pass
+        # KEEP(d1) -> DISCARD(d2) -> KEEP(d1) MUST fail (DISCARD does not change active baseline)
         disc_diff = build_ratchet_record(
             step=1, prev_hash=r0["record_hash"], decision="DISCARD", note="d2", ast_sha256=d2, **kw,
         )
@@ -504,7 +646,60 @@ class TestSpecSection6Clauses(unittest.TestCase):
         ver_dk = verify_ratchet_ledger_records([r0, disc_diff, keep_after_disc_diff])
         _req(ver_dk["valid"] is True and ver_dk["status"] == "VALID", f"Valid KEEP->DISCARD(diff)->KEEP(diff) rejected: {ver_dk}")
 
-        # Consecutive non-KEEP records with identical ast_sha256 MUST remain valid
+        keep_d1_after_disc_d2 = build_ratchet_record(
+            step=2, prev_hash=disc_diff["record_hash"], decision="KEEP", note="k1_again", ast_sha256=d1, **kw,
+        )
+        try:
+            verify_ratchet_ledger_records([r0, disc_diff, keep_d1_after_disc_d2])
+        except AletheiaError as exc:
+            _req(exc.code == "AST_UNCHANGED_KEEP", f"Expected AST_UNCHANGED_KEEP after DISCARD(d2), got {exc.code}")
+        else:
+            raise AssertionError("KEEP(d1)->DISCARD(d2)->KEEP(d1) was not rejected")
+
+        # KEEP(d1) -> LATCH_HALT(d2) -> KEEP(d1) MUST fail (LATCH_HALT does not change active baseline)
+        halt_diff = build_ratchet_record(
+            step=1, prev_hash=r0["record_hash"], decision="LATCH_HALT", note="h2", ast_sha256=d2, **kw,
+        )
+        keep_d1_after_halt_d2 = build_ratchet_record(
+            step=2, prev_hash=halt_diff["record_hash"], decision="KEEP", note="k1_after_halt", ast_sha256=d1, **kw,
+        )
+        try:
+            verify_ratchet_ledger_records([r0, halt_diff, keep_d1_after_halt_d2])
+        except AletheiaError as exc:
+            _req(exc.code == "AST_UNCHANGED_KEEP", f"Expected AST_UNCHANGED_KEEP after LATCH_HALT(d2), got {exc.code}")
+        else:
+            raise AssertionError("KEEP(d1)->LATCH_HALT(d2)->KEEP(d1) was not rejected")
+
+        # Adjacent-baseline A -> B -> A progression: KEEP(d1) -> KEEP(d2) -> KEEP(d1) MUST pass
+        keep_back_to_d1 = build_ratchet_record(
+            step=2, prev_hash=diff["record_hash"], decision="KEEP", note="k_aba", ast_sha256=d1, **kw,
+        )
+        ver_aba = verify_ratchet_ledger_records([r0, diff, keep_back_to_d1])
+        _req(ver_aba["valid"] is True and ver_aba["status"] == "VALID", f"Valid A->B->A progression rejected: {ver_aba}")
+
+        # REVERT updates active baseline to restored digest:
+        # KEEP(d1) -> KEEP(d2) -> REVERT(d1) -> KEEP(d1) MUST fail with AST_UNCHANGED_KEEP
+        rev_to_d1 = build_ratchet_record(
+            step=2, prev_hash=diff["record_hash"], decision="REVERT", note="rev_d1", ast_sha256=d1, **kw,
+        )
+        keep_same_after_rev = build_ratchet_record(
+            step=3, prev_hash=rev_to_d1["record_hash"], decision="KEEP", note="k_same_rev", ast_sha256=d1, **kw,
+        )
+        try:
+            verify_ratchet_ledger_records([r0, diff, rev_to_d1, keep_same_after_rev])
+        except AletheiaError as exc:
+            _req(exc.code == "AST_UNCHANGED_KEEP", f"Expected AST_UNCHANGED_KEEP after REVERT(d1), got {exc.code}")
+        else:
+            raise AssertionError("KEEP(d1)->KEEP(d2)->REVERT(d1)->KEEP(d1) was not rejected")
+
+        # KEEP(d1) -> KEEP(d2) -> REVERT(d1) -> KEEP(d2) MUST pass (changes away from reverted baseline d1)
+        keep_diff_after_rev = build_ratchet_record(
+            step=3, prev_hash=rev_to_d1["record_hash"], decision="KEEP", note="k_diff_rev", ast_sha256=d2, **kw,
+        )
+        ver_rev_ok = verify_ratchet_ledger_records([r0, diff, rev_to_d1, keep_diff_after_rev])
+        _req(ver_rev_ok["valid"] is True and ver_rev_ok["status"] == "VALID", f"Valid post-REVERT KEEP rejected: {ver_rev_ok}")
+
+        # Consecutive non-KEEP records with identical ast_sha256 MUST remain valid, and REVERT establishes baseline
         disc0 = build_ratchet_record(step=0, prev_hash=genesis, decision="DISCARD", note="d0", ast_sha256=d1, **kw)
         disc1 = build_ratchet_record(step=1, prev_hash=disc0["record_hash"], decision="REVERT", note="rev", ast_sha256=d1, **kw)
         keep_after_nonkeep = build_ratchet_record(
@@ -513,7 +708,20 @@ class TestSpecSection6Clauses(unittest.TestCase):
         ver_nk = verify_ratchet_ledger_records([disc0, disc1, keep_after_nonkeep])
         _req(ver_nk["valid"] is True and ver_nk["status"] == "VALID", f"Valid non-KEEP sequence rejected: {ver_nk}")
 
-        # Invalid/non-canonical ast_sha256 MUST fail closed with INVALID_AST_DIGEST on ANY decision
+        keep_unchanged_after_rev0 = build_ratchet_record(
+            step=2, prev_hash=disc1["record_hash"], decision="KEEP", note="k1_bad", ast_sha256=d1, **kw,
+        )
+        try:
+            verify_ratchet_ledger_records([disc0, disc1, keep_unchanged_after_rev0])
+        except AletheiaError as exc:
+            _req(exc.code == "AST_UNCHANGED_KEEP", f"Expected AST_UNCHANGED_KEEP after initial REVERT(d1), got {exc.code}")
+        else:
+            raise AssertionError("DISCARD(d1)->REVERT(d1)->KEEP(d1) was not rejected")
+
+        # Invalid/non-canonical ast_sha256 MUST fail closed at BOTH build_ratchet_record AND verify_ratchet_ledger_records
+        class _EvilStr(str):
+            pass
+
         for bad_ast in (
             "",
             "   ",
@@ -528,12 +736,22 @@ class TestSpecSection6Clauses(unittest.TestCase):
             "\u00e9" * 64,
             "sha256:" + ("\u00e9" * 64),
             "sha256:e\u0301" + ("0" * 62),
+            _EvilStr(d1),
             123,
             None,
         ):
             for dec in ("KEEP", "DISCARD"):
-                bad_rec = build_ratchet_record(
-                    step=0, prev_hash=genesis, decision=dec, note="bad_ast", ast_sha256=bad_ast, **kw,  # type: ignore[arg-type]
+                try:
+                    build_ratchet_record(
+                        step=0, prev_hash=genesis, decision=dec, note="bad_ast", ast_sha256=bad_ast, **kw,  # type: ignore[arg-type]
+                    )
+                except AletheiaError as exc:
+                    _req(exc.code == "INVALID_AST_DIGEST", f"build_ratchet_record expected INVALID_AST_DIGEST for {bad_ast!r}/{dec}, got {exc.code}")
+                else:
+                    raise AssertionError(f"build_ratchet_record accepted invalid ast_sha256={bad_ast!r}/{dec}")
+
+                bad_rec = _forge_ratchet_record(
+                    step=0, prev_hash=genesis, decision=dec, note="bad_ast", ast_sha256=bad_ast, **kw,
                 )
                 try:
                     verify_ratchet_ledger_records([bad_rec])
@@ -542,10 +760,19 @@ class TestSpecSection6Clauses(unittest.TestCase):
                 else:
                     raise AssertionError(f"{dec} with invalid ast_sha256={bad_ast!r} was not rejected")
 
-        # Invalid/case-variant/whitespace/unhashable decisions MUST fail closed with INVALID_DECISION
-        for bad_dec in ("keep", "Keep", "KEEP ", " KEEP", "kept", "", "discard", "UNKNOWN", 123, None, []):
-            bad_dec_rec = build_ratchet_record(
-                step=0, prev_hash=genesis, decision=bad_dec, note="bad_dec", ast_sha256=d1, **kw,  # type: ignore[arg-type]
+        # Invalid/case-variant/whitespace/str-subclass/unhashable decisions MUST fail closed at BOTH build and verify
+        for bad_dec in ("keep", "Keep", "KEEP ", " KEEP", "kept", "", "discard", "UNKNOWN", _EvilStr("KEEP"), 123, None, []):
+            try:
+                build_ratchet_record(
+                    step=0, prev_hash=genesis, decision=bad_dec, note="bad_dec", ast_sha256=d1, **kw,  # type: ignore[arg-type]
+                )
+            except AletheiaError as exc:
+                _req(exc.code == "INVALID_DECISION", f"build_ratchet_record expected INVALID_DECISION for {bad_dec!r}, got {exc.code}")
+            else:
+                raise AssertionError(f"build_ratchet_record accepted invalid decision={bad_dec!r}")
+
+            bad_dec_rec = _forge_ratchet_record(
+                step=0, prev_hash=genesis, decision=bad_dec, note="bad_dec", ast_sha256=d1, **kw,
             )
             try:
                 verify_ratchet_ledger_records([bad_dec_rec])
@@ -596,13 +823,13 @@ class TestSpecSection6Clauses(unittest.TestCase):
             _req(rc_b == 2 and pay_b.get("status") == "ERROR" and pay_b.get("code") == "AST_UNCHANGED_KEEP", f"Unexpected CLI bad: {rc_b} {pay_b}")
 
             bad_dec_f = tdp / "bad_dec.jsonl"
-            bad_dec_r = build_ratchet_record(step=0, prev_hash=genesis, decision="keep", note="lc", ast_sha256=d1, **kw)
+            bad_dec_r = _forge_ratchet_record(step=0, prev_hash=genesis, decision="keep", note="lc", ast_sha256=d1, **kw)
             bad_dec_f.write_text(json.dumps(bad_dec_r, separators=(",", ":")) + "\n", encoding="utf-8")
             rc_d, pay_d = _run_verify_cli(bad_dec_f)
             _req(rc_d == 2 and pay_d.get("code") == "INVALID_DECISION", f"Unexpected CLI bad dec: {rc_d} {pay_d}")
 
             bad_ast_f = tdp / "bad_ast.jsonl"
-            bad_ast_r = build_ratchet_record(step=0, prev_hash=genesis, decision="KEEP", note="ws", ast_sha256="   ", **kw)
+            bad_ast_r = _forge_ratchet_record(step=0, prev_hash=genesis, decision="KEEP", note="ws", ast_sha256="   ", **kw)
             bad_ast_f.write_text(json.dumps(bad_ast_r, separators=(",", ":")) + "\n", encoding="utf-8")
             rc_a, pay_a = _run_verify_cli(bad_ast_f)
             _req(rc_a == 2 and pay_a.get("code") == "INVALID_AST_DIGEST", f"Unexpected CLI bad ast: {rc_a} {pay_a}")
