@@ -127,6 +127,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_aud.add_argument("--safety-scan", action="store_true", help="Run CYA-GAP-01..05 deterministic agent safety-surface scan")
     p_aud.add_argument("--include-host-hygiene", action="store_true", help="Include CYA-GAP-06 host-hygiene rules when using --safety-scan")
     p_aud.add_argument("--allow-symlinks", action="store_true", help="Downgrade SYMLINK_DIR, SYMLINK_OUTSIDE_ROOT and BROKEN_SYMLINK path findings to non-fatal (default: fail closed). NON_REGULAR_FILE and UNREADABLE_FILE stay fatal")
+    p_aud.add_argument("--outside-rulings", type=Path, default=None, help="outside_observer.rulings.v1 JSON (e.g. cave-expedition verification/outside/rulings.json): a VERIFIED N2 row that it does not name and that lists no G10 gets novelty status NOT_SHOWN")
+    p_aud.add_argument("--strict-novelty", action="store_true", help="Treat N2_NOVELTY_NOT_SHOWN (VERIFIED N2 row with no G10 and no outside ruling) as an error")
     p_aud.add_argument("--timeout", type=int, default=120, help="Per-mode script timeout in seconds")
     p_aud.add_argument("--json", action="store_true", help="Emit JSON output")
 
@@ -244,6 +246,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 safety_scan=args.safety_scan,
                 include_host_hygiene=args.include_host_hygiene,
                 allow_symlinks=args.allow_symlinks,
+                outside_rulings=args.outside_rulings,
+                strict_novelty=args.strict_novelty,
             )
             _emit(res, as_json)
             return 0 if res["passed"] else 1

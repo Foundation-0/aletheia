@@ -2,6 +2,11 @@
 
 All notable changes to `Foundation-0/aletheia` are documented in this file. Specification changes follow [`CONTRIBUTING.md`](CONTRIBUTING.md) (issue/audit reference, version bump, and regression tests).
 
+## [Unreleased]
+
+### Added
+- **`aletheia audit-check`: novelty status for `VERIFIED` `N2` ledger rows (`--outside-rulings`, `--strict-novelty`).** The spec asks an `N2` label to survive Gates 1–10 (§2.3), but `audit-check` raised nothing on a `VERIFIED` `N2` row that listed `G9` or used a prior-art word. Each such row now gets a novelty status. It is `SECOND_PASS_RECORDED` when the gates cell lists `G10` or when an `outside_observer.rulings.v1` file passed with `--outside-rulings` names the row's audit id, and `NOT_SHOWN` otherwise. `NOT_SHOWN` is the warning `N2_NOVELTY_NOT_SHOWN`, or an error under `--strict-novelty`. `SECOND_PASS_RECORDED` says only that a second pass is on record; the check does not read what the ruling decided about the label. Ids match exactly, so a ruling on `AUDIT-011R` does not cover the row `AUDIT-011`. The rulings file must have the shape of cave-expedition `verification/outside/rulings.json` (areas with an `audits` string and findings ruled `stands`, `stands_narrowed` or `falls`); any other shape is refused. The summary adds `verified_n2_rows`, `verified_n2_without_outside_ruling` and `n2_novelty_not_shown`. On cave-expedition at `9729839` the run stays `PASS`: without the rulings file all `11` `VERIFIED` `N2` rows are `NOT_SHOWN`; with `verification/outside/rulings.json` `2` remain (`AUDIT-011`, `AUDIT-015R`). Ideas from cave-expedition (outside rulings beside internal labels) and project-asma (a status counts only as a complete documented state); regression tests in `tests/test_outside_rulings_novelty.py`.
+
 ## [2.1.0] — 2026-11-22
 
 Twin-coherence release. The method repo and the Cave Expedition ledger now machine-check the claims they make about each other, and the audit of 2026-11-22 (`aletheia#13`) closed its fail-open and label findings.
