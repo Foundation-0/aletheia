@@ -11,16 +11,16 @@ In CS and systems, bugs, tightness gaps, and security bypasses are rarely mere e
 
 | Raw Friction / Failure | Cave-Shadow Default (Avoid) | Aletheia Portal Question |
 |---|---|---|
-| A certificate checker accepts a forged input (`rank >= 117` on a $2\times 2$ matrix, `AUDIT-001`) | Patch the single symptom and stop at `FALSIFIED` | What minimal TCB architecture + R1–R5 gate contract makes **every** forgery class unrepresentable, and what is the tightest provable theorem underneath? |
+| A certificate checker accepts a forged input (`rank >= 117` on a $2\times 2$ matrix, `AUDIT-001`) | Patch the single symptom and stop at `FALSIFIED` | What minimal TCB architecture + R1–R7 gate contract makes **every** forgery class unrepresentable, and what is the tightest provable theorem underneath? |
 | Composing abstractions or LoRA/zone adapters loses $O(N^2)$ sharpness (`warp#15`, `quotient-lp-bounds`) | Accept conservative Cauchy–Schwarz or additive bounds as inevitable | Can exact Gram matrices ($Q_{\mathrm{stack}}(s)$) or sequential 1-cochain residual peeling ($c^{(j)} = c^{(j-1)} + d^0(\pi_j^* h_j^*)$) recover exact sharpness? |
 | "Emergent coarse-graining = commutation" fails on counterexamples | Declare the concept dead or keep using the slogan informally | Which exact algebraic **semiring**—linear $(+,\times)$ Markov vs. tropical $(\min,+)$ Bellman—fails, and what exact parameter family ($q = e^{-\beta}$) connects them? |
 | Post-hoc alignment patching fixes one eval benchmark while regressing unseen probes | Add more patches to the prompt/weights | Does fixed-spec adaptation strictly inflate out-of-distribution KL/Bregman divergence—proving a missing feature/specification dimension $\Psi$? |
 
 ---
 
-## 2. The R1–R5 Executable Gate Contract (Law 3)
+## 2. The R1–R7 Executable Gate Contract (Law 3)
 
-Every verifier, security boundary, certificate checker, and formal-audit tool in CS/systems **must** satisfy all five refusal-and-runtime contracts—never treating tests as decorative:
+Every verifier, security boundary, certificate checker, and formal-audit tool in CS/systems **must** satisfy all seven contracts—the five refusal-and-runtime contracts R1–R5 and the two measurement contracts R6–R7—never treating tests as decorative:
 
 ### R1 — Default-Reject (Fail-Closed)
 - Any unrecognized schema version, missing field, unexpected key, unsupported branch, or unverified solver `"optimal"` status **must raise an explicit error** (never default to `True`, `0`, or a fallback heuristic).
@@ -49,6 +49,13 @@ Real exploits caught during the Cave Expedition (`AUDIT-001`, `AUDIT-006`, `AUDI
 ### R5 — Refusal-Site Mutation Suites (Kill 100% of Check Deletions)
 - A guard without a failing test is indistinguishable from dead code. Pair every refusal branch in the TCB with an automated mutation suite (`aletheia mutate`) that systematically bypasses or deletes each guard one at a time and verifies that the test suite **kills 100% of mutants (`0` survivors)**.
 - *Reference benchmark (`AUDIT-016R`, `Foundation-0/spectral-inertia`):* **`41/41` refusal-site mutants killed (`100.0%`, `0` survivors)** across `-I -B` and `-I -O -B`.
+
+### R6 — Pinned Checks
+- The gate owner fixes the check list, ranges and thresholds before any submission exists; no submitter-written field may select or override them (`spec/LAWS_AND_GATES.md` §4).
+
+### R7 — Measured, Not Declared
+- Every value compared against a pinned rule is recomputed by the gate from the bytes about to be promoted. Declared digests, statuses, counts and flags may be checked against those measurements but never stand in for them.
+- `aletheia.gates_v2.evaluate_r6_r7_gate` implements R6 and R7 as a library certifier; `aletheia audit-check` does not run them.
 
 ---
 
