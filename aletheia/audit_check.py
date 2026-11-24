@@ -703,24 +703,35 @@ _LEAN4_PARTIAL_DECL_RE = re.compile(
     r"(?<!\.)\bpartial\s+(?:def|instance|abbrev)\b", flags=re.DOTALL
 )
 
-# Lean 4.15+ `decide` native-evaluation trust escapes: `+native`, `(native := true)`,
-# `(config := { ... native := true ... })`, and bound `DecideConfig` / `Decide.Config` records.
+# Lean 4.15+ `decide` native-evaluation trust escapes: `+native`, `(native := <non-false>)`,
+# `(config := { ... native := <non-false> ... })`, and bound `DecideConfig` / `Decide.Config` records.
 _LEAN4_DECIDE_RUN_RE = re.compile(
-    r"\bdecide(?:\s+[+-][A-Za-z0-9_]+|\s*\(\s*[A-Za-z0-9_]+\s*:=[^()]*(?:\([^()]*\)[^()]*)*\))+",
+    r"\bdecide(?=\s|\()(?:\s*[+-][A-Za-z0-9_]+|\s*\(\s*[A-Za-z0-9_]+\s*:=[^()]*(?:\([^()]*\)[^()]*)*\))+",
     flags=re.DOTALL,
 )
 _LEAN4_DECIDE_NATIVE_ITEM_RE = re.compile(
-    r"(?:(?<!\S)\+native\b"
-    r"|\(\s*native\s*:=\s*true\b\s*\)"
-    r"|\(\s*config\s*:=\s*(?:\(\s*)*\{[^}]*\bnative\s*:=\s*true\b[^}]*\})",
+    r"(\+native\b)"
+    r"|\(\s*native\s*:=\s*([^()]*(?:\([^()]*\)[^()]*)*)\)"
+    r"|\(\s*config\s*:=\s*(?:\(\s*)*\{[^}{]*\bnative\s*:=\s*([^}{,:]*)(?:[,}]|:\s)",
     flags=re.DOTALL,
 )
 _LEAN4_DECIDE_CONFIG_BIND_RE = re.compile(
-    r"\b(?:DecideConfig|Decide\.Config)\b[^:=;\n]*:=\s*(?:\(\s*)*\{[^}]*\bnative\s*:=\s*true\b[^}]*\}"
-    r"|\{[^}]*\bnative\s*:=\s*true\b[^}]*\}\s*:\s*(?:[A-Za-z_][A-Za-z0-9_]*\.)*(?:DecideConfig|Decide\.Config)\b"
-    r"|\{[^}]*\bnative\s*:=\s*true\b[^}]*:\s*(?:[A-Za-z_][A-Za-z0-9_]*\.)*(?:DecideConfig|Decide\.Config)\b[^}]*\}",
+    r"\b(?:DecideConfig|Decide\.Config)\b[ \t)]*:=\s*(?:\(\s*)*\{[^}{]*\bnative\s*:=\s*([^}{,:]*)(?:,[^}{]*)?\}"
+    r"|\{[^}{]*\bnative\s*:=\s*([^}{,:]*)(?:,[^}{]*)?\}\s*:\s*(?:[A-Za-z_][A-Za-z0-9_]*\.)*(?:DecideConfig|Decide\.Config)\b"
+    r"|\{[^}{]*\bnative\s*:=\s*([^}{,:]*)(?:,[^}{]*)?:\s*(?:[A-Za-z_][A-Za-z0-9_]*\.)*(?:DecideConfig|Decide\.Config)\b[^}{]*\}",
     flags=re.DOTALL,
 )
+
+
+def _is_lean4_native_rhs_false(rhs: str) -> bool:
+    s = rhs.strip()
+    while s.startswith("(") and s.endswith(")"):
+        s = s[1:-1].strip()
+    return s in ("false", "Bool.false")
+
+
+def _lean4_match_enables_native(m_obj: re.Match[str]) -> bool:
+    return any(grp is not None and not _is_lean4_native_rhs_false(grp) for grp in m_obj.groups())
 _LEAN4_IDENT_EXTRA = "_.'!?"
 
 # Multiline skipKernelTC check (catches `set_option\n debug.skipKernelTC\n true` and bare `debug.skipKernelTC`)
@@ -977,10 +988,10 @@ def audit_lean4_source(
         lineno = cleaned[: m_part.start()].count("\n") + 1
         findings.append({"line": lineno, "code": "LEAN4_PARTIAL", "excerpt": " ".join(m_part.group(0).split())[:100]})
 
-    # Lean 4.15+ `decide +native`, `(native := true)`, `(config := { native := true })`, & bound DecideConfig
+    # Lean 4.15+ `decide +native`, `(native := <non-false>)`, `(config := { native := <non-false> })`, & bound DecideConfig
     decide_spans: list[tuple[int, int]] = []
     for m_dn in _LEAN4_DECIDE_RUN_RE.finditer(cleaned):
-        if _LEAN4_DECIDE_NATIVE_ITEM_RE.search(m_dn.group(0)) is not None:
+        if any(_lean4_match_enables_native(m_item) for m_item in _LEAN4_DECIDE_NATIVE_ITEM_RE.finditer(m_dn.group(0))):
             decide_spans.append((m_dn.start(), m_dn.end()))
             lineno = cleaned[: m_dn.start()].count("\n") + 1
             findings.append(
@@ -988,6 +999,8 @@ def audit_lean4_source(
             )
     for m_dc in _LEAN4_DECIDE_CONFIG_BIND_RE.finditer(cleaned):
         if any(m_dc.start() in range(ds, de) for ds, de in decide_spans):
+            continue
+        if not _lean4_match_enables_native(m_dc):
             continue
         lineno = cleaned[: m_dc.start()].count("\n") + 1
         findings.append(
