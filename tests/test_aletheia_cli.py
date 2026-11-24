@@ -1985,6 +1985,88 @@ class TestAletheiaCLI(unittest.TestCase):
         _req(check_ring0_lock({"oracle": "exact", "lr": 1}, {"oracle": "exact", "lr": True}),
              "non Ring-0 section must stay mutable")
 
+    def test_39_mutator_null_mutant_control_refuses_byte_pin_kills(self) -> None:
+        """A test command that only pins the target's bytes must not yield R5 kills.
+
+        Every mutant is written back through ast.unparse, so a sha256 pin on the target fails for every
+        mutant without exercising any guard. Before the null-mutant control this reported PASS with a
+        100% kill rate. Idea from cave-expedition's outside mutation harness
+        (verification/outside/checks/twoloop_stack/mutate_stack_guards.py), which counts a kill only
+        when the mutant's own named control fails.
+        """
+        import hashlib
+
+        from aletheia.mutator import null_mutant_source
+
+        with tempfile.TemporaryDirectory(prefix="aletheia_t_null_") as td:
+            root = Path(td)
+            src = (
+                '"""Toy verifier with two guards."""\n\n\n'
+                "def accept(x):\n"
+                "    if not isinstance(x, int):\n"
+                '        raise ValueError("not int")\n'
+                "    if x < 0:\n"
+                '        raise ValueError("negative")\n'
+                "    return True\n"
+            )
+            write_lf_text(root / "verifier.py", src)
+            _req(null_mutant_source(src) != src, "fixture must not already be in ast.unparse form")
+            digest = hashlib.sha256(src.encode("utf-8")).hexdigest()
+            write_lf_text(
+                root / "test_pin.py",
+                "import hashlib, sys\n"
+                'got = hashlib.sha256(open("verifier.py", "rb").read()).hexdigest()\n'
+                f'if got != "{digest}":\n'
+                '    sys.exit("PIN MISMATCH")\n',
+            )
+            # 1. Pin-only test command: refused, never PASS.
+            try:
+                run_mutation_suite(root / "verifier.py", "python3 test_pin.py", work_root=root, max_mutants=0)
+                raise AssertionError("pin-only test command was accepted as an R5 kill suite")
+            except AletheiaError as exc:
+                _req(exc.code == "NULL_MUTANT_KILLED", f"wrong code for pin-only suite: {exc.code}")
+                _req("--test-cmd" in exc.message and "PIN MISMATCH" in exc.message,
+                     f"message must point at --test-cmd and carry the failing output: {exc.message}")
+            rc, out, _ = _run_cli([
+                "mutate", str(root / "verifier.py"), "--work-root", str(root),
+                "--test-cmd", "python3 test_pin.py", "--max-mutants", "0", "--json",
+            ])
+            j = json.loads(out)
+            _req(rc == 2 and j["status"] == "ERROR" and j["code"] == "NULL_MUTANT_KILLED",
+                 f"CLI must exit 2 with NULL_MUTANT_KILLED: rc={rc} out={out}")
+
+            # 2. A behavioural test command keeps working and reports the control.
+            write_lf_text(
+                root / "test_behaviour.py",
+                "import verifier\n"
+                "verifier.accept(0)\n"
+                "for bad in (-1, 1.5):\n"
+                "    try:\n"
+                "        verifier.accept(bad)\n"
+                "    except ValueError:\n"
+                "        continue\n"
+                "    raise SystemExit(f'accepted {bad!r}')\n",
+            )
+            ok = run_mutation_suite(root / "verifier.py", "python3 test_behaviour.py", work_root=root,
+                                    max_mutants=0, add_cwd=True)
+            _req(ok["passed"] and ok["null_mutant"] == "passed" and ok["killed"] == ok["total_mutants"] == 3,
+                 f"behavioural suite should pass with the control: {ok}")
+
+            # 3. A null mutant that hangs is refused with its own code.
+            write_lf_text(
+                root / "test_hang.py",
+                "import hashlib, time\n"
+                'got = hashlib.sha256(open("verifier.py", "rb").read()).hexdigest()\n'
+                f'if got != "{digest}":\n'
+                "    time.sleep(60)\n",
+            )
+            try:
+                run_mutation_suite(root / "verifier.py", "python3 test_hang.py", work_root=root,
+                                   max_mutants=0, timeout=2)
+                raise AssertionError("hanging null mutant was not refused")
+            except AletheiaError as exc:
+                _req(exc.code == "NULL_MUTANT_TIMEOUT", f"wrong code for hanging null mutant: {exc.code}")
+
 
 if __name__ == "__main__":
     unittest.main()

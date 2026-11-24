@@ -16,6 +16,11 @@ v2.0 upgrades (closing aletheia#5 #1, #6, #7, #11, #12 and aletheia#3 §4):
      yields verdict `"NOT_SHOWN"` (`passed=False`) rather than `"PASS"`.
   6. Structured `BASELINE_TEST_TIMEOUT` on timeout (zero unhandled traceback) and explicit `-I`/`--add-cwd`
      hint on `ModuleNotFoundError`/`ImportError` during baseline execution.
+  7. Null-mutant control: every mutant is written back through `ast.unparse`, which changes the file's
+     bytes before any guard is touched. After the baseline passes, the unmodified program is written
+     through the same serialisation and the test command runs once more. If that run fails, a kill
+     could come from the byte change alone, so the run stops with `NULL_MUTANT_KILLED`
+     (`NULL_MUTANT_TIMEOUT` on timeout) instead of reporting kills.
 """
 from __future__ import annotations
 
@@ -560,10 +565,20 @@ def apply_single_mutation(source: str, site: MutantSite) -> str:
     else:
         raise AletheiaError("UNKNOWN_MUTANT_KIND", f"unknown mutant kind {site.kind!r}")
 
+    return _serialise_module(tree)
+
+
+def _serialise_module(tree: ast.Module) -> str:
+    """The one serialisation every mutant, and the null mutant, is written through."""
     ast.fix_missing_locations(tree)
-    mutated = ast.unparse(tree) + "\n"
-    compile(mutated, "<mutated>", "exec")
-    return mutated
+    code = ast.unparse(tree) + "\n"
+    compile(code, "<mutated>", "exec")
+    return code
+
+
+def null_mutant_source(source: str) -> str:
+    """Return `source` unchanged in meaning but re-serialised exactly as every mutant is."""
+    return _serialise_module(ast.parse(source))
 
 
 def _prepare_cmd(test_cmd: str, target_rel: str, *, add_cwd: bool = False) -> list[str]:
@@ -666,6 +681,31 @@ def run_mutation_suite(
                 f"unmutated baseline test failed (rc={base_proc.returncode}): {stderr_tail}{hint}",
             )
 
+        # 2. Null-mutant control: the unmodified program, re-serialised exactly as every mutant is,
+        #    must still pass. Otherwise a kill could come from the byte change alone (for example a
+        #    test command that pins the target's hash or formatting), not from the removed guard.
+        tmp_target.write_text(null_mutant_source(source), encoding="utf-8", newline="\n")
+        try:
+            null_proc = subprocess.run(cmd, cwd=str(tmp_root), capture_output=True, timeout=timeout, check=False)
+        except subprocess.TimeoutExpired as exc:
+            raise AletheiaError(
+                "NULL_MUTANT_TIMEOUT",
+                f"the null mutant (the unmodified target re-serialised by ast.unparse, as every mutant is) "
+                f"timed out after {timeout}s although the original bytes passed; no kill can be trusted. "
+                "Remove byte or format pins on the target from --test-cmd.",
+            ) from exc
+        finally:
+            tmp_target.write_text(source, encoding="utf-8", newline="\n")
+        if null_proc.returncode != 0:
+            null_tail = (null_proc.stdout + null_proc.stderr).decode("utf-8", errors="replace")[-400:]
+            raise AletheiaError(
+                "NULL_MUTANT_KILLED",
+                f"the null mutant (the unmodified target re-serialised by ast.unparse, as every mutant is) "
+                f"failed the test command (rc={null_proc.returncode}) although the original bytes passed, "
+                "so kills could come from byte or format changes rather than removed guards. "
+                f"Remove byte or format pins on the target (hashes, formatter or lint checks) from --test-cmd: {null_tail}",
+            )
+
         results: list[dict[str, Any]] = []
         killed = 0
         survivors: list[dict[str, Any]] = []
@@ -718,6 +758,7 @@ def run_mutation_suite(
         "target": str(target),
         "test_cmd": test_cmd,
         "self_check_mode": self_check_mode,
+        "null_mutant": "passed",
         "local_wrappers_detected": local_wrappers,
         "imported_wrappers_detected": imported_wrappers,
         "explicit_guards": explicit_guards,
