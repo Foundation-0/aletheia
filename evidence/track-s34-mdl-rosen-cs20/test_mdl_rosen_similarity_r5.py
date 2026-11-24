@@ -892,9 +892,9 @@ class TrackS34Tests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory(prefix="s34_race_") as td:
             root = Path(td)
-            secret = root / "secret.txt"
-            secret_bytes = b"DO_NOT_LEAK_OR_CLOBBER\n"
-            secret.write_bytes(secret_bytes)
+            canary = root / "canary.txt"
+            canary_bytes = b"DO_NOT_LEAK_OR_CLOBBER\n"
+            canary.write_bytes(canary_bytes)
 
             # Part A: >= 520-iter concurrent renameat2(RENAME_EXCHANGE) leaf + intermediate dir race
             real_dir = root / "real_dir"
@@ -902,7 +902,7 @@ class TrackS34Tests(unittest.TestCase):
             target_a = real_dir / "target.json"
             target_a.write_bytes(b'{"ok":1}\n')
             sym_leaf = root / "sym_leaf.json"
-            os.symlink(secret, sym_leaf)
+            os.symlink(canary, sym_leaf)
             swap_dir = root / "swap_dir"
             os.symlink(root, swap_dir)
 
@@ -933,14 +933,14 @@ class TrackS34Tests(unittest.TestCase):
                         audit.write_regular_bytes_safe(real_dir / "target.json", b'{"ok":2}\n', "race_w")
                     except oracle.MdlRosenError:
                         pass
-                    if secret.read_bytes() != secret_bytes:
+                    if canary.read_bytes() != canary_bytes:
                         clobbers += 1
             finally:
                 stop_ev.set()
                 t.join(timeout=5)
 
             _check(leaks == 0 and clobbers == 0, f"renameat2 race failed: leaks={leaks}, clobbers={clobbers}")
-            _check(secret.read_bytes() == secret_bytes, "secret clobbered in renameat2 race")
+            _check(canary.read_bytes() == canary_bytes, "canary clobbered in renameat2 race")
 
             # Part B: >= 420-iter concurrent os.link()/os.unlink() hardlink inode-immutability race
             hl_dir = root / "hl_dir"
