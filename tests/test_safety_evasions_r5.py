@@ -125,6 +125,9 @@ class TestSafetyEvasionsAndBounds(unittest.TestCase):
             f"{_EV} '{_FN} . {_DEL}'\n",
             f"out=$({_FN} . {_DEL})\n",
             f"{_FN} \\\n  . {_DEL}\n",
+            f"{_FN} . -exec echo {{}} \\; {_DEL}\n",
+            f"{_FN} . -name 'a;b' {_DEL}\n",
+            f"{_FN} . -name 'a|b' {_DEL}\n",
         )
         for idx, snippet in enumerate(del_cases):
             self._assert_hits(snippet, f"fn_del_{idx}.sh", "CYA-GAP-03", "find_delete")
@@ -133,6 +136,17 @@ class TestSafetyEvasionsAndBounds(unittest.TestCase):
             f"{_FN} /tmp -exec {_RM} {_RF} {{}} +\n",
             f"{_FN} . -execdir /bin/{_RM} {_RF} {{}} \\;\n",
             f"{_FN} . -exec \\{_RM} {_RF} {{}} +\n",
+            f"{_FN} . -exec echo {{}} \\; -exec {_RM} {_RF} {{}} \\;\n",
+            f"{_FN} . -exec '{_RM}' {_RF} {{}} +\n",
+            f'{_FN} . -exec "{_RM}" {_RF} {{}} +\n',
+            f"{_FN} . -exec {_BB} {_RM} {_RF} {{}} +\n",
+            f"{_FN} . -exec /bin/{_BB} {_RM} {_RF} {{}} +\n",
+            f"{_FN} . -exec env {_RM} {_RF} {{}} +\n",
+            f"{_FN} . -exec /usr/bin/env /bin/{_RM} {_RF} {{}} +\n",
+            f"{_FN} . -exec command {_RM} {_RF} {{}} +\n",
+            f"{_FN} . -exec sudo {_RM} {_RF} {{}} +\n",
+            f"{_FN} . -ok {_RM} {_RF} {{}} \\;\n",
+            f"{_FN} . -okdir {_RM} {_RF} {{}} \\;\n",
         )
         for idx, snippet in enumerate(exec_cases):
             self._assert_hits(snippet, f"fn_exec_{idx}.sh", "CYA-GAP-03", "find_exec_rm")
@@ -143,7 +157,10 @@ class TestSafetyEvasionsAndBounds(unittest.TestCase):
                 f"{_FN} . -name 'auto{_DEL}.txt'\n",
                 f"{_FN} . -name {_RM}\n",
                 f"{_FN} . -exec echo {{}} +\n",
+                f"{_FN} . -exec echo {{}} \\;\n",
                 f"{_FN} . -execdir ls {{}} +\n",
+                f"{_FN} . -ok echo {{}} \\;\n",
+                f"{_FN} . -exec env\n",
                 f"{_FN} . -exec\n",
                 f"# {_FN} /tmp {_DEL}\n",
             )
@@ -187,6 +204,15 @@ class TestSafetyEvasionsAndBounds(unittest.TestCase):
             f"sudo {_XA} -0 -- {_RM} {_RF}\n",
             f"{_BB} {_XA} {_RM} {_RF}\n",
             f"{_XA} -n 1 -P 4 {_RM} {_RF}\n",
+            f"{_XA} -a files.txt {_RM} {_RF}\n",
+            f"echo / | {_XA} -s 1024 {_RM} {_RF}\n",
+            f"echo / | {_XA} -J {{}} {_RM} {_RF} {{}}\n",
+            f"echo / | {_XA} --max-args 1 {_RM} {_RF}\n",
+            f"echo / | {_XA} --arg-file files.txt {_RM} {_RF}\n",
+            f"echo / | {_XA} -0 env {_RM} {_RF}\n",
+            f"echo / | {_XA} -0 /usr/bin/env {_RM} {_RF}\n",
+            f"echo / | {_XA} -0 '{_RM}' {_RF}\n",
+            f'echo / | {_XA} -0 "{_RM}" {_RF}\n',
             f"{_SH} -c '{_FN} . |{_XA} {_RM} {_RF}'\n",
         )
         for idx, snippet in enumerate(xa_cases):
@@ -196,6 +222,8 @@ class TestSafetyEvasionsAndBounds(unittest.TestCase):
             (
                 f"{_FN} . -name '*.py' | {_XA} wc -l\n",
                 f"{_FN} . -print0 | {_XA} -0 grep pat\n",
+                f"{_XA} -a files.txt echo\n",
+                f"echo / | {_XA} --max-args 1 echo\n",
                 f"echo a | {_XA} -0fo{_RM}\n",
                 f"echo a | {_XA} --platfo{_RM} foo\n",
                 f"echo a | {_XA} {_RM}dir\n",
@@ -495,11 +523,38 @@ class TestSafetyEvasionsAndBounds(unittest.TestCase):
             # Symlink to regular file inside directory -> refused via O_NOFOLLOW (ELOOP)
             sym_dir = root / "sym_case"
             sym_dir.mkdir()
-            (sym_dir / "sym_file.txt").symlink_to(clean_file)
+            sym_file = sym_dir / "sym_file.txt"
+            sym_file.symlink_to(clean_file)
             r_sym = safety.scan_directory_safety_surface(sym_dir)
             self.assertFalse(r_sym["clean"])
             self.assertEqual(r_sym["files_scanned"], 0)
             self.assertEqual(r_sym["skipped_files"], [{"file": "sym_file.txt", "reason": "symlink_not_followed"}])
+
+            # Direct symlink target_path (regular file, directory, and broken) refused before resolve()
+            r_dsf = safety.scan_directory_safety_surface(sym_file)
+            self.assertFalse(r_dsf["clean"])
+            self.assertEqual(r_dsf["files_scanned"], 0)
+            self.assertEqual(r_dsf["skipped_files"], [{"file": "sym_file.txt", "reason": "symlink_not_followed"}])
+
+            real_sub = root / "real_sub"
+            real_sub.mkdir()
+            (real_sub / "ok.txt").write_text("clean\n", encoding="utf-8")
+            sym_dir_target = root / "sym_dir_target"
+            sym_dir_target.symlink_to(real_sub)
+            r_dsd = safety.scan_directory_safety_surface(sym_dir_target)
+            self.assertFalse(r_dsd["clean"])
+            self.assertEqual(r_dsd["files_scanned"], 0)
+            self.assertEqual(
+                r_dsd["skipped_files"],
+                [{"file": "sym_dir_target", "reason": "symlink_directory_not_followed"}],
+            )
+
+            broken_sym = root / "broken_sym"
+            broken_sym.symlink_to(root / "nonexistent_target")
+            r_brk = safety.scan_directory_safety_surface(broken_sym)
+            self.assertFalse(r_brk["clean"])
+            self.assertEqual(r_brk["files_scanned"], 0)
+            self.assertEqual(r_brk["skipped_files"], [{"file": "broken_sym", "reason": "symlink_not_followed"}])
 
             # UNIX domain socket -> non_regular_file via ENXIO/EOPNOTSUPP
             if hasattr(socket, "AF_UNIX"):

@@ -86,9 +86,33 @@ _STRUCTURED_NPX_YES_ARGS_FIRST_RE = re.compile(
     + r"[\"']?\b"
 )
 
-_XARGS_OPT_RE = r"(?:\s*(?:--[A-Za-z0-9_-]+(?:=\S+)?|-[IEnLPd]\s*\S+|-[A-Za-z0-9]+|--))"
+_XARGS_OPT_RE = (
+    r"(?:\s*(?:--(?:arg-file|delimiter|eof|max-args|max-chars|max-lines|max-procs|replace)\s+\S+"
+    r"|--[A-Za-z0-9_-]+(?:=\S+)?"
+    r"|-[IEnLPdasJ]\s*\S+"
+    r"|-[A-Za-z0-9]+"
+    r"|--))"
+)
 _OPT_PATH_PREFIX_RE = r"(?:(?:/[A-Za-z0-9._-]+)+/|\\)?"
 _OPT_BUSYBOX_PREFIX_RE = r"(?:" + _OPT_PATH_PREFIX_RE + _BUSYBOX_TOKEN + r"\s+)?"
+_XARGS_WRAPPER_RE = (
+    r"(?:(?:"
+    + _OPT_PATH_PREFIX_RE
+    + r"(?:env(?:\s+(?:-[uCS]\s+\S+|-[A-Za-z]+))*|sudo(?:\s+(?:-[uUgChp]\s+\S+|-[A-Za-z]+))*|"
+    + _BUSYBOX_TOKEN
+    + r")|command(?:\s+(?:-[pvV]+|--))*)\s+)*"
+)
+_QUOTED_RM_RE = (
+    r"(?:"
+    + _OPT_PATH_PREFIX_RE
+    + r"rm|'"
+    + _OPT_PATH_PREFIX_RE
+    + r"rm'|\"(?:"
+    + _OPT_PATH_PREFIX_RE
+    + r")rm\")"
+)
+_FIND_EXEC_FLAGS = frozenset({"-exec", "-execdir", "-ok", "-okdir"})
+_FIND_EXEC_WRAPPERS = frozenset({"env", _BUSYBOX_TOKEN, "command", "sudo"})
 
 _SHELL_PREFIX_RE = (
     r"^\s*"
@@ -113,7 +137,7 @@ _EVAL_CMD_RE = re.compile(
     _SHELL_PREFIX_RE + r"(?:[@+-]+\s*)?(?:\\)?" + _EVAL_TOKEN + r"(?:\s+--)?\s+([^\n]+)"
 )
 _FIND_CMD_RE = re.compile(
-    _SHELL_PREFIX_RE + r"(?:[@+-]+\s*)?" + _OPT_BUSYBOX_PREFIX_RE + _OPT_PATH_PREFIX_RE + _FIND_TOKEN + r"\s+([^\n;&|]+)"
+    _SHELL_PREFIX_RE + r"(?:[@+-]+\s*)?" + _OPT_BUSYBOX_PREFIX_RE + _OPT_PATH_PREFIX_RE + _FIND_TOKEN + r"\s+([^\n]+)"
 )
 _BUSYBOX_RM_RE = re.compile(
     _SHELL_PREFIX_RE + r"(?:[@+-]+\s*)?" + _OPT_PATH_PREFIX_RE + _BUSYBOX_TOKEN + r"\s+rm(?:\s|$)"
@@ -127,8 +151,9 @@ _XARGS_RM_RE = re.compile(
     + r"(?:"
     + _XARGS_OPT_RE
     + r"*\s+"
-    + _OPT_PATH_PREFIX_RE
-    + r"rm|(?:\s*-[0-9]|\s*-I\{\})?rm)(?:\s|$)"
+    + _XARGS_WRAPPER_RE
+    + _QUOTED_RM_RE
+    + r"|(?:\s*-[0-9]|\s*-I\{\})?rm)(?:\s|$)"
 )
 _PRINTF_CMD_RE = re.compile(
     _SHELL_PREFIX_RE + r"(?:[@+-]+\s*)?" + _OPT_BUSYBOX_PREFIX_RE + _OPT_PATH_PREFIX_RE + _PRINTF_TOKEN + r"(?:\s|$)"
@@ -398,6 +423,22 @@ def _pipeline_has_printf_to_shell(stages: list[str]) -> bool:
     return False
 
 
+def _find_tokens_exec_rm(find_tokens: list[str]) -> bool:
+    """Return True if any find -exec/-execdir/-ok/-okdir action invokes rm (directly or via wrapper)."""
+    for idx, tok in enumerate(find_tokens):
+        if tok in _FIND_EXEC_FLAGS:
+            j = idx + 1
+            while j < len(find_tokens):
+                cand = find_tokens[j].strip("'\"").rsplit("/", 1)[-1].lstrip("\\")
+                if cand in _FIND_EXEC_WRAPPERS:
+                    j += 1
+                    continue
+                if cand == "rm":
+                    return True
+                break
+    return False
+
+
 def _scan_shell_segment_findings(seg: str, parent_nounset: bool) -> list[str]:
     """Iteratively inspect one shell segment (plus nested subshells, command subs, and eval) for CYA-GAP-03."""
     details: list[str] = []
@@ -440,12 +481,8 @@ def _scan_shell_segment_findings(seg: str, parent_nounset: bool) -> list[str]:
                     find_tokens = [tok.rstrip(")}") for tok in m_find.group(1).split()]
                     if _DELETE_FLAG in find_tokens:
                         details.append("find_delete")
-                    for idx, tok in enumerate(find_tokens):
-                        if tok in ("-exec", "-execdir") and idx + 1 < len(find_tokens):
-                            exec_cmd = find_tokens[idx + 1].rsplit("/", 1)[-1].lstrip("\\")
-                            if exec_cmd == "rm":
-                                details.append("find_exec_rm")
-                                break
+                    if _find_tokens_exec_rm(find_tokens):
+                        details.append("find_exec_rm")
                     continue
 
                 if _BUSYBOX_RM_RE.search(stage) is not None:
@@ -915,6 +952,19 @@ def scan_directory_safety_surface(
     """
     if type(max_file_bytes) is not int or max_file_bytes < 1:
         raise AletheiaError("SAFETY_INVALID_MAX_BYTES", "max_file_bytes must be a positive int")
+    if target_path.is_symlink():
+        reason = "symlink_directory_not_followed" if target_path.is_dir() else "symlink_not_followed"
+        return {
+            "clean": False,
+            "target": str(target_path),
+            "files_scanned": 0,
+            "finding_count": 0,
+            "gap_ids_present": [],
+            "findings": [],
+            "skipped_files": [{"file": target_path.name, "reason": reason}],
+            "undecodable_files": [],
+            "unreadable_files": [],
+        }
     resolved = target_path.resolve()
     if not resolved.exists():
         raise ValueError("SAFETY_TARGET_NOT_FOUND")
