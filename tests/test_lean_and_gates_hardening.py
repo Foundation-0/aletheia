@@ -20,7 +20,12 @@ CLI_ROOT = Path(__file__).resolve().parent.parent
 if str(CLI_ROOT) not in sys.path:
     sys.path.insert(0, str(CLI_ROOT))
 
-from aletheia.audit_check import _is_lean4_native_rhs_false, audit_lean4_source, run_audit_check
+from aletheia.audit_check import (
+    _is_lean4_native_rhs_false,
+    _is_lean4_safe_config_span,
+    audit_lean4_source,
+    run_audit_check,
+)
 from aletheia import gates_v2 as g2
 from aletheia.strict_io import AletheiaError
 
@@ -178,6 +183,31 @@ class TestLean4AndAuditRootHardening(unittest.TestCase):
             ("def cfg := { native := !false : DecideConfig }\n", 1),
             ("theorem t : 1 + 1 = 2 := by\n  decide (config := {\n    revert := true,\n    native := true\n  })\n", 2),
             ("theorem t : 1 + 1 = 2 := by decide (config := { native := true, revert := false })\n", 1),
+            # Guillemet-escaped identifiers (Lean 4 lexer strips French guillemets before elaboration)
+            ("theorem t : 1 + 1 = 2 := by decide +«native»\n", 1),
+            ("theorem t : 1 + 1 = 2 := by decide («native» := true)\n", 1),
+            ("theorem t : 1 + 1 = 2 := by decide (config := { «native» := true })\n", 1),
+            ("theorem t : 1 + 1 = 2 := by decide («config» := { native := true })\n", 1),
+            ("theorem t : 1 + 1 = 2 := by «decide» +«native»\n", 1),
+            # Positional, constructor, indirect, with-update, field-punned, and non-record config forms
+            ("theorem t : 1 + 1 = 2 := by decide (config := ⟨false, true, false, false⟩)\n", 1),
+            ("theorem t : 1 + 1 = 2 := by decide (config := .mk false true false false)\n", 1),
+            ("theorem t : 1 + 1 = 2 := by decide (config := Lean.Parser.Tactic.DecideConfig.mk false true false false)\n", 1),
+            ("def c : Lean.Parser.Tactic.DecideConfig := ⟨false, true, false, false⟩\ntheorem t : 1 + 1 = 2 := by decide (config := c)\n", 2),
+            ("def c0 : Lean.Parser.Tactic.DecideConfig := {}\ndef c1 := { c0 with native := true }\ntheorem t : 1 + 1 = 2 := by decide (config := c1)\n", 3),
+            ("def native : Bool := true\ntheorem t : 1 + 1 = 2 := by decide (config := { native })\n", 2),
+            ("theorem t : 1 + 1 = 2 := by decide (config := { c0 with kernel := true })\n", 1),
+            ("theorem t : 1 + 1 = 2 := by decide (config := { ({} : Lean.Parser.Tactic.DecideConfig) with native := true })\n", 1),
+            # Custom infix operators starting with `:` or `,` and type-ascribed bound DecideConfig
+            ('infixr:65 " :+ " => fun (_ _ : Bool) => true\ntheorem t : 1 + 1 = 2 := by decide (config := { native := false :+ false })\n', 2),
+            ('infixr:65 " ,+ " => fun (_ _ : Bool) => true\ntheorem t : 1 + 1 = 2 := by decide (config := { native := false ,+ false })\n', 2),
+            ("def c : DecideConfig := { native := (true : Bool) }\n", 1),
+            # Malformed / asymmetric brace & empty config forms fail closed cleanly
+            ("theorem t : 1 + 1 = 2 := by decide (config := )\n", 1),
+            ("theorem t : 1 + 1 = 2 := by decide (config := { kernel := true)\n", 1),
+            ("theorem t : 1 + 1 = 2 := by decide (config := kernel := true })\n", 1),
+            ("theorem t : 1 + 1 = 2 := by decide (config := { { })\n", 1),
+            ("theorem t : 1 + 1 = 2 := by decide (config := { } })\n", 1),
         ):
             res = audit_lean4_source(bad_src)
             _req(not res["clean"], f"decide +native was missed: {bad_src!r}")
@@ -217,9 +247,15 @@ class TestLean4AndAuditRootHardening(unittest.TestCase):
             "theorem t : 2 + 2 = 4 := by decide (native := ((Bool.false)))\n",
             "theorem t : 2 + 2 = 4 := by decide (kernel := true) -native\n",
             "theorem t : 1 + 1 = 2 := by decide (config := { native := false })\n",
+            "theorem t : 1 + 1 = 2 := by decide (config := {})\n",
+            "theorem t : 1 + 1 = 2 := by decide (config := { kernel := true })\n",
+            "theorem t : 1 + 1 = 2 := by decide (config :=   ( ( { native := ((Bool.false)) } ) )  )\n",
             "theorem t : 1 + 1 = 2 := by decide (config := (({ native := ((Bool.false)) })))\n",
             "theorem t : 1 + 1 = 2 := by decide (config := { native := Bool.false, revert := true })\n",
-            "theorem t : 1 + 1 = 2 := by decide (config := { my_native := true })\n",
+            "theorem t : 1 + 1 = 2 := by decide (config := { native := false, })\n",
+            "theorem t : 1 + 1 = 2 := by decide (config := { my_native := true, with_extra := false })\n",
+            "theorem t : 1 + 1 = 2 := by decide (config := { «native» := «false» })\n",
+            "theorem t : 1 + 1 = 2 := by decide (config := { «native» := «Bool».«false» })\n",
             "def f (decide : Nat) : Nat := decide+1\n",
             "def x := decide ",
             "def x := decide + (1)\n",
@@ -243,19 +279,26 @@ class TestLean4AndAuditRootHardening(unittest.TestCase):
         for non_false in ("", "   ", "(", "()", "true", "(false!", "!false)", "(false) || true"):
             _req(_is_lean4_native_rhs_false(non_false) is False, f"{non_false!r} must not be treated as false")
 
+        # Direct _is_lean4_safe_config_span boundary checks (empty/whitespace-only/paren-matched)
+        _req(_is_lean4_safe_config_span("", 0, 0, {}) is False, "empty config span must fail closed")
+        _req(_is_lean4_safe_config_span("   ", 0, 3, {}) is False, "whitespace-only config span must fail closed")
+        _req(_is_lean4_safe_config_span("{}", 0, 2, {}) is True, "empty record literal must pass")
+        _req(_is_lean4_safe_config_span(" ( {} ) ", 0, 8, {1: 6}) is True, "padded matched-paren record must pass")
+
         # Linear-time ReDoS guard: unclosed braces, repeated DecideConfig, and deep parens finish in < 200 ms
-        for redos_src in (
-            "{ " * 5000 + "\n",
-            "{ native := false " * 2000 + "\n",
-            "DecideConfig " * 2000 + "\n",
-            "decide " + "(" * 5000 + ")" * 5000 + "\n",
-            "decide (" * 5000 + "\n",
-            "decide (config := " * 1500 + "{ native := false }" + ")" * 1500 + "\n",
+        for redos_src, expect_clean in (
+            ("{ " * 5000 + "\n", True),
+            ("{ native := false " * 2000 + "\n", True),
+            ("DecideConfig " * 2000 + "\n", True),
+            ("decide " + "(" * 5000 + ")" * 5000 + "\n", True),
+            ("decide (" * 5000 + "\n", True),
+            ("decide (config := " + "(" * 1500 + "{ native := false }" + ")" * 1500 + ")\n", True),
+            ("decide (config := " * 1500 + "{ native := false }" + ")" * 1500 + "\n", False),
         ):
             t0 = time.monotonic()
             res_r = audit_lean4_source(redos_src)
             elapsed_ms = (time.monotonic() - t0) * 1000.0
-            _req(res_r["clean"], f"unexpected finding on ReDoS control: {res_r['findings']}")
+            _req(res_r["clean"] is expect_clean, f"unexpected clean={res_r['clean']} on ReDoS probe: {res_r['findings']}")
             _req(elapsed_ms < 200.0, f"quadratic backtracking regression: {elapsed_ms:.1f} ms")
 
         # End-to-end through run_audit_check(..., lean_audit=True)
