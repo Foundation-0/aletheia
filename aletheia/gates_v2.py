@@ -167,7 +167,7 @@ def _is_strict_int(value: object) -> bool:
 
 def _is_clean_ascii(value: object) -> bool:
     return (
-        isinstance(value, str)
+        type(value) is str
         and len(value) > 0
         and value == value.strip()
         and all(32 <= ord(ch) <= 126 for ch in value)
@@ -176,7 +176,7 @@ def _is_clean_ascii(value: object) -> bool:
 
 def _is_lower_hex(value: object, expected_len: int) -> bool:
     return (
-        isinstance(value, str)
+        type(value) is str
         and len(value) == expected_len
         and all(ch in "0123456789abcdef" for ch in value)
     )

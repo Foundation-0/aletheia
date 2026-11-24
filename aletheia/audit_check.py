@@ -543,7 +543,9 @@ _LEAN4_HARD_LINE_RULES: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"(?<!\.)\bunsafe\b"), "LEAN4_UNSAFE"),
     (re.compile(r"\bnative_decide\b"), "LEAN4_NATIVE_DECIDE"),
     (re.compile(r"\bsorryAx\b"), "LEAN4_SORRY_AX"),
+    (re.compile(r"\bLean\.Meta\.mkSorry\b|\bmkSorry\b"), "LEAN4_MK_SORRY"),
     (re.compile(r"\bLean\.ofReduceBool\b|\bofReduceBool\b"), "LEAN4_OF_REDUCE_BOOL"),
+    (re.compile(r"\bLean\.ofReduceNat\b|\bofReduceNat\b"), "LEAN4_OF_REDUCE_NAT"),
     (re.compile(r"\bLean\.trustCompiler\b|\btrustCompiler\b"), "LEAN4_TRUST_COMPILER"),
 )
 
@@ -552,9 +554,11 @@ _LEAN4_PARTIAL_DECL_RE = re.compile(
     r"(?<!\.)\bpartial\s+(?:def|instance|abbrev)\b", flags=re.DOTALL
 )
 
-# Lean 4.16+ `decide +native` trust escape (bypasses kernel via native compiler, like `native_decide`)
+# Lean 4.16+ `decide +native` and desugared `decide (config := { native := true })` trust escapes
 _LEAN4_DECIDE_NATIVE_RE = re.compile(
-    r"\bdecide(?:\s+\+[A-Za-z0-9_]+)*\s+\+native\b", flags=re.DOTALL
+    r"\bdecide(?:\s+[+-][A-Za-z0-9_]+)*"
+    r"(?:\s+\+native\b|\s*\(\s*config\s*:=\s*\{[^}]*\bnative\s*:=\s*true\b[^}]*\}\s*\))",
+    flags=re.DOTALL,
 )
 
 # Multiline skipKernelTC check (catches `set_option\n debug.skipKernelTC\n true` and bare `debug.skipKernelTC`)
@@ -584,15 +588,18 @@ _LEAN4_EXISTS_IMP_RE = re.compile(r"∃[^,\n]+,\s*(?!.*(?:∀|∧))[^,\n]*(?:→
 
 def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
     """
-    Char-literal-safe, raw-string-safe (`r"..."` and `r#"..."#`), and nested-block-comment-safe
-    Lean 4 stripper preserving line count. Reports one finding per block comment or string still
-    open at end of file so callers treat unterminated escapes as failed audits (R1).
+    Char-literal-safe, raw-string-safe (`r"..."` and `r#"..."#`), interpolated-string-safe
+    (`s!"{...}"` / `m!"{...}"`), and nested-block-comment-safe Lean 4 stripper preserving
+    line count. Reports one finding per block comment or string still open at end of file
+    so callers treat unterminated escapes as failed audits (R1).
     """
     out: list[str] = []
     i = 0
     n = len(source)
     depth = 0
     in_str = False
+    in_interp = False
+    interp_stack: list[list[int]] = []
     raw_hashes = -1
     opened_at = 0
     unterminated: list[dict[str, Any]] = []
@@ -634,6 +641,37 @@ def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
                 out.append("\n" if ch == "\n" else " ")
                 i += 1
             continue
+        if in_interp:
+            if ch == "\\":
+                out.append(" \n" if nxt == "\n" else "  ")
+                i += 2
+            elif ch == "{":
+                interp_stack.append([1, opened_at])
+                in_interp = False
+                out.append(" ")
+                i += 1
+            elif ch == '"':
+                in_interp = False
+                out.append(" ")
+                i += 1
+            else:
+                out.append("\n" if ch == "\n" else " ")
+                i += 1
+            continue
+        if interp_stack:
+            if ch == "{":
+                interp_stack[-1][0] += 1
+                out.append(ch)
+                i += 1
+                continue
+            if ch == "}":
+                interp_stack[-1][0] -= 1
+                out.append(ch)
+                i += 1
+                if interp_stack[-1][0] == 0:
+                    _, opened_at = interp_stack.pop()
+                    in_interp = True
+                continue
         if ch == "/" and nxt == "-":
             depth = 1
             opened_at = i
@@ -655,6 +693,11 @@ def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
             else:
                 out.append(ch)
                 i += 1
+        elif ch == "!" and nxt == '"':
+            in_interp = True
+            opened_at = i
+            out.append("  ")
+            i += 2
         elif ch == '"':
             in_str = True
             opened_at = i
@@ -674,8 +717,10 @@ def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
         else:
             out.append(ch)
             i += 1
-    if depth > 0 or in_str or raw_hashes >= 0:
-        lineno = source.count("\n", 0, opened_at) + 1
+    unclosed_open = depth > 0 or in_str or in_interp or raw_hashes >= 0
+    if unclosed_open or interp_stack:
+        err_at = opened_at if unclosed_open else interp_stack[-1][1]
+        lineno = source.count("\n", 0, err_at) + 1
         excerpt = source.splitlines()[lineno - 1].strip()[:100]
         unterminated.append(
             {

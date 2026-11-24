@@ -37,6 +37,15 @@ class _SubFrac(Fraction):
     pass
 
 
+class _SubStr(str):
+    pass
+
+
+class _LyingStr(str):
+    def split(self, *args: object, **kwargs: object) -> list[str]:
+        return ["1", "2"]
+
+
 def _req(cond: bool, msg: str) -> None:
     if not cond:
         raise AssertionError(msg)
@@ -119,6 +128,11 @@ class TestLean4AndAuditRootHardening(unittest.TestCase):
             ("theorem t : 1 + 1 = 2 := by decide +native\n", 1),
             ("theorem t : 1 + 1 = 2 := by\n  decide\n    +native\n", 2),
             ("theorem t : 1 + 1 = 2 := by decide +revert +native\n", 1),
+            ("theorem t : 1 + 1 = 2 := by decide -revert +native\n", 1),
+            ("theorem t : 1 + 1 = 2 := by decide +kernel -revert +native\n", 1),
+            ("theorem t : 1 + 1 = 2 := by decide (config := { native := true })\n", 1),
+            ("theorem t : 1 + 1 = 2 := by\n  decide (config := {\n    revert := true,\n    native := true\n  })\n", 2),
+            ("theorem t : 1 + 1 = 2 := by decide (config := { native := true, revert := false })\n", 1),
         ):
             res = audit_lean4_source(bad_src)
             _req(not res["clean"], f"decide +native was missed: {bad_src!r}")
@@ -127,13 +141,17 @@ class TestLean4AndAuditRootHardening(unittest.TestCase):
                 f"unexpected findings for {bad_src!r}: {res['findings']}",
             )
 
-        # Non-native decide and commented/stringified decide +native must not false-positive
+        # Non-native decide and commented/stringified forms must not false-positive
         for ok_src in (
             "theorem t : 1 + 1 = 2 := by decide\n",
             "theorem t : 1 + 1 = 2 := by decide +kernel\n",
             "theorem t : 1 + 1 = 2 := by decide +revert\n",
+            "theorem t : 1 + 1 = 2 := by decide -revert\n",
+            "theorem t : 1 + 1 = 2 := by decide +revert -native\n",
+            "theorem t : 1 + 1 = 2 := by decide (config := { native := false })\n",
+            "theorem t : 1 + 1 = 2 := by decide (config := { my_native := true })\n",
             "def my_decide_x := 1\n-- decide +native\n",
-            'def s1 := "decide +native"\ndef s2 := r"decide +native"\ndef s3 := r#"decide +native"#\n',
+            'def s1 := "decide +native"\ndef s2 := r"decide +native"\ndef s3 := r#"decide (config := { native := true })"#\n',
         ):
             res_ok = audit_lean4_source(ok_src)
             _req(res_ok["clean"], f"false positive on {ok_src!r}: {res_ok['findings']}")
@@ -142,13 +160,53 @@ class TestLean4AndAuditRootHardening(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="aletheia_lean_hard_") as td:
             root = Path(td).resolve()
             (root / "Bad.lean").write_text(
-                'def a := r"\\"\ntheorem t : False := by decide +native\n',
+                'def a := r"\\"\ntheorem t : False := by decide -revert +native\n',
                 encoding="utf-8",
             )
             rep = run_audit_check(root, lean_audit=True)
-            _req(not rep["passed"], "audit-check --lean-audit must fail on decide +native")
+            _req(not rep["passed"], "audit-check --lean-audit must fail on decide -revert +native")
             codes = [f["code"] for f in rep["lean_audit"]["findings"]]
             _req(codes == ["LEAN4_DECIDE_NATIVE"], f"wrong end-to-end lean codes: {codes}")
+
+    def test_02b_lean4_interpolated_strings_char_desync_and_kernel_escapes(self) -> None:
+        # Interpolated strings s!"{...}" / m!"{...}" must expose embedded Lean code while blanking literal text
+        for bad_src, exp_findings in (
+            ('def x := s!"{sorry}"\n', [("LEAN4_SORRY", 1)]),
+            ('def x := m!"{admit}"\n', [("LEAN4_ADMIT", 1)]),
+            ('def x := s!"prefix {sorry} suffix"\n', [("LEAN4_SORRY", 1)]),
+            ('def x := s!"a {let _ := { y := 1 }; sorry} b"\n', [("LEAN4_SORRY", 1)]),
+            ('def x := s!"a {if true then "ok" else sorry} b"\n', [("LEAN4_SORRY", 1)]),
+            ('def x := s!"a {s!"{sorry}"} b"\n', [("LEAN4_SORRY", 1)]),
+            ('def x := s!"line1\nline2"\ntheorem t : False := by sorry\n', [("LEAN4_SORRY", 3)]),
+            ('def x := s!"\\\n"\ntheorem t : False := by sorry\n', [("LEAN4_SORRY", 3)]),
+            ('def x := s!"unclosed\n', [("LEAN4_UNTERMINATED_STRING", 1)]),
+            ('def x := s!"line1\n{ "ok"\n', [("LEAN4_UNTERMINATED_STRING", 1)]),
+            ('def x := s!"line1\n{ /- unclosed\n', [("LEAN4_UNTERMINATED_COMMENT", 2)]),
+            ('let _c := \'"\'\ntheorem t : False := by sorry\n-- "\n', [("LEAN4_SORRY", 2)]),
+            ("theorem t : False := exact sorryAx False false\n", [("LEAN4_SORRY_AX", 1)]),
+            ("meta def f := Lean.Meta.mkSorry\n", [("LEAN4_MK_SORRY", 1)]),
+            ("meta def f := mkSorry\n", [("LEAN4_MK_SORRY", 1)]),
+            ("def x := Lean.ofReduceNat\n", [("LEAN4_OF_REDUCE_NAT", 1)]),
+        ):
+            res = audit_lean4_source(bad_src)
+            _req(not res["clean"], f"expected finding for {bad_src!r}: {res}")
+            _req(
+                [(f["code"], f["line"]) for f in res["findings"]] == exp_findings,
+                f"wrong findings for {bad_src!r}: got {res['findings']}, want {exp_findings}",
+            )
+
+        # Clean interpolated strings, escaped braces, normal strings with {sorry}, and boolean negation !true
+        for clean_src in (
+            'def greet (n : String) := s!"hello {n} sorry"\n',
+            'def esc := s!"hello \\{sorry} \\" world"\n',
+            'def plain := "hello {sorry}"\n',
+            'def neg := !true\n',
+            'def nested := s!"a {if true then "sorry" else "ok"} b"\n',
+            'def raw_interp := r#"s!"{sorry}""#\n',
+            'def brace_in_comment := s!"a { -- }\n  1 } b"\n',
+        ):
+            r_ok = audit_lean4_source(clean_src)
+            _req(r_ok["clean"], f"false positive on clean interpolated/negation source {clean_src!r}: {r_ok}")
 
     def test_03_audit_check_target_root_symlink_fifo_and_unreadable(self) -> None:
         with tempfile.TemporaryDirectory(prefix="aletheia_root_hard_") as td:
@@ -217,6 +275,17 @@ class TestGatesV2CanonicalAndDepthHardening(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "SAMPLED_INVALID_TESTED"):
             g2.evaluate_sampled_integrity(_SubInt(1), 2, 0)
 
+        # Strict str checks in _is_clean_ascii and _is_lower_hex (exact ASCII 32..126 and hex64 boundaries)
+        _req(g2._is_clean_ascii("a b") is True, "internal ASCII space (32) must pass")
+        _req(g2._is_clean_ascii("~") is True, "ASCII tilde (126) must pass")
+        for bad_ascii in ("", " a", "a ", "\x1f", "\x7f", _SubStr("1/2"), _LyingStr("bogus"), 123, None):
+            _req(g2._is_clean_ascii(bad_ascii) is False, f"_is_clean_ascii must reject {bad_ascii!r}")
+
+        good_hex = "0123456789abcdef" * 4
+        _req(g2._is_lower_hex(good_hex, 64) is True, "valid 64-char lower hex must pass")
+        for bad_hex in (_SubStr(good_hex), 123, None, "a" * 63, "a" * 65, "A" * 64, "g" * 64):
+            _req(g2._is_lower_hex(bad_hex, 64) is False, f"_is_lower_hex must reject {bad_hex!r}")
+
     def test_05_parse_exact_rational_canonical_and_digit_bounds(self) -> None:
         # Exact valid canonical forms (including -5/1 for backward compatibility & 1000-digit boundary)
         _req(g2._parse_exact_rational(Fraction(3, 7)) == Fraction(3, 7), "exact Fraction failed")
@@ -233,6 +302,9 @@ class TestGatesV2CanonicalAndDepthHardening(unittest.TestCase):
             (_SubFrac(1, 2), "RATIONAL_TYPE_OR_SYNTAX"),
             (_SubInt(1), "RATIONAL_TYPE_OR_SYNTAX"),
             (_Color.ONE, "RATIONAL_TYPE_OR_SYNTAX"),
+            (_SubStr("1/2"), "RATIONAL_TYPE_OR_SYNTAX"),
+            (_LyingStr("bogus"), "RATIONAL_TYPE_OR_SYNTAX"),
+            ("", "RATIONAL_TYPE_OR_SYNTAX"),
             (" 1", "RATIONAL_TYPE_OR_SYNTAX"),
             ("1 ", "RATIONAL_TYPE_OR_SYNTAX"),
             ("1\u0662", "RATIONAL_TYPE_OR_SYNTAX"),
