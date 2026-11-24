@@ -45,6 +45,10 @@ class _LyingStr(str):
         return ["1", "2"]
 
 
+class _SubFrac(Fraction):
+    pass
+
+
 def _run_cli(argv: list[str]) -> tuple[int, str, str]:
     out, err = io.StringIO(), io.StringIO()
     with redirect_stdout(out), redirect_stderr(err):
@@ -157,6 +161,16 @@ class TestCalculusDiagnoseMdeHardening(unittest.TestCase):
             with self.assertRaises(calculus.CalculusError) as cm_md:
                 calculus.Parser(calculus.tokenize("1"), max_depth=bad_md)  # type: ignore[arg-type]
             self.assertEqual(cm_md.exception.code, "INVALID_MAX_DEPTH")
+            with self.assertRaises(calculus.CalculusError) as cm_em:
+                calculus.eval_ast(("NUM", Fraction(1, 1)), {}, max_depth=bad_md)  # type: ignore[arg-type]
+            self.assertEqual(cm_em.exception.code, "INVALID_MAX_DEPTH")
+            with self.assertRaises(calculus.CalculusError) as cm_sm:
+                calculus.serialize_calculus_value(Fraction(1, 1), max_depth=bad_md)  # type: ignore[arg-type]
+            self.assertEqual(cm_sm.exception.code, "INVALID_MAX_DEPTH")
+        self.assertEqual(calculus.eval_ast(("NUM", Fraction(1, 1)), {}, max_depth=1), Fraction(1, 1))
+        self.assertEqual(calculus.eval_ast(("NUM", Fraction(1, 1)), {}, max_depth=2), Fraction(1, 1))
+        self.assertEqual(calculus.serialize_calculus_value(Fraction(1, 1), max_depth=1), ("rational", "1/1"))
+        self.assertEqual(calculus.serialize_calculus_value(Fraction(1, 1), max_depth=2), ("rational", "1/1"))
         self.assertTrue(calculus.is_exact_int(0))
         for bad_i in (True, False, _SubInt(1), _Color.ONE, "1"):
             self.assertFalse(calculus.is_exact_int(bad_i))
@@ -250,36 +264,79 @@ class TestCalculusDiagnoseMdeHardening(unittest.TestCase):
                 calculus._parse_rational_literal(bad_tok)  # type: ignore[arg-type]
             self.assertEqual(cm_r.exception.code, "INVALID_LITERAL_TYPE")
 
-        # Bounded rational serialization in frac_str (exact bit boundary passes; >14000-bit num/den & 5x1000-digit product fail closed).
+        # Bounded serialization across frac_str, exact int, and InertiaTriple (exact bit boundary passes; >14000-bit fails closed).
         max_bits = calculus.MAX_SERIALIZED_INT_BITS
         max_val = (1 << max_bits) - 1
         over_val = 1 << max_bits
         self.assertEqual(calculus.frac_str(Fraction(max_val, 1)), f"{max_val}/1")
         self.assertEqual(calculus.frac_str(Fraction(1, max_val)), f"1/{max_val}")
+        self.assertEqual(calculus.serialize_calculus_value(max_val), ("int", max_val))
+        self.assertEqual(
+            calculus.serialize_calculus_value(calculus.InertiaTriple(max_val, 0, -max_val)),
+            ("inertia_triple", [max_val, 0, -max_val]),
+        )
+        for bad_frac in (_SubFrac(1, 2), 1, "1/2"):
+            with self.assertRaises(calculus.CalculusError) as cm_bf:
+                calculus.frac_str(bad_frac)  # type: ignore[arg-type]
+            self.assertEqual(cm_bf.exception.code, "INVALID_FRACTION_TYPE")
+        with self.assertRaises(calculus.CalculusError) as cm_sf:
+            calculus.serialize_calculus_value(_SubFrac(1, 2))
+        self.assertEqual(cm_sf.exception.code, "INVALID_FRACTION_TYPE")
+        for bad_ser_int in (True, _SubInt(1), _Color.ONE, "1"):
+            with self.assertRaises(calculus.CalculusError) as cm_bi:
+                calculus._require_serializable_int(bad_ser_int)
+            self.assertEqual(cm_bi.exception.code, "INVALID_INT_TYPE")
         for huge_frac in (Fraction(over_val, 1), Fraction(1, over_val)):
             with self.assertRaises(calculus.CalculusError) as cm_fs:
                 calculus.frac_str(huge_frac)
             self.assertEqual(cm_fs.exception.code, "VALUE_SERIALIZATION_LIMIT")
+        for huge_val in (
+            over_val,
+            -over_val,
+            calculus.InertiaTriple(over_val, 0, 0),
+            calculus.InertiaTriple(0, over_val, 0),
+            calculus.InertiaTriple(0, 0, -over_val),
+        ):
+            with self.assertRaises(calculus.CalculusError) as cm_hv:
+                calculus.serialize_calculus_value(huge_val)
+            self.assertEqual(cm_hv.exception.code, "VALUE_SERIALIZATION_LIMIT")
+        with self.assertRaises(calculus.CalculusError) as cm_env:
+            calculus.eval_calculus_expression("big", env={"big": 1 << 15000})
+        self.assertEqual(cm_env.exception.code, "VALUE_SERIALIZATION_LIMIT")
 
         prod_5000 = "*".join([f"({nines})"] * 5)
-        with self.assertRaises(calculus.CalculusError) as cm_p:
-            calculus.eval_calculus_expression(prod_5000, env={})
-        self.assertEqual(cm_p.exception.code, "VALUE_SERIALIZATION_LIMIT")
-        inv_prod_5000 = "*".join([f"(1/{nines})"] * 5)
-        with self.assertRaises(calculus.CalculusError) as cm_ip:
-            calculus.eval_calculus_expression(inv_prod_5000, env={})
-        self.assertEqual(cm_ip.exception.code, "VALUE_SERIALIZATION_LIMIT")
+        for huge_expr in (
+            prod_5000,
+            "*".join([f"(1/{nines})"] * 5),
+            f"({prod_5000}, 0, 0)",
+            f"(0, {prod_5000}, 0)",
+            f"(0, 0, {prod_5000})",
+            f"(-({prod_5000}), 0, 0)",
+            f"(({prod_5000}, 0, 0), 1)",
+        ):
+            with self.assertRaises(calculus.CalculusError) as cm_p:
+                calculus.eval_calculus_expression(huge_expr, env={})
+            self.assertEqual(cm_p.exception.code, "VALUE_SERIALIZATION_LIMIT", huge_expr)
 
-        rc_5k, out_5k, err_5k = _run_cli(["calculus", "--eval", prod_5000, "--json"])
-        self.assertEqual(rc_5k, 2)
-        self.assertEqual(err_5k, "")
-        p_5k = parse_strict_json_text(out_5k, allow_float=False)
-        self.assertEqual(p_5k["status"], "ERROR")
-        self.assertEqual(p_5k["code"], "VALUE_SERIALIZATION_LIMIT")
+        for cli_argv in (
+            ["calculus", "--eval", prod_5000, "--json"],
+            ["calculus", "--eval", f"({prod_5000}, 0, 0)", "--json"],
+            ["calculus", "--eval", f"({prod_5000}, 0, 0)"],
+        ):
+            rc_5k, out_5k, err_5k = _run_cli(cli_argv)
+            self.assertEqual(rc_5k, 2)
+            if "--json" in cli_argv:
+                self.assertEqual(err_5k, "")
+                p_5k = parse_strict_json_text(out_5k, allow_float=False)
+                self.assertEqual(p_5k["status"], "ERROR")
+                self.assertEqual(p_5k["code"], "VALUE_SERIALIZATION_LIMIT")
+            else:
+                self.assertIn("VALUE_SERIALIZATION_LIMIT", out_5k + err_5k)
 
     def test_03_diagnose_strict_board_seq_and_fail_closed_jsonl(self) -> None:
-        # Direct helper boundary checks: seq=0 passes, omitted seq uses fallback, bool/neg/subclass/str/float/None fail.
+        # Direct helper boundary checks: seq=0 and seq>0 pass, omitted seq uses fallback, bool/neg/subclass/str/float/None fail.
         self.assertEqual(diagnose._require_board_seq({"seq": 0}, 99, "t"), 0)
+        self.assertEqual(diagnose._require_board_seq({"seq": 5}, 99, "t"), 5)
         self.assertEqual(diagnose._require_board_seq({"agent": "portal-keeper"}, 7, "t"), 7)
         for bad_seq in (True, False, -1, 1.5, "1", "abc", None, [1], _SubInt(1)):
             with self.assertRaises(AletheiaError) as cm:

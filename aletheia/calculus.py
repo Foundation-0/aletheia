@@ -53,14 +53,19 @@ def is_exact_int(x: Any) -> bool:
     return type(x) is int
 
 
-def frac_str(x: Fraction) -> str:
+def _require_serializable_int(n: Any) -> int:
+    require(is_exact_int(n), "INVALID_INT_TYPE", "Serializable integer must be exact int")
     require(
-        x.numerator.bit_length() <= MAX_SERIALIZED_INT_BITS
-        and x.denominator.bit_length() <= MAX_SERIALIZED_INT_BITS,
+        n.bit_length() <= MAX_SERIALIZED_INT_BITS,
         "VALUE_SERIALIZATION_LIMIT",
-        f"Rational component exceeds {MAX_SERIALIZED_INT_BITS}-bit serialization limit",
+        f"Integer component exceeds {MAX_SERIALIZED_INT_BITS}-bit serialization limit",
     )
-    return f"{x.numerator}/{x.denominator}"
+    return n
+
+
+def frac_str(x: Fraction) -> str:
+    require(type(x) is Fraction, "INVALID_FRACTION_TYPE", "frac_str requires exact Fraction")
+    return f"{_require_serializable_int(x.numerator)}/{_require_serializable_int(x.denominator)}"
 
 
 def canonical_json(obj: Any) -> str:
@@ -1213,6 +1218,7 @@ class Parser:
 
 
 def eval_ast(node: Any, env: dict[str, Any], *, _depth: int = 0, max_depth: int = MAX_EXPR_DEPTH) -> Any:
+    require(is_exact_int(max_depth) and max_depth >= 1, "INVALID_MAX_DEPTH", "max_depth must be a positive integer")
     require(_depth <= max_depth, "EXPR_DEPTH_EXCEEDED", f"AST evaluation depth exceeds {max_depth}")
     nxt = _depth + 1
     tag = node[0]
@@ -2033,15 +2039,20 @@ def build_default_env() -> dict[str, Any]:
 
 def serialize_calculus_value(val: Any, *, _depth: int = 0, max_depth: int = MAX_EXPR_DEPTH) -> tuple[str, Any]:
     """Serialize any exact calculus value into zero-float canonical JSON form."""
+    require(is_exact_int(max_depth) and max_depth >= 1, "INVALID_MAX_DEPTH", "max_depth must be a positive integer")
     require(_depth <= max_depth, "VALUE_DEPTH_EXCEEDED", f"Serialized value nesting exceeds {max_depth}")
     if isinstance(val, bool):
         return ("bool", val)
     if isinstance(val, Fraction):
         return ("rational", frac_str(val))
     if is_exact_int(val):
-        return ("int", val)
+        return ("int", _require_serializable_int(val))
     if isinstance(val, InertiaTriple):
-        return ("inertia_triple", list(val.as_tuple()))
+        a, b, c = val.as_tuple()
+        return (
+            "inertia_triple",
+            [_require_serializable_int(a), _require_serializable_int(b), _require_serializable_int(c)],
+        )
     if isinstance(val, IndexSet):
         return ("index_set", list(val.indices))
     if isinstance(val, CocycleZ2):
