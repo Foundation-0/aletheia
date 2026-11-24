@@ -2,6 +2,11 @@
 
 All notable changes to `Foundation-0/aletheia` are documented in this file. Specification changes follow [`CONTRIBUTING.md`](CONTRIBUTING.md) (issue/audit reference, version bump, and regression tests).
 
+## [Unreleased]
+
+### Changed
+- **Protocol written by `aletheia init` and `aletheia install --target repo`:** `verification/PROTOCOL.md` now says Aletheia v2 and follows `spec/LAWS_AND_GATES.md`: the ten gates under their spec titles (including Gate 9 Mechanism-First Prior Art and Gate 10 Second-Pass Advocate), Gate 7 with R1–R7 and R6/R7 defined, the `anchor` / `reference_replay` split, Law 2b and Own-Terms-First, and a line saying the spec governs where the two differ. It used to say "Aletheia v1", "The Nine Verification Gates" and "Gate 7 — Gate Integrity (R1–R5)". `tests/test_spec_count_binding.py` derives the gate titles and contract numbers from the spec and checks the protocol against them.
+
 ## [2.1.0] — 2026-11-22
 
 Twin-coherence release. The method repo and the Cave Expedition ledger now machine-check the claims they make about each other, and the audit of 2026-11-22 (`aletheia#13`) closed its fail-open and label findings.
