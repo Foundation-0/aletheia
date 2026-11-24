@@ -840,9 +840,7 @@ class TestLean4AndAuditRootHardening(unittest.TestCase):
         lean_exe = shutil.which("lean")
         if lean_exe is None:
             return
-        with tempfile.TemporaryDirectory(prefix="aletheia_lean_live_") as td:
-            for idx, (label, src, expect_clean, allow_non_init) in enumerate(
-                (
+        probes = (
                     (
                         "xprime_skipKernelTC",
                         "def f (x' : Char -> Nat) : Nat := x' '\"'\nset_option debug.skipKernelTC true\ntheorem evil : 1 = 1 := rfl\ndef g : String := \"\\\"\"\n",
@@ -942,13 +940,34 @@ class TestLean4AndAuditRootHardening(unittest.TestCase):
                     ("r10_clean_dbg_trace_and_println_parens", 'def f1 : Nat := dbg_trace ("hi {sorry}"); 0\ndef f2 : IO Unit := println! ("hi {sorry}")\n', True, False),
                     ("r10_clean_notation_rhs_quote_and_macro_inline", 'notation "my_q" => "\\""\n@[macro_inline] def s : String := my_q\n', True, False),
                 )
-            ):
+        for label, src, expect_clean, allow_non_init in probes:
+            res = audit_lean4_source(src, allow_non_init_imports=allow_non_init)
+            _req(res["clean"] is expect_clean, f"audit mismatch on live {label}: {res}")
+        solo_tokens = ("#exit", "import ", "syntax ", "macro ", "notation ", "prefix:", "infix", "postfix:")
+        batched: list[tuple[int, str, str]] = []
+        solo: list[tuple[int, str, str]] = []
+        for idx, (label, src, _, allow_non_init) in enumerate(probes):
+            if allow_non_init or any(tok in src for tok in solo_tokens):
+                solo.append((idx, label, src))
+            else:
+                batched.append((idx, label, src))
+        with tempfile.TemporaryDirectory(prefix="aletheia_lean_live_") as td:
+            if batched:
+                bp = Path(td) / "BatchProbes.lean"
+                bp.write_text(
+                    "\n".join(f"namespace Probe_{idx}\n{src}\nend Probe_{idx}\n" for idx, _, src in batched),
+                    encoding="utf-8",
+                )
+                proc_b = subprocess.run([lean_exe, str(bp)], capture_output=True, text=True, timeout=60, check=False)
+                _req(
+                    proc_b.returncode == 0,
+                    f"live Lean failed on batched probes: rc={proc_b.returncode} out={proc_b.stdout!r} err={proc_b.stderr!r}",
+                )
+            for idx, label, src in solo:
                 p = Path(td) / f"Probe{idx}.lean"
                 p.write_text(src, encoding="utf-8")
                 proc = subprocess.run([lean_exe, str(p)], capture_output=True, text=True, timeout=60, check=False)
                 _req(proc.returncode == 0, f"live Lean failed on {label}: rc={proc.returncode} out={proc.stdout!r} err={proc.stderr!r}")
-                res = audit_lean4_source(src, allow_non_init_imports=allow_non_init)
-                _req(res["clean"] is expect_clean, f"audit mismatch on live {label}: {res}")
 
     def test_03_audit_check_target_root_symlink_fifo_and_unreadable(self) -> None:
         with tempfile.TemporaryDirectory(prefix="aletheia_root_hard_") as td:
