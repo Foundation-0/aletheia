@@ -1033,43 +1033,101 @@ def validate_comparator_config(
     return {"path": str(config_path), "passed": len(errors) == 0, "errors": errors, "warnings": warnings}
 
 
+# What `git rev-parse --local-env-vars` lists. Inherited (for example inside a git hook), these would point
+# the history search at another repository, index, object store or config, so they are removed for it.
+_GIT_LOCAL_ENV_VARS = frozenset({
+    "GIT_ALTERNATE_OBJECT_DIRECTORIES", "GIT_CONFIG", "GIT_CONFIG_PARAMETERS", "GIT_CONFIG_COUNT",
+    "GIT_OBJECT_DIRECTORY", "GIT_DIR", "GIT_WORK_TREE", "GIT_IMPLICIT_WORK_TREE", "GIT_GRAFT_FILE",
+    "GIT_INDEX_FILE", "GIT_NO_REPLACE_OBJECTS", "GIT_REPLACE_REF_BASE", "GIT_PREFIX", "GIT_SHALLOW_FILE",
+    "GIT_COMMON_DIR",
+})
+_GIT_HISTORY_TIMEOUT_S = 60
+
+
+def _git_history_env() -> dict[str, str]:
+    """Environment for the read-only history search: local repository variables removed, no network."""
+    env = {k: v for k, v in os.environ.items() if k not in _GIT_LOCAL_ENV_VARS}
+    env.update({
+        "GIT_LITERAL_PATHSPECS": "1",  # the pinned path is a file name, never a glob or `:(magic)` pathspec
+        "GIT_NO_LAZY_FETCH": "1",  # never fetch a missing object from a promisor remote
+        "GIT_ALLOW_PROTOCOL": "",  # and allow no transport should a fetch be attempted anyway
+        "GIT_TERMINAL_PROMPT": "0",
+        "GIT_NO_REPLACE_OBJECTS": "1",  # hash the stored objects, not `git replace` substitutes
+    })
+    return env
+
+
 def _git_revision_with_sha256(base_dir: Path, target: Path, want: str) -> tuple[str | None, str]:
     """
     Find the newest commit on HEAD at which `target` held bytes whose SHA-256 is `want`.
 
-    Searches the git work tree holding `base_dir`: the commits that touched the path
-    (`git log --full-history`, renames not followed), newest first, hashing each revision's blob
-    bytes (`git cat-file blob`), so a match is measured, never declared. Returns `(commit, history)`
-    where history is `complete` (git reports a full clone), `partial` (a shallow clone, or git could
-    not say), or `unavailable` (no git, no work tree, the target lies outside it, or `git log` failed).
-    No match in `partial` history does not show that the bytes never existed.
+    Searches the git work tree holding `base_dir`: the commits on HEAD that touched the path
+    (`git rev-list --full-history`, renames not followed), newest first, hashing the blob bytes each
+    revision holds at the path (`git cat-file blob`), so a match is measured, never declared. A revision
+    at which the path is absent (a deletion) or is not a file has no blob to read and is skipped.
+    Returns `(commit, history)`; `history` says how much a miss shows:
+
+    - `complete`: a full clone (not shallow, no promisor remote), at least one commit touched the path,
+      and the blob of every listed revision was read.
+    - `partial`: a shallow or partial (promisor) clone, git could not say which, or the blob of a listed
+      revision could not be read (missing objects are never fetched). A miss does not show that the
+      bytes never existed; a match names the newest matching commit among the blobs read.
+    - `untracked`: no commit on HEAD touched the path (an untracked file, or a directory inside an
+      unrelated repository). No history of these bytes was searched.
+    - `unavailable`: no git, no work tree holding `base_dir`, the target outside it, an unborn HEAD,
+      or a git call failed or timed out.
     """
-    def _git(cwd: Path, args: list[str]) -> subprocess.CompletedProcess[str]:
+    env = _git_history_env()
+
+    def _git(cwd: Path, *args: str) -> subprocess.CompletedProcess[bytes]:
         return subprocess.run(
-            ["git", "-C", str(cwd), *args], capture_output=True, text=True, errors="replace", check=False
+            ["git", "-C", str(cwd), *args],
+            capture_output=True, env=env, timeout=_GIT_HISTORY_TIMEOUT_S, check=False,
         )
 
     try:
-        top_res = _git(base_dir, ["rev-parse", "--show-toplevel"])
-        top_out = top_res.stdout.strip()
-        if top_res.returncode != 0 or not top_out or not target.is_relative_to(Path(top_out).resolve()):
-            return None, "unavailable"
+        top_res = _git(base_dir, "rev-parse", "--show-toplevel")
+        top_out = os.fsdecode(top_res.stdout).strip()
         top = Path(top_out).resolve()
-        rel = target.relative_to(top).as_posix()
-        shallow_res = _git(top, ["rev-parse", "--is-shallow-repository"])
-        history = "complete" if shallow_res.returncode == 0 and shallow_res.stdout.strip() == "false" else "partial"
-        log_res = _git(top, ["log", "--no-show-signature", "--full-history", "--format=%H", "--", rel])
-        if log_res.returncode != 0:
+        if top_res.returncode != 0 or not top_out or not target.is_relative_to(top):
             return None, "unavailable"
-        for commit in log_res.stdout.split():
-            blob = subprocess.run(
-                ["git", "-C", str(top), "cat-file", "blob", f"{commit}:{rel}"], capture_output=True, check=False
-            )
-            if blob.returncode == 0 and canonical_sha256_bytes(blob.stdout) == want:
-                return commit, history
-    except OSError:  # no git binary
+        rel = target.relative_to(top).as_posix()
+        shallow_res = _git(top, "rev-parse", "--is-shallow-repository")
+        promisor_res = _git(top, "config", "--get-regexp", r"^(extensions\.partialclone|remote\..+\.promisor)$")
+        full_clone = (
+            shallow_res.returncode == 0 and shallow_res.stdout.strip() == b"false"
+            and promisor_res.returncode == 1 and promisor_res.stdout.strip() == b""
+        )
+        list_res = _git(top, "rev-list", "--full-history", "HEAD", "--", rel)
+        if list_res.returncode != 0:
+            return None, "unavailable"
+        commits = list_res.stdout.decode("ascii", "replace").split()
+        if not commits:
+            return None, "untracked"
+        unread = False
+        rel_bytes = os.fsencode(rel)
+        for commit in commits:
+            tree_res = _git(top, "ls-tree", "-z", commit, "--", rel)
+            if tree_res.returncode != 0:
+                unread = True
+                continue
+            blob_oid: str | None = None
+            for record in tree_res.stdout.split(b"\0"):
+                meta, _, name = record.partition(b"\t")
+                fields = meta.split(b" ")
+                if name == rel_bytes and len(fields) == 3 and fields[1] == b"blob":
+                    blob_oid = fields[2].decode("ascii", "replace")
+            if blob_oid is None:
+                continue  # the path is absent at this revision, or is not a file there
+            blob = _git(top, "cat-file", "blob", blob_oid)
+            if blob.returncode != 0:
+                unread = True
+                continue
+            if canonical_sha256_bytes(blob.stdout) == want:
+                return commit, ("complete" if full_clone and not unread else "partial")
+    except (OSError, subprocess.TimeoutExpired):  # no git binary, or a git call hung
         return None, "unavailable"
-    return None, history
+    return None, ("complete" if full_clone and not unread else "partial")
 
 
 def _classify_pinned_mismatch(base_dir: Path, target: Path, rel: str, want: str, actual: str) -> dict[str, Any]:
@@ -1092,7 +1150,8 @@ def validate_pinned_manifest(manifest_path: Path, *, root: Path | None = None) -
 
     Each `PINNED_FILE_SHA256_MISMATCH` also gets an entry in `mismatches`: `STALE` with the commit when
     the pinned hash equals an older revision of that file in the git history holding the root, else
-    `UNKNOWN`, with how complete that history was. Both still fail the manifest.
+    `UNKNOWN`, with how much a miss shows (`history`: `complete`, `partial`, `untracked` or `unavailable`,
+    see `_git_revision_with_sha256`). Both still fail the manifest. The search reads local objects only.
     """
     data = load_strict_json_file(manifest_path, allow_float=True, require_object=True)
     base_dir = (root if root is not None else manifest_path.parent).resolve()
