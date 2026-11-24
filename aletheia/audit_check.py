@@ -1633,7 +1633,8 @@ def run_audit_check(
     outside_rulings: Path | None = None,
     strict_novelty: bool = False,
 ) -> dict[str, Any]:
-    """Run complete Aletheia R1-R5 & Gate 1-9 audit check on `target_path`, plus a Gate 10 record check.
+    """Run the Aletheia R1-R4 hygiene & Gate 1-9 audit check on `target_path`, plus a Gate 10 record check
+    (R5 is `aletheia mutate`; R6/R7 not automated by this command).
 
     `outside_rulings` (an `outside_observer.rulings.v1` file) and `strict_novelty` feed the novelty
     status of `VERIFIED` `N2` ledger rows (see `validate_audit_log_markdown`): whether a second pass
