@@ -205,6 +205,46 @@ class TestOutsideRulingsNovelty(unittest.TestCase):
             no_ledger = run_audit_check(bare)
             _req(no_ledger["summary"]["verified_n2_rows"] == 0 and no_ledger["audit_log"] is None, "no-ledger defaults")
 
+    def test_08_combined_row_ids_are_ledger_ids_but_rows_match_on_the_leading_id(self) -> None:
+        # cave-expedition's ledger writes re-audits as combined rows: `AUDIT-015R / 016R`, `AUDIT-011R / 013R`,
+        # `AUDIT-006R / 007R / 008R`. Their later ids are in the ledger, so a ruling on one is not reported
+        # as missing from it; the row itself is still matched on its leading id only.
+        with tempfile.TemporaryDirectory(prefix="aletheia_t_nov_") as td:
+            root = Path(td)
+            rul = _write(
+                root / "rulings.json",
+                json.dumps(_rulings([
+                    _area("AUDIT-016R, AUDIT-020R"),
+                    _area("AUDIT-008R, AUDIT-013R, AUDIT-021", "stands_narrowed", "physics"),
+                ])) + "\n",
+            )
+            cov = load_outside_rulings(rul)
+            text = (
+                HEAD
+                + _row("AUDIT-015R / 016R", "G1, G9")
+                + _row("AUDIT-006R / 007R / 008R", "G1, G9", novelty="N1")
+                + _row("AUDIT-011R/013R", "G1, G9")
+                + _row("AUDIT-021 / AUDIT-022", "G1, G9")
+            )
+            res = validate_audit_log_markdown(_write(root / "LOG.md", text), outside_rulings=cov)
+            _req(res["outside_ruling_ids_not_in_ledger"] == ["AUDIT-020R"], f"combined-row ids lost: {res['outside_ruling_ids_not_in_ledger']}")
+            got = {r["audit_id"]: (r["novelty_status"], r["row_ids"]) for r in res["n2_novelty"]}
+            _req(
+                got == {
+                    "AUDIT-015R": ("NOT_SHOWN", ["AUDIT-015R", "AUDIT-016R"]),
+                    "AUDIT-011R": ("NOT_SHOWN", ["AUDIT-011R", "AUDIT-013R"]),
+                    "AUDIT-021": ("SECOND_PASS_RECORDED", ["AUDIT-021", "AUDIT-022"]),
+                },
+                f"row matching must stay on the leading id: {got}",
+            )
+            _req([w["audit_id"] for w in res["warnings"]] == ["AUDIT-015R", "AUDIT-011R"], f"{res['warnings']}")
+            # Without the combined rows, their later ids are reported as missing from the ledger.
+            res2 = validate_audit_log_markdown(_write(root / "LOG2.md", HEAD + _row("AUDIT-021", "G1, G9")), outside_rulings=cov)
+            _req(
+                res2["outside_ruling_ids_not_in_ledger"] == ["AUDIT-008R", "AUDIT-013R", "AUDIT-016R", "AUDIT-020R"],
+                f"{res2['outside_ruling_ids_not_in_ledger']}",
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

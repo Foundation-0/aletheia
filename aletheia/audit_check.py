@@ -342,6 +342,25 @@ def _split_audit_table_row(line: str) -> list[str]:
 
 
 _OUTSIDE_AUDIT_ENTRY_RE = re.compile(r"\A(AUDIT-[0-9]{3,4}[A-Za-z0-9_-]*)(?:[ \t]+(\S.*))?\Z")
+_AUDIT_ID_SLASH_TAIL_RE = re.compile(r"[ \t]*/[ \t]*([0-9]{3,4}[A-Za-z0-9_-]*)")
+
+
+def _first_cell_audit_ids(first_cell: str) -> list[str]:
+    """
+    Every audit id a ledger row's first cell names, in order, without repeats.
+
+    A combined row such as `AUDIT-015R / 016R` or `AUDIT-006R / 007R / 008R` writes its later ids as
+    slash shorthand; each is expanded to a full id (`AUDIT-016R`). Full ids anywhere in the cell count too.
+    The first id is the row's leading id, the one the row is matched on.
+    """
+    ids: list[str] = []
+    for m_id in _AUDIT_ID_RE.finditer(first_cell):
+        ids.append(m_id.group(0))
+        pos = m_id.end()
+        while (m_tail := _AUDIT_ID_SLASH_TAIL_RE.match(first_cell, pos)) is not None:
+            ids.append("AUDIT-" + m_tail.group(1))
+            pos = m_tail.end()
+    return list(dict.fromkeys(ids))
 
 
 def load_outside_rulings(path: Path) -> dict[str, list[dict[str, str]]]:
@@ -423,6 +442,10 @@ def validate_audit_log_markdown(
     `NOT_SHOWN` otherwise. `NOT_SHOWN` is the warning `N2_NOVELTY_NOT_SHOWN`, or an error when
     `strict_novelty` is set. `SECOND_PASS_RECORDED` says only that a second pass is on record; it does
     not say the pass kept the label.
+
+    A combined row such as `AUDIT-015R / 016R` is matched on its leading id (`AUDIT-015R`): a ruling on a
+    later id does not cover the row. Every id the first cell names (`row_ids`, slash shorthand expanded)
+    counts as in the ledger for `outside_ruling_ids_not_in_ledger`.
     """
     require_ok(path.is_file(), "AUDIT_LOG_NOT_FOUND", f"audit log not found: {path}")
     text = path.read_text(encoding="utf-8")
@@ -454,8 +477,11 @@ def validate_audit_log_markdown(
         if _AUDIT_ID_RE.search(first_cell) is None:
             continue
         rows_checked += 1
-        audit_id = _AUDIT_ID_RE.search(first_cell).group(0)  # type: ignore[union-attr]
-        ledger_ids.add(audit_id)
+        # The row is matched on its leading id; a combined row's later ids (`AUDIT-015R / 016R`) still
+        # count as ledger ids for `outside_ruling_ids_not_in_ledger`.
+        row_ids = _first_cell_audit_ids(first_cell)
+        audit_id = row_ids[0]
+        ledger_ids.update(row_ids)
 
         # Standard 9-column table: ID | Date | Author | Target | Gates | Oracle | Novelty | Verdict | Evidence
         # Also tolerate 8-column variations by scanning from right for Verdict/Novelty/Oracle
@@ -521,6 +547,7 @@ def validate_audit_log_markdown(
                 n2_novelty.append({
                     "line": lineno,
                     "audit_id": audit_id,
+                    "row_ids": row_ids,
                     "novelty_status": "SECOND_PASS_RECORDED" if basis else "NOT_SHOWN",
                     "basis": basis,
                     "outside_rulings": rulings_for_row,
