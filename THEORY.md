@@ -115,6 +115,8 @@ A cross-domain bridge is admissible **only** when it exhibits:
 
 In the Cave Expedition, enforcing this discipline mapped an **Eight-Way Exact Schur-Complement Unification** in Wave 1, expanded in Wave 2 Rounds 1–3 ([`evidence/symbiosis-wave2-case-study.md`](evidence/symbiosis-wave2-case-study.md), [`evidence/symbiosis-round3-10labs-case-study.md`](evidence/symbiosis-round3-10labs-case-study.md)). Each link we checked is an exact identity, and each uses the same textbook step: block elimination by a Schur complement (`aletheia#4`). Two early descriptions needed correction after the outside two-pass audit (`cave-expedition#4`, `AUDIT-085R`): the $\mathbb{Q}[q]$ identity is a **diagonal similarity** $K_q' = D_h^{-1} K_q D_h$ (not a Doob transform, as non-goal rows do not sum to 1), the Lindblad Schur rate $2\gamma_{\mathrm{tid}} + 2g^2/(N^2\gamma_1)$ is the $s = 0$ Schur reduction (not the exact slow decay rate when $\gamma_{\mathrm{tid}} \ne 0$, differing at order $g^2$), and the Kigami link was not independently checked in the outside pass.
 
+> **Later outside check (`cave-expedition#5`):** an outside Gate-5 audit tested the eight-way sentence and found Gate 5 not met: in its weakest reading, that each row uses block elimination, the sentence is true of any block system (cave-expedition `verification/outside/gate5-unification/README.md:152-161`). The surviving reading, in that audit's proposed wording: eight frontiers each use block elimination; one pair, `AUDIT-017` and `AUDIT-019`, is linked by an exact congruence; a shared invariant beyond the elimination identity has not been shown. The paragraph above is kept as the record of what was claimed.
+
 ---
 
 ## 5. Omnidirectional Symbiotic Evolution (Self-Improving Epistemics)

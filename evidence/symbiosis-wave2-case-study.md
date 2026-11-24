@@ -46,6 +46,8 @@ A framework that claims to eliminate blind spots must survive contact with hosti
 
 ## 3. Expansion to the 10-Way Exact Schur-Complement Unification
 
+> **Later outside check (`cave-expedition#5`):** an outside Gate-5 audit found Gate 5 not met for the eight-way version of this claim (cave-expedition `verification/outside/gate5-unification/README.md:152-161`). It did not rule on this ten-way list as such. The heading is kept as the record of what was claimed.
+
 Wave 1 identified 8 independent mathematical and physical frontiers governed by exact quadratic block elimination (Schur complements). Wave 2's omnidirectional resonance added two more independently verified exact instances:
 - **#9 — Blind-Subspace Neural Drift (`heedle` `Shed`/`hidden_move`, `AUDIT-025` & `AUDIT-027` `N2`):** Worst-case outside-probe drift inside the known-probe Jacobian nullspace $\max_{J_k \Delta W = 0, \|\Delta W\|_F=1} \|J_o \Delta W\|_2^2 = \lambda_{\max}(G_{oo} - G_{ok} G_{kk}^+ G_{ko})$, verified to `rel_err == 0.0` against live `heedle/core.py` and generalized to **arbitrary singular $G_{kk}$** with zero matrix inversions via exact integer Haynsworth inertia additivity.
 - **#10 — Discrete Planning State-Graph Effective Resistance (`ahrazzle/soko`, `AUDIT-029`):** Exact rational grounded-Laplacian Schur complement $R_{\mathrm{eff}}$ (`V^\top L V = R_{\mathrm{eff}}`, zero residual) exposing an exact topology split on canonical Sokoban rooms—collapsing on parallel corridors (`I-1`: `2.96 << OPT=8`) while strictly outperforming 4-quotient tropical peeling on bottleneck room `I-10` (`R_{\mathrm{eff}} = 7 > 6`).
