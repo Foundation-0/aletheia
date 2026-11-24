@@ -8,7 +8,7 @@ The decisive finding of Wave 2 is **bidirectional self-evolution**: applying Ale
 
 ## 1. Bidirectional Scorecard Across All Five Symbiosis Arms (`AUDIT-023` – `AUDIT-029`)
 
-Every deliverable below passed clean-room, zero-shared-code adversarial verification (`verification/checks/check_016`–`check_025` in [`Foundation-0/cave-expedition`](https://github.com/Foundation-0/cave-expedition)), 3-mode isolated R4 parity (`-I -B`, `-I -O -B`, `-I -B -W error`; reported as also run under `-I -O -B -W error`), zero bare `assert`s, and `aletheia audit-check` `PASS` (`0` unresolved defects):
+Every deliverable below passed clean-room, zero-shared-code adversarial verification (reported as `verification/checks/check_016`–`check_025` in [`Foundation-0/cave-expedition`](https://github.com/Foundation-0/cave-expedition); not on cave main at `9729839`, see [`EXTERNAL_EVIDENCE.md`](EXTERNAL_EVIDENCE.md)), 3-mode isolated R4 parity (`-I -B`, `-I -O -B`, `-I -B -W error`; reported as also run under `-I -O -B -W error`), zero bare `assert`s, and `aletheia audit-check` `PASS` (`0` unresolved defects):
 
 | Arm | Target Ecosystem | Audit & Novelty | Verified Outgoing Transfer (*Aletheia / Cave $\to$ Target*) | Verified Incoming Upgrade (*Target $\to$ Aletheia v1.1*) |
 |---|---|---|---|---|
@@ -57,4 +57,4 @@ Wave 1 identified 8 independent mathematical and physical frontiers governed by 
 ## 4. Honest Scope Limits & Provenance
 
 - All external-repo findings (`siliquant`, `soko`, `weft-loom`, `tokenpage`, `warp`, `hillclimb`) were verified against read-only clones and pinned upstream commits/PRs; every cross-repo submission remains a clean **Draft PR** awaiting upstream maintainer review (zero direct merges to upstream default branches, zero pushes to third-party repos like `ahrazzle/soko`, `karpathy/autoresearch`, or `rohanarun/Auto-research-agent`).
-- Full machine-readable data-flow ledger (`29` nodes, typed directed cross-pollination edges) and clean-room verifier scripts (`check_016`–`check_025`) are archived in [`Foundation-0/cave-expedition`](https://github.com/Foundation-0/cave-expedition).
+- Full machine-readable data-flow ledger (`29` nodes, typed directed cross-pollination edges) and clean-room verifier scripts (`check_016`–`check_025`) were reported as archived in [`Foundation-0/cave-expedition`](https://github.com/Foundation-0/cave-expedition); they are not on cave main at `9729839` (see [`EXTERNAL_EVIDENCE.md`](EXTERNAL_EVIDENCE.md)).
