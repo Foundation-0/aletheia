@@ -1,5 +1,6 @@
 """
-`aletheia audit-check <path>`: Automated R1-R5 & Gate 1-9 verification checker.
+`aletheia audit-check <path>`: Automated R1-R4 hygiene & Gate 1-9 verification checker
+(R5 is `aletheia mutate`; R6/R7 not automated by this command).
 
 Checks:
   1. Hygiene & R1-R4 static checks:

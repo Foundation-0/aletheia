@@ -19,7 +19,7 @@ Execute **The Aletheia Method** on `$ARGUMENTS` using strict phase separation (o
 
 4. **Phase 3 — Tomography Phase (delegate to `verifier-tomography`):**
    - Run an independent, zero-shared-code clean-room check in `verification/checks/check_NNN_*.py`.
-   - Enforce the appropriate oracle class (`exact` / `sampled` / `anchor`), R1–R5 gates, R4 3-mode parity (`-I -B`, `-I -O -B`, `-I -B -W error`), and full-text prior-art novelty check (`N0`/`N1`/`N2`).
+   - Enforce the appropriate oracle class (`exact` / `sampled` / `anchor`), R1–R7 gates, R4 3-mode parity (`-I -B`, `-I -O -B`, `-I -B -W error`), and full-text prior-art novelty check (`N0`/`N1`/`N2`).
    - Log the permanent verdict (`VERIFIED` / `PARTIAL/FRAGILE` / `FALSIFIED`) in `verification/AUDIT_LOG.md`.
 
 5. **Phase 4 — Resonance Phase (Portal Re-Entry):**
