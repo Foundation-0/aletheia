@@ -31,7 +31,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timezone
+from datetime import datetime
 import errno
 from fractions import Fraction
 import hashlib
@@ -57,7 +57,7 @@ _READ_CHUNK_BYTES = 65_536
 MAX_SEQ_BITS = 14_000
 
 _EXACT_PATH_TYPES = (Path, type(Path()))
-_EPOCH_UTC = datetime(1970, 1, 1, tzinfo=timezone.utc)
+_EPOCH_NAIVE = datetime(1970, 1, 1)
 
 _CARTOGRAPHER_ROLES = ("cartographer", "portal-keeper", "portal_keeper")
 _WEAVER_ROLES = ("weaver", "synthesizer")
@@ -119,6 +119,7 @@ def _status_from_risk(risk: int) -> str:
 def _require_exact_int(val: Any, code: str, label: str, *, lo: int, hi: int | None = None) -> int:
     require_ok(type(val) is int, code, f"{label} must be exact int")
     require_ok(val >= lo, code, f"{label} must be >= {lo}")
+    require_ok(val.bit_length() <= MAX_SEQ_BITS, code, f"{label} exceeds {MAX_SEQ_BITS} bits")
     if hi is not None:
         require_ok(val <= hi, code, f"{label} must be <= {hi}")
     return val
@@ -156,6 +157,20 @@ def _open_dir_chain(dir_parts: Sequence[str], *, start_abs: bool, label: str) ->
     return cur_fd
 
 
+def _verify_logical_pwd_no_symlinks(cwd: Path, label: str) -> None:
+    pwd = os.environ.get("PWD")
+    if pwd is None or not pwd.startswith("/"):
+        return
+    try:
+        st_pwd = os.stat(pwd)
+        st_cwd = os.stat(cwd)
+    except OSError:
+        return
+    if (st_pwd.st_dev, st_pwd.st_ino) == (st_cwd.st_dev, st_cwd.st_ino):
+        dfd = _open_dir_chain(list(Path(pwd).parts[1:]), start_abs=True, label=label)
+        os.close(dfd)
+
+
 def _split_clean_parts(path: Path, label: str) -> tuple[bool, list[str]]:
     raw_parts = list(path.parts)
     start_abs = path.is_absolute()
@@ -166,6 +181,7 @@ def _split_clean_parts(path: Path, label: str) -> tuple[bool, list[str]]:
             cwd = Path(os.getcwd())
         except OSError as exc:
             raise AletheiaError("CWD_UNAVAILABLE", f"{label}: current working directory unavailable ({exc})") from exc
+        _verify_logical_pwd_no_symlinks(cwd, label)
         raw_parts = list(cwd.parts)[1:] + raw_parts
         start_abs = True
     clean: list[str] = []
@@ -271,7 +287,7 @@ def load_board_jsonl_safe(
 
 
 def _parse_iso_epoch_seconds(ts: str) -> int | None:
-    """Parse ISO-8601 timestamp into exact integer UTC epoch seconds (zero floats)."""
+    """Parse ISO-8601 timestamp into exact integer UTC epoch seconds (zero floats, overflow-proof)."""
     cleaned = ts.strip()
     if cleaned.endswith("Z"):
         cleaned = cleaned[:-1] + "+00:00"
@@ -279,11 +295,10 @@ def _parse_iso_epoch_seconds(ts: str) -> int | None:
         dt = datetime.fromisoformat(cleaned)
     except ValueError:
         return None
-    if dt.tzinfo is None:
-        dt_utc = dt.replace(tzinfo=timezone.utc)
-    else:
-        dt_utc = dt.astimezone(timezone.utc)
-    delta = dt_utc - _EPOCH_UTC
+    offset = dt.utcoffset()
+    delta = dt.replace(tzinfo=None) - _EPOCH_NAIVE
+    if offset is not None:
+        delta -= offset
     return delta.days * 86_400 + delta.seconds
 
 
@@ -825,10 +840,32 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _validate_cli_argv(argv: Sequence[str] | None) -> list[str] | None:
+    if argv is None:
+        return None
+    require_ok(type(argv) in (list, tuple), "INVALID_CLI_ARGV", "argv must be exact list or tuple")
+    out: list[str] = []
+    for item in argv:
+        require_ok(type(item) is str, "INVALID_CLI_ARGV", "argv elements must be exact str")
+        require_ok("\x00" not in item, "NUL_BYTE_FORBIDDEN", "argv element contains NUL byte")
+        try:
+            item.encode("utf-8", errors="strict")
+        except UnicodeEncodeError as exc:
+            raise AletheiaError("INVALID_UTF8_SURROGATE", "argv element contains lone UTF-16 surrogate") from exc
+        out.append(item)
+    return out
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = _build_parser()
     try:
-        args = parser.parse_args(argv)
+        checked_argv = _validate_cli_argv(argv)
+    except AletheiaError as exc:
+        err_payload = {"error": True, "code": exc.code, "message": exc.message}
+        sys.stderr.write(json.dumps(err_payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True) + "\n")
+        return 2
+    try:
+        args = parser.parse_args(checked_argv)
     except SystemExit as exc:
         return int(exc.code) if type(exc.code) is int else 2
 

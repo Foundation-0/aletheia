@@ -173,6 +173,11 @@ class TestContinualToroidFlowR5(unittest.TestCase):
         _req(fa._parse_iso_epoch_seconds("1970-01-01 00:00:00") == 0, "epoch naive")
         _req(fa._parse_iso_epoch_seconds("1970-01-01T00:01:00Z") == 60, "epoch Z")
         _req(fa._parse_iso_epoch_seconds("1970-01-01T01:01:00+01:00") == 60, "epoch tz")
+        # Extreme ISO-8601 boundary timestamps must never raise OverflowError (year 0001 / 9999)
+        t_hi = fa._parse_iso_epoch_seconds("9999-12-31T23:59:59-05:00")
+        t_lo = fa._parse_iso_epoch_seconds("0001-01-01T00:00:00+05:00")
+        _req(type(t_hi) is int and t_hi > 0, f"extreme max ts: {t_hi}")
+        _req(type(t_lo) is int and t_lo < 0, f"extreme min ts: {t_lo}")
 
         with tempfile.TemporaryDirectory(prefix="aletheia_flow_t2_") as td:
             root = Path(td)
@@ -403,6 +408,14 @@ class TestContinualToroidFlowR5(unittest.TestCase):
             _expect_err(lambda: fa.diagnose_continual_flow(root, min_poloidal_num=2, min_poloidal_den=1), "INVALID_POLOIDAL_RATIO", "num>den")
             _expect_err(lambda: fa.diagnose_continual_flow(root, max_silence_seconds=0), "INVALID_SILENCE_CAP", "silence=0")
             _expect_err(lambda: fa.diagnose_continual_flow(root, max_silence_seconds=False), "INVALID_SILENCE_CAP", "silence=False")
+            # Exact MAX_SEQ_BITS integer parameter ceiling (prevents >4,300-digit ValueError on serialization)
+            max_p = (1 << fa.MAX_SEQ_BITS) - 1
+            rep_max_p = fa.diagnose_continual_flow(root, board_path=good_board, window=max_p, min_poloidal_den=max_p)
+            _req(len(json.dumps(rep_max_p)) > 0, "MAX_SEQ_BITS-1 report serialization failed")
+            _expect_err(lambda: fa.diagnose_continual_flow(root, board_path=good_board, window=1 << fa.MAX_SEQ_BITS), "INVALID_WINDOW", "window bit limit")
+            _expect_err(lambda: fa.diagnose_continual_flow(root, board_path=good_board, min_poloidal_den=1 << fa.MAX_SEQ_BITS), "INVALID_POLOIDAL_RATIO", "den bit limit")
+            _expect_err(lambda: fa.diagnose_continual_flow(root, board_path=good_board, window=1 << 15_000), "INVALID_WINDOW", "window 15000 bits")
+            _expect_err(lambda: fa.diagnose_continual_flow(root, board_path=good_board, min_poloidal_den=1 << 15_000), "INVALID_POLOIDAL_RATIO", "den 15000 bits")
 
             # Symlink directory, symlink leaf, FIFO, directory-as-file, missing file, chmod 000, root path
             sym_dir = root / "sym_dir"
@@ -486,15 +499,31 @@ class TestContinualToroidFlowR5(unittest.TestCase):
                 fp.write_bytes(payload)
                 _expect_err(lambda p=fp: fa.load_board_jsonl_safe(p), code, f"bad_{name}")
 
-            # Relative path + deleted CWD handling
+            # Relative path, logical $PWD symlink ancestor check, and deleted CWD handling
             old_cwd = os.getcwd()
+            old_pwd = os.environ.get("PWD")
             rel_dir = root / "rel_ws"
             rel_dir.mkdir()
             (rel_dir / "frontier_portals.md").write_text("# P\n", encoding="utf-8")
+            other_dir = root / "other_ws"
+            other_dir.mkdir()
+            sym_rel = root / "sym_rel_ws"
+            os.symlink(rel_dir, sym_rel)
+            (rel_dir / "sub").mkdir()
+            os.symlink(rel_dir, rel_dir / "sub" / "rel_sym")
             os.chdir(rel_dir)
             try:
-                r_rel = fa.diagnose_continual_flow(Path("."))
-                _req(r_rel["overall_status"] == "HEALTHY", "relative Path('.') failed")
+                os.environ.pop("PWD", None)
+                _req(fa.diagnose_continual_flow(Path("."))["overall_status"] == "HEALTHY", "relative Path('.') no PWD failed")
+                os.environ["PWD"] = "sub/rel_sym"
+                _req(fa.diagnose_continual_flow(Path("."))["overall_status"] == "HEALTHY", "non-absolute PWD should be ignored")
+                os.environ["PWD"] = str(root / "nonexistent_pwd")
+                _req(fa.diagnose_continual_flow(Path("."))["overall_status"] == "HEALTHY", "missing PWD should be ignored")
+                os.environ["PWD"] = str(other_dir)
+                _req(fa.diagnose_continual_flow(Path("."))["overall_status"] == "HEALTHY", "different-dir PWD should be ignored")
+                os.environ["PWD"] = str(sym_rel)
+                _expect_err(lambda: fa.diagnose_continual_flow(Path(".")), "SYMLINK_FORBIDDEN", "symlinked PWD must fail")
+                os.environ.pop("PWD", None)
                 gone = root / "gone_cwd"
                 gone.mkdir()
                 os.chdir(gone)
@@ -502,6 +531,10 @@ class TestContinualToroidFlowR5(unittest.TestCase):
                 _expect_err(lambda: fa.diagnose_continual_flow(Path(".")), "CWD_UNAVAILABLE", "deleted cwd")
             finally:
                 os.chdir(old_cwd)
+                if old_pwd is None:
+                    os.environ.pop("PWD", None)
+                else:
+                    os.environ["PWD"] = old_pwd
 
     def test_04_cli_parity_self_test_and_exit_codes(self) -> None:
         """Verify standalone script execution, module CLI, exit codes, and 3-mode isolated parity."""
@@ -579,9 +612,46 @@ class TestContinualToroidFlowR5(unittest.TestCase):
             )
             _req(p_err.returncode == 2 and "Traceback" not in p_err.stderr, f"cli err: {p_err}")
             _req(json.loads(p_err.stderr)["code"] == "FILE_NOT_FOUND", f"cli err json: {p_err.stderr}")
-            # Bad argparse flag -> rc=2
+            # Bad argparse flag & invalid programmatic argv -> rc=2 (zero raw TypeError/tracebacks)
+            with redirect_stdout(io.StringIO()):
+                _req(fa.main(("--self-test", "--json")) == 0, "tuple argv self-test failed")
+            for bad_argv, exp_code in (
+                ("bad", "INVALID_CLI_ARGV"),
+                ([123], "INVALID_CLI_ARGV"),
+                (["--self-test", "a\x00b"], "NUL_BYTE_FORBIDDEN"),
+                (["--self-test", "a\ud800b"], "INVALID_UTF8_SURROGATE"),
+            ):
+                ebuf = io.StringIO()
+                with redirect_stderr(ebuf):
+                    rc_bad = fa.main(bad_argv)  # type: ignore[arg-type]
+                _req(rc_bad == 2 and json.loads(ebuf.getvalue())["code"] == exp_code, f"bad_argv {bad_argv!r}: rc={rc_bad} err={ebuf.getvalue()!r}")
             with redirect_stderr(io.StringIO()):
                 _req(fa.main(["--unknown-flag"]) == 2, "unknown flag must exit 2")
+
+            # Extreme ISO-8601 timestamps (year 9999 -05:00 & year 0001 +05:00) via API & live CLI --max-silence-seconds
+            for ts_tag, ts_val in (
+                ("yr9999", "9999-12-31T23:59:59-05:00"),
+                ("yr0001", "0001-01-01T00:00:00+05:00"),
+            ):
+                b_ext = root / f"ext_{ts_tag}.jsonl"
+                _write_jsonl(
+                    b_ext,
+                    [
+                        {"seq": 1, "agent": "session-cartographer", "text": "fold", "time": ts_val},
+                        {"seq": 2, "agent": "worker", "text": "ok", "time": "2026-11-23T00:00:00Z"},
+                    ],
+                )
+                rep_ext = fa.diagnose_continual_flow(root, board_path=b_ext, max_silence_seconds=60)
+                _req(type(rep_ext["metrics"]["cartographer_silence_seconds"]) is int, f"{ts_tag} api failed")
+                p_ext = subprocess.run(
+                    [sys.executable, "-I", "-B", str(script_path), str(root), "--board", str(b_ext), "--max-silence-seconds", "60", "--json"],
+                    cwd=ROOT,
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                )
+                _req(p_ext.returncode in (0, 1) and "Traceback" not in p_ext.stderr, f"{ts_tag} cli failed: {p_ext}")
+                _req(json.loads(p_ext.stdout)["schema"] == fa.FLOW_AUDIT_SCHEMA, f"{ts_tag} cli json invalid")
 
 
 if __name__ == "__main__":
