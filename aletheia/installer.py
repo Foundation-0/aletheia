@@ -254,7 +254,13 @@ def install_adapter(
     dry_run: bool = False,
     force: bool = False,
 ) -> dict[str, Any]:
-    """Install (or dry-run plan) Aletheia adapters for the specified platform target."""
+    """Install (or dry-run plan) Aletheia adapters for the specified platform target.
+
+    Refuses symlinked targets, symlinked relative components, symlinked
+    absolute ancestors at depth >= 2 on both `dest` and `source_dir` (exempting
+    only depth-1 OS-managed root links such as macOS /var, /tmp, /etc), and any
+    symlinked source or destination subpaths, with or without `force`.
+    """
     require_ok(target in VALID_TARGETS, "INVALID_INSTALL_TARGET", f"target {target!r} not in {VALID_TARGETS}")
 
     if dest is None:
