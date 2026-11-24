@@ -11,6 +11,7 @@ targeted sub-condition and classification regressions from review 6012061680.
 """
 from __future__ import annotations
 
+import enum
 from fractions import Fraction
 import hashlib
 import json
@@ -24,6 +25,7 @@ if str(CLI_ROOT) not in sys.path:
     sys.path.insert(0, str(CLI_ROOT))
 
 from aletheia import gates_v2 as g2
+from aletheia.strict_io import AletheiaError
 
 
 def _assert_no_floats(tc: unittest.TestCase, obj: object) -> None:
@@ -164,7 +166,7 @@ class TestGatesV2R5(unittest.TestCase):
     def test_01_helpers_rational_json_and_typed_equal(self) -> None:
         self.assertEqual(g2._parse_exact_rational(Fraction(2, 3)), Fraction(2, 3))
         self.assertEqual(g2._parse_exact_rational(0), Fraction(0, 1))
-        self.assertEqual(g2._parse_exact_rational("-5/1"), Fraction(-5, 1))
+        self.assertEqual(g2._parse_exact_rational("-5"), Fraction(-5, 1))
         self.assertEqual(g2._fmt_q(Fraction(4, 1)), "4")
         self.assertEqual(g2._fmt_q(Fraction(3, 5)), "3/5")
         self.assertTrue(g2._strict_typed_equal({"a": [1, (True, "x")]}, {"a": [1, (True, "x")]}))
@@ -808,6 +810,89 @@ class TestGatesV2R5(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "R3_NOOP_DIR1_CASE"):
             g2.certify_two_direction_r3(strict_fn, ok, bad, [("copy", {**ok, "tags": {"b", "a"}})],
                                         [("d2_scalar", {**bad, "v": "failed"})])
+
+    def test_12_canonical_rationals_strict_types_and_depth_bounds(self) -> None:
+        class _Color(enum.IntEnum):
+            ONE = 1
+
+        class _SubInt(int):
+            pass
+
+        class _SubFrac(Fraction):
+            pass
+
+        class _SubStr(str):
+            pass
+
+        class _UnhashableIterSet(set):
+            def __iter__(self):
+                yield [1]
+
+        # Strict runtime type guards: reject IntEnum, int/Fraction/str subclasses, and unhashable set iters
+        self.assertTrue(g2._is_strict_int(0))
+        for bad_int in (True, False, _Color.ONE, _SubInt(1)):
+            self.assertFalse(g2._is_strict_int(bad_int))
+        self.assertTrue(g2._is_clean_ascii("a b"))
+        self.assertTrue(g2._is_clean_ascii("~"))
+        for bad_ascii in ("", " a", "a ", "\x1f", "\x7f", _SubStr("1/2"), 123):
+            self.assertFalse(g2._is_clean_ascii(bad_ascii))
+        good_hex = "0123456789abcdef" * 4
+        self.assertTrue(g2._is_lower_hex(good_hex, 64))
+        for bad_hex in (_SubStr(good_hex), "a" * 63, "a" * 65, "A" * 64, "g" * 64):
+            self.assertFalse(g2._is_lower_hex(bad_hex, 64))
+        self.assertFalse(g2._strict_typed_equal(_UnhashableIterSet(), _UnhashableIterSet()))
+
+        # Canonical rational parsing & MAX_RATIONAL_DIGITS boundary (bijective with _fmt_q)
+        max_digits = "9" * g2.MAX_RATIONAL_DIGITS
+        self.assertEqual(g2._parse_exact_rational(Fraction(3, 7)), Fraction(3, 7))
+        self.assertEqual(g2._parse_exact_rational(0), Fraction(0, 1))
+        self.assertEqual(g2._parse_exact_rational("0"), Fraction(0, 1))
+        self.assertEqual(g2._parse_exact_rational("-5"), Fraction(-5, 1))
+        self.assertEqual(g2._parse_exact_rational("1/2"), Fraction(1, 2))
+        self.assertEqual(g2._parse_exact_rational(max_digits), Fraction(int(max_digits), 1))
+        self.assertEqual(g2._parse_exact_rational("1/" + max_digits), Fraction(1, int(max_digits)))
+
+        for bad_q, code in (
+            (_SubFrac(1, 2), "RATIONAL_TYPE_OR_SYNTAX"),
+            (_SubInt(1), "RATIONAL_TYPE_OR_SYNTAX"),
+            (_Color.ONE, "RATIONAL_TYPE_OR_SYNTAX"),
+            (_SubStr("1/2"), "RATIONAL_TYPE_OR_SYNTAX"),
+            ("1\u0662", "RATIONAL_TYPE_OR_SYNTAX"),
+            ("9" * (g2.MAX_RATIONAL_DIGITS + 1), "RATIONAL_INVALID_NUMERATOR"),
+            ("1/" + "9" * (g2.MAX_RATIONAL_DIGITS + 1), "RATIONAL_INVALID_DENOMINATOR"),
+            ("01", "RATIONAL_LEADING_ZERO"),
+            ("-01", "RATIONAL_LEADING_ZERO"),
+            ("1/02", "RATIONAL_LEADING_ZERO"),
+            ("-0", "RATIONAL_NEGATIVE_ZERO"),
+            ("-0/5", "RATIONAL_NEGATIVE_ZERO"),
+            ("1/0", "RATIONAL_NONPOSITIVE_DENOMINATOR"),
+            ("3/1", "RATIONAL_UNIT_DENOMINATOR"),
+            ("0/1", "RATIONAL_UNIT_DENOMINATOR"),
+            ("-5/1", "RATIONAL_UNIT_DENOMINATOR"),
+            ("2/4", "RATIONAL_NOT_REDUCED"),
+            ("0/2", "RATIONAL_NOT_REDUCED"),
+        ):
+            with self.assertRaisesRegex(ValueError, code):
+                g2._parse_exact_rational(bad_q)
+
+        # Iterative container depth boundary (64 OK, 65 fails) & deep JSON RecursionError conversion
+        ok_nest: object = 1
+        for _ in range(g2.MAX_CONTAINER_DEPTH):
+            ok_nest = [ok_nest]
+        g2._verify_no_floats(ok_nest)
+        with self.assertRaises(AletheiaError) as cm_65:
+            g2._verify_no_floats([ok_nest])
+        self.assertEqual(cm_65.exception.code, "MAX_DEPTH_EXCEEDED")
+
+        for depth in (g2.MAX_CONTAINER_DEPTH + 10, 2500):
+            deep_json = b'{"a":' * depth + b"1" + b"}" * depth
+            with self.assertRaises(AletheiaError) as cm_dj:
+                g2._parse_strict_json_bytes(deep_json)
+            self.assertEqual(cm_dj.exception.code, "MAX_DEPTH_EXCEEDED")
+        with mock.patch.object(g2.json, "loads", side_effect=RecursionError("depth")):
+            with self.assertRaises(AletheiaError) as cm_rec:
+                g2._parse_strict_json_bytes(b"{}")
+        self.assertEqual(cm_rec.exception.code, "MAX_DEPTH_EXCEEDED")
 
 
 if __name__ == "__main__":

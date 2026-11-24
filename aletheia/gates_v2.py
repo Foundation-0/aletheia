@@ -233,6 +233,8 @@ def _parse_exact_rational(value: object) -> Fraction:
     den = int(den_s)
     if den <= 0:
         raise ValueError("RATIONAL_NONPOSITIVE_DENOMINATOR")
+    if den == 1:
+        raise ValueError("RATIONAL_UNIT_DENOMINATOR")
     if math.gcd(abs(num), den) != 1:
         raise ValueError("RATIONAL_NOT_REDUCED")
     return Fraction(num, den)

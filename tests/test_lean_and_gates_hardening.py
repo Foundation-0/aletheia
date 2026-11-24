@@ -13,6 +13,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 CLI_ROOT = Path(__file__).resolve().parent.parent
 if str(CLI_ROOT) not in sys.path:
@@ -102,13 +103,32 @@ class TestLean4AndAuditRootHardening(unittest.TestCase):
             r_ok = audit_lean4_source(clean_src)
             _req(r_ok["clean"], f"false positive on clean Lean source {clean_src!r}: {r_ok}")
 
-        # Preceding alphanumeric or underscore means `r` is part of an identifier, NOT a raw string
-        for id_src in ('def bar"\\" := 1\n', 'def foo_r"\\" := 1\n'):
+        # Preceding Lean identifier characters (alnum, _, ., ', !, ?) mean `r` is NOT a raw string
+        for id_src in (
+            'def bar"\\" := 1\n',
+            'def foo_r"\\" := 1\n',
+            'def Foo.r"\\" := 1\n',
+            'def foo\'r"\\" := 1\n',
+            'def foo!r"\\" := 1\n',
+            'def foo?r"\\" := 1\n',
+        ):
             r_id = audit_lean4_source(id_src)
             _req(
                 [f["code"] for f in r_id["findings"]] == ["LEAN4_UNTERMINATED_STRING"],
                 f"identifier-prefixed r\" must not open raw string: {id_src!r} -> {r_id}",
             )
+        # Exact Foo.r"\"" regression: must NOT swallow theorem t : False := sorry on line 3
+        foo_dot_r = (
+            "def Foo.r (s : String) : String := s\n"
+            'def a := Foo.r"\\""\n'
+            "theorem t : False := sorry\n"
+            'def b := "\\""\n'
+        )
+        r_fdr = audit_lean4_source(foo_dot_r)
+        _req(
+            [(f["code"], f["line"]) for f in r_fdr["findings"]] == [("LEAN4_SORRY", 3)],
+            f"Foo.r plain string hid sorry: {r_fdr['findings']}",
+        )
 
         # Unterminated zero-hash raw string (raw_hashes == 0) and 1-hash raw string must fail closed
         for unterm in ('def a := r"unterminated\n', 'def a := r#"unterminated\n', 'def a := "unterminated\n'):
@@ -130,7 +150,15 @@ class TestLean4AndAuditRootHardening(unittest.TestCase):
             ("theorem t : 1 + 1 = 2 := by decide +revert +native\n", 1),
             ("theorem t : 1 + 1 = 2 := by decide -revert +native\n", 1),
             ("theorem t : 1 + 1 = 2 := by decide +kernel -revert +native\n", 1),
+            ("theorem t : 2 + 2 = 4 := by decide (native := true)\n", 1),
+            ("theorem t : 2 + 2 = 4 := by decide (kernel := false) +native\n", 1),
+            ("theorem t : 2 + 2 = 4 := by decide +revert (native := true)\n", 1),
+            ("theorem t : 2 + 2 = 4 := by decide (revert := true) (native := true)\n", 1),
             ("theorem t : 1 + 1 = 2 := by decide (config := { native := true })\n", 1),
+            ("theorem t : 2 + 2 = 4 := by decide (config := ({ native := true } : DecideConfig))\n", 1),
+            ("def cfg : DecideConfig := { native := true }\n", 1),
+            ("def cfg := ({ native := true } : Lean.Elab.Tactic.DecideConfig)\n", 1),
+            ("def cfg := { native := true : DecideConfig }\n", 1),
             ("theorem t : 1 + 1 = 2 := by\n  decide (config := {\n    revert := true,\n    native := true\n  })\n", 2),
             ("theorem t : 1 + 1 = 2 := by decide (config := { native := true, revert := false })\n", 1),
         ):
@@ -141,6 +169,24 @@ class TestLean4AndAuditRootHardening(unittest.TestCase):
                 f"unexpected findings for {bad_src!r}: {res['findings']}",
             )
 
+        # Bound DecideConfig before or after a separate `decide +native` reports both lines
+        both_before = audit_lean4_source(
+            "def cfg : DecideConfig := { native := true }\ntheorem t : 2 + 2 = 4 := by decide +native\n"
+        )
+        _req(
+            sorted((f["code"], f["line"]) for f in both_before["findings"])
+            == [("LEAN4_DECIDE_NATIVE", 1), ("LEAN4_DECIDE_NATIVE", 2)],
+            f"expected both findings: {both_before['findings']}",
+        )
+        both_after = audit_lean4_source(
+            "theorem t : 2 + 2 = 4 := by decide +native\ndef cfg : DecideConfig := { native := true }\n"
+        )
+        _req(
+            sorted((f["code"], f["line"]) for f in both_after["findings"])
+            == [("LEAN4_DECIDE_NATIVE", 1), ("LEAN4_DECIDE_NATIVE", 2)],
+            f"expected both findings: {both_after['findings']}",
+        )
+
         # Non-native decide and commented/stringified forms must not false-positive
         for ok_src in (
             "theorem t : 1 + 1 = 2 := by decide\n",
@@ -148,8 +194,12 @@ class TestLean4AndAuditRootHardening(unittest.TestCase):
             "theorem t : 1 + 1 = 2 := by decide +revert\n",
             "theorem t : 1 + 1 = 2 := by decide -revert\n",
             "theorem t : 1 + 1 = 2 := by decide +revert -native\n",
+            "theorem t : 2 + 2 = 4 := by decide (native := false)\n",
+            "theorem t : 2 + 2 = 4 := by decide (kernel := true) -native\n",
             "theorem t : 1 + 1 = 2 := by decide (config := { native := false })\n",
             "theorem t : 1 + 1 = 2 := by decide (config := { my_native := true })\n",
+            "def cfg : DecideConfig := { native := false }\n",
+            "def cfg : OtherConfig := { native := true }\n",
             "def my_decide_x := 1\n-- decide +native\n",
             'def s1 := "decide +native"\ndef s2 := r"decide +native"\ndef s3 := r#"decide (config := { native := true })"#\n',
         ):
@@ -172,13 +222,36 @@ class TestLean4AndAuditRootHardening(unittest.TestCase):
         # Interpolated strings s!"{...}" / m!"{...}" must expose embedded Lean code while blanking literal text
         for bad_src, exp_findings in (
             ('def x := s!"{sorry}"\n', [("LEAN4_SORRY", 1)]),
+            ('s!"{sorry}" ++ x', [("LEAN4_SORRY", 1)]),
             ('def x := m!"{admit}"\n', [("LEAN4_ADMIT", 1)]),
+            ('def x := f!"{sorry}"\n', [("LEAN4_SORRY", 1)]),
             ('def x := s!"prefix {sorry} suffix"\n', [("LEAN4_SORRY", 1)]),
             ('def x := s!"a {let _ := { y := 1 }; sorry} b"\n', [("LEAN4_SORRY", 1)]),
             ('def x := s!"a {if true then "ok" else sorry} b"\n', [("LEAN4_SORRY", 1)]),
             ('def x := s!"a {s!"{sorry}"} b"\n', [("LEAN4_SORRY", 1)]),
             ('def x := s!"line1\nline2"\ntheorem t : False := by sorry\n', [("LEAN4_SORRY", 3)]),
             ('def x := s!"\\\n"\ntheorem t : False := by sorry\n', [("LEAN4_SORRY", 3)]),
+            ('def x := "\\\n"\ntheorem t : False := by sorry\n', [("LEAN4_SORRY", 3)]),
+            (
+                'def foo! (s : String) : Nat := s.length\ndef a := foo!"{"\ntheorem t : False := sorry\ndef b := "}"\n',
+                [("LEAN4_SORRY", 3)],
+            ),
+            (
+                'def a : Nat := panic!"{"\ntheorem t : False := sorry\ndef b := "}"\n',
+                [("LEAN4_SORRY", 2)],
+            ),
+            (
+                'def a := foos!"{"\ntheorem t : False := sorry\ndef b := "}"\n',
+                [("LEAN4_SORRY", 2)],
+            ),
+            (
+                'def a := Foo.s!"{"\ntheorem t : False := sorry\ndef b := "}"\n',
+                [("LEAN4_SORRY", 2)],
+            ),
+            (
+                '!"{"\ntheorem t : False := sorry\ndef b := "}" ++ s',
+                [("LEAN4_SORRY", 2)],
+            ),
             ('def x := s!"unclosed\n', [("LEAN4_UNTERMINATED_STRING", 1)]),
             ('def x := s!"line1\n{ "ok"\n', [("LEAN4_UNTERMINATED_STRING", 1)]),
             ('def x := s!"line1\n{ /- unclosed\n', [("LEAN4_UNTERMINATED_COMMENT", 2)]),
@@ -204,6 +277,10 @@ class TestLean4AndAuditRootHardening(unittest.TestCase):
             'def nested := s!"a {if true then "sorry" else "ok"} b"\n',
             'def raw_interp := r#"s!"{sorry}""#\n',
             'def brace_in_comment := s!"a { -- }\n  1 } b"\n',
+            'def a : Nat := panic!"bad {sorry} state"\n',
+            'def a := s "hello {sorry}"\n',
+            'def a := s!x\n',
+            'def a := x!"bad {sorry} state"\n',
         ):
             r_ok = audit_lean4_source(clean_src)
             _req(r_ok["clean"], f"false positive on clean interpolated/negation source {clean_src!r}: {r_ok}")
@@ -225,6 +302,19 @@ class TestLean4AndAuditRootHardening(unittest.TestCase):
             with self.assertRaises(AletheiaError) as cm_ur:
                 run_audit_check(real_file / "child")
             _req(cm_ur.exception.code == "TARGET_UNREADABLE", f"wrong code: {cm_ur.exception.code}")
+
+            # Mode-000 unreadable root directory -> TARGET_UNREADABLE (never raw PermissionError)
+            locked_root = base / "locked_root"
+            locked_root.mkdir()
+            (locked_root / "x.py").write_text("x = 1\n", encoding="utf-8")
+            os.chmod(locked_root, 0o000)
+            try:
+                if not os.access(locked_root, os.R_OK):
+                    with self.assertRaises(AletheiaError) as cm_lr:
+                        run_audit_check(locked_root)
+                    _req(cm_lr.exception.code == "TARGET_UNREADABLE", f"wrong code: {cm_lr.exception.code}")
+            finally:
+                os.chmod(locked_root, 0o700)
 
             # Symlink directory/file root refused by default, allowed with allow_symlinks=True
             sym_dir = base / "sym_dir"
@@ -287,12 +377,11 @@ class TestGatesV2CanonicalAndDepthHardening(unittest.TestCase):
             _req(g2._is_lower_hex(bad_hex, 64) is False, f"_is_lower_hex must reject {bad_hex!r}")
 
     def test_05_parse_exact_rational_canonical_and_digit_bounds(self) -> None:
-        # Exact valid canonical forms (including -5/1 for backward compatibility & 1000-digit boundary)
+        # Exact valid canonical forms (bijective with _fmt_q, plus 1000-digit boundary)
         _req(g2._parse_exact_rational(Fraction(3, 7)) == Fraction(3, 7), "exact Fraction failed")
         _req(g2._parse_exact_rational(0) == Fraction(0, 1), "exact int 0 failed")
         _req(g2._parse_exact_rational("0") == Fraction(0, 1), "'0' failed")
-        _req(g2._parse_exact_rational("0/1") == Fraction(0, 1), "'0/1' failed")
-        _req(g2._parse_exact_rational("-5/1") == Fraction(-5, 1), "'-5/1' failed")
+        _req(g2._parse_exact_rational("-5") == Fraction(-5, 1), "'-5' failed")
         _req(g2._parse_exact_rational("1/2") == Fraction(1, 2), "'1/2' failed")
         max_num = "9" * g2.MAX_RATIONAL_DIGITS
         _req(g2._parse_exact_rational(max_num) == Fraction(int(max_num), 1), "exact 1000-digit num failed")
@@ -325,6 +414,9 @@ class TestGatesV2CanonicalAndDepthHardening(unittest.TestCase):
             ("-0/5", "RATIONAL_NEGATIVE_ZERO"),
             ("1/0", "RATIONAL_NONPOSITIVE_DENOMINATOR"),
             ("0/0", "RATIONAL_NONPOSITIVE_DENOMINATOR"),
+            ("3/1", "RATIONAL_UNIT_DENOMINATOR"),
+            ("0/1", "RATIONAL_UNIT_DENOMINATOR"),
+            ("-5/1", "RATIONAL_UNIT_DENOMINATOR"),
             ("2/4", "RATIONAL_NOT_REDUCED"),
             ("-2/4", "RATIONAL_NOT_REDUCED"),
             ("0/2", "RATIONAL_NOT_REDUCED"),
@@ -362,10 +454,15 @@ class TestGatesV2CanonicalAndDepthHardening(unittest.TestCase):
         _req(cm_ts.exception.code == "MAX_DEPTH_EXCEEDED", f"wrong code: {cm_ts.exception.code}")
 
         # Deeply nested JSON object bytes in _parse_strict_json_bytes must raise AletheiaError (never raw RecursionError)
-        deep_json = b'{"a":' * (g2.MAX_CONTAINER_DEPTH + 10) + b"1" + b"}" * (g2.MAX_CONTAINER_DEPTH + 10)
-        with self.assertRaises(AletheiaError) as cm_dj:
-            g2._parse_strict_json_bytes(deep_json)
-        _req(cm_dj.exception.code == "MAX_DEPTH_EXCEEDED", f"wrong deep JSON code: {cm_dj.exception.code}")
+        for depth in (g2.MAX_CONTAINER_DEPTH + 10, 2500):
+            deep_json = b'{"a":' * depth + b"1" + b"}" * depth
+            with self.assertRaises(AletheiaError) as cm_dj:
+                g2._parse_strict_json_bytes(deep_json)
+            _req(cm_dj.exception.code == "MAX_DEPTH_EXCEEDED", f"wrong deep JSON code at {depth}: {cm_dj.exception.code}")
+        with mock.patch.object(g2.json, "loads", side_effect=RecursionError("depth")):
+            with self.assertRaises(AletheiaError) as cm_rec:
+                g2._parse_strict_json_bytes(b"{}")
+        _req(cm_rec.exception.code == "MAX_DEPTH_EXCEEDED", f"wrong RecursionError code: {cm_rec.exception.code}")
 
 
 if __name__ == "__main__":

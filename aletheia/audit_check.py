@@ -703,12 +703,25 @@ _LEAN4_PARTIAL_DECL_RE = re.compile(
     r"(?<!\.)\bpartial\s+(?:def|instance|abbrev)\b", flags=re.DOTALL
 )
 
-# Lean 4.16+ `decide +native` and desugared `decide (config := { native := true })` trust escapes
-_LEAN4_DECIDE_NATIVE_RE = re.compile(
-    r"\bdecide(?:\s+[+-][A-Za-z0-9_]+)*"
-    r"(?:\s+\+native\b|\s*\(\s*config\s*:=\s*\{[^}]*\bnative\s*:=\s*true\b[^}]*\}\s*\))",
+# Lean 4.15+ `decide` native-evaluation trust escapes: `+native`, `(native := true)`,
+# `(config := { ... native := true ... })`, and bound `DecideConfig` / `Decide.Config` records.
+_LEAN4_DECIDE_RUN_RE = re.compile(
+    r"\bdecide(?:\s+[+-][A-Za-z0-9_]+|\s*\(\s*[A-Za-z0-9_]+\s*:=[^()]*(?:\([^()]*\)[^()]*)*\))+",
     flags=re.DOTALL,
 )
+_LEAN4_DECIDE_NATIVE_ITEM_RE = re.compile(
+    r"(?:(?<!\S)\+native\b"
+    r"|\(\s*native\s*:=\s*true\b\s*\)"
+    r"|\(\s*config\s*:=\s*(?:\(\s*)*\{[^}]*\bnative\s*:=\s*true\b[^}]*\})",
+    flags=re.DOTALL,
+)
+_LEAN4_DECIDE_CONFIG_BIND_RE = re.compile(
+    r"\b(?:DecideConfig|Decide\.Config)\b[^:=;\n]*:=\s*(?:\(\s*)*\{[^}]*\bnative\s*:=\s*true\b[^}]*\}"
+    r"|\{[^}]*\bnative\s*:=\s*true\b[^}]*\}\s*:\s*(?:[A-Za-z_][A-Za-z0-9_]*\.)*(?:DecideConfig|Decide\.Config)\b"
+    r"|\{[^}]*\bnative\s*:=\s*true\b[^}]*:\s*(?:[A-Za-z_][A-Za-z0-9_]*\.)*(?:DecideConfig|Decide\.Config)\b[^}]*\}",
+    flags=re.DOTALL,
+)
+_LEAN4_IDENT_EXTRA = "_.'!?"
 
 # Multiline skipKernelTC check (catches `set_option\n debug.skipKernelTC\n true` and bare `debug.skipKernelTC`)
 _LEAN4_SKIP_KERNEL_TC_RE = re.compile(
@@ -779,8 +792,8 @@ def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
                 i += 1
             continue
         if in_str:
-            if ch == "\\" and i + 1 < n:
-                out.append("  ")
+            if ch == "\\":
+                out.append(" \n" if nxt == "\n" else "  ")
                 i += 2
             elif ch == '"':
                 in_str = False
@@ -830,7 +843,7 @@ def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
             while i < n and source[i] != "\n":
                 out.append(" ")
                 i += 1
-        elif ch == "r" and (i == 0 or not (source[i - 1].isalnum() or source[i - 1] == "_")):
+        elif ch == "r" and (i == 0 or not (source[i - 1].isalnum() or source[i - 1] in _LEAN4_IDENT_EXTRA)):
             j = i + 1
             while j < n and source[j] == "#":
                 j += 1
@@ -842,7 +855,13 @@ def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
             else:
                 out.append(ch)
                 i += 1
-        elif ch == "!" and nxt == '"':
+        elif (
+            ch == "!"
+            and nxt == '"'
+            and i >= 1
+            and source[i - 1] in "smf"
+            and (i == 1 or not (source[i - 2].isalnum() or source[i - 2] in _LEAN4_IDENT_EXTRA))
+        ):
             in_interp = True
             opened_at = i
             out.append("  ")
@@ -958,11 +977,21 @@ def audit_lean4_source(
         lineno = cleaned[: m_part.start()].count("\n") + 1
         findings.append({"line": lineno, "code": "LEAN4_PARTIAL", "excerpt": " ".join(m_part.group(0).split())[:100]})
 
-    # Lean 4.16+ `decide +native` trust escape
-    for m_dn in _LEAN4_DECIDE_NATIVE_RE.finditer(cleaned):
-        lineno = cleaned[: m_dn.start()].count("\n") + 1
+    # Lean 4.15+ `decide +native`, `(native := true)`, `(config := { native := true })`, & bound DecideConfig
+    decide_spans: list[tuple[int, int]] = []
+    for m_dn in _LEAN4_DECIDE_RUN_RE.finditer(cleaned):
+        if _LEAN4_DECIDE_NATIVE_ITEM_RE.search(m_dn.group(0)) is not None:
+            decide_spans.append((m_dn.start(), m_dn.end()))
+            lineno = cleaned[: m_dn.start()].count("\n") + 1
+            findings.append(
+                {"line": lineno, "code": "LEAN4_DECIDE_NATIVE", "excerpt": " ".join(m_dn.group(0).split())[:100]}
+            )
+    for m_dc in _LEAN4_DECIDE_CONFIG_BIND_RE.finditer(cleaned):
+        if any(m_dc.start() in range(ds, de) for ds, de in decide_spans):
+            continue
+        lineno = cleaned[: m_dc.start()].count("\n") + 1
         findings.append(
-            {"line": lineno, "code": "LEAN4_DECIDE_NATIVE", "excerpt": " ".join(m_dn.group(0).split())[:100]}
+            {"line": lineno, "code": "LEAN4_DECIDE_NATIVE", "excerpt": " ".join(m_dc.group(0).split())[:100]}
         )
 
     # Multiline debug.skipKernelTC check
@@ -1717,6 +1746,15 @@ def run_audit_check(
         "TARGET_NOT_REGULAR",
         f"target is not a regular file or directory (FIFO, socket, or device?): {root}",
     )
+    if stat.S_ISDIR(root_mode):
+        try:
+            with os.scandir(root):
+                pass
+        except OSError as exc:
+            raise AletheiaError(
+                "TARGET_UNREADABLE",
+                f"cannot read target directory ({_err_detail(exc)}): {root}",
+            ) from exc
 
     crlf_files: list[str] = []
     pycache_entries: list[Path] = []
