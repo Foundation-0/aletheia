@@ -508,11 +508,17 @@ class TestTrackS31AletheiaV22Misfolding(unittest.TestCase):
         _check(type(audit.parse_strict_json_text(json.dumps({"x": ok_d}), "d64")) is dict, "depth 64")
         _expect_err(lambda: audit.parse_strict_json_text(json.dumps({"x": [ok_d]}), "d65"), "MAX_DEPTH_EXCEEDED", "depth 65")
 
-        # /proc/kallsyms & /dev/null
+        # /proc/kallsyms & a non-regular write target
         if Path("/proc/kallsyms").exists():
             _expect_err(lambda: audit.read_regular_bytes_capped(Path("/proc/kallsyms"), "k", max_bytes=16), "FILE_TOO_LARGE", "/proc/kallsyms")
-        if Path("/dev/null").exists():
-            _expect_err(lambda: audit.write_regular_bytes_safe(Path("/dev/null"), b"{}\n", "dn"), "NOT_A_REGULAR_FILE", "/dev/null")
+        # The non-regular target is a FIFO in a private temporary directory, never a system path such as
+        # /dev/null: if the S_ISREG guard regresses or a mutation run deletes it, os.replace then clobbers
+        # only this scratch FIFO, not a device node that every other process on the host relies on.
+        if hasattr(os, "mkfifo"):
+            with tempfile.TemporaryDirectory(prefix="s31_fifo_") as fifo_td:
+                fifo_target = Path(fifo_td) / "fifo"
+                os.mkfifo(fifo_target)
+                _expect_err(lambda: audit.write_regular_bytes_safe(fifo_target, b"{}\n", "fifo"), "NOT_A_REGULAR_FILE", "FIFO target")
 
         with tempfile.TemporaryDirectory(prefix="s31_zb_") as td:
             root = Path(td)

@@ -11,7 +11,7 @@ Covers:
             temp + pre-replace st_nlink == 1 + fsync + os.replace, 64 KiB streaming
             capped read, canonical_json_bytes tree validation, ASCII-only parsers
             rejecting -0/leading zeros, exact-int secondary_audit_payload &
-            full_replay=False verification, /proc/kallsyms, /dev/null, FIFO,
+            full_replay=False verification, /proc/kallsyms, FIFO write target,
             chmod 000, hardlink, deep/dotdot/PWD symlinks, deleted-CWD, lone
             surrogates, space & equals CLI, subprocess parity)
   - Test 4: Live >= 520-iter concurrent renameat2(RENAME_EXCHANGE) + >= 420-iter
@@ -625,13 +625,18 @@ class TrackS34Tests(unittest.TestCase):
         _check(type(audit.parse_strict_json_text(json.dumps({"x": ok_d}), "d64")) is dict, "depth 64")
         _expect_err(lambda: audit.parse_strict_json_text(json.dumps({"x": [ok_d]}), "d65"), "MAX_DEPTH_EXCEEDED", "depth 65")
 
-        # /proc/kallsyms st_size==0 capped read + /dev/null write guard + max_bytes 64 MiB cap
+        # /proc/kallsyms st_size==0 capped read + non-regular write guard + max_bytes 64 MiB cap
         proc_kallsyms = Path("/proc/kallsyms")
         if proc_kallsyms.exists():
             _expect_err(lambda: audit.read_regular_bytes_capped(proc_kallsyms, "kallsyms", max_bytes=16), "FILE_TOO_LARGE", "kallsyms cap")
-        dev_null = Path("/dev/null")
-        if dev_null.exists():
-            _expect_err(lambda: audit.write_regular_bytes_safe(dev_null, b"{}\n", "devnull"), "NOT_A_REGULAR_FILE", "devnull write")
+        # The non-regular write target is a FIFO in a private temporary directory, never a system path such
+        # as /dev/null: if the S_ISREG guard regresses or a mutation run deletes it, os.replace then clobbers
+        # only this scratch FIFO, not a device node that every other process on the host relies on.
+        if hasattr(os, "mkfifo"):
+            with tempfile.TemporaryDirectory(prefix="s34_fifo_") as fifo_td:
+                fifo_target = Path(fifo_td) / "fifo"
+                os.mkfifo(fifo_target)
+                _expect_err(lambda: audit.write_regular_bytes_safe(fifo_target, b"{}\n", "fifo"), "NOT_A_REGULAR_FILE", "FIFO write target")
 
         with tempfile.TemporaryDirectory(prefix="s34_zb_") as td:
             root = Path(td)
