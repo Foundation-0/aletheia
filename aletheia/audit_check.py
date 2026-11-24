@@ -832,10 +832,18 @@ def _scan_lean4_decide_native(cleaned: str) -> list[tuple[int, int]]:
 def _lean4_match_enables_native(m_obj: re.Match[str]) -> bool:
     return any(grp is not None and not _is_lean4_native_rhs_false(grp) for grp in m_obj.groups())
 _LEAN4_IDENT_EXTRA = "_.'!?"
+_LEAN4_CHAR_PREV_IDENT = "_'»"
+_LEAN4_HEX_DIGITS = frozenset("0123456789abcdefABCDEF")
 
 # Multiline skipKernelTC check (catches `set_option\n debug.skipKernelTC\n true` and bare `debug.skipKernelTC`)
 _LEAN4_SKIP_KERNEL_TC_RE = re.compile(
     r"\bdebug\s*\.\s*skipKernelTC\b", flags=re.DOTALL
+)
+
+# Output-spoofing / early-exit commands (`#eval`, `#eval!`, `#reduce`, non-`axioms` `#print`, `#exit`)
+_LEAN4_EVAL_SPOOF_RE = re.compile(
+    r"(?<![A-Za-z0-9_])#(?:eval!?(?![A-Za-z0-9_])|reduce(?![A-Za-z0-9_])|exit(?![A-Za-z0-9_])|print(?![A-Za-z0-9_])(?!\s+axioms(?![A-Za-z0-9_'])))",
+    flags=re.DOTALL,
 )
 
 # Lean 4.22 module-aware import regex (supports single-line & multiline `public\n import Foo`)
@@ -843,13 +851,53 @@ _LEAN4_IMPORT_FULL_RE = re.compile(
     r"(?:^|\n)[ \t]*(?:(?:public|private|meta)\s+)*import\s+([A-Za-z0-9_.]+)", flags=re.DOTALL
 )
 
-# Unsound attribute trust escapes vs kernel-proved `@[csimp]` compiler rewrite notice
-_LEAN4_HARD_ATTR_RE = re.compile(
-    r"@\[[^\]]*\b(extern|implemented_by)\b[^\]]*\]", flags=re.DOTALL
-)
-_LEAN4_CSIMP_ATTR_RE = re.compile(
-    r"@\[[^\]]*\b(csimp)\b[^\]]*\]", flags=re.DOTALL
-)
+# Unsound attribute trust escapes (`@[...]` and post-declaration `attribute [...]`) vs `@[csimp]`/`attribute [csimp]`
+_LEAN4_ATTR_OPEN_RE = re.compile(r"(?:@|(?<!\.)\battribute\s*)\[", flags=re.DOTALL)
+_LEAN4_HARD_ATTR_KW_RE = re.compile(r"\b(extern|implemented_by)\b")
+_LEAN4_CSIMP_ATTR_KW_RE = re.compile(r"\b(csimp)\b")
+
+
+def _iter_lean4_attr_blocks(cleaned: str) -> list[tuple[int, int, int]]:
+    """Return `(attr_start, body_lo, body_hi)` for every `@[...]` or `attribute [...]` block in O(n)."""
+    match_rbrack: dict[int, int] = {}
+    brack_stack: list[int] = []
+    for idx, ch in enumerate(cleaned):
+        if ch == "[":
+            brack_stack.append(idx)
+        elif ch == "]" and brack_stack:
+            match_rbrack[brack_stack.pop()] = idx
+    blocks: list[tuple[int, int, int]] = []
+    for m_open in _LEAN4_ATTR_OPEN_RE.finditer(cleaned):
+        lb = m_open.end() - 1
+        rb = match_rbrack.get(lb)
+        if rb is not None:
+            blocks.append((m_open.start(), lb + 1, rb))
+    return blocks
+
+
+def _match_lean4_char_literal_end(source: str, i: int, n: int) -> int | None:
+    """Return end index of a Lean 4 Char literal starting at `source[i] == "'"`, or None."""
+    if i + 2 < n and source[i + 1] != "\\" and source[i + 1] != "\n" and source[i + 2] == "'":
+        return i + 3
+    if i + 3 < n and source[i + 1] == "\\":
+        if source[i + 3] == "'" and source[i + 2] != "\n":
+            return i + 4
+        esc = source[i + 2]
+        if (
+            esc == "x"
+            and i + 5 < n
+            and source[i + 5] == "'"
+            and all(c in _LEAN4_HEX_DIGITS for c in source[i + 3 : i + 5])
+        ):
+            return i + 6
+        if (
+            esc == "u"
+            and i + 7 < n
+            and source[i + 7] == "'"
+            and all(c in _LEAN4_HEX_DIGITS for c in source[i + 3 : i + 7])
+        ):
+            return i + 8
+    return None
 
 # Anti-vacuity notices (DeepMind formal-conjectures STATEMENTS.md & ExistsImplicationLinter)
 _LEAN4_VACUOUS_THM_RE = re.compile(
@@ -981,14 +1029,12 @@ def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
             opened_at = i
             out.append(" ")
             i += 1
-        elif ch == "'":
-            # Lean 4 char literals ('"', '\n', 'a') without disturbing identifier primes x'
-            if i + 2 < n and source[i + 1] != "\\" and source[i + 2] == "'":
-                out.append("   ")
-                i += 3
-            elif i + 3 < n and source[i + 1] == "\\" and source[i + 3] == "'":
-                out.append("    ")
-                i += 4
+        elif ch == "'" and (i == 0 or not (source[i - 1].isalnum() or source[i - 1] in _LEAN4_CHAR_PREV_IDENT)):
+            # Lean 4 char literals ('"', '\n', '\x27', '\u0027') without disturbing identifier primes x'
+            char_end = _match_lean4_char_literal_end(source, i, n)
+            if char_end is not None:
+                out.append(" " * (char_end - i))
+                i = char_end
             else:
                 out.append(ch)
                 i += 1
@@ -1117,15 +1163,21 @@ def audit_lean4_source(
         lineno = cleaned[: m_sk.start()].count("\n") + 1
         findings.append({"line": lineno, "code": "LEAN4_SKIP_KERNEL_TC", "excerpt": "debug.skipKernelTC"})
 
-    # Multiline attribute trust-escape check: @[ ... extern | implemented_by ... ]
-    for m_attr in _LEAN4_HARD_ATTR_RE.finditer(cleaned):
-        lineno = cleaned[: m_attr.start()].count("\n") + 1
-        findings.append({"line": lineno, "code": "LEAN4_ATTR_TRUST_ESCAPE", "excerpt": m_attr.group(1)})
+    # Output-spoofing / early-exit commands (#eval, #eval!, #reduce, non-axioms #print, #exit)
+    for m_ev in _LEAN4_EVAL_SPOOF_RE.finditer(cleaned):
+        lineno = cleaned[: m_ev.start()].count("\n") + 1
+        findings.append({"line": lineno, "code": "LEAN4_EVAL_SPOOF", "excerpt": m_ev.group(0)})
 
-    # Kernel-proved @[csimp] rewrite notice
-    for m_cs in _LEAN4_CSIMP_ATTR_RE.finditer(cleaned):
-        lineno = cleaned[: m_cs.start()].count("\n") + 1
-        notices.append({"line": lineno, "code": "LEAN4_CSIMP_REWRITE_NOTICE", "excerpt": m_cs.group(1)})
+    # Multiline attribute trust-escape and csimp notice check: `@[...]` and post-declaration `attribute [...]`
+    for attr_start, b_lo, b_hi in _iter_lean4_attr_blocks(cleaned):
+        m_attr = _LEAN4_HARD_ATTR_KW_RE.search(cleaned, b_lo, b_hi)
+        if m_attr is not None:
+            lineno = cleaned[:attr_start].count("\n") + 1
+            findings.append({"line": lineno, "code": "LEAN4_ATTR_TRUST_ESCAPE", "excerpt": m_attr.group(1)})
+        m_cs = _LEAN4_CSIMP_ATTR_KW_RE.search(cleaned, b_lo, b_hi)
+        if m_cs is not None:
+            lineno = cleaned[:attr_start].count("\n") + 1
+            notices.append({"line": lineno, "code": "LEAN4_CSIMP_REWRITE_NOTICE", "excerpt": m_cs.group(1)})
 
     return {"clean": len(findings) == 0, "findings": findings, "notices": notices, "imports": imports}
 

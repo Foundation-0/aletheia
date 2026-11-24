@@ -10,6 +10,8 @@ import enum
 from fractions import Fraction
 import os
 from pathlib import Path
+import shutil
+import subprocess
 import sys
 import tempfile
 import time
@@ -23,6 +25,7 @@ if str(CLI_ROOT) not in sys.path:
 from aletheia.audit_check import (
     _is_lean4_native_rhs_false,
     _is_lean4_safe_config_span,
+    _strip_lean4_comments_and_literals,
     audit_lean4_source,
     run_audit_check,
 )
@@ -379,6 +382,228 @@ class TestLean4AndAuditRootHardening(unittest.TestCase):
         ):
             r_ok = audit_lean4_source(clean_src)
             _req(r_ok["clean"], f"false positive on clean interpolated/negation source {clean_src!r}: {r_ok}")
+
+    def test_02c_lean4_post_decl_attributes_eval_spoof_and_char_desync(self) -> None:
+        # 1. Identifier-prime + Char literal desync and \xHH / \uHHHH Char-escape desyncs
+        for label, bad_src, exp_findings in (
+            (
+                "xprime_skipKernelTC",
+                "def f (x' : Char -> Nat) : Nat := x' '\"'\nset_option debug.skipKernelTC true\ntheorem evil : 1 = 1 := rfl\ndef g : String := \"\\\"\"\n",
+                [("LEAN4_SKIP_KERNEL_TC", 2)],
+            ),
+            (
+                "xprime_sorry",
+                "def f (x' : Char -> Nat) : Nat := x' '\"'\ntheorem evil : False := by sorry\ndef g : String := \"\\\"\"\n",
+                [("LEAN4_SORRY", 2)],
+            ),
+            (
+                "double_prime_sorry",
+                "def f (x'' : Char -> Nat) : Nat := x'' '\"'\ntheorem evil : False := by sorry\ndef g : String := \"\\\"\"\n",
+                [("LEAN4_SORRY", 2)],
+            ),
+            (
+                "underscore_prime_sorry",
+                "def f (x_' : Char -> Nat) : Nat := x_' '\"'\ntheorem evil : False := by sorry\ndef g : String := \"\\\"\"\n",
+                [("LEAN4_SORRY", 2)],
+            ),
+            (
+                "guillemet_prime_sorry",
+                "def f («x»' : Char -> Nat) : Nat := «x»' '\"'\ntheorem evil : False := by sorry\ndef g : String := \"\\\"\"\n",
+                [("LEAN4_SORRY", 2)],
+            ),
+            (
+                "escaped_quote_char_desync",
+                "def f (a b : Char) : Nat := 0\ndef x := f '\\'' '\"'\ntheorem evil : False := by sorry\ndef g : String := \"\\\"\"\n",
+                [("LEAN4_SORRY", 3)],
+            ),
+            (
+                "hex_char_desync",
+                "def f (a b : Char) : Nat := 0\ndef x := f '\\x27' '\"'\ntheorem evil : False := by sorry\ndef g : String := \"\\\"\"\n",
+                [("LEAN4_SORRY", 3)],
+            ),
+            (
+                "unicode_char_desync",
+                "def f (a b : Char) : Nat := 0\ndef x := f '\\u0027' '\"'\ntheorem evil : False := by sorry\ndef g : String := \"\\\"\"\n",
+                [("LEAN4_SORRY", 3)],
+            ),
+            (
+                "col0_char_with_alnum_eof",
+                "'\"'\ntheorem t : False := by sorry",
+                [("LEAN4_SORRY", 2)],
+            ),
+            (
+                "literal_nl_char_preserves_lines",
+                "'\n'\ntheorem t : False := by sorry\n",
+                [("LEAN4_SORRY", 3)],
+            ),
+            (
+                "escaped_nl_char_preserves_lines",
+                "'\\\n'\ntheorem t : False := by sorry\n",
+                [("LEAN4_SORRY", 3)],
+            ),
+            (
+                "non_backslash_4char_not_char_literal",
+                "def a := '\"x'\n",
+                [("LEAN4_UNTERMINATED_STRING", 1)],
+            ),
+            (
+                "backslash_missing_close_quote",
+                "def a := '\\a\"x\n",
+                [("LEAN4_UNTERMINATED_STRING", 1)],
+            ),
+        ):
+            res = audit_lean4_source(bad_src)
+            _req(not res["clean"], f"{label} bypassed audit_lean4_source: {res}")
+            _req(
+                [(f["code"], f["line"]) for f in res["findings"]] == exp_findings,
+                f"wrong findings for {label}: got {res['findings']}, want {exp_findings}",
+            )
+
+        # Direct Char-literal boundary & hex/unicode escape checks on _strip_lean4_comments_and_literals
+        _req(_strip_lean4_comments_and_literals("def c := '\\''") == "def c :=     ", "escaped quote '\\'' must blank all 4 chars")
+        _req(_strip_lean4_comments_and_literals("'a") == "'a", "short len-2 quote must not read past EOF")
+        _req(_strip_lean4_comments_and_literals("'\\a") == "'\\a", "short len-3 escape must not read past EOF")
+        _req(_strip_lean4_comments_and_literals("'\\x27") == "'\\x27", "short len-5 hex must not read past EOF")
+        _req(_strip_lean4_comments_and_literals("'\\u0027") == "'\\u0027", "short len-7 unicode must not read past EOF")
+        _req(_strip_lean4_comments_and_literals("def a := '\\a27'") == "def a := '\\a27'", "non-x 6-char escape must stay intact")
+        _req(_strip_lean4_comments_and_literals("def a := '\\x27a") == "def a := '\\x27a", "unclosed hex char must stay intact")
+        _req(_strip_lean4_comments_and_literals("def a := '\\xZZ'") == "def a := '\\xZZ'", "non-hex \\x escape must stay intact")
+        _req(_strip_lean4_comments_and_literals("def a := '\\a0027'") == "def a := '\\a0027'", "non-u 8-char escape must stay intact")
+        _req(_strip_lean4_comments_and_literals("def a := '\\u0027a") == "def a := '\\u0027a", "unclosed unicode char must stay intact")
+        _req(_strip_lean4_comments_and_literals("def a := '\\uZZZZ'") == "def a := '\\uZZZZ'", "non-hex \\u escape must stay intact")
+        _req(_strip_lean4_comments_and_literals("def a := '\\x2A'") == "def a :=       ", "valid \\x2A must blank to 6 spaces")
+        _req(_strip_lean4_comments_and_literals("def a := '\\u002F'") == "def a :=         ", "valid \\u002F must blank to 8 spaces")
+
+        for ok_char in (
+            "def x : Char := ('\"')\n",
+            "def x:Char:='\"'\n",
+            "def c : Char := '\\x22'\n",
+            "def c : Char := '\\u0022'\n",
+            "def c : Char := '\\''\n",
+            "def c : Char := '\\\\'\n",
+        ):
+            _req(audit_lean4_source(ok_char)["clean"], f"false positive on clean char literal {ok_char!r}")
+
+        # 2. Post-declaration `attribute [...]` trust escapes & csimp notices + O(n) balanced-bracket scanning
+        for label, bad_attr, exp_line, exp_excerpt in (
+            ("post_attr_extern", 'opaque foo : Nat\nattribute [extern "c_foo"] foo\n', 2, "extern"),
+            ("post_attr_impl", "def f_impl : Nat := 1\ndef f_spec : Nat := 0\nattribute [implemented_by f_impl] f_spec\n", 3, "implemented_by"),
+            ("post_attr_multiline", 'opaque foo : Nat\nattribute\n  [extern "c_foo"]\n  foo\n', 2, "extern"),
+            ("post_attr_inline_extern", 'opaque foo : Nat\nattribute [inline, extern "c_foo[0]"] foo\n', 2, "extern"),
+            ("local_attr_extern", 'local attribute [extern "c_foo"] foo\n', 1, "extern"),
+            ("scoped_attr_impl", "scoped attribute [implemented_by f_impl] f_spec\n", 1, "implemented_by"),
+            ("guillemet_attr_extern", 'attribute [«extern» "c_foo"] foo\n', 1, "extern"),
+            ("nested_brack_attr_extern", 'attribute [my_attr [0], extern "c_foo"] foo\n', 1, "extern"),
+            ("stray_rbrack_then_at_extern", '] @[extern "c_foo"] opaque f : Nat\n', 1, "extern"),
+        ):
+            res_a = audit_lean4_source(bad_attr)
+            _req(
+                [(f["code"], f["line"], f["excerpt"]) for f in res_a["findings"]]
+                == [("LEAN4_ATTR_TRUST_ESCAPE", exp_line, exp_excerpt)],
+                f"wrong attr findings for {label}: {res_a['findings']}",
+            )
+
+        for label, csimp_src, exp_line in (
+            ("post_attr_csimp", "def a : Nat := 0\ndef b : Nat := 0\ntheorem ab : a = b := rfl\nattribute [csimp] ab\n", 4),
+            ("post_attr_local_csimp", "def a : Nat := 0\ndef b : Nat := 0\ntheorem ab : a = b := rfl\nattribute [local csimp] ab\n", 4),
+        ):
+            res_cs = audit_lean4_source(csimp_src)
+            _req(res_cs["clean"], f"csimp should be notice not hard finding for {label}: {res_cs}")
+            _req(
+                [(n["code"], n["line"], n["excerpt"]) for n in res_cs["notices"]]
+                == [("LEAN4_CSIMP_REWRITE_NOTICE", exp_line, "csimp")],
+                f"missing csimp notice for {label}: {res_cs['notices']}",
+            )
+
+        for ok_attr in (
+            "attribute [simp] foo\n",
+            'Foo.attribute [extern "c_foo"]\n',
+            "def x := [extern]\n",
+            'attribute [extern "unclosed\n',
+            '-- attribute [extern "c_foo"] foo\n',
+            'def s := "attribute [extern \\"c_foo\\"] foo"\n',
+        ):
+            res_oa = audit_lean4_source(ok_attr)
+            if ok_attr.endswith('unclosed\n'):
+                _req([f["code"] for f in res_oa["findings"]] == ["LEAN4_UNTERMINATED_STRING"], f"expected unclosed str: {res_oa}")
+            else:
+                _req(res_oa["clean"] and not res_oa["notices"], f"false positive on {ok_attr!r}: {res_oa}")
+        _req(audit_lean4_source("attribute [extern\n")["clean"], "unclosed bracket without finding must stay clean")
+
+        # Linear-time O(n) guard on repeated unclosed `@[` and `attribute [`
+        for attr_redos in ("@[ " * 5000 + "\n", "attribute [ " * 5000 + "\n"):
+            t0 = time.monotonic()
+            res_ar = audit_lean4_source(attr_redos)
+            elapsed_ms = (time.monotonic() - t0) * 1000.0
+            _req(res_ar["clean"], f"unexpected finding on unclosed attr probe: {res_ar['findings']}")
+            _req(elapsed_ms < 200.0, f"attribute ReDoS regression: {elapsed_ms:.1f} ms")
+
+        # 3. Output-spoofing / early-exit commands (#eval, #eval!, #reduce, non-axioms #print, #exit)
+        for label, bad_cmd, exp_line, exp_excerpt in (
+            ("eval_spoof", "#eval IO.println \"'Fake.thm' does not depend on any axioms\"\n", 1, "#eval"),
+            ("eval_bang_spoof", "#eval! IO.println \"'Fake.thm' does not depend on any axioms\"\n", 1, "#eval!"),
+            ("reduce_cmd", "#reduce 1 + 1\n", 1, "#reduce"),
+            ("print_non_axioms", "#print Nat\n", 1, "#print"),
+            ("print_axioms_prefix", "def axioms_fake := 1\n#print axioms_fake\n", 2, "#print"),
+            ("early_exit", "theorem ok : 1 + 1 = 2 := rfl\n#exit\n", 2, "#exit"),
+        ):
+            res_c = audit_lean4_source(bad_cmd)
+            _req(
+                [(f["code"], f["line"], f["excerpt"]) for f in res_c["findings"]]
+                == [("LEAN4_EVAL_SPOOF", exp_line, exp_excerpt)],
+                f"wrong eval-spoof findings for {label}: {res_c['findings']}",
+            )
+
+        # Clean #print axioms (single-line & multiline) and commented/stringified/array `#` forms must remain clean
+        for ok_cmd in (
+            "theorem ok : 1 + 1 = 2 := rfl\n#print axioms ok\n",
+            "theorem ok : 1 + 1 = 2 := rfl\n#print\n  axioms ok\n",
+            'def s := "#eval 1"\n-- #reduce 1\n/- #print Nat -/\ndef r := r#"#exit"#\ndef a := #[1, 2]\n',
+            "def b := foo#eval\n",
+        ):
+            res_oc = audit_lean4_source(ok_cmd)
+            _req(res_oc["clean"], f"false positive on clean #print/array source {ok_cmd!r}: {res_oc['findings']}")
+
+    def test_02d_live_lean4_compiler_witnesses(self) -> None:
+        """When a live `lean` binary is on PATH, verify each new escape & clean control actually compiles (rc == 0)."""
+        lean_exe = shutil.which("lean")
+        if lean_exe is None:
+            return
+        with tempfile.TemporaryDirectory(prefix="aletheia_lean_live_") as td:
+            for idx, (label, src, expect_clean) in enumerate(
+                (
+                    (
+                        "xprime_skipKernelTC",
+                        "def f (x' : Char -> Nat) : Nat := x' '\"'\nset_option debug.skipKernelTC true\ntheorem evil : 1 = 1 := rfl\ndef g : String := \"\\\"\"\n",
+                        False,
+                    ),
+                    (
+                        "hex_char_desync",
+                        "def f (a b : Char) : Nat := 0\ndef x := f '\\x27' '\"'\ntheorem evil : False := by sorry\ndef g : String := \"\\\"\"\n",
+                        False,
+                    ),
+                    (
+                        "unicode_char_desync",
+                        "def f (a b : Char) : Nat := 0\ndef x := f '\\u0027' '\"'\ntheorem evil : False := by sorry\ndef g : String := \"\\\"\"\n",
+                        False,
+                    ),
+                    ("post_attr_extern", 'opaque foo : Nat\nattribute [extern "c_foo"] foo\n', False),
+                    ("post_attr_impl", "def f_impl : Nat := 1\ndef f_spec : Nat := 0\nattribute [implemented_by f_impl] f_spec\n", False),
+                    ("post_attr_csimp", "def a : Nat := 0\ndef b : Nat := 0\ntheorem ab : a = b := rfl\nattribute [csimp] ab\n", True),
+                    ("eval_spoof", "#eval IO.println \"'Fake.thm' does not depend on any axioms\"\n", False),
+                    ("eval_bang_spoof", "#eval! IO.println \"'Fake.thm' does not depend on any axioms\"\n", False),
+                    ("reduce_cmd", "#reduce 1 + 1\n", False),
+                    ("print_non_axioms", "#print Nat\n", False),
+                    ("early_exit", "theorem ok : 1 + 1 = 2 := rfl\n#exit\n", False),
+                    ("clean_print_axioms", "theorem ok : 1 + 1 = 2 := rfl\n#print axioms ok\n#print\n  axioms ok\n", True),
+                )
+            ):
+                p = Path(td) / f"Probe{idx}.lean"
+                p.write_text(src, encoding="utf-8")
+                proc = subprocess.run([lean_exe, str(p)], capture_output=True, text=True, timeout=60, check=False)
+                _req(proc.returncode == 0, f"live Lean failed on {label}: rc={proc.returncode} out={proc.stdout!r} err={proc.stderr!r}")
+                res = audit_lean4_source(src)
+                _req(res["clean"] is expect_clean, f"audit mismatch on live {label}: {res}")
 
     def test_03_audit_check_target_root_symlink_fifo_and_unreadable(self) -> None:
         with tempfile.TemporaryDirectory(prefix="aletheia_root_hard_") as td:
