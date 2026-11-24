@@ -15,6 +15,7 @@ Text and records only: no change to `spec/LAWS_AND_GATES.md`, `schemas/` or `ale
 
 ### Fixed
 - **Stale external records:** the outside-check totals in `evidence/outside/README.md` now read `36` findings, `37` rulings, `14` / `21` / `2`, recounted from cave `verification/outside/rulings.json` at `9729839`, with the earlier `13` / `22` / `1` kept as history. The Wave-2 case study no longer says that `check_016`–`check_025` are held on cave main. The README, the Wave-1 case study and the joint map record that `project-asma#101` was merged as `f2f92ee` on 2026-11-22, and the case study marks `NEXT_WAVES_COMPUTE.md` as not on cave main.
+- **`spec/proposals/EMPIRICAL_CLAIMS.md` (proposal text, not the spec):** the status line and the "does not do" list no longer describe an open pull request; the file is on `main` as text only and no certifier code exists. A new subsection, "Public examples outside that week", quotes two project-asma records with their own labels: the printed AUROC 0.83 versus the pooled 3491/4316 = 0.80885 for gate 3 (not shown to be an error; the explanations are `CONJECTURE`; the source request awaits answers), and an unexecuted plan's exact rejection region and capacity bound for gate 5. Neither is externally reviewed. The README repo map now lists the proposal.
 
 ## [2.1.0] — 2026-11-22
 

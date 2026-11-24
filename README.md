@@ -133,6 +133,7 @@ aletheia/
 ├── pyproject.toml                             # Zero-dependency PEP 621 Python 3 stdlib package config (v2.1.0)
 ├── spec/
 │   ├── LAWS_AND_GATES.md                      # Canonical v2.0 spec: Laws 1–5 + Law 2b, Own-Terms-First, 10 Gates, R1–R7, CS-01..CS-14
+│   ├── proposals/EMPIRICAL_CLAIMS.md          # Proposal (not adopted, text only): an exact core for empirical claims, 12 gates, grades E0–E5
 │   ├── proposals/OWN_TERMS_FIRST.md           # Own-Terms-First rule (direction confirmed 2026-11-22 in d43cb1c7; adopted in v2.0.0) + OTF-TIGHT-01..05
 │   └── twin_contract.json                      # Pinned claims this repo and cave-expedition make about each other (aletheia twin-check)
 ├── evidence/
