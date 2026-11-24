@@ -147,6 +147,6 @@ All checks below run directly from files committed in this PR using standard Pyt
 | :--- | :---: | :---: | :--- |
 | `aletheia_v22_misfolding_oracle.py` | `1,248` | `57,360` | `e4b0ecb9a6e308306b5938cea12353553212420055505e735a635f476055e2cb` |
 | `aletheia_v22_misfolding_audit.py` | `527` | `23,484` | `d58f9eb5dba204afbf8251a2d59793ee7a802d8b76f32582dd3941014b6d63eb` |
-| `test_aletheia_v22_misfolding_r5.py` | `819` | `62,308` | `c4e510d7ef98042b69da40f3c8603862faa85721e329d27a61568cf724672de1` |
+| `test_aletheia_v22_misfolding_r5.py` | `825` | `62,803` | `ac09664e42f8a3e7b972a4a77fe45d1c4a1bd762ec403dd2fcc2e4566f1556c9` |
 | `aletheia_v22_misfolding_certificate.json` | `1` | `12,707` | `f4f7f8abff0c7eae0d5678016c1041ab34870ef2de57a2f83e4cbb9a529f8a9b` |
 | `ALETHEIA_V22_MISFOLDING_REPORT.md` | *(this report)* | *(this report)* | *(omitted to prevent self-hash cycle)* |
