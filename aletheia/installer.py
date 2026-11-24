@@ -86,7 +86,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install aletheia-method at a pinned commit (zero external dependencies)
+      - name: Install aletheia-method at a pinned commit (no runtime dependencies; pip fetches setuptools to build it)
         run: |
           python3 -m pip install --no-deps "aletheia-method @ git+{_CI_ALETHEIA_REPO}@{_CI_ALETHEIA_COMMIT}"
       - name: Run aletheia audit-check (R1-R4 hygiene; R5 is aletheia mutate; R6/R7 not automated by this command)

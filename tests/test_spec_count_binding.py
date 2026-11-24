@@ -33,6 +33,7 @@ SPEC_PATH = ROOT / "spec" / "LAWS_AND_GATES.md"
 _SPEC_GATE_RE = re.compile(r"^(\d+)\. \*\*Gate (\d+) — (.+?):\*\*", re.MULTILINE)
 _SPEC_CONTRACT_RE = re.compile(r"^\| \*\*R(\d+) — ([^*|]+)\*\* \|", re.MULTILINE)
 _ISSUE_REF_RE = re.compile(r"\s*\(`aletheia#\d+`[^)]*\)")
+_SPEC_VERSION_RE = re.compile(r"^\*\*Specification Version:\*\* `([^`]+)`", re.MULTILINE)
 
 # v1-era count claims (the spec now has 10 gates and R1-R7).
 _NINE_GATES_RE = re.compile(r"(?<![\w.])(?:nine|9)(?:[ -]+[A-Za-z-]+){0,2}[ -]+gates?\b", re.IGNORECASE)
@@ -237,6 +238,13 @@ class TestScaffoldProtocol(unittest.TestCase):
         for needle in ("Law 2b", "Own-Terms-First", "`reference_replay`", "R1–R5 are necessary, not sufficient"):
             _req(needle in text, f"protocol lacks {needle!r}")
         _req(text.startswith("# Anti-Shadow Adversarial Verification Protocol (Aletheia v2)\n"), "protocol title is not v2")
+
+    def test_protocol_names_the_spec_version(self) -> None:
+        spec_text = SPEC_PATH.read_text(encoding="utf-8")
+        versions = _SPEC_VERSION_RE.findall(spec_text)
+        _req(len(versions) == 1, f"expected one `**Specification Version:**` line in the spec, found {versions}")
+        text = _protocol_markdown("x")
+        _req(f"(`{versions[0]}`)" in text, f"protocol does not name the spec version {versions[0]!r}")
 
     def test_protocol_has_no_stale_counts(self) -> None:
         text = _protocol_markdown("x")

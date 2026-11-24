@@ -3,7 +3,7 @@ Regression tests for the CI workflow that `aletheia install --target repo` write
 
 Before this test the embedded workflow ran `python3 -m aletheia audit-check .` in a
 fresh runner without installing aletheia, so it could not import the package. The
-workflow must install the `aletheia-method` distribution (dependency-free, pinned to a
+workflow must install the `aletheia-method` distribution (`--no-deps`, pinned to a
 full commit SHA) before any `python3 -m aletheia` step, and its step names must not
 claim more than `audit-check` automates.
 
@@ -62,12 +62,15 @@ class TestEmbeddedCIWorkflow(unittest.TestCase):
             _req(len(runs) >= 1, "workflow runs no aletheia command")
             _req(installs[0] < min(runs), "aletheia is run before it is installed")
             line = lines[installs[0]]
-            _req(_PINNED_INSTALL_RE.match(line) is not None, f"install line is not a pinned, dependency-free install: {line}")
+            _req(_PINNED_INSTALL_RE.match(line) is not None, f"install line is not a pinned `--no-deps` install: {line}")
             _req("--no-build-isolation" not in line, f"install needs preinstalled setuptools: {line}")
 
     def test_step_names_scope_what_audit_check_automates(self) -> None:
         _req("R6/R7 not automated by this command" in _EMBEDDED_CI_YML, "audit-check step name does not scope R6/R7")
         _req("R1-R5" not in _EMBEDDED_CI_YML and "R1–R5" not in _EMBEDDED_CI_YML, "step name claims R1-R5")
+        # `--no-deps` skips runtime dependencies only; pip's build isolation still downloads the
+        # `[build-system]` requirements (setuptools), so no step may claim zero external dependencies.
+        _req("zero external dependencies" not in _EMBEDDED_CI_YML.lower(), "install step claims zero external dependencies")
 
 
 if __name__ == "__main__":
