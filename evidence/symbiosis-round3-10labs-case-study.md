@@ -28,6 +28,8 @@ This case study documents **Wave 2 — Round 3** of the Cave Expedition (`AUDIT-
 
 ## 3. Expansion to Fifteen-Way Exact Fiber-Elimination Unification (`SF-01`)
 
+> **Later outside check (`cave-expedition#5`):** an outside Gate-5 audit found that every test readable from cave's README section 1, Portal 10 and `SF-01` is a theorem for any block system with an invertible pivot block, and passes on unrelated systems wherever it is defined (cave-expedition `verification/outside/gate5-unification/README.md:16-28`). Its verdict, Gate 5 not met, is worded for the eight-way claim (`:157`). The heading is kept as the record of what was claimed.
+
 Applying **Beyond-Language Stage A/B** (stripping all disciplinary labels and coordinate numerology) extended Wave 2's 10-way Schur unification to **15 independently verified instances** of the exact same coordinate-free fiber-elimination / Loewner positivity operator:
 - `#1`–`#10`: Wave 1 + Wave 2 Rounds 1–2 (`spectral-inertia` `R_opt` & `R_H4`, cellular sheaves, tropical quotient peeling, AeST gravity, $16\times 16$ GKSL Lindblad, $E_8$ spinor fold, Kigami fractals, `heedle` `SP-09` singular-$G_{kk}$ Haynsworth–Schur, `soko` grounded-Laplacian resistance).
 - `#11`: `anthropics/jacobian-lens@581d398` — dark-kernel `SP-09` Schur complement (`GL(2,Q) x O(4,Q)` invariant, `AUDIT-039`).

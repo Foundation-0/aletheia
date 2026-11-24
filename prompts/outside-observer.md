@@ -13,3 +13,12 @@ An internal verifier belonging to the same swarm shares the coordinator's brief,
 3. **Mechanism-First Prior-Art Search (`CS-13`):** Strip the producing team's terminology, restate the central object and mechanism in plain mathematical language and in the vocabulary of at least **two neighbouring fields**, and search full texts under each restatement.
 4. **Shared Test Set Cross-Check:** Exchange at least one positive and one negative canonical test vector between your checker and the producing team's checker to detect silent input-format drift.
 5. **Two-Pass Discipline:** Submit any negative findings or novelty downgrades to an Advocate pass (`prompts/advocate.md`) and publish both passes transparently in `evidence/outside/`.
+6. **Per-Source Record:** For every prior-work text a novelty label relies on, record the fields below. A label above `N0` needs a `full` or `section` read of the matching text; with anything less, keep the default `N0` (Law 4) and state the extent. A citation nobody read is withdrawn, not kept. A prose block per source is enough, as in cave-expedition `verification/outside/SOURCES.md`; project-asma's source registry (`registries/sources.json`, checked by `tools/validate.py`) keeps similar fields as data, including a required `checked_on` date and a `verification` level.
+
+```markdown
+- **Identifier:** <DOI / arXiv id with version / URL>; resolves: `yes` | `no` (how checked)
+- **Access date:** <YYYY-MM-DD>
+- **Version read:** <preprint version or journal text; publisher file or a copy, and where the copy came from>
+- **Read extent:** `full` | `section` (<which>) | `quoted_only` (<quoted where>) | `metadata_only` | `not_read`
+- **Corrections, errata or retraction checked:** `yes` | `no`
+```

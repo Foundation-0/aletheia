@@ -91,7 +91,7 @@
           </tr>
           <tr>
             <td><a href="../method/#laws">Schur operator transfer</a><br>Law 5 and Gate 5</td>
-            <td>One textbook step, block elimination by Schur complement, linked 8 fronts as an exact 8-way unification. It gave the AeST Hamiltonian Schur theorem in <a href="https://foundation-0.github.io/cave-expedition/ledger/#audit-011">AUDIT-011R</a> and, by the same spine, the 16 by 16 Lindblad Zeno Schur rate in <a href="https://foundation-0.github.io/cave-expedition/ledger/#audit-018">AUDIT-018</a>. Each link checked is an exact identity, not a shared word.</td>
+            <td>One textbook step, block elimination by Schur complement, is used on 8 fronts. An <a href="https://github.com/Foundation-0/cave-expedition/tree/main/verification/outside/gate5-unification">outside Gate 5 audit</a> found no shared invariant beyond the elimination identity; one pair, <a href="https://foundation-0.github.io/cave-expedition/ledger/#audit-017">AUDIT-017</a> and <a href="https://foundation-0.github.io/cave-expedition/ledger/#audit-019">AUDIT-019</a>, is linked by an exact congruence. The step gave the AeST Hamiltonian Schur theorem in <a href="https://foundation-0.github.io/cave-expedition/ledger/#audit-011">AUDIT-011R</a> and, using the same elimination step, the 16 by 16 Lindblad Zeno Schur rate in <a href="https://foundation-0.github.io/cave-expedition/ledger/#audit-018">AUDIT-018</a>. Each row checked is an exact identity; the shared step alone does not link the fields. Earlier text of this cell: "linked 8 fronts as an exact 8-way unification".</td>
           </tr>
           <tr>
             <td><a href="../method/#gates">Obstruction as theorem</a><br>Gates 1 to 8</td>
@@ -134,8 +134,8 @@
       </article>
       <article class="card" data-reveal style="--acc:var(--bio)">
         <p class="kick"><span>Chain 4</span><span>AeST and Lindblad</span></p>
-        <h3>One Schur spine, eight fronts</h3>
-        <p class="dek">A closure cut error from 24.6 to 185 percent down to 0.55 and 0.37 percent, and an exact ratio of 1, led to a Hamiltonian Schur theorem. The same Schur spine then gave an exact Lindblad Zeno rate for open quantum systems.</p>
+        <h3>One elimination step, eight fronts</h3>
+        <p class="dek">A closure cut error from 24.6 to 185 percent down to 0.55 and 0.37 percent, and an exact ratio of 1, led to a Hamiltonian Schur theorem. The same elimination step then gave an exact Lindblad Zeno rate for open quantum systems. An outside Gate 5 audit found no shared invariant across the eight fronts beyond that step.</p>
         <p class="links"><a href="https://foundation-0.github.io/cave-expedition/ledger/#audit-011">AUDIT-011R</a><a href="https://foundation-0.github.io/cave-expedition/ledger/#audit-018">AUDIT-018</a></p>
       </article>
       <article class="card" data-reveal style="--acc:var(--dig)">
@@ -154,7 +154,7 @@
     <h2 class="h2" data-reveal>The cuts improved the method.</h2>
     <div class="prose" data-reveal style="margin-top:20px">
       <p>The two pass outside check in cave-expedition#4 confirmed each central sum it covered. It kept AUDIT-017, the F8 to E8 fold, at N2 with medium confidence, and AUDIT-009, the all-n Dn fold, as a strong N2 candidate. It moved the rest of the home N2 set to N1 or N0. In each moved case it found the same mechanism at work under another fields name.</p>
-      <p>Two early write ups needed fixes. The q identity is a diagonal similarity, not a Doob transform, since non-goal rows do not sum to 1. The Lindblad Schur rate is the zero frequency reduction, not the exact slow decay rate when the tidal rate is non-zero. One link, the Kigami fractal link, saw no independent check in the outside pass. Two check scripts, check_007 and check_008, later went stale against patched heads and need re-pinning. All 10 cross-repo outputs stay as open draft requests for human review. The Lean file stays tagged as uncompiled source.</p>
+      <p>Two early write ups needed fixes. The q identity is a diagonal similarity, not a Doob transform, since non-goal rows do not sum to 1. The Lindblad Schur rate is the zero frequency reduction, not the exact slow decay rate when the tidal rate is non-zero. One link, the Kigami fractal link, saw no independent check in the outside pass. Two check scripts, check_007 and check_008, later went stale against patched heads and need re-pinning. All 10 cross-repo outputs were opened as draft requests for human review. One, project-asma#101, has since been merged into project-asma main as f2f92ee on 2026-11-22; project-asma labels that study author self-checked. The Lean file stays tagged as uncompiled source.</p>
       <p>Those findings rewrote this method. Prior art search now hunts by mechanism across at least two nearby fields under Gate 9. Every downgrade now gets a second pass advocate under Gate 10. Home labels still start at N0. A home verified tag means the claim cleared this protocol. It does not mean peer review cleared it.</p>
     </div>
     <p style="margin-top:16px"><a class="more" href="https://foundation-0.github.io/cave-expedition/ledger/">Open the full ledger</a> <a class="more" href="../method/">Read the method</a></p>
