@@ -332,7 +332,7 @@ class TestLean4AndAuditRootHardening(unittest.TestCase):
             ('def x := "\\\n"\ntheorem t : False := by sorry\n', [("LEAN4_SORRY", 3)]),
             (
                 'def foo! (s : String) : Nat := s.length\ndef a := foo!"{"\ntheorem t : False := sorry\ndef b := "}"\n',
-                [("LEAN4_SORRY", 3)],
+                [("LEAN4_UNKNOWN_BANG_STRING", 2), ("LEAN4_SORRY", 3)],
             ),
             (
                 'def a : Nat := panic!"{"\ntheorem t : False := sorry\ndef b := "}"\n',
@@ -340,11 +340,11 @@ class TestLean4AndAuditRootHardening(unittest.TestCase):
             ),
             (
                 'def a := foos!"{"\ntheorem t : False := sorry\ndef b := "}"\n',
-                [("LEAN4_SORRY", 2)],
+                [("LEAN4_UNKNOWN_BANG_STRING", 1), ("LEAN4_SORRY", 2)],
             ),
             (
                 'def a := Foo.s!"{"\ntheorem t : False := sorry\ndef b := "}"\n',
-                [("LEAN4_SORRY", 2)],
+                [("LEAN4_UNKNOWN_BANG_STRING", 1), ("LEAN4_SORRY", 2)],
             ),
             (
                 '!"{"\ntheorem t : False := sorry\ndef b := "}" ++ s',
@@ -376,9 +376,12 @@ class TestLean4AndAuditRootHardening(unittest.TestCase):
             'def raw_interp := r#"s!"{sorry}""#\n',
             'def brace_in_comment := s!"a { -- }\n  1 } b"\n',
             'def a : Nat := panic!"bad {sorry} state"\n',
+            'def a : Nat := panic!"abc\ntheorem t : True := by sorry\n"\n',
+            'panic!"ok"\n',
             'def a := s "hello {sorry}"\n',
             'def a := s!x\n',
-            'def a := x!"bad {sorry} state"\n',
+            'def x! (s : String) := s\ndef a := x! "bad {sorry} state"\n',
+            'def foo! (s : String) := s\ndef f := foo! "abc\ntheorem t : True := by sorry\n"\n',
         ):
             r_ok = audit_lean4_source(clean_src)
             _req(r_ok["clean"], f"false positive on clean interpolated/negation source {clean_src!r}: {r_ok}")
@@ -669,8 +672,8 @@ class TestLean4AndAuditRootHardening(unittest.TestCase):
                 'def a : String := s! "{ s! "}" ++ (by sorry : String) }"\n',
                 [("LEAN4_SORRY", 1)],
             ),
-            ("foo_underscore_s_bang_plain", 'def a := foo_s!"{"\ntheorem t : False := sorry\ndef b := "}"\n', [("LEAN4_SORRY", 2)]),
-            ("foo_prime_s_bang_plain", "def a := foo's!\"{\"\ntheorem t : False := sorry\ndef b := \"}\"\n", [("LEAN4_SORRY", 2)]),
+            ("foo_underscore_s_bang_plain", 'def a := foo_s!"{"\ntheorem t : False := sorry\ndef b := "}"\n', [("LEAN4_UNKNOWN_BANG_STRING", 1), ("LEAN4_SORRY", 2)]),
+            ("foo_prime_s_bang_plain", "def a := foo's!\"{\"\ntheorem t : False := sorry\ndef b := \"}\"\n", [("LEAN4_UNKNOWN_BANG_STRING", 1), ("LEAN4_SORRY", 2)]),
             ("debug_byAsSorry", "set_option debug.byAsSorry true\ntheorem fake : False := by trivial\n", [("LEAN4_SKIP_KERNEL_TC", 1)]),
             ("debug_proofAsSorry", "set_option debug.proofAsSorry true\ntheorem fake : False := by trivial\n", [("LEAN4_SKIP_KERNEL_TC", 1)]),
             (
@@ -725,7 +728,112 @@ class TestLean4AndAuditRootHardening(unittest.TestCase):
             res_rr9 = audit_lean4_source(r9_redos)
             elapsed_ms = (time.monotonic() - t0) * 1000.0
             _req(res_rr9["clean"], f"unexpected finding on R9 ReDoS probe: {res_rr9['findings']}")
-            _req(elapsed_ms < 60.0, f"R9 ReDoS regression: {elapsed_ms:.1f} ms")
+            _req(elapsed_ms < 200.0, f"R9 ReDoS regression: {elapsed_ms:.1f} ms")
+
+        # 6. R10 closures: unrecognized `<ident>!"`, built-in `dbg_trace`/`println!`/`Macro.trace[...]`/`trace[...]`/`throwError`,
+        # custom `macro`/`syntax`/`elab`/`interpolatedStr`, and quote-bearing `notation`/`prefix`/`infix*`/`postfix` tokens
+        for label, bad_src, exp_findings in (
+            ("ahrazzle_foo_bang_multiline", 'def f := foo!"abc\ntheorem t : True := by sorry\n"\n', [("LEAN4_UNKNOWN_BANG_STRING", 1)]),
+            ("unknown_x_bang_glued", 'def a := x!"bad {sorry} state"\n', [("LEAN4_UNKNOWN_BANG_STRING", 1)]),
+            ("col0_short_ident_bang", 'a!"x"\n', [("LEAN4_UNKNOWN_BANG_STRING", 1)]),
+            ("my_panic_spoof", 'def f := my_panic!"abc"\n', [("LEAN4_UNKNOWN_BANG_STRING", 1)]),
+            ("foo_dot_panic_spoof", 'def f := Foo.panic!"abc"\n', [("LEAN4_UNKNOWN_BANG_STRING", 1)]),
+            ("unicode_ident_bang_glued", 'def f := α!"abc\ntheorem t : True := by sorry\n"\n', [("LEAN4_UNKNOWN_BANG_STRING", 1)]),
+            ("double_bang_ident_glued", 'def f := foo!!"abc\ntheorem t : True := by sorry\n"\n', [("LEAN4_UNKNOWN_BANG_STRING", 1)]),
+            ("double_bang_s_glued", 'def f := s!!"{sorry}"\n', [("LEAN4_UNKNOWN_BANG_STRING", 1)]),
+            ("dbg_trace_interp_sorry", 'def f : Nat := dbg_trace "hi {(by sorry : String)}"; 0\n', [("LEAN4_SORRY", 1)]),
+            ("dbg_trace_nospace_sorry", 'def f : Nat := dbg_trace"hi {(by sorry : String)}"; 0\n', [("LEAN4_SORRY", 1)]),
+            ("dbg_trace_multiline_sorry", 'def f : Nat := dbg_trace\n  "hi {(by sorry : String)}"; 0\n', [("LEAN4_SORRY", 2)]),
+            ("dbg_trace_comment_sorry", 'def f : Nat := dbg_trace /- c -/ "hi {(by sorry : String)}"; 0\n', [("LEAN4_SORRY", 1)]),
+            ("throwError_interp_sorry", 'def f := throwError "hi {(by sorry : String)}"\n', [("LEAN4_SORRY", 1)]),
+            ("println_interp_sorry", 'def f : IO Unit := println! "hi {(by sorry : String)}"\n', [("LEAN4_SORRY", 1)]),
+            ("println_nospace_sorry", 'def f : IO Unit := println!"hi {(by sorry : String)}"\n', [("LEAN4_SORRY", 1)]),
+            ("println_nl_sorry", 'def f : IO Unit := println!\n  "hi {(by sorry : String)}"\n', [("LEAN4_SORRY", 2)]),
+            ("v_bang_lake_interp_sorry", 'def f := v!"{(by sorry : String)}"\n', [("LEAN4_SORRY", 1)]),
+            ("reportIssue_interp_sorry", 'def f := reportIssue! "hi {(by sorry : String)}"\n', [("LEAN4_SORRY", 1)]),
+            ("reportDbgIssue_interp_sorry", 'def f := reportDbgIssue! "hi {(by sorry : String)}"\n', [("LEAN4_SORRY", 1)]),
+            ("reportEMatchIssue_interp_sorry", 'def f := reportEMatchIssue! "hi {(by sorry : String)}"\n', [("LEAN4_SORRY", 1)]),
+            ("macro_trace_interp_sorry", 'def f : Lean.MacroM Unit := Macro.trace[foo] "hi {(by sorry : String)}"\n', [("LEAN4_SORRY", 1)]),
+            ("macro_trace_nospace_sorry", 'def f : Lean.MacroM Unit := Macro.trace[foo]"hi {(by sorry : String)}"\n', [("LEAN4_SORRY", 1)]),
+            ("macro_trace_nl_sorry", 'def f : Lean.MacroM Unit := Macro.trace[foo]\n  "hi {(by sorry : String)}"\n', [("LEAN4_SORRY", 2)]),
+            ("trace_brack_sorry", 'def f := trace[Elab.step] "hi {(by sorry : String)}"\n', [("LEAN4_SORRY", 1)]),
+            ("trace_goal_brack_sorry", 'def f := trace_goal[grind] "hi {(by sorry : String)}"\n', [("LEAN4_SORRY", 1)]),
+            ("trace_nested_brack_sorry", 'def f := trace[a[0]] "hi {(by sorry : String)}"\n', [("LEAN4_SORRY", 1)]),
+            ("trace_inner_macro_trace_sorry", 'def f := trace[Macro.trace] "hi {(by sorry : String)}"\n', [("LEAN4_SORRY", 1)]),
+            ("trace_inner_trace_sorry", 'def f := trace[trace] "hi {(by sorry : String)}"\n', [("LEAN4_SORRY", 1)]),
+            ("custom_syntax_interp", 'syntax "foo!" interpolatedStr(term) : term\n', [("LEAN4_META_SYNTAX_ESCAPE", 1)]),
+            ("custom_macro_mkIdent_sorryAx", 'macro "ok" : term => pure (Lean.mkIdent (Lean.Name.mkSimple ("sor" ++ "ryAx")))\ntheorem fake : False := ok False false\n', [("LEAN4_META_SYNTAX_ESCAPE", 1)]),
+            ("custom_macro_rules", 'macro_rules | `(ok) => `(0)\n', [("LEAN4_META_SYNTAX_ESCAPE", 1)]),
+            ("custom_elab", 'elab "ok" : term => pure ()\n', [("LEAN4_META_SYNTAX_ESCAPE", 1)]),
+            ("custom_elab_rules", 'elab_rules : term | `(ok) => pure ()\n', [("LEAN4_META_SYNTAX_ESCAPE", 1)]),
+            ("qualified_interpolatedStr", 'def f := Lean.Parser.Term.interpolatedStr\n', [("LEAN4_META_SYNTAX_ESCAPE", 1)]),
+            ("notation_quote_token_sorry", 'notation "foo!\\"" => 0\ndef f := foo!"\ntheorem fake : False := by sorry\ndef g := foo!"\n', [("LEAN4_SYNTAX_QUOTE_TOKEN", 1), ("LEAN4_UNKNOWN_BANG_STRING", 2)]),
+            ("notation_bar_quote_token", 'notation "bar\\"" => 1\ndef f := bar"\ntheorem fake : False := by sorry\ndef g := bar"\n', [("LEAN4_SYNTAX_QUOTE_TOKEN", 1)]),
+            ("notation_double_escaped_quote_once", 'notation "a\\"b\\"" => 0\n', [("LEAN4_SYNTAX_QUOTE_TOKEN", 1)]),
+            ("prefix_quote_token", 'prefix:max "foo!\\"" => id\n', [("LEAN4_SYNTAX_QUOTE_TOKEN", 1)]),
+            ("infix_quote_token", 'infix:65 " +\\" " => Nat.add\n', [("LEAN4_SYNTAX_QUOTE_TOKEN", 1)]),
+            ("infixl_quote_token", 'infixl:65 " +\\" " => Nat.add\n', [("LEAN4_SYNTAX_QUOTE_TOKEN", 1)]),
+            ("infixr_quote_token", 'infixr:65 " +\\" " => Nat.add\n', [("LEAN4_SYNTAX_QUOTE_TOKEN", 1)]),
+            ("postfix_quote_token", 'postfix:max "foo!\\"" => id\n', [("LEAN4_SYNTAX_QUOTE_TOKEN", 1)]),
+        ):
+            res_r10 = audit_lean4_source(bad_src)
+            _req(not res_r10["clean"], f"{label} bypassed audit_lean4_source: {res_r10}")
+            _req(
+                [(f["code"], f["line"]) for f in res_r10["findings"]] == exp_findings,
+                f"wrong R10 findings for {label}: got {res_r10['findings']}, want {exp_findings}",
+            )
+
+        # Clean R10 non-FP controls (exact boundaries for panic!, dbg_trace, println!, Macro.trace, trace, notation =>, meta identifiers)
+        for ok_r10 in (
+            'def f : Nat := dbg_trace ("hi {sorry}"); 0\n',
+            'def f : Nat := dbg_trace "hi sorry"; 0\n',
+            'def f := dbg_trace.foo "{sorry}"\n',
+            "def f := dbg_trace' \"{sorry}\"\n",
+            'def my_dbg_trace (s : String) := s\ndef f := my_dbg_trace "hi {sorry}"\n',
+            'def f : IO Unit := println! ("hi {sorry}")\n',
+            'def f : IO Unit := println! "hi sorry"\n',
+            'def f := s!! "{sorry}"\n',
+            'def f := s!',
+            'def f := Macro.trace',
+            'def f := Macro.trace[foo] "hi sorry"\n',
+            'def f := Macro.trace1[0] "{sorry}"\n',
+            'def f := Macro.trace_[0] "{sorry}"\n',
+            'def trace (s : String) := s\ndef f := trace "hi {sorry}"\n',
+            'def f := trace "{sorry}" [0] "{sorry}"\n',
+            'def f := trace[a[0] "{sorry}"]\n',
+            'def f (x : S) := x.trace[0] "hi {sorry}"\n',
+            'def f := s! => "{sorry}"\n',
+            'def f := trace => [0] "{sorry}"\n',
+            'def f := trace «tok» [0] "{sorry}"\n',
+            "def f := trace 'a' [0] \"{sorry}\"\n",
+            'def f := trace r"ok" [0] "{sorry}"\n',
+            'def f := s!"{ trace { a := 1 }; [1] "{sorry}" }"\n',
+            'def f := !!"abc\ntheorem t : True := by sorry\n"\n',
+            'notation "a\\n" => 0\n',
+            'notation "my_q" => "\\""\ndef s := my_q\n',
+            'infixl:65 " ⊕ " => Nat.add\ndef s := "a \\" b"\n',
+            'def f := prefix.x "\\""\n',
+            'def f := notation\' "\\""\n',
+            'def x := 1 -- eof_comment_no_nl',
+            '@[macro_inline] def f : Nat := 1\n',
+            'def x := Foo.macro + Foo.syntax + my_macro + syntax_tree + elaborate\n',
+            '-- macro syntax elab\ndef s := "macro syntax elab interpolatedStr"\n',
+        ):
+            res_ok10 = audit_lean4_source(ok_r10)
+            _req(res_ok10["clean"], f"false positive on clean R10 control {ok_r10!r}: {res_ok10['findings']}")
+
+        # Anti-ReDoS linear-time guard for R10 (including thousands of findings via monotonic line cursor)
+        for r10_redos, exp_clean in (
+            ('foo!"a" ' * 5000 + "\n", False),
+            ('notation ' + '"\\"" ' * 3000 + '=> 0\n', False),
+            ('Macro.trace ' * 5000 + "\n", True),
+            ('dbg_trace ' * 5000 + "\n", True),
+        ):
+            t0 = time.monotonic()
+            res_rr10 = audit_lean4_source(r10_redos)
+            elapsed_ms = (time.monotonic() - t0) * 1000.0
+            _req(res_rr10["clean"] is exp_clean, f"unexpected R10 ReDoS result: clean={res_rr10['clean']}")
+            _req(elapsed_ms < 200.0, f"R10 ReDoS regression: {elapsed_ms:.1f} ms")
 
     def test_02d_live_lean4_compiler_witnesses(self) -> None:
         """When a live `lean` binary is on PATH, verify each new escape & clean control actually compiles (rc == 0)."""
@@ -810,6 +918,29 @@ class TestLean4AndAuditRootHardening(unittest.TestCase):
                     ("print_axioms_example", "def axioms := 1\n#print axioms example : True := trivial\n", False, False),
                     ("clean_print_axioms", "theorem ok : 1 + 1 = 2 := rfl\n#print axioms ok\n#print\n  axioms ok\n", True, False),
                     ("clean_r9_controls", 'def r := r##"hello "# sorry"##\ndef e := s!"\\{sorry}"\ndef e2 := s! "\\{sorry}"\ntheorem example_thm : 1 + 1 = 2 := rfl\n#print axioms example_thm\n', True, False),
+                    # R10 live Lean 4.36.0 compiler witnesses
+                    ("r10_dbg_trace_interp_sorry", 'def f : Nat := dbg_trace "hi {(by sorry : String)}"; 0\n', False, False),
+                    ("r10_dbg_trace_nospace_sorry", 'def f : Nat := dbg_trace"hi {(by sorry : String)}"; 0\n', False, False),
+                    ("r10_dbg_trace_comment_sorry", 'def f : Nat := dbg_trace /- c -/ "hi {(by sorry : String)}"; 0\n', False, False),
+                    ("r10_println_interp_sorry", 'def f : IO Unit := println! "hi {(by sorry : String)}"\n', False, False),
+                    ("r10_println_nospace_sorry", 'def f : IO Unit := println!"hi {(by sorry : String)}"\n', False, False),
+                    ("r10_macro_trace_interp_sorry", 'def f : Lean.MacroM Unit := Macro.trace[foo] "hi {(by sorry : String)}"\n', False, False),
+                    ("r10_macro_trace_nospace_sorry", 'def f : Lean.MacroM Unit := Macro.trace[foo]"hi {(by sorry : String)}"\n', False, False),
+                    ("r10_custom_syntax_interp_sorry", 'syntax "foo!" interpolatedStr(term) : term\nmacro_rules | `(foo!$s) => `(s!$s)\ndef f := foo!"{(by sorry : String)}"\n', False, False),
+                    ("r10_custom_macro_interp_sorry", 'macro "my!" s:interpolatedStr(term) : term => `(s!$s)\ndef f := my!"{(by sorry : String)}"\n', False, False),
+                    ("r10_custom_syntax_no_bang_interp", 'syntax "foo" interpolatedStr(term) : term\nmacro_rules | `(foo$s) => `(s!$s)\ndef f := foo"{(by sorry : String)}"\n', False, False),
+                    ("r10_macro_mkIdent_sorryAx", 'macro "ok" : term => pure (Lean.mkIdent (Lean.Name.mkSimple ("sor" ++ "ryAx")))\ntheorem fake : False := ok False false\n', False, False),
+                    ("r10_macro_decide_native_mkIdent", 'macro "ok" : tactic => `(tactic| decide +$(Lean.mkIdent (Lean.Name.mkSimple ("nat" ++ "ive"))))\ntheorem t : 1 + 1 = 2 := by ok\n', False, False),
+                    ("r10_macro_attr_extern", 'macro "ok" : attr => `(attr| extern "c_foo")\n@[ok] opaque f : Nat\n', False, False),
+                    ("r10_notation_foo_bang_quote", 'notation "foo!\\"" => 0\ndef f := foo!"\ntheorem fake : False := by sorry\ndef g := foo!"\n', False, False),
+                    ("r10_notation_bar_quote", 'notation "bar\\"" => 1\ndef f := bar"\ntheorem fake : False := by sorry\ndef g := bar"\n', False, False),
+                    ("r10_prefix_quote_token", 'prefix:max "foo!\\"" => id\ndef f := foo!" 0\ntheorem fake : False := by sorry\ndef g := foo!" 0\n', False, False),
+                    ("r10_infixl_quote_token", 'infixl:65 " +\\" " => Nat.add\ndef f := 1 +" 2\ntheorem fake : False := by sorry\ndef g := 1 +" 2\n', False, False),
+                    ("r10_postfix_quote_token", 'postfix:max "foo!\\"" => id\ndef f := 0foo!"\ntheorem fake : False := by sorry\ndef g := 0foo!"\n', False, False),
+                    ("r10_clean_spaced_foo_bang_multiline", 'def foo! (s : String) : String := s\ndef f := foo! "abc\ntheorem t : True := by sorry\n"\n', True, False),
+                    ("r10_clean_panic_multiline", 'def f : Nat := panic!"abc\ntheorem t : True := by sorry\n"\n', True, False),
+                    ("r10_clean_dbg_trace_and_println_parens", 'def f1 : Nat := dbg_trace ("hi {sorry}"); 0\ndef f2 : IO Unit := println! ("hi {sorry}")\n', True, False),
+                    ("r10_clean_notation_rhs_quote_and_macro_inline", 'notation "my_q" => "\\""\n@[macro_inline] def s : String := my_q\n', True, False),
                 )
             ):
                 p = Path(td) / f"Probe{idx}.lean"

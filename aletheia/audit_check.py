@@ -696,6 +696,10 @@ _LEAN4_HARD_LINE_RULES: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"\bLean\.ofReduceBool\b|\bofReduceBool\b"), "LEAN4_OF_REDUCE_BOOL"),
     (re.compile(r"\bLean\.ofReduceNat\b|\bofReduceNat\b"), "LEAN4_OF_REDUCE_NAT"),
     (re.compile(r"\bLean\.trustCompiler\b|\btrustCompiler\b"), "LEAN4_TRUST_COMPILER"),
+    (
+        re.compile(r"(?<!\.)\b(?:macro|macro_rules|elab|elab_rules|syntax)\b|\binterpolatedStr\b"),
+        "LEAN4_META_SYNTAX_ESCAPE",
+    ),
 )
 
 # Declaration-scoped `partial` across single or multiple lines (zero FP on dot-projections like `SmoothShell.partial`)
@@ -835,6 +839,14 @@ _LEAN4_IDENT_EXTRA = "_.'"
 _LEAN4_CHAR_PREV_IDENT = "_'»!?"
 _LEAN4_HEX_DIGITS = frozenset("0123456789abcdefABCDEF")
 _LEAN4_SIMPLE_GUILLEMET_INNER_RE = re.compile(r"\A[A-Za-z_][A-Za-z0-9_']*\Z")
+_LEAN4_INTERP_BANG_WORDS = frozenset(
+    ("s", "f", "m", "v", "println", "reportIssue", "reportDbgIssue", "reportEMatchIssue")
+)
+_LEAN4_INTERP_KEYWORDS = frozenset(("dbg_trace", "throwError"))
+_LEAN4_TRACE_BRACK_WORDS = frozenset(("trace", "trace_goal"))
+_LEAN4_SYNTAX_QUOTE_KEYWORDS = frozenset(
+    ("notation", "prefix", "infix", "infixl", "infixr", "postfix")
+)
 
 
 def _is_lean4_ident_prev(source: str, pos: int) -> bool:
@@ -946,10 +958,13 @@ def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
     in_str = False
     in_interp = False
     pending_interp = False
+    trace_brack = 0
+    in_syntax_header = False
+    syntax_quote_reported = False
     interp_stack: list[list[int]] = []
     raw_hashes = -1
     opened_at = 0
-    unterminated: list[dict[str, Any]] = []
+    lex_issues: list[tuple[int, str]] = []
     while i < n:
         ch = source[i]
         nxt = source[i + 1] if i + 1 < n else ""
@@ -978,6 +993,9 @@ def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
             continue
         if in_str:
             if ch == "\\":
+                if nxt == '"' and in_syntax_header and not syntax_quote_reported:
+                    syntax_quote_reported = True
+                    lex_issues.append((i, "LEAN4_SYNTAX_QUOTE_TOKEN"))
                 out.append(" \n" if nxt == "\n" else "  ")
                 i += 2
             elif ch == '"':
@@ -1005,15 +1023,32 @@ def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
                 out.append("\n" if ch == "\n" else " ")
                 i += 1
             continue
+        if ch == "/" and nxt == "-":
+            depth = 1
+            opened_at = i
+            out.append("  ")
+            i += 2
+            continue
+        if ch == "-" and nxt == "-":
+            while i < n and source[i] != "\n":
+                out.append(" ")
+                i += 1
+            continue
+        if ch.isspace():
+            out.append(ch)
+            i += 1
+            continue
+        if ch != '"':
+            pending_interp = False
+        if ch != "[" and trace_brack == 1:
+            trace_brack = 0
         if interp_stack:
             if ch == "{":
-                pending_interp = False
                 interp_stack[-1][0] += 1
                 out.append(ch)
                 i += 1
                 continue
             if ch == "}":
-                pending_interp = False
                 interp_stack[-1][0] -= 1
                 out.append(ch)
                 i += 1
@@ -1021,50 +1056,43 @@ def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
                     _, opened_at = interp_stack.pop()
                     in_interp = True
                 continue
-        if ch == "/" and nxt == "-":
-            depth = 1
-            opened_at = i
-            out.append("  ")
-            i += 2
-        elif ch == "-" and nxt == "-":
-            while i < n and source[i] != "\n":
-                out.append(" ")
-                i += 1
-        elif ch == "r" and not _is_lean4_ident_prev(source, i - 1):
-            pending_interp = False
-            j = i + 1
-            while j < n and source[j] == "#":
-                j += 1
-            if j < n and source[j] == '"':
-                raw_hashes = j - (i + 1)
-                opened_at = i
-                out.append(" " * (j - i + 1))
-                i = j + 1
-            else:
-                out.append(ch)
-                i += 1
-        elif ch == "!" and i >= 1 and source[i - 1] in "smf" and not _is_lean4_ident_prev(source, i - 2):
-            pending_interp = True
+        if ch == "[" and trace_brack >= 1:
+            trace_brack += 1
             out.append(ch)
             i += 1
+        elif ch == "]" and trace_brack >= 2:
+            trace_brack -= 1
+            if trace_brack == 1:
+                trace_brack = 0
+                pending_interp = True
+            out.append(ch)
+            i += 1
+        elif ch == "=" and nxt == ">":
+            in_syntax_header = False
+            out.append("=>")
+            i += 2
         elif ch == '"':
             if pending_interp:
                 in_interp = True
                 pending_interp = False
             else:
+                if i >= 2 and source[i - 1] == "!" and _is_lean4_ident_prev(source, i - 2):
+                    is_panic = (
+                        i >= 6
+                        and source[i - 6 : i] == "panic!"
+                        and not _is_lean4_ident_prev(source, i - 7)
+                    )
+                    if not is_panic:
+                        lex_issues.append((i, "LEAN4_UNKNOWN_BANG_STRING"))
                 in_str = True
+                syntax_quote_reported = False
             opened_at = i
             out.append(" ")
             i += 1
         elif ch == "«":
-            pending_interp = False
             end_g = source.find("»", i + 1)
             if end_g == -1:
-                lineno = source.count("\n", 0, i) + 1
-                excerpt = source.splitlines()[lineno - 1].strip()[:100]
-                unterminated.append(
-                    {"line": lineno, "code": "LEAN4_UNTERMINATED_IDENT", "excerpt": excerpt}
-                )
+                lex_issues.append((i, "LEAN4_UNTERMINATED_IDENT"))
                 out.append("\n" * source.count("\n", i))
                 break
             inner = source[i + 1 : end_g]
@@ -1074,7 +1102,6 @@ def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
                 out.append(" " + "".join("\n" if c == "\n" else " " for c in inner) + " ")
             i = end_g + 1
         elif ch == "'" and (i == 0 or not (source[i - 1].isalnum() or source[i - 1] in _LEAN4_CHAR_PREV_IDENT)):
-            pending_interp = False
             # Lean 4 char literals ('"', '\n', '\x27', '\u0027') without disturbing identifier primes x'
             char_end = _match_lean4_char_literal_end(source, i, n)
             if char_end is not None:
@@ -1084,22 +1111,62 @@ def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
                 out.append(ch)
                 i += 1
         else:
-            if not ch.isspace():
-                pending_interp = False
+            if ch == "r" and not _is_lean4_ident_prev(source, i - 1):
+                j = i + 1
+                while j < n and source[j] == "#":
+                    j += 1
+                if j < n and source[j] == '"':
+                    raw_hashes = j - (i + 1)
+                    opened_at = i
+                    out.append(" " * (j - i + 1))
+                    i = j + 1
+                    continue
+            if (ch.isalpha() or ch == "_") and not _is_lean4_ident_prev(source, i - 1):
+                w_end = i + 1
+                while w_end < n and (source[w_end].isalnum() or source[w_end] == "_"):
+                    w_end += 1
+                word = source[i:w_end]
+                if word == "Macro" and source.startswith(".trace", w_end):
+                    end_mt = w_end + 6
+                    if end_mt == n or not (source[end_mt].isalnum() or source[end_mt] in "_'!?"):
+                        if trace_brack == 0:
+                            trace_brack = 1
+                        out.append(source[i:end_mt])
+                        i = end_mt
+                        continue
+                next_ch = source[w_end] if w_end < n else ""
+                if next_ch == "!" and word in _LEAN4_INTERP_BANG_WORDS:
+                    after_bang = source[w_end + 1] if w_end + 1 < n else ""
+                    if not (after_bang.isalnum() or after_bang in "_'!?"):
+                        pending_interp = True
+                        out.append(source[i : w_end + 1])
+                        i = w_end + 1
+                        continue
+                if next_ch not in ".'!?":
+                    if word in _LEAN4_INTERP_KEYWORDS:
+                        pending_interp = True
+                    elif word in _LEAN4_TRACE_BRACK_WORDS and trace_brack == 0:
+                        trace_brack = 1
+                    elif word in _LEAN4_SYNTAX_QUOTE_KEYWORDS:
+                        in_syntax_header = True
+                out.append(word)
+                i = w_end
+                continue
             out.append(ch)
             i += 1
     unclosed_open = depth > 0 or in_str or in_interp or raw_hashes >= 0
     if unclosed_open or interp_stack:
         err_at = opened_at if unclosed_open else interp_stack[-1][1]
-        lineno = source.count("\n", 0, err_at) + 1
-        excerpt = source.splitlines()[lineno - 1].strip()[:100]
-        unterminated.append(
-            {
-                "line": lineno,
-                "code": "LEAN4_UNTERMINATED_COMMENT" if depth > 0 else "LEAN4_UNTERMINATED_STRING",
-                "excerpt": excerpt,
-            }
-        )
+        lex_issues.append((err_at, "LEAN4_UNTERMINATED_COMMENT" if depth > 0 else "LEAN4_UNTERMINATED_STRING"))
+    unterminated: list[dict[str, Any]] = []
+    if lex_issues:
+        lines = source.splitlines()
+        cur_line = 1
+        cur_pos = 0
+        for pos, code in sorted(lex_issues):
+            cur_line += source.count("\n", cur_pos, pos)
+            cur_pos = pos
+            unterminated.append({"line": cur_line, "code": code, "excerpt": lines[cur_line - 1].strip()[:100]})
     return "".join(out), unterminated
 
 
