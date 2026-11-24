@@ -225,6 +225,9 @@ class TestSafetyR5(unittest.TestCase):
         # Invalid surrogate pair in BOM-less UTF-16-LE / UTF-16-BE triggers decode failure cleanly
         self.assertIsNone(safety._decode_text_bytes(b"a\x00b\x00\x00\xd8c\x00"))
         self.assertIsNone(safety._decode_text_bytes(b"\x00a\x00b\xd8\x00\x00c"))
+        # Lone high surrogate U+D801 with zero opposite-parity NULs enters raw.decode(enc) directly
+        self.assertIsNone(safety._decode_text_bytes(b"a\x00b\x00c\x00\x01\xd8"))
+        self.assertIsNone(safety._decode_text_bytes(b"\x00a\x00b\x00c\xd8\x01"))
         # UTF-32-LE/BE with or without BOM and UTF-16-with-BOM containing NUL MUST fail closed as undecodable
         wf_u32 = "on: pull_request_target\npermissions: write-all\n"
         self.assertIsNone(safety._decode_text_bytes(wf_u32.encode("utf-32-le")))
