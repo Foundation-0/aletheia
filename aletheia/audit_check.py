@@ -704,17 +704,11 @@ _LEAN4_PARTIAL_DECL_RE = re.compile(
 )
 
 # Lean 4.15+ `decide` native-evaluation trust escapes: `+native`, `(native := <non-false>)`,
-# `(config := { ... native := <non-false> ... })`, and bound `DecideConfig` / `Decide.Config` records.
-_LEAN4_DECIDE_RUN_RE = re.compile(
-    r"\bdecide(?=\s|\()(?:\s*[+-][A-Za-z0-9_]+|\s*\(\s*[A-Za-z0-9_]+\s*:=[^()]*(?:\([^()]*\)[^()]*)*\))+",
-    flags=re.DOTALL,
-)
-_LEAN4_DECIDE_NATIVE_ITEM_RE = re.compile(
-    r"(\+native\b)"
-    r"|\(\s*native\s*:=\s*([^()]*(?:\([^()]*\)[^()]*)*)\)"
-    r"|\(\s*config\s*:=\s*(?:\(\s*)*\{[^}{]*\bnative\s*:=\s*([^}{,:]*)(?:[,}]|:\s)",
-    flags=re.DOTALL,
-)
+# `(config := { ... native := <non-false> ... })` of arbitrary paren depth, and bound `DecideConfig` records.
+_LEAN4_DECIDE_KW_RE = re.compile(r"\bdecide\b")
+_LEAN4_FLAG_TOK_RE = re.compile(r"[+-][A-Za-z0-9_]+")
+_LEAN4_OPT_PREFIX_RE = re.compile(r"\s*([A-Za-z0-9_]+)\s*:=")
+_LEAN4_CONFIG_NATIVE_RE = re.compile(r"\bnative\s*:=\s*([^},:]*)")
 _LEAN4_DECIDE_CONFIG_BIND_RE = re.compile(
     r"\b(?:DecideConfig|Decide\.Config)\b[ \t)]*:=\s*(?:\(\s*)*\{[^}{]*\bnative\s*:=\s*([^}{,:]*)(?:,[^}{]*)?\}"
     r"|\{[^}{]*\bnative\s*:=\s*([^}{,:]*)(?:,[^}{]*)?\}\s*:\s*(?:[A-Za-z_][A-Za-z0-9_]*\.)*(?:DecideConfig|Decide\.Config)\b"
@@ -723,11 +717,83 @@ _LEAN4_DECIDE_CONFIG_BIND_RE = re.compile(
 )
 
 
+def _is_lean4_native_rhs_false_span(text: str, lo: int, hi: int) -> bool:
+    while True:
+        while lo != hi and text[lo].isspace():
+            lo += 1
+        while hi != lo and text[hi - 1].isspace():
+            hi -= 1
+        if hi - lo >= 7 and text[lo] == "(" and text[hi - 1] == ")":
+            lo += 1
+            hi -= 1
+            continue
+        break
+    rem = text[lo:hi] if hi - lo <= 10 else ""
+    return rem in ("false", "Bool.false")
+
+
 def _is_lean4_native_rhs_false(rhs: str) -> bool:
-    s = rhs.strip()
-    while s.startswith("(") and s.endswith(")"):
-        s = s[1:-1].strip()
-    return s in ("false", "Bool.false")
+    return _is_lean4_native_rhs_false_span(rhs, 0, len(rhs))
+
+
+def _scan_lean4_decide_native(cleaned: str) -> list[tuple[int, int]]:
+    """Single-pass O(n) balanced-paren scanner for Lean 4 `decide` native-evaluation escapes."""
+    if "decide" not in cleaned:
+        return []
+    n = len(cleaned)
+    match_rparen: dict[int, int] = {}
+    paren_stack: list[int] = []
+    for idx, ch in enumerate(cleaned):
+        if ch == "(":
+            paren_stack.append(idx)
+        elif ch == ")" and paren_stack:
+            match_rparen[paren_stack.pop()] = idx
+
+    spans: list[tuple[int, int]] = []
+    config_floor = 0
+    for m_dec in _LEAN4_DECIDE_KW_RE.finditer(cleaned):
+        start = m_dec.start()
+        pos = m_dec.end()
+        native_hit = False
+        while True:
+            ws = pos
+            while ws != n and cleaned[ws].isspace():
+                ws += 1
+            if ws == n:
+                break
+            ch = cleaned[ws]
+            if ch in "+-":
+                m_flag = _LEAN4_FLAG_TOK_RE.match(cleaned, ws)
+                if m_flag is None:
+                    break
+                if m_flag.group(0) == "+native":
+                    native_hit = True
+                pos = m_flag.end()
+                continue
+            if ch == "(":
+                close_idx = match_rparen.get(ws)
+                if close_idx is None:
+                    break
+                m_pfx = _LEAN4_OPT_PREFIX_RE.match(cleaned, ws + 1, close_idx)
+                if m_pfx is None:
+                    break
+                opt_key = m_pfx.group(1)
+                rhs_lo = m_pfx.end()
+                if opt_key == "native":
+                    if not _is_lean4_native_rhs_false_span(cleaned, rhs_lo, close_idx):
+                        native_hit = True
+                elif opt_key == "config":
+                    scan_lo = max(rhs_lo, config_floor)
+                    for m_nv in _LEAN4_CONFIG_NATIVE_RE.finditer(cleaned, scan_lo, close_idx):
+                        if not _is_lean4_native_rhs_false_span(cleaned, m_nv.start(1), m_nv.end(1)):
+                            native_hit = True
+                    config_floor = max(config_floor, close_idx)
+                pos = close_idx + 1
+                continue
+            break
+        if native_hit:
+            spans.append((start, pos))
+    return spans
 
 
 def _lean4_match_enables_native(m_obj: re.Match[str]) -> bool:
@@ -989,14 +1055,12 @@ def audit_lean4_source(
         findings.append({"line": lineno, "code": "LEAN4_PARTIAL", "excerpt": " ".join(m_part.group(0).split())[:100]})
 
     # Lean 4.15+ `decide +native`, `(native := <non-false>)`, `(config := { native := <non-false> })`, & bound DecideConfig
-    decide_spans: list[tuple[int, int]] = []
-    for m_dn in _LEAN4_DECIDE_RUN_RE.finditer(cleaned):
-        if any(_lean4_match_enables_native(m_item) for m_item in _LEAN4_DECIDE_NATIVE_ITEM_RE.finditer(m_dn.group(0))):
-            decide_spans.append((m_dn.start(), m_dn.end()))
-            lineno = cleaned[: m_dn.start()].count("\n") + 1
-            findings.append(
-                {"line": lineno, "code": "LEAN4_DECIDE_NATIVE", "excerpt": " ".join(m_dn.group(0).split())[:100]}
-            )
+    decide_spans = _scan_lean4_decide_native(cleaned)
+    for ds, de in decide_spans:
+        lineno = cleaned[:ds].count("\n") + 1
+        findings.append(
+            {"line": lineno, "code": "LEAN4_DECIDE_NATIVE", "excerpt": " ".join(cleaned[ds:de].split())[:100]}
+        )
     for m_dc in _LEAN4_DECIDE_CONFIG_BIND_RE.finditer(cleaned):
         if any(m_dc.start() in range(ds, de) for ds, de in decide_spans):
             continue

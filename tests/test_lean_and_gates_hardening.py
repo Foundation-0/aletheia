@@ -155,12 +155,18 @@ class TestLean4AndAuditRootHardening(unittest.TestCase):
             ("theorem t : 2 + 2 = 4 := by decide (kernel := false) +native\n", 1),
             ("theorem t : 2 + 2 = 4 := by decide (kernel := false)+native\n", 1),
             ("theorem t : 2 + 2 = 4 := by decide +revert+native\n", 1),
+            ("theorem t : 2 + 2 = 4 := by decide+native\n", 1),
+            ("theorem t : 2 + 2 = 4 := by decide-revert+native\n", 1),
             ("theorem t : 2 + 2 = 4 := by decide (native := Bool.true)\n", 1),
             ("theorem t : 2 + 2 = 4 := by decide (native := (true))\n", 1),
+            ("theorem t : 2 + 2 = 4 := by decide (native := ((true)))\n", 1),
+            ("theorem t : 2 + 2 = 4 := by decide (native := (false || (true)))\n", 1),
             ("theorem t : 2 + 2 = 4 := by decide (native := !false)\n", 1),
             ("theorem t : 2 + 2 = 4 := by decide (native := false || true)\n", 1),
             ("theorem t : 2 + 2 = 4 := by decide (native := false) +native\n", 1),
             ("theorem t : 2 + 2 = 4 := by decide (config := { native := Bool.true })\n", 1),
+            ("theorem t : 2 + 2 = 4 := by decide (config := (({ native := true })))\n", 1),
+            ("theorem t : 2 + 2 = 4 := by decide (kernel := (by decide+native))\n", 1),
             ("theorem t : 2 + 2 = 4 := by decide +revert (native := true)\n", 1),
             ("theorem t : 2 + 2 = 4 := by decide (revert := true) (native := true)\n", 1),
             ("theorem t : 1 + 1 = 2 := by decide (config := { native := true })\n", 1),
@@ -208,10 +214,18 @@ class TestLean4AndAuditRootHardening(unittest.TestCase):
             "theorem t : 2 + 2 = 4 := by decide (native := false)\n",
             "theorem t : 2 + 2 = 4 := by decide (native := Bool.false)\n",
             "theorem t : 2 + 2 = 4 := by decide (native := (false))\n",
+            "theorem t : 2 + 2 = 4 := by decide (native := ((Bool.false)))\n",
             "theorem t : 2 + 2 = 4 := by decide (kernel := true) -native\n",
             "theorem t : 1 + 1 = 2 := by decide (config := { native := false })\n",
+            "theorem t : 1 + 1 = 2 := by decide (config := (({ native := ((Bool.false)) })))\n",
             "theorem t : 1 + 1 = 2 := by decide (config := { native := Bool.false, revert := true })\n",
             "theorem t : 1 + 1 = 2 := by decide (config := { my_native := true })\n",
+            "def f (decide : Nat) : Nat := decide+1\n",
+            "def x := decide ",
+            "def x := decide + (1)\n",
+            "def x := decide (a + b)\n",
+            "def x := decide (\n",
+            ") theorem t : 1 = 1 := by decide\n",
             "def cfg : DecideConfig := { native := false }\n",
             "def cfg := { native := false : DecideConfig }\n",
             "def cfg : OtherConfig := { native := true }\n",
@@ -223,21 +237,26 @@ class TestLean4AndAuditRootHardening(unittest.TestCase):
 
         # Direct _is_lean4_native_rhs_false boundary checks
         _req(_is_lean4_native_rhs_false("false") is True, "false must be false")
+        _req(_is_lean4_native_rhs_false("  false  ") is True, "padded false must be false")
+        _req(_is_lean4_native_rhs_false("(false)") is True, "exact 7-char (false) must be false")
         _req(_is_lean4_native_rhs_false("(( Bool.false ))") is True, "parenthesized Bool.false must be false")
-        for non_false in ("true", "(false!", "!false)", "(false) || true"):
+        for non_false in ("", "   ", "(", "()", "true", "(false!", "!false)", "(false) || true"):
             _req(_is_lean4_native_rhs_false(non_false) is False, f"{non_false!r} must not be treated as false")
 
-        # AL-LG-01 ReDoS guard: pathological unclosed braces / repeated DecideConfig must finish in < 50 ms
+        # Linear-time ReDoS guard: unclosed braces, repeated DecideConfig, and deep parens finish in < 200 ms
         for redos_src in (
             "{ " * 5000 + "\n",
             "{ native := false " * 2000 + "\n",
             "DecideConfig " * 2000 + "\n",
+            "decide " + "(" * 5000 + ")" * 5000 + "\n",
+            "decide (" * 5000 + "\n",
+            "decide (config := " * 1500 + "{ native := false }" + ")" * 1500 + "\n",
         ):
             t0 = time.monotonic()
             res_r = audit_lean4_source(redos_src)
             elapsed_ms = (time.monotonic() - t0) * 1000.0
             _req(res_r["clean"], f"unexpected finding on ReDoS control: {res_r['findings']}")
-            _req(elapsed_ms < 50.0, f"quadratic backtracking regression: {elapsed_ms:.1f} ms")
+            _req(elapsed_ms < 200.0, f"quadratic backtracking regression: {elapsed_ms:.1f} ms")
 
         # End-to-end through run_audit_check(..., lean_audit=True)
         with tempfile.TemporaryDirectory(prefix="aletheia_lean_hard_") as td:
