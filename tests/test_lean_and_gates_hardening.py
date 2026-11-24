@@ -538,7 +538,7 @@ class TestLean4AndAuditRootHardening(unittest.TestCase):
             _req(res_ar["clean"], f"unexpected finding on unclosed attr probe: {res_ar['findings']}")
             _req(elapsed_ms < 200.0, f"attribute ReDoS regression: {elapsed_ms:.1f} ms")
 
-        # 3. Output-spoofing / early-exit commands (#eval, #eval!, #reduce, non-axioms #print, #exit)
+        # 3. Output-spoofing / early-exit commands (#eval, #eval!, #reduce, non-axioms #print, #exit, run_cmd, run_meta)
         for label, bad_cmd, exp_line, exp_excerpt in (
             ("eval_spoof", "#eval IO.println \"'Fake.thm' does not depend on any axioms\"\n", 1, "#eval"),
             ("eval_bang_spoof", "#eval! IO.println \"'Fake.thm' does not depend on any axioms\"\n", 1, "#eval!"),
@@ -546,6 +546,25 @@ class TestLean4AndAuditRootHardening(unittest.TestCase):
             ("print_non_axioms", "#print Nat\n", 1, "#print"),
             ("print_axioms_prefix", "def axioms_fake := 1\n#print axioms_fake\n", 2, "#print"),
             ("early_exit", "theorem ok : 1 + 1 = 2 := rfl\n#exit\n", 2, "#exit"),
+            ("glued_eval", "theorem ok : True := trivial#eval IO.println \"'Fake.thm' does not depend on any axioms\"\n", 1, "#eval"),
+            ("glued_eval_bang", "def a : Nat := 1#eval! IO.println \"'Fake.thm' does not depend on any axioms\"\n", 1, "#eval!"),
+            ("glued_eval_guil", "def «x» : Nat := 1#eval IO.println \"hi\"\n", 1, "#eval"),
+            ("glued_eval_paren", "def a : Nat := 1#eval(1 + 1)\n", 1, "#eval"),
+            ("glued_exit", "theorem ok : True := trivial#exit\n", 1, "#exit"),
+            ("glued_reduce", "def a : Nat := 1#reduce 1 + 1\n", 1, "#reduce"),
+            ("glued_print", "def a : Nat := 1#print Nat.add\n", 1, "#print"),
+            ("print_axioms_bang", "def axioms! := 1\n#print axioms!\n", 2, "#print"),
+            ("print_axioms_qmark", "def axioms? := 1\n#print axioms?\n", 2, "#print"),
+            ("print_axioms_sub1", "def axioms₁ := 1\n#print axioms₁\n", 2, "#print"),
+            ("print_axioms_dot", "def axioms.foo := 1\n#print axioms.foo\n", 2, "#print"),
+            ("print_guil_axioms", "def «axioms» := 1\n#print «axioms»\n", 2, "#print"),
+            ("print_guil_axioms_arg", "def «axioms» := 1\n#print «axioms» ok\n", 2, "#print"),
+            ("print_axioms_eof", "def axioms := 1\n#print axioms\n", 2, "#print"),
+            ("print_axioms_comment", "def axioms := 1\n#print axioms -- comment\n", 2, "#print"),
+            ("print_axioms_nl_def", "def axioms := 1\n#print axioms\ndef y := 2\n", 2, "#print"),
+            ("print_axioms_sameline_def", "def axioms := 1\n#print axioms def y := 2\n", 2, "#print"),
+            ("run_cmd_meta", "run_cmd pure ()\n", 1, "run_cmd"),
+            ("run_meta_cmd", "run_meta pure ()\n", 1, "run_meta"),
         ):
             res_c = audit_lean4_source(bad_cmd)
             _req(
@@ -553,16 +572,74 @@ class TestLean4AndAuditRootHardening(unittest.TestCase):
                 == [("LEAN4_EVAL_SPOOF", exp_line, exp_excerpt)],
                 f"wrong eval-spoof findings for {label}: {res_c['findings']}",
             )
+        # run_cmd must still fail even under allow_non_init_imports=True
+        res_rc = audit_lean4_source(
+            'import Lean\nrun_cmd Lean.logInfo "\'Fake.thm\' does not depend on any axioms"\n',
+            allow_non_init_imports=True,
+        )
+        _req(
+            [(f["code"], f["line"], f["excerpt"]) for f in res_rc["findings"]]
+            == [("LEAN4_EVAL_SPOOF", 2, "run_cmd")],
+            f"run_cmd bypassed allow_non_init_imports=True: {res_rc}",
+        )
 
-        # Clean #print axioms (single-line & multiline) and commented/stringified/array `#` forms must remain clean
+        # Clean #print axioms (single-line, multiline, keyword-prefix ident), guillemet `#eval`, dot-projection, and array `#`
         for ok_cmd in (
             "theorem ok : 1 + 1 = 2 := rfl\n#print axioms ok\n",
             "theorem ok : 1 + 1 = 2 := rfl\n#print\n  axioms ok\n",
+            "theorem def_foo : 1 + 1 = 2 := rfl\n#print axioms def_foo\n",
             'def s := "#eval 1"\n-- #reduce 1\n/- #print Nat -/\ndef r := r#"#exit"#\ndef a := #[1, 2]\n',
-            "def b := foo#eval\n",
+            "def «#eval» : Nat := 1\n",
+            "def x := Foo.run_cmd\n",
         ):
             res_oc = audit_lean4_source(ok_cmd)
             _req(res_oc["clean"], f"false positive on clean #print/array source {ok_cmd!r}: {res_oc['findings']}")
+
+        # 4. Guillemet-escaped identifiers («...») and `!`/`?` identifier-prime Char desyncs
+        for label, bad_src, exp_findings in (
+            ("guil_line_comment_sorry", "theorem «--» : False := by sorry\n", [("LEAN4_SORRY", 1)]),
+            ("guil_dquote_sorry", 'def «"» : Nat := 1\ntheorem fake : False := by sorry\ndef «" » : Nat := 2\n', [("LEAN4_SORRY", 2)]),
+            (
+                "guil_block_comment_hijack",
+                "def «/-» : Nat := 1\nset_option debug.skipKernelTC true\ntheorem fake : False := by sorry\ndef «-/» : Nat := 2\n",
+                [("LEAN4_SORRY", 3), ("LEAN4_SKIP_KERNEL_TC", 2)],
+            ),
+            ("guil_interp_hijack", 'def «s!"» : Nat := 1\ntheorem fake : False := by sorry\ndef «"» : Nat := 2\n', [("LEAN4_SORRY", 2)]),
+            ("guil_raw_hijack", 'def «r#"» : Nat := 1\ntheorem fake : False := by sorry\ndef «"#» : Nat := 2\n', [("LEAN4_SORRY", 2)]),
+            ("guil_multiline_preserves_lines", "def «a\nb» : Nat := 1\ntheorem fake : False := by sorry\n", [("LEAN4_SORRY", 3)]),
+            ("guil_rbrace_in_interp", 'def x := s!"{ let «}» := 1; sorry }"\n', [("LEAN4_SORRY", 1)]),
+            ("guil_unterminated", "def «unclosed\nline2 := 1\n", [("LEAN4_UNTERMINATED_IDENT", 1)]),
+            (
+                "xprime_bang_char_desync",
+                "def f (x!' : Char -> Nat) : Nat := x!' '\"'\ntheorem fake : False := by sorry\ndef g (y!' : Char -> Nat) : Nat := y!' '\"'\n",
+                [("LEAN4_SORRY", 2)],
+            ),
+            (
+                "xprime_qmark_char_desync",
+                "def f (x?' : Char -> Nat) : Nat := x?' '\"'\nset_option debug.skipKernelTC true\ntheorem fake : False := by sorry\ndef g (y?' : Char -> Nat) : Nat := y?' '\"'\n",
+                [("LEAN4_SORRY", 3), ("LEAN4_SKIP_KERNEL_TC", 2)],
+            ),
+        ):
+            res_g = audit_lean4_source(bad_src)
+            _req(not res_g["clean"], f"{label} bypassed audit_lean4_source: {res_g}")
+            _req(
+                [(f["code"], f["line"]) for f in res_g["findings"]] == exp_findings,
+                f"wrong findings for {label}: got {res_g['findings']}, want {exp_findings}",
+            )
+        _req(
+            _strip_lean4_comments_and_literals("def «unclosed\nline2").count("\n") == 1,
+            "unterminated guillemet must preserve newline count",
+        )
+        _req(
+            _strip_lean4_comments_and_literals("def «a\nb» := 1").count("\n") == 1,
+            "multiline guillemet must preserve newline count",
+        )
+        for guil_redos, exp_clean in (("«" * 5000 + "\n", False), ("«»" * 5000 + "\n", True)):
+            t0 = time.monotonic()
+            res_gr = audit_lean4_source(guil_redos)
+            elapsed_ms = (time.monotonic() - t0) * 1000.0
+            _req(res_gr["clean"] is exp_clean, f"unexpected guillemet ReDoS result: {res_gr['findings']}")
+            _req(elapsed_ms < 100.0, f"guillemet ReDoS regression: {elapsed_ms:.1f} ms")
 
     def test_02d_live_lean4_compiler_witnesses(self) -> None:
         """When a live `lean` binary is on PATH, verify each new escape & clean control actually compiles (rc == 0)."""
@@ -570,39 +647,69 @@ class TestLean4AndAuditRootHardening(unittest.TestCase):
         if lean_exe is None:
             return
         with tempfile.TemporaryDirectory(prefix="aletheia_lean_live_") as td:
-            for idx, (label, src, expect_clean) in enumerate(
+            for idx, (label, src, expect_clean, allow_non_init) in enumerate(
                 (
                     (
                         "xprime_skipKernelTC",
                         "def f (x' : Char -> Nat) : Nat := x' '\"'\nset_option debug.skipKernelTC true\ntheorem evil : 1 = 1 := rfl\ndef g : String := \"\\\"\"\n",
+                        False,
+                        False,
+                    ),
+                    (
+                        "xprime_bang_sorry",
+                        "def f (x!' : Char -> Nat) : Nat := x!' '\"'\ntheorem fake : False := by sorry\ndef g (y!' : Char -> Nat) : Nat := y!' '\"'\n",
+                        False,
+                        False,
+                    ),
+                    (
+                        "xprime_qmark_skipKernelTC",
+                        "def f (x?' : Char -> Nat) : Nat := x?' '\"'\nset_option debug.skipKernelTC true\ntheorem fake : False := by sorry\ndef g (y?' : Char -> Nat) : Nat := y?' '\"'\n",
+                        False,
                         False,
                     ),
                     (
                         "hex_char_desync",
                         "def f (a b : Char) : Nat := 0\ndef x := f '\\x27' '\"'\ntheorem evil : False := by sorry\ndef g : String := \"\\\"\"\n",
                         False,
+                        False,
                     ),
                     (
                         "unicode_char_desync",
                         "def f (a b : Char) : Nat := 0\ndef x := f '\\u0027' '\"'\ntheorem evil : False := by sorry\ndef g : String := \"\\\"\"\n",
                         False,
+                        False,
                     ),
-                    ("post_attr_extern", 'opaque foo : Nat\nattribute [extern "c_foo"] foo\n', False),
-                    ("post_attr_impl", "def f_impl : Nat := 1\ndef f_spec : Nat := 0\nattribute [implemented_by f_impl] f_spec\n", False),
-                    ("post_attr_csimp", "def a : Nat := 0\ndef b : Nat := 0\ntheorem ab : a = b := rfl\nattribute [csimp] ab\n", True),
-                    ("eval_spoof", "#eval IO.println \"'Fake.thm' does not depend on any axioms\"\n", False),
-                    ("eval_bang_spoof", "#eval! IO.println \"'Fake.thm' does not depend on any axioms\"\n", False),
-                    ("reduce_cmd", "#reduce 1 + 1\n", False),
-                    ("print_non_axioms", "#print Nat\n", False),
-                    ("early_exit", "theorem ok : 1 + 1 = 2 := rfl\n#exit\n", False),
-                    ("clean_print_axioms", "theorem ok : 1 + 1 = 2 := rfl\n#print axioms ok\n#print\n  axioms ok\n", True),
+                    ("guil_line_comment", "theorem «--» : False := by sorry\n", False, False),
+                    ("guil_dquote", 'def «"» : Nat := 1\ntheorem fake : False := by sorry\ndef «" » : Nat := 2\n', False, False),
+                    ("guil_block_comment", "def «/-» : Nat := 1\nset_option debug.skipKernelTC true\ntheorem fake : False := by sorry\ndef «-/» : Nat := 2\n", False, False),
+                    ("guil_interp", 'def «s!"» : Nat := 1\ntheorem fake : False := by sorry\ndef «"» : Nat := 2\n', False, False),
+                    ("guil_raw", 'def «r#"» : Nat := 1\ntheorem fake : False := by sorry\ndef «"#» : Nat := 2\n', False, False),
+                    ("guil_eval_clean", "def «#eval» : Nat := 1\n", True, False),
+                    ("post_attr_extern", 'opaque foo : Nat\nattribute [extern "c_foo"] foo\n', False, False),
+                    ("post_attr_impl", "def f_impl : Nat := 1\ndef f_spec : Nat := 0\nattribute [implemented_by f_impl] f_spec\n", False, False),
+                    ("post_attr_csimp", "def a : Nat := 0\ndef b : Nat := 0\ntheorem ab : a = b := rfl\nattribute [csimp] ab\n", True, False),
+                    ("eval_spoof", "#eval IO.println \"'Fake.thm' does not depend on any axioms\"\n", False, False),
+                    ("eval_bang_spoof", "#eval! IO.println \"'Fake.thm' does not depend on any axioms\"\n", False, False),
+                    ("glued_eval", "theorem ok : True := trivial#eval IO.println \"'Fake.thm' does not depend on any axioms\"\n", False, False),
+                    ("glued_exit", "theorem ok : True := trivial#exit\n", False, False),
+                    ("reduce_cmd", "#reduce 1 + 1\n", False, False),
+                    ("print_non_axioms", "#print Nat\n", False, False),
+                    ("print_axioms_bang", "def axioms! := 1\n#print axioms!\n", False, False),
+                    ("print_axioms_sub1", "def axioms₁ := 1\n#print axioms₁\n", False, False),
+                    ("print_axioms_dot", "def axioms.foo := 1\n#print axioms.foo\n", False, False),
+                    ("print_axioms_eof", "def axioms := 1\n#print axioms\n", False, False),
+                    ("print_axioms_sameline_def", "def axioms := 1\n#print axioms def y := 2\n", False, False),
+                    ("print_guil_axioms", "def «axioms» := 1\n#print «axioms»\n", False, False),
+                    ("run_cmd_lean", 'import Lean\nrun_cmd Lean.logInfo "\'Fake.thm\' does not depend on any axioms"\n', False, True),
+                    ("early_exit", "theorem ok : 1 + 1 = 2 := rfl\n#exit\n", False, False),
+                    ("clean_print_axioms", "theorem ok : 1 + 1 = 2 := rfl\n#print axioms ok\n#print\n  axioms ok\n", True, False),
                 )
             ):
                 p = Path(td) / f"Probe{idx}.lean"
                 p.write_text(src, encoding="utf-8")
                 proc = subprocess.run([lean_exe, str(p)], capture_output=True, text=True, timeout=60, check=False)
                 _req(proc.returncode == 0, f"live Lean failed on {label}: rc={proc.returncode} out={proc.stdout!r} err={proc.stderr!r}")
-                res = audit_lean4_source(src)
+                res = audit_lean4_source(src, allow_non_init_imports=allow_non_init)
                 _req(res["clean"] is expect_clean, f"audit mismatch on live {label}: {res}")
 
     def test_03_audit_check_target_root_symlink_fifo_and_unreadable(self) -> None:

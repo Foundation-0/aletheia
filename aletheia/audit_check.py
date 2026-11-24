@@ -832,17 +832,27 @@ def _scan_lean4_decide_native(cleaned: str) -> list[tuple[int, int]]:
 def _lean4_match_enables_native(m_obj: re.Match[str]) -> bool:
     return any(grp is not None and not _is_lean4_native_rhs_false(grp) for grp in m_obj.groups())
 _LEAN4_IDENT_EXTRA = "_.'!?"
-_LEAN4_CHAR_PREV_IDENT = "_'»"
+_LEAN4_CHAR_PREV_IDENT = "_'»!?"
 _LEAN4_HEX_DIGITS = frozenset("0123456789abcdefABCDEF")
+_LEAN4_SIMPLE_GUILLEMET_INNER_RE = re.compile(r"\A[A-Za-z_][A-Za-z0-9_']*\Z")
 
 # Multiline skipKernelTC check (catches `set_option\n debug.skipKernelTC\n true` and bare `debug.skipKernelTC`)
 _LEAN4_SKIP_KERNEL_TC_RE = re.compile(
     r"\bdebug\s*\.\s*skipKernelTC\b", flags=re.DOTALL
 )
 
-# Output-spoofing / early-exit commands (`#eval`, `#eval!`, `#reduce`, non-`axioms` `#print`, `#exit`)
+# Output-spoofing / early-exit commands (`#eval`, `#eval!`, `#reduce`, non-`axioms` `#print`, `#exit`, `run_cmd`, `run_meta`)
+_LEAN4_PRINT_AXIOMS_KW_BLOCK = (
+    "def|theorem|lemma|axiom|inductive|structure|class|instance|opaque|abbrev|"
+    "namespace|section|end|open|variable|universe|import|set_option|attribute|"
+    "local|scoped|private|protected|noncomputable|partial|unsafe|meta|where|by|in|let|have"
+)
 _LEAN4_EVAL_SPOOF_RE = re.compile(
-    r"(?<![A-Za-z0-9_])#(?:eval!?(?![A-Za-z0-9_])|reduce(?![A-Za-z0-9_])|exit(?![A-Za-z0-9_])|print(?![A-Za-z0-9_])(?!\s+axioms(?![A-Za-z0-9_'])))",
+    r"#(?:eval!?(?![\w'!?])|reduce(?![\w'!?])|exit(?![\w'!?])|"
+    r"print(?![\w'!?])(?!\s+axioms[ \t]+(?!(?:"
+    + _LEAN4_PRINT_AXIOMS_KW_BLOCK
+    + r")(?![\w'!?]))[A-Za-z_]))"
+    r"|(?<!\.)\b(?:run_cmd|run_meta)\b",
     flags=re.DOTALL,
 )
 
@@ -1029,6 +1039,22 @@ def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
             opened_at = i
             out.append(" ")
             i += 1
+        elif ch == "«":
+            end_g = source.find("»", i + 1)
+            if end_g == -1:
+                lineno = source.count("\n", 0, i) + 1
+                excerpt = source.splitlines()[lineno - 1].strip()[:100]
+                unterminated.append(
+                    {"line": lineno, "code": "LEAN4_UNTERMINATED_IDENT", "excerpt": excerpt}
+                )
+                out.append("\n" * source.count("\n", i))
+                break
+            inner = source[i + 1 : end_g]
+            if _LEAN4_SIMPLE_GUILLEMET_INNER_RE.match(inner) is not None and inner != "axioms":
+                out.append(source[i : end_g + 1])
+            else:
+                out.append(" " + "".join("\n" if c == "\n" else " " for c in inner) + " ")
+            i = end_g + 1
         elif ch == "'" and (i == 0 or not (source[i - 1].isalnum() or source[i - 1] in _LEAN4_CHAR_PREV_IDENT)):
             # Lean 4 char literals ('"', '\n', '\x27', '\u0027') without disturbing identifier primes x'
             char_end = _match_lean4_char_literal_end(source, i, n)
