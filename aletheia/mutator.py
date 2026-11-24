@@ -466,30 +466,64 @@ def _build_call_scope_envs(
     mod_env.update(mod_aliases)
     call_envs: dict[int, dict[str, str]] = {}
 
-    def _visit_scope(stmts: Sequence[ast.stmt], env: dict[str, str], ns: set[str]) -> None:
+    def _visit_expr(expr: ast.AST | None, env: dict[str, str]) -> None:
+        if expr is None:
+            return
+        stack: list[ast.AST] = [expr]
+        while stack:
+            cur = stack.pop()
+            if isinstance(cur, ast.Lambda):
+                for d in (*cur.args.defaults, *cur.args.kw_defaults):
+                    _visit_expr(d, env)
+                l_shadowed = _extract_args_param_names(cur.args) - explicit_guards
+                l_env = {k: v for k, v in env.items() if k not in l_shadowed}
+                _visit_expr(cur.body, l_env)
+                continue
+            if isinstance(cur, ast.Call):
+                call_envs[id(cur)] = env
+            children = list(ast.iter_child_nodes(cur))
+            stack.extend(reversed(children))
+
+    def _visit_scope(
+        stmts: Sequence[ast.stmt],
+        expr_env: dict[str, str],
+        enclosing_env: dict[str, str],
+        ns: set[str],
+    ) -> None:
         for node in _walk_scope_nodes(stmts):
             if isinstance(node, ast.Call):
-                call_envs[id(node)] = env
+                call_envs[id(node)] = expr_env
             elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                all_arg_nodes = (*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs)
+                for hdr in (
+                    *node.decorator_list,
+                    *node.args.defaults,
+                    *node.args.kw_defaults,
+                    node.returns,
+                    *(a.annotation for a in all_arg_nodes),
+                    *(a.annotation for a in (node.args.vararg, node.args.kwarg) if a is not None),
+                ):
+                    _visit_expr(hdr, expr_env)
                 params = _extract_args_param_names(node.args)
                 shadowed = params - explicit_guards
-                fn_inherited = {k: v for k, v in env.items() if k not in shadowed}
+                fn_inherited = {k: v for k, v in enclosing_env.items() if k not in shadowed}
                 fn_ns = (ns - params) | _collect_scope_namespaces(node.body)
                 fn_aliases, fn_unresolved = _resolve_scope_guard_aliases(node.body, fn_inherited, fn_ns)
                 fn_env = {k: v for k, v in fn_inherited.items() if k not in fn_unresolved}
                 fn_env.update(fn_aliases)
-                _visit_scope(node.body, fn_env, fn_ns)
+                _visit_scope(node.body, fn_env, fn_env, fn_ns)
             elif isinstance(node, ast.ClassDef):
+                for hdr in (*node.decorator_list, *node.bases, *(kw.value for kw in node.keywords)):
+                    _visit_expr(hdr, expr_env)
                 cls_ns = ns | _collect_scope_namespaces(node.body)
-                _visit_scope(node.body, env, cls_ns)
+                cls_aliases, cls_unresolved = _resolve_scope_guard_aliases(node.body, enclosing_env, cls_ns)
+                cls_body_env = {k: v for k, v in enclosing_env.items() if k not in cls_unresolved}
+                cls_body_env.update(cls_aliases)
+                _visit_scope(node.body, cls_body_env, enclosing_env, cls_ns)
             elif isinstance(node, ast.Lambda):
-                l_shadowed = _extract_args_param_names(node.args) - explicit_guards
-                l_env = {k: v for k, v in env.items() if k not in l_shadowed}
-                for sub in ast.walk(node.body):
-                    if isinstance(sub, ast.Call):
-                        call_envs[id(sub)] = l_env
+                _visit_expr(node, expr_env)
 
-    _visit_scope(tree.body, mod_env, mod_ns)
+    _visit_scope(tree.body, mod_env, mod_env, mod_ns)
     return mod_env, call_envs
 
 

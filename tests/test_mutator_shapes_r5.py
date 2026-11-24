@@ -733,6 +733,119 @@ class TestMutatorRefusalShapes(unittest.TestCase):
             {"must_ok": "require", "async_req": "require"},
         )
 
+    def test_09_nested_lambda_class_body_and_header_scopes(self) -> None:
+        # 1. Nested lambda shadowing (both alias and built-in guard), lambda defaults in outer scope,
+        #    and positive control for unshadowed nested lambda.
+        nested_lambda_neg = (
+            "def benign(v):\n    return v\n"
+            "chk = require_ok\n"
+            "def f_shadow_alias():\n"
+            "    chk = require_ok\n"
+            "    return lambda x: (lambda chk: chk(x > 0))(benign)\n"
+            "f_shadow_builtin = lambda x: (lambda require_ok: require_ok(x > 0))(benign)\n"
+            "def f_shadow_kw_default():\n"
+            "    chk = benign\n"
+            "    return lambda *, a=chk(1 > 0): a\n"
+        )
+        self.assertEqual(mutator.discover_mutant_sites(nested_lambda_neg)[1], [])
+
+        nested_lambda_pos = (
+            "def f_pos():\n"
+            "    chk = require_ok\n"
+            "    g1 = lambda x: (lambda y: chk(x > y, 'E', 'e'))(0)\n"
+            "    g2 = lambda chk=chk(1 > 0, 'E', 'e'): chk(2 > 0)\n"
+            "    return g1, g2\n"
+        )
+        _, lam_pos_sites = mutator.discover_mutant_sites(nested_lambda_pos)
+        lam_pos_calls = [(s.lineno, s.original_src) for s in lam_pos_sites if s.kind == "guard_require_call"]
+        self.assertEqual(
+            lam_pos_calls,
+            [
+                (3, "chk(x > y, ...)"),
+                (4, "chk(1 > 0, ...)"),
+            ],
+        )
+
+        # 2. ClassDef body rebinding (alias & built-in guard) suppresses class-body & method-header calls,
+        #    while methods still inherit the enclosing non-class LEGB scope; class headers evaluate in enclosing scope.
+        cls_neg = (
+            "def benign(v):\n    return v\n"
+            "chk = require_ok\n"
+            "class C1:\n"
+            "    chk = benign\n"
+            "    res = chk(1 > 0)\n"
+            "class C2:\n"
+            "    require_ok = benign\n"
+            "    res = require_ok(1 > 0)\n"
+            "def outer_cls():\n"
+            "    chk = benign\n"
+            "    @chk(1 > 0)\n"
+            "    class C3(chk(2 > 0), k=chk(3 > 0)):\n"
+            "        def m(self, v):\n"
+            "            return chk(v > 0)\n"
+        )
+        self.assertEqual(mutator.discover_mutant_sites(cls_neg)[1], [])
+
+        cls_legb_pos = (
+            "def benign(v):\n    return v\n"
+            "chk = require_ok\n"
+            "class C:\n"
+            "    chk = benign\n"
+            "    loc = require_ok\n"
+            "    res_b = chk(1 > 0)\n"
+            "    res_g = loc(2 > 0, 'E', 'e')\n"
+            "    def m(self, x=chk(3 > 0)):\n"
+            "        chk(x > 0, 'E', 'e')\n"
+            "        return loc(x > 1)\n"
+        )
+        _, cls_pos_sites = mutator.discover_mutant_sites(cls_legb_pos)
+        cls_pos_calls = [(s.lineno, s.original_src) for s in cls_pos_sites if s.kind == "guard_require_call"]
+        self.assertEqual(
+            cls_pos_calls,
+            [
+                (8, "loc(2 > 0, ...)"),
+                (10, "chk(x > 0, ...)"),
+            ],
+        )
+
+        # 3. Enclosing-scope FunctionDef/AsyncFunctionDef headers (decorators, defaults, kw_defaults, returns, annotations).
+        hdr_neg = (
+            "def benign(v):\n    return v\n"
+            "chk = require_ok\n"
+            "def outer():\n"
+            "    chk = benign\n"
+            "    @chk(1 > 0)\n"
+            "    def inner(x: chk(2 > 0) = chk(3 > 0), *a: chk(4 > 0), y=chk(5 > 0), **kw: chk(6 > 0)) -> chk(7 > 0):\n"
+            "        return x\n"
+            "    @chk(8 > 0)\n"
+            "    async def ainner(z=chk(9 > 0)):\n"
+            "        return z\n"
+            "    return inner, ainner\n"
+        )
+        self.assertEqual(mutator.discover_mutant_sites(hdr_neg)[1], [])
+
+        hdr_pos = (
+            "def outer():\n"
+            "    chk = require_ok\n"
+            "    @chk(1 > 0, 'E1', 'e1')\n"
+            "    def inner(x: chk(2 > 0, 'E2', 'e2') = chk(3 > 0, 'E3', 'e3'), *a: chk(4 > 0, 'E4', 'e4'), y=chk(5 > 0, 'E5', 'e5')) -> chk(6 > 0, 'E6', 'e6'):\n"
+            "        return x, y\n"
+            "    return inner\n"
+        )
+        _, hdr_pos_sites = mutator.discover_mutant_sites(hdr_pos)
+        hdr_pos_calls = [(s.lineno, s.original_src) for s in hdr_pos_sites if s.kind == "guard_require_call"]
+        self.assertEqual(
+            hdr_pos_calls,
+            [
+                (3, "chk(1 > 0, ...)"),
+                (4, "chk(2 > 0, ...)"),
+                (4, "chk(3 > 0, ...)"),
+                (4, "chk(4 > 0, ...)"),
+                (4, "chk(5 > 0, ...)"),
+                (4, "chk(6 > 0, ...)"),
+            ],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
