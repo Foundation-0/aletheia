@@ -234,9 +234,10 @@ def _decode_text_bytes(raw: bytes) -> str | None:
                 return decoded
         return None
     try:
-        return raw.decode("utf-8")
+        decoded = raw.decode("utf-8")
     except UnicodeDecodeError:
         return None
+    return decoded
 
 
 def _find_json_npx_yes_objects(obj: Any) -> int:
