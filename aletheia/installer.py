@@ -66,7 +66,13 @@ _EMBEDDED_CLAUDE_CMD = """# /aletheia — Execute One Aletheia Resonance Cycle
 5. Loop any anomaly or obstruction back into `cartography/frontier_portals.md`.
 """
 
-_EMBEDDED_CI_YML = """name: Aletheia Verification Gate
+# Commit of Foundation-0/aletheia that the generated CI installs: the v2.1.0 release
+# commit on main (#19). A pinned full SHA cannot move; bump it when a later release
+# should be installed instead.
+_CI_ALETHEIA_REPO = "https://github.com/Foundation-0/aletheia"
+_CI_ALETHEIA_COMMIT = "a07d7db02018ab852d7653f08678ee7c692f3a33"
+
+_EMBEDDED_CI_YML = f"""name: Aletheia Verification Gate
 
 on:
   push:
@@ -80,7 +86,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Run Aletheia R1-R5 audit check
+      - name: Install aletheia-method at a pinned commit (zero external dependencies)
+        run: |
+          python3 -m pip install --no-deps "aletheia-method @ git+{_CI_ALETHEIA_REPO}@{_CI_ALETHEIA_COMMIT}"
+      - name: Run aletheia audit-check (R1-R4 hygiene; R5 is aletheia mutate; R6/R7 not automated by this command)
         run: |
           python3 -m aletheia audit-check .
 """
