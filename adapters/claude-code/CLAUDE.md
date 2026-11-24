@@ -10,7 +10,7 @@ Follow **The Aletheia Method** (*Portal-Driven Resonance & Adversarial Tomograph
    - `exact` claims: pure `int` / `Fraction` / $\mathbb{Q}(i)$ / $\mathbb{Z}[\sqrt{2}]$ / `isqrt` / `SymPy` / Lean 4 (never float tolerances or unverified solver flags).
    - `sampled` claims: logged seeds, held-out/disjoint splits, matched adversarial nulls (IAAFT, twin uncoupled systems, shuffled/decoy controls), unseen-seed replay.
    - `anchor` claims: live execution of the untouched upstream reference model.
-   - R1–R5 gates & R4 runtime parity: zero bare `assert`s on validation paths; bit-identical results across `python3 -I -B`, `python3 -I -O -B`, and `python3 -I -B -W error`.
+   - R1–R7 gates & R4 runtime parity: zero bare `assert`s on validation paths; bit-identical results across `python3 -I -B`, `python3 -I -O -B`, and `python3 -I -B -W error`; R6: the gate owner pins the check list and thresholds before any submission; R7: every compared value is recomputed from the bytes, never taken from a submitter-declared field (`spec/LAWS_AND_GATES.md` §4).
 4. **Honest Novelty & Scope Accounting:** Default every claim to `N0` until full-text prior-art verification (never titles from memory) confirms `N1` or `N2`. Log every `VERIFIED`, `PARTIAL/FRAGILE`, and `FALSIFIED` verdict permanently in `verification/AUDIT_LOG.md`. Never inflate Draft PRs to merged or `uncompiled_source` to machine-checked.
 5. **Exact-Operator Cross-Pollination:** Zero language smuggling. Cross-domain bridges require explicit typed objects, executable maps/identities, quantitative closure defects, or provable obstructions—and obstructions are elevated into theorems or branch triggers.
 

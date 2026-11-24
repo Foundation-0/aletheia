@@ -12,7 +12,7 @@ In modern AI-assisted research—especially multi-agent swarms tasked with open-
 Conventional wisdom treats these two failures as endpoints of a single one-dimensional slider ("be more creative" vs. "be more rigorous"). **The core thesis of Aletheia is that open-mindedness and adversarial rigor are orthogonal axes, not opposing poles.** Maximizing *both* simultaneously—in distinct, structured phases of a closed dynamical loop—creates a discovery engine that escapes both shadows.
 
 ```text
-                        HIGH ADVERSARIAL RIGOR (Exact Oracles, Nulls, R1-R5)
+                        HIGH ADVERSARIAL RIGOR (Exact Oracles, Nulls, R1-R7)
                                                ▲
                                                │
            Static Critique Trap                │              THE ALETHEIA REGIME
@@ -65,7 +65,7 @@ Aletheia defines verification as **Active Multi-Basis Observer Tomography**:
 - **Zero-Shared-Code Oracles:** A claim verified by `PLDL*` congruence must be independently re-verified by a completely different mathematical pathway (e.g., Faddeev–LeVerrier characteristic polynomials + Descartes/Sturm root counting); an analytical reduction must be tested against live execution of the untouched upstream simulator (`anchor` oracle).
 - **Basis, Gauge, Scale, & Metric Invariance (Gate 2):** Intrinsic structures survive orthogonal/unitary similarity transforms, index permutations, dimensional rescaling, and likelihood-metric swaps (e.g., unweighted OLS vs. native correlated ODR).
 - **Adversarial Nulls & Pre-Adaptation Latches (Gates 3 & 8):** For any adaptive fit $r(\theta) \approx r_0 - \Phi\theta$, linear audits evaluated *after* fitting vanish identically on $\operatorname{col}(\Phi)$ ($\Phi^\top r^* = 0$), retaining sensitivity only proportional to $\sin^2\angle(w, \operatorname{col}(\Phi))$. Therefore, misspecification diagnostics must be **latched before adaptation**, and empirical detectors must face adversarial nulls designed specifically to mimic their signal (twin uncoupled chaotic oscillators, IAAFT surrogates, non-monotone glitches, sample-disjoint holdouts).
-- **Gate Integrity & Mutation Survival (R1–R5):** A gate whose verdict can be moved by re-spelling an input (`"007"`, `"2/4"`, `True` as `1`), stripping bare `assert`s via `python3 -O`, or deleting an internal check is a *glass gate*. Every trust path must enforce default-reject (R1), omission monotonicity (R2), canonical type-strict parsing (R3), optimizer/warning parity (`-I -B`, `-I -O -B`, `-I -B -W error`, R4), and 100% refusal-site mutant kill rate (R5).
+- **Gate Integrity & Mutation Survival (R1–R7):** A gate whose verdict can be moved by re-spelling an input (`"007"`, `"2/4"`, `True` as `1`), stripping bare `assert`s via `python3 -O`, or deleting an internal check is a *glass gate*. Every trust path must enforce default-reject (R1), omission monotonicity (R2), canonical type-strict parsing (R3), optimizer/warning parity (`-I -B`, `-I -O -B`, `-I -B -W error`, R4), and 100% refusal-site mutant kill rate (R5). Those five are necessary, not sufficient: the gate owner must also pin the check list and thresholds before any submission (R6), and the gate must recompute every compared value from the bytes instead of trusting a declared one (R7).
 
 Crucially, **tomography is constructive**: when the verifier catches a real defect, it supplies the minimal counterexample and—where the underlying math survives—the exact boundary condition or hypothesis tightening needed to harden the theorem.
 

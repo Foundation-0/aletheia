@@ -20,7 +20,7 @@ Standard AI research workflows—and standard critique-first review loops—fall
 flowchart LR
     A["1. Raw Portal / Anomaly<br/>(Draft, Coincidence, Bug, or Wall)"] --> B["2. Active Portal Keeper<br/>(Re-Enter Source + Steelman Operator)"]
     B --> C["3. Domain Probe / Branch<br/>(Exact Proof or Live Empirical Test)"]
-    C --> D["4. Verifier Tomography G_obs<br/>(Zero-Shared-Code Oracle + R1-R5)"]
+    C --> D["4. Verifier Tomography G_obs<br/>(Zero-Shared-Code Oracle + R1-R7)"]
     D -->|"Counterexample or Sharpness Wall"| B
     D -->|"VERIFIED N2 + New Anomaly"| E["5. Exact-Operator Transfer<br/>(Cross-Pollinate Peer Front)"]
     E --> C
@@ -29,7 +29,7 @@ flowchart LR
 1. **Never park the Portal Keeper:** Raw sources, lab logs, and unfinished repos are *portals* to re-enter whenever an anomaly appears—not static filing cabinets indexed once.
 2. **Perceive beyond language & beyond numerology (v1.2):** Strip disciplinary labels and base-10/coordinate numerology (*Stage A*), then distill raw relational geometry into coordinate-free, unit-free, radix-free exact invariants or zero-residual null-equivalences (*Stage B*, [`THEORY.md`](THEORY.md#35-beyond-language-beyond-numerology-structural-perception-v12)).
 3. **Steelman before falsifying:** Separate prototype bugs from the underlying mathematical or physical invariant; test the strongest repaired statement before declaring a direction dead.
-4. **Verify via independent multi-basis tomography ($\mathcal{G}_{\mathrm{obs}}$):** Zero shared code, strict `exact` / `sampled` / `anchor` oracle honesty, R1–R5 gate-integrity & mutation testing, and full-text prior-art verification before claiming `N1` or `N2`.
+4. **Verify via independent multi-basis tomography ($\mathcal{G}_{\mathrm{obs}}$):** Zero shared code, strict `exact` / `sampled` / `anchor` oracle honesty, R1–R7 gate-integrity contracts (R5 mutation testing, R6 pinned checks, R7 measured-not-declared values), and full-text prior-art verification before claiming `N1` or `N2`.
 
 ---
 

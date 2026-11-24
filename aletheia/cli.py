@@ -3,7 +3,8 @@ Command-line interface for The Aletheia Method (`aletheia` / `python3 -m alethei
 
 Subcommands:
   - init         Scaffold a non-colliding Aletheia research workspace
-  - audit-check  Run automated R1-R5 hygiene, AST, 3-mode R4 parity, Lean 4, prereg & AUDIT_LOG checks
+  - audit-check  Run automated R1-R4 hygiene, AST, 3-mode R4 parity, Lean 4, prereg & AUDIT_LOG checks
+                 (R5 is `mutate`; R6/R7 not automated by this command)
   - mutate       Run generic AST refusal-site mutation testing (R5, incl. dict-verdict & accumulator checkers)
   - diagnose     Run quantitative 12-pattern Anti-Cave relapse diagnostics (CS-01..CS-12)
   - handoff      Generate or validate portable `aletheia.compute_handoff.v1` manifests
@@ -108,7 +109,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_init.add_argument("--json", action="store_true", help="Emit JSON output")
 
     # 2. audit-check
-    p_aud = sub.add_parser("audit-check", help="Run automated R1-R5 hygiene, AST, R4 parity, Lean 4, prereg & AUDIT_LOG checks")
+    p_aud = sub.add_parser("audit-check", help="Run automated R1-R4 hygiene, AST, R4 parity, Lean 4, prereg & AUDIT_LOG checks (R5 is `aletheia mutate`; R6/R7 not automated by this command)")
     p_aud.add_argument("path", type=Path, help="Directory or file to audit")
     p_aud.add_argument("--scripts", nargs="*", default=[], type=Path, help="Verifier scripts to run across 3 R4 modes")
     p_aud.add_argument("--audit-log", type=Path, default=None, help="Explicit path to AUDIT_LOG.md")
