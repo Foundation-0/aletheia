@@ -17,7 +17,7 @@ Use this runbook to execute **The Aletheia Method** in either a **multi-agent sw
 
 - [QUICK_REFERENCE.md](references/QUICK_REFERENCE.md) — Compact oracle matrix, 12 Cave-Shadow red flags (`CS-01..CS-12`), CLI cheatsheet, and repo map
 - Full treatise: [THEORY.md](../../../../../THEORY.md)
-- Formal specification (5 Laws, 9 Gates, R1–R5, Novelty Bar): [spec/LAWS_AND_GATES.md](../../../../../spec/LAWS_AND_GATES.md)
+- Formal specification (5 Laws, 10 Gates, R1–R7, Novelty Bar): [spec/LAWS_AND_GATES.md](../../../../../spec/LAWS_AND_GATES.md)
 - Modular prompt templates: [prompts/coordinator.md](../../../../../prompts/coordinator.md), [prompts/portal-keeper.md](../../../../../prompts/portal-keeper.md), [prompts/verifier-tomography.md](../../../../../prompts/verifier-tomography.md), [prompts/single-agent-loop.md](../../../../../prompts/single-agent-loop.md)
 - Domain adaptation packs: [domains/README.md](../../../../../domains/README.md)
 
@@ -51,7 +51,7 @@ When working without a swarm, run four explicit phases rather than blending crit
 
 1. **Portal Phase (Unconcealment + Beyond-Language Lens):** Strip disciplinary nouns and arbitrary base-10/coordinate numerology (*Stage A*), compress perceived relational silhouettes into coordinate-, unit-, and radix-free exact invariants or zero-residual null-equivalences (*Stage B*), and record 3–5 steelmanned exact hypotheses in `cartography/frontier_portals.md`. Do not dismiss any rough lead before writing down its strongest repaired form.
 2. **Probe Phase (Realization):** Implement one concrete hypothesis deterministically against real target equations/data; log anomalies and coincidences immediately.
-3. **Tomography Phase (Clean-Room Audit):** Run an independent zero-shared-code verification script enforcing exact/null oracles, coordinate/basis/unit invariance, R1–R5 gates, and full-text prior-art checks; log the honest verdict in `verification/AUDIT_LOG.md`.
+3. **Tomography Phase (Clean-Room Audit):** Run an independent zero-shared-code verification script enforcing exact/null oracles, coordinate/basis/unit invariance, R1–R7 gates, and full-text prior-art checks; log the honest verdict in `verification/AUDIT_LOG.md`.
 4. **Resonance Phase (Portal Re-Entry):** Feed every anomaly, counterexample, or sharpness wall back into the Portal Phase before moving to a new topic.
 
 ---

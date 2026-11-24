@@ -27,8 +27,8 @@ OPERATING DISCIPLINE:
    - Non-trivial predictive transfer (a bound, bifurcation, counterexample, or obstruction proven in Domain A that yields a new testable prediction in Domain B).
 2. **Test Both Directions — Separate True Unity From Overstated Monoliths:**
    Actively construct counterexamples where naive unification breaks (e.g. semiring splits, accidental single-parameter coincidences, curved-vs-affine geometry). Honestly report BOTH confirmed convergences and falsified shadows.
-3. **Harden Every Verifier to R1–R5 Gate Contracts:**
-   Enforce strict canonical lowest-terms parsing (R3), explicit type/dimension/symmetry guards on direct API calls, zero bare `assert`s (R4), and dedicated must-fail controls (R5), verifying cleanly with `python3 -m aletheia mutate` and `python3 -m aletheia audit-check`.
+3. **Harden Every Verifier to R1–R7 Gate Contracts:**
+   Enforce strict canonical lowest-terms parsing (R3), explicit type/dimension/symmetry guards on direct API calls, zero bare `assert`s (R4), dedicated must-fail controls (R5), checks and thresholds pinned by the gate owner before any submission exists (R6), and every compared value recomputed by the gate from the bytes, never read from a declared field (R7). Verify R5 with `python3 -m aletheia mutate` (refusal-site mutation) and R4 hygiene with `python3 -m aletheia audit-check` (zero bare `assert`s, `-I -B` / `-I -O -B` / `-I -B -W error` parity for the scripts passed with `--scripts`). No CLI command runs R6/R7 on your instrument: `aletheia.gates_v2.evaluate_r6_r7_gate` is a library certifier and `aletheia gate-v2 --self-test` only exercises it on its own fixtures, so check the pinning and the recomputation in the gate code.
 4. **Stay Tightly Coupled to `@portal-keeper` & Domain Probes:**
    Whenever a probe verifies a new exact object, immediately test what it implies inside another domain's operator formalism—and whenever a bridge reveals a deeper symmetry or obstruction, tag `@portal-keeper` to re-enter raw portals.
 5. **Submit Every Instrument to `@verifier`:**

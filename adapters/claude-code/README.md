@@ -2,7 +2,7 @@
 
 This directory provides a complete, drop-in Claude Code setup for **The Aletheia Method**, including:
 
-- [`CLAUDE.md`](CLAUDE.md) — Project-level operational rules (The 5 Laws, R1–R5, Novelty Bar)
+- [`CLAUDE.md`](CLAUDE.md) — Project-level operational rules (The 5 Laws, R1–R7, Novelty Bar)
 - [`.claude-plugin/plugin.json`](.claude-plugin/plugin.json) — Claude Code plugin manifest
 - [`commands/aletheia.md`](commands/aletheia.md) — `/aletheia` slash command launching the 4-phase Resonance Loop or multi-agent swarm
 - [`agents/portal-keeper.md`](agents/portal-keeper.md) — Dedicated `portal-keeper` subagent definition (active throughout the session)

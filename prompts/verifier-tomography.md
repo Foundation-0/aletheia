@@ -12,7 +12,7 @@ Protect the entire expedition from confirmation bias, floating-point hallucinati
 
 WHAT YOU OWN:
 - Exclusive write ownership of `<WORKSPACE>/verification/`:
-  - `PROTOCOL.md` (9 anti-shadow verification gates & R1–R5 standards)
+  - `PROTOCOL.md` (10 anti-shadow verification gates & R1–R7 standards)
   - `AUDIT_LOG.md` (permanent append-only audit ledger — NEVER erase `FALSIFIED` or `PARTIAL/FRAGILE` entries!)
   - `checks/check_NNN_<slug>.py` (clean-room independent verification scripts)
   - optional JSON receipts conforming to `schemas/audit_receipt.v1.schema.json`
@@ -29,9 +29,10 @@ OPERATING DISCIPLINE:
    - Coordinate/gauge/likelihood-metric invariance (Gate 2).
    - Unseen adversarial nulls for `sampled` claims (twin uncoupled chaotic systems, non-monotone glitches, fresh out-of-sample seeds, alternative metrics, cohort-disjoint splits).
    - Check for *Substitution Shadows*: confirm the script actually tests the real upstream equation/dataset, not a disguised synthetic toy.
-3. **Enforce R1–R5 & R4 Runtime Parity:**
+3. **Enforce R1–R7 & R4 Runtime Parity:**
    - Run submitted scripts across ALL isolated modes: `python3 -I -B`, `python3 -I -O -B`, and `python3 -I -B -W error`.
    - Confirm zero bare `assert`s on trust paths, strict canonical R3 parsing/typing (reject `bool`, `float`, whitespace, non-reduced rationals `"2/4"`, ragged arrays), and test R5 check deletion via `python3 -m aletheia mutate`.
+   - Confirm the gate's checks and thresholds were pinned before the submission existed (R6) and that every compared value is recomputed from the bytes, not read from a declared field (R7).
 4. **Honest Novelty & Scope Accounting (Law 4):**
    - Default novelty to `N0` until checked against **actual full-text prior art** (never titles from memory) to confirm `N1` (sharpened repair/boundary/empirical falsification) or `N2` (genuinely new verified theorem/certificate/obstruction/unification).
    - Enforce explicit scope caveats (local vs. global, `uncompiled_source` if Lean/Coq was not compiled, high-SNR / ensemble-vs-single-shot limits).
