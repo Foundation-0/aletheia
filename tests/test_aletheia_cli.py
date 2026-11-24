@@ -1599,7 +1599,9 @@ class TestAletheiaCLI(unittest.TestCase):
                 write_lf_text(path, head + f"| AUDIT-001 | 2026-11-20 | a | t | {gates} | exact | N2 | VERIFIED | {evidence} |\n")
                 res = validate_audit_log_markdown(path)
                 _req(res["valid"], f"row rejected: {res['errors']}")
-                return [w["code"] for w in res["warnings"]]
+                # This test covers the G9 prior-art note only; the G10/outside-ruling novelty status
+                # (N2_NOVELTY_NOT_SHOWN) has its own tests in test_outside_rulings_novelty.py.
+                return [w["code"] for w in res["warnings"] if w["code"] != "N2_NOVELTY_NOT_SHOWN"]
 
         # Ordinary words are not a prior-art note.
         for text in ("confirmed by the verifier", "goes beyond the sketch", "Confirmed beyond doubt"):

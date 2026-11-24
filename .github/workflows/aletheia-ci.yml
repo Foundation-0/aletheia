@@ -100,3 +100,36 @@ jobs:
             --aletheia-root "$GITHUB_WORKSPACE" \
             --cave-root "$GITHUB_WORKSPACE/cave-expedition" \
             --json
+
+  evidence-tracks:
+    # Each evidence track ships its own R5 test and a certificate with an audit --check.
+    # tests/run_all.py only discovers tests/test_*.py, so without this job CI runs neither.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run every evidence-track test in the three R4 modes and re-check every certificate
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          tests=(evidence/*/test_*.py)
+          certs=(evidence/*/*_certificate.json)
+          [ "${#tests[@]}" -gt 0 ] || { echo "no evidence-track tests found"; exit 1; }
+          for t in "${tests[@]}"; do
+            for flags in "-I -B" "-I -O -B" "-I -B -W error"; do
+              echo "== ${t} (python3 ${flags})"
+              (cd "$(dirname "$t")" && python3 ${flags} "$(basename "$t")")
+            done
+          done
+          for c in "${certs[@]}"; do
+            d="$(dirname "$c")"
+            audits=("$d"/*_audit.py)
+            [ "${#audits[@]}" -eq 1 ] || { echo "expected exactly one *_audit.py next to ${c}"; exit 1; }
+            echo "== ${audits[0]} --check $(basename "$c")"
+            (cd "$d" && python3 -I -B "$(basename "${audits[0]}")" --check "$(basename "$c")")
+          done
