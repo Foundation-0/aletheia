@@ -22,6 +22,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from aletheia.diagnose import diagnose_expedition
+from aletheia.installer import _build_install_plan
 from aletheia.scaffold import init_workspace
 from aletheia.strict_io import AletheiaError, write_lf_text
 
@@ -81,6 +82,18 @@ class TestCS04DataRights(unittest.TestCase):
             _req("where rights and authorization allow" in remediation, f"remediation lacks rights clause: {remediation}")
             _req("label the synthetic input" in remediation, f"remediation lacks labelling instruction: {remediation}")
             _req("zero synthetic proxy substitution" not in remediation, f"remediation still unconditional: {remediation}")
+
+
+class TestInstallerEmbeddedTemplates(unittest.TestCase):
+    """The standalone `aletheia install` templates qualify live-data probing by rights."""
+
+    def test_probe_wording_is_conditional_on_rights_and_authorization(self) -> None:
+        skill = dict(_build_install_plan("antigravity", None))["skills/aletheia-research/SKILL.md"]
+        command = dict(_build_install_plan("claude-code", None))[".claude/commands/aletheia.md"]
+        for name, text in (("SKILL.md", skill), ("commands/aletheia.md", command)):
+            _req("where rights and authorization allow" in text, f"{name} lacks the rights qualifier")
+            _req("label any synthetic input as synthetic" in text, f"{name} lacks the labelling instruction")
+            _req("zero synthetic proxy substitution" not in text, f"{name} still demands live data unconditionally")
 
 
 class TestDiagnoseMustFailControls(unittest.TestCase):
