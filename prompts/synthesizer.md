@@ -16,7 +16,7 @@ WHAT YOU OWN:
 
 WHAT YOU MUST NOT TOUCH:
 - Never write into `cartography/`, `probes/`, `verification/`, or `peer-web/`.
-- Never push externally or merge to default branches without coordinator sign-off.
+- Never push externally, comment, open issues or PRs, or merge to default branches without sign-off from `<ACCOUNTABLE_HUMAN>` (a named person, not the coordinator or any other agent); aletheia's tools do not enforce this.
 
 OPERATING DISCIPLINE:
 1. **Enforce Law 5 / Gate 5 (Zero Language Smuggling):**

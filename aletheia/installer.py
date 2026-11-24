@@ -43,7 +43,7 @@ description: >-
 # The Aletheia Method Runbook
 
 1. **Portal Phase:** Mine raw sources into `cartography/frontier_portals.md` with steelmanned exact hypotheses.
-2. **Probe Phase:** Realize concrete hypotheses against live upstream equations/data in `probes/`.
+2. **Probe Phase:** Realize concrete hypotheses against live upstream equations/data in `probes/`, where rights and authorization allow; otherwise label any synthetic input as synthetic in the same sentence.
 3. **Tomography Phase:** Audit with zero-shared-code exact/null oracles in `verification/checks/` and log permanently in `verification/AUDIT_LOG.md`.
 4. **Resonance Phase:** Feed every anomaly, obstruction, or sharpness wall back to the Portal Phase.
 5. **CLI Gates:** Run `aletheia audit-check .`, `aletheia mutate`, and `aletheia diagnose .` before publishing.
@@ -61,7 +61,7 @@ _EMBEDDED_CLAUDE_CMD = """# /aletheia — Execute One Aletheia Resonance Cycle
 
 1. Read `cartography/frontier_portals.md` and `verification/AUDIT_LOG.md`.
 2. Steelman the sharpest open portal into an explicit typed hypothesis with a falsification criterion.
-3. Test against live upstream equations/data (zero synthetic proxy substitution).
+3. Test against live upstream equations/data where rights and authorization allow (zero undisclosed proxy substitution; label any synthetic input as synthetic in the same sentence).
 4. Run independent verification (`aletheia audit-check .` + `aletheia mutate`) under `-I -B`, `-I -O -B`, `-I -B -W error`.
 5. Loop any anomaly or obstruction back into `cartography/frontier_portals.md`.
 """

@@ -89,7 +89,7 @@ Gates 1 and 3 are R6 and R7 applied to data. Gates 2, 5, 6 and 9 are the null an
 
 ### 3. Bytes, not summaries
 
-- **Rule:** Raw data are pinned by hash from the primary archive, with a fetch manifest (source URL, retrieval date, size, hash). Every number in a claim is regenerated from those bytes by code in the repository. A number the repository cannot regenerate is not a claim.
+- **Rule:** Raw data are pinned by hash from the primary archive, with a fetch manifest (source URL, retrieval date, size, hash). Every number in a claim is regenerated from those bytes by code in the repository. A number the repository cannot regenerate is not a claim. Pinning by hash does not mean committing the bytes: raw files enter the repository only when their terms allow redistribution and they hold no personal data; otherwise the manifest and the aggregates are committed and the bytes are re-fetched and checked against the hash.
 - **Catches:** Figures copied from a notebook, a pull request body or a stored certificate that no longer match the code. Silent changes to upstream files.
 - **Certifier recomputes:** Hashes every file against the manifest, runs the regeneration script, and compares every number in the claim file with the regenerated value. The comparison is exact on rationals or on fixed decimal strings, never a float tolerance.
 - **Must-fail control:** A claim file with one number changed in its last digit, and a manifest with one wrong hash. Both must be refused.
