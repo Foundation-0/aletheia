@@ -87,6 +87,15 @@ def _visible_section_6(raw_section: str | None = None) -> str:
     return without_tilde_fences
 
 
+_SECTION6_HEADING = "## 6. v1.1\u2013v2.0 Executable Modules & Epistemic Accounting"
+_PLANE2_HEADING = (
+    "4. **Plane-1 MDE Contract (`aletheia mde`, `AUDIT-027`, restored from `v1.3.0` `58207b4`, `aletheia#11`):**"
+)
+_RATCHET_HEADING = (
+    "5. **5-Gate Autonomous Ratchet Contract (`aletheia ratchet`, `AUDIT-026R` + `AUDIT-023`, "
+    "restored from `v1.3.0` `58207b4`, `aletheia#11`):**"
+)
+
 _PLANE2_LEAD_IN = "**Plane-2 Mechanical Obstruction (`plane2_oracle_compilation_forbidden: true`):**"
 _PLANE2_SENTENCE = (
     "Verification oracles MUST NEVER be compiled into neural weights; "
@@ -128,11 +137,14 @@ _RATCHET_ENFORCEMENT_BULLET = (
     "the hash chain, strict decision enum, canonical `sha256` AST digest format, and "
     "Gate-1 adjacent-baseline AST progression over declared digest strings in the "
     "submitted ledger: `BROKEN_HASH_CHAIN`, `RECORD_HASH_MISMATCH`, `INVALID_DECISION`, "
-    "`INVALID_AST_DIGEST`, `AST_UNCHANGED_KEEP`, where `KEEP` and `REVERT` update the "
-    "active baseline digest — `REVERT`'s `ast_sha256` records the restored baseline — "
-    "while `DISCARD` and `LATCH_HALT` leave the active baseline unchanged, so "
-    "`KEEP A -> KEEP B -> KEEP A` is valid under adjacent-baseline progression whereas "
-    "`KEEP A -> KEEP B -> REVERT A -> KEEP A` fails closed with `AST_UNCHANGED_KEEP`), "
+    "`INVALID_AST_DIGEST`, `AST_UNCHANGED_KEEP`, `REVERT_TO_UNKNOWN_BASELINE`, where "
+    "`KEEP` updates the active baseline digest, `REVERT`'s `ast_sha256` must match a "
+    "previously kept baseline and restores it as the active baseline, and `DISCARD` and "
+    "`LATCH_HALT` leave the active baseline unchanged, so `KEEP A -> KEEP B -> KEEP A` "
+    "is valid under adjacent-baseline progression whereas "
+    "`KEEP A -> KEEP B -> REVERT A -> KEEP A` fails closed with `AST_UNCHANGED_KEEP` "
+    "and `KEEP A -> REVERT B` with unkept `B` fails closed with "
+    "`REVERT_TO_UNKNOWN_BASELINE`), "
     "`ast_canonical_digest` (canonical AST hash whose unchanged-baseline `KEEP` invariant "
     "is enforced on submitted ledger digests by `verify_ratchet_ledger_records` via "
     "`AST_UNCHANGED_KEEP`), `exact_pythagorean_latch_check` / `LATCH_HALT`, and "
@@ -150,29 +162,35 @@ _RATCHET_ENFORCEMENT_BULLET = (
 
 
 def _enclosing_clause_block(section: str, start: int) -> str:
-    """Return the enclosing numbered Section 6 item (or full section if unnumbered)."""
+    """Return the enclosing numbered Section 6 item bounded only by column-0 items, headings, or `---`."""
     item_starts = [m.start() for m in re.finditer(r"(?m)^\d+\.\s", section)]
     lo = 0
-    hi = len(section)
     for pos in item_starts:
         if pos <= start:
             lo = pos
         else:
-            hi = pos
+            break
+    boundary_re = re.compile(r"(?m)^(?:\d+\.\s|#{1,6}(?:\s|$)|---[ \t]*$)")
+    hi = len(section)
+    for m in boundary_re.finditer(section, pos=lo + 1):
+        if m.start() > start:
+            hi = m.start()
             break
     return section[lo:hi]
 
 
-def _extract_block_bullets(block: str) -> list[str]:
-    """Parse sub-bullets inside a numbered clause block, rejecting invisible `Cf` format chars."""
+def _extract_block_heading_and_bullets(block: str) -> tuple[str | None, list[str]]:
+    """Parse numbered item heading and sub-bullets, rejecting Cf chars, headings, and non-bullet lines."""
     for ch in block:
         if unicodedata.category(ch) == "Cf":
             raise AssertionError(f"Invisible format character U+{ord(ch):04X} forbidden in Section 6 clause block")
     normalized = unicodedata.normalize("NFKC", block)
     lines = normalized.splitlines()
+    heading: str | None = None
     bullets: list[str] = []
     idx = 0
     if lines and re.match(r"^\d+\.\s", lines[0]):
+        heading = lines[0].strip()
         idx = 1
     while idx < len(lines):
         raw = lines[idx]
@@ -180,14 +198,12 @@ def _extract_block_bullets(block: str) -> list[str]:
         if not stripped:
             idx += 1
             continue
-        if stripped.startswith(("#",)):
-            break
         if stripped.startswith(("- ", "* ")):
             bullets.append(stripped[2:].strip())
         else:
-            raise AssertionError(f"Unexpected non-bullet continuation line inside clause block: {raw!r}")
+            raise AssertionError(f"Unexpected non-bullet line inside clause block: {raw!r}")
         idx += 1
-    return bullets
+    return heading, bullets
 
 
 _SECTION6_OUTSIDE_WAIVER_PATTERNS = (
@@ -199,30 +215,65 @@ _SECTION6_OUTSIDE_WAIVER_PATTERNS = (
         r"[^\n.;!?]*\b(?:is|are)\s+binding\b"
     ),
     re.compile(
+        r"(?i)\ball\s+of\s+these\s+are\s+(?:optional|guidance|recommendations?|advisory|non[-\s]?binding)\b"
+    ),
+    re.compile(
         r"(?i)\b(?:nothing|none|clauses?|items?|requirements?|obligations?|rules?|section)\b"
-        r"[^\n.;!?]*\b(?:not\s+binding|non[-\s]?binding|optional|advisory\s+only|"
+        r"[^\n.;!?]*\b(?:not\s+binding|non[-\s]?binding|optional|advisory(?:\s+only)?|"
+        r"guidance(?:\s+only)?|recommendations?|not\s+requirements?|"
         r"waiv(?:e|ed|er|ing)|opt[\s-]?out|do(?:es)?\s+not\s+apply|exempt(?:ed|ion)?|"
         r"discretionary|superseded)\b"
     ),
     re.compile(
-        r"(?i)\b(?:not\s+binding|non[-\s]?binding|waiv(?:e|ed|er|ing)|opt[\s-]?out|advisory\s+only)\b"
+        r"(?i)\b(?:not\s+binding|non[-\s]?binding|waiv(?:e|ed|er|ing)|opt[\s-]?out|advisory(?:\s+only)?|"
+        r"guidance(?:\s+only)?|recommendations?|not\s+requirements?)\b"
         r"[^\n.;!?]*\b(?:section|clauses?|items?|requirements?|obligations?|plane[-\s]?2|ratchet)\b"
     ),
     re.compile(
-        r"(?i)\b(?:plane[-\s]?2|oracle\s+compilation|ratchet|item\s*[45]|clauses?\s*\(?i\)?|"
+        r"(?i)\b(?:plane[-\s]?2|oracle\s+compilation|ratchet|items?\s*\d|clauses?\s*\(?i\)?|"
         r"this\s+section|section\s*6)\b[^\n.;!?]*\b(?:optional|waiv(?:e|ed|er|ing)|"
-        r"non[-\s]?binding|not\s+binding|advisory|opt[\s-]?out|do(?:es)?\s+not\s+apply|"
+        r"non[-\s]?binding|not\s+binding|advisory|guidance|recommendations?|not\s+requirements?|"
+        r"opt[\s-]?out|do(?:es)?\s+not\s+apply|"
         r"exempt(?:ed|ion)?|discretionary|may\s+skip|need\s+not|supersed(?:e|ed|ing))\b"
     ),
 )
 
 
 def _assert_no_section6_waiver_outside_clauses(raw_section: str) -> None:
-    """Section-wide deny-check over Section 6 outside the exact verified clause blocks."""
+    """Enforce exact Section 6 top-level item structure (1..6, no extra headings/intro prose)
+    plus best-effort waiver deny-checks across the prose inside non-clause items (1-3, 6)."""
     for ch in raw_section:
         if unicodedata.category(ch) == "Cf":
             raise AssertionError(f"Invisible format character U+{ord(ch):04X} forbidden in Section 6")
     norm_section = unicodedata.normalize("NFKC", raw_section)
+
+    # Structural lock on Section 6 outside items 4 & 5:
+    # exactly heading `## 6. ...`, zero intro prose before item 1, zero extra `#` subheadings,
+    # and exact numbered item sequence [1, 2, 3, 4, 5, 6] (rejects appended `7. **Scope:** ...`
+    # or column-0 `#### Scope` subsections regardless of phrasing).
+    sec_lines = norm_section.splitlines()
+    _req(
+        bool(sec_lines) and sec_lines[0].strip() == unicodedata.normalize("NFKC", _SECTION6_HEADING),
+        f"Unexpected Section 6 heading: {sec_lines[0] if sec_lines else ''!r}",
+    )
+    seen_item_nums: list[int] = []
+    for raw_ln in sec_lines[1:]:
+        stripped = raw_ln.strip()
+        if not stripped or stripped == "---":
+            continue
+        if raw_ln.startswith("#") or stripped.startswith("#"):
+            raise AssertionError(f"Unexpected heading line inside Section 6: {raw_ln!r}")
+        m_num = re.match(r"^(\d+)\.\s", raw_ln)
+        if m_num is not None:
+            seen_item_nums.append(int(m_num.group(1)))
+            continue
+        if not seen_item_nums:
+            raise AssertionError(f"Unexpected prose before Section 6 item 1: {raw_ln!r}")
+    _req(
+        seen_item_nums == [1, 2, 3, 4, 5, 6],
+        f"Unexpected Section 6 numbered item structure: got {seen_item_nums!r}, expected [1, 2, 3, 4, 5, 6]",
+    )
+
     remainder = norm_section
     for sentence in (_PLANE2_SENTENCE, _RATCHET_SENTENCE):
         norm_s = unicodedata.normalize("NFKC", sentence)
@@ -242,10 +293,11 @@ def _assert_exact_obligation_clause(
     raw_section: str,
     sentence: str,
     *,
+    expected_heading: str | None = None,
     lead_in: str = "",
     allowed_block_bullets: tuple[str, ...] | None = None,
 ) -> None:
-    """Raw-block fence/comment/Cf rejection + NFKC whole-bullet/whole-block allow-list check."""
+    """Raw-block fence/comment/Cf/heading rejection + NFKC whole-heading & whole-block allow-list check."""
     for ch in raw_section:
         if unicodedata.category(ch) == "Cf":
             raise AssertionError(f"Invisible format character U+{ord(ch):04X} forbidden in Section 6")
@@ -261,7 +313,12 @@ def _assert_exact_obligation_clause(
     if "<!--" in clause_block or "-->" in clause_block:
         raise AssertionError(f"HTML comment forbidden inside Section 6 clause block: {clause_block!r}")
 
-    bullets = _extract_block_bullets(clause_block)
+    heading, bullets = _extract_block_heading_and_bullets(clause_block)
+    if expected_heading is not None:
+        _req(
+            heading == unicodedata.normalize("NFKC", expected_heading),
+            f"Clause item heading does not match exact canonical text: got {heading!r}",
+        )
     _req(
         expected_bullet in bullets,
         f"Obligation bullet does not match exact canonical text (pre-sentence, trailing, or altered text): {bullets!r}",
@@ -310,11 +367,12 @@ class TestSpecSection6Clauses(unittest.TestCase):
         raw_section_6 = _raw_section_6()
         section_6 = _visible_section_6(raw_section_6)
 
-        # Restored obligations must match exact canonical whole-bullet and whole-block allow-lists
+        # Restored obligations must match exact canonical heading, whole-bullet, and whole-block allow-lists
         # on the RAW enclosing item (before any fence or comment stripping).
         _assert_exact_obligation_clause(
             raw_section_6,
             _PLANE2_SENTENCE,
+            expected_heading=_PLANE2_HEADING,
             lead_in=_PLANE2_LEAD_IN,
             allowed_block_bullets=(
                 _PLANE2_CONTEXT_BULLET,
@@ -325,6 +383,7 @@ class TestSpecSection6Clauses(unittest.TestCase):
         _assert_exact_obligation_clause(
             raw_section_6,
             _RATCHET_SENTENCE,
+            expected_heading=_RATCHET_HEADING,
             allowed_block_bullets=(
                 _RATCHET_SENTENCE,
                 _RATCHET_ENFORCEMENT_BULLET,
@@ -341,6 +400,7 @@ class TestSpecSection6Clauses(unittest.TestCase):
             "INVALID_DECISION",
             "INVALID_AST_DIGEST",
             "AST_UNCHANGED_KEEP",
+            "REVERT_TO_UNKNOWN_BASELINE",
             "declared digest strings",
             "clauses (i)\u2013(v)",
             # Existing v2.0.0 Section 6 items preserved intact
@@ -353,7 +413,7 @@ class TestSpecSection6Clauses(unittest.TestCase):
             _req(phrase in section_6, f"Missing required Section 6 clause in visible spec/LAWS_AND_GATES.md text: {phrase!r}")
 
     def test_spec_clause_boundary_rejects_contradicting_tails_and_waivers(self) -> None:
-        """Regression tests for exact clause-block allow-list, raw fence/comment rejection, and Section 6 waiver checks."""
+        """Regression tests for exact clause-block heading/bullet allow-list, raw fence/comment/heading rejection, and Section 6 waiver checks."""
         raw_section_6 = _raw_section_6()
         plane2_allowed = (
             _PLANE2_CONTEXT_BULLET,
@@ -362,46 +422,61 @@ class TestSpecSection6Clauses(unittest.TestCase):
         )
         ratchet_allowed = (_RATCHET_SENTENCE, _RATCHET_ENFORCEMENT_BULLET)
 
-        # All #29 same-line tails, pre-sentence hedges, continuation lines, fenced code blocks,
-        # HTML comments, zero-width Cf chars, and arbitrary rephrased waiver bullets MUST fail closed.
+        # All #29 same-line tails, heading-line tails, pre-sentence hedges, continuation lines,
+        # `#` headings inside clause blocks, fenced code blocks, HTML comments, zero-width Cf chars,
+        # and arbitrary rephrased waiver bullets MUST fail closed.
         bad_mutations = (
             # Exact #29 trailing sentences
-            (_PLANE2_SENTENCE, _PLANE2_SENTENCE + " Unless the owner waives this.", _PLANE2_LEAD_IN, plane2_allowed),
-            (_RATCHET_SENTENCE, _RATCHET_SENTENCE + " All of these are optional.", "", ratchet_allowed),
-            (_PLANE2_SENTENCE, _PLANE2_SENTENCE + " This does not apply to adapters.", _PLANE2_LEAD_IN, plane2_allowed),
+            (_PLANE2_SENTENCE, _PLANE2_SENTENCE + " Unless the owner waives this.", _PLANE2_HEADING, _PLANE2_LEAD_IN, plane2_allowed),
+            (_RATCHET_SENTENCE, _RATCHET_SENTENCE + " All of these are optional.", _RATCHET_HEADING, "", ratchet_allowed),
+            (_PLANE2_SENTENCE, _PLANE2_SENTENCE + " This does not apply to adapters.", _PLANE2_HEADING, _PLANE2_LEAD_IN, plane2_allowed),
             # Arbitrary pre-sentence contradiction
-            (_PLANE2_SENTENCE, "Adapters are excluded. " + _PLANE2_SENTENCE, _PLANE2_LEAD_IN, plane2_allowed),
-            (_RATCHET_SENTENCE, "In advisory mode only. " + _RATCHET_SENTENCE, "", ratchet_allowed),
+            (_PLANE2_SENTENCE, "Adapters are excluded. " + _PLANE2_SENTENCE, _PLANE2_HEADING, _PLANE2_LEAD_IN, plane2_allowed),
+            (_RATCHET_SENTENCE, "In advisory mode only. " + _RATCHET_SENTENCE, _RATCHET_HEADING, "", ratchet_allowed),
             # Neutral same-line trailing prose
-            (_PLANE2_SENTENCE, _PLANE2_SENTENCE + " Additional prose on the same line.", _PLANE2_LEAD_IN, plane2_allowed),
-            (_RATCHET_SENTENCE, _RATCHET_SENTENCE + " Additional prose on the same line.", "", ratchet_allowed),
+            (_PLANE2_SENTENCE, _PLANE2_SENTENCE + " Additional prose on the same line.", _PLANE2_HEADING, _PLANE2_LEAD_IN, plane2_allowed),
+            (_RATCHET_SENTENCE, _RATCHET_SENTENCE + " Additional prose on the same line.", _RATCHET_HEADING, "", ratchet_allowed),
             # Same-paragraph continuation line
-            (_RATCHET_SENTENCE, _RATCHET_SENTENCE + "\n   Continuing the same paragraph without a bullet.", "", ratchet_allowed),
+            (_RATCHET_SENTENCE, _RATCHET_SENTENCE + "\n   Continuing the same paragraph without a bullet.", _RATCHET_HEADING, "", ratchet_allowed),
+            # Indented `#` / `#### Scope` headings inside clause block (must NOT break early!)
+            (_RATCHET_ENFORCEMENT_BULLET, _RATCHET_ENFORCEMENT_BULLET + "\n   #### Scope\n   All of these are optional.", _RATCHET_HEADING, "", ratchet_allowed),
+            (_RATCHET_ENFORCEMENT_BULLET, _RATCHET_ENFORCEMENT_BULLET + "\n   #\n   Clauses (i)-(v) of this item are optional and not binding.", _RATCHET_HEADING, "", ratchet_allowed),
+            (_PLANE2_ENFORCEMENT_BULLET, _PLANE2_ENFORCEMENT_BULLET + "\n   ### Note\n   Unless the owner waives this.", _PLANE2_HEADING, _PLANE2_LEAD_IN, plane2_allowed),
+            # Numbered heading-line tail waivers
+            (_RATCHET_HEADING, _RATCHET_HEADING + " All clauses below are optional and not binding.", _RATCHET_HEADING, "", ratchet_allowed),
+            (_PLANE2_HEADING, _PLANE2_HEADING + " The Plane-2 ban below is waived for adapters.", _PLANE2_HEADING, _PLANE2_LEAD_IN, plane2_allowed),
             # Fenced code blocks inside clause block (backtick & tilde fences)
-            (_RATCHET_SENTENCE, _RATCHET_SENTENCE + "\n   ```\n   All of these are optional.\n   ```", "", ratchet_allowed),
-            (_PLANE2_SENTENCE, _PLANE2_SENTENCE + "\n   ```\n   Unless the owner waives this.\n   ```", _PLANE2_LEAD_IN, plane2_allowed),
-            (_RATCHET_SENTENCE, _RATCHET_SENTENCE + "\n   ~~~\n   All of these are optional.\n   ~~~", "", ratchet_allowed),
+            (_RATCHET_SENTENCE, _RATCHET_SENTENCE + "\n   ```\n   All of these are optional.\n   ```", _RATCHET_HEADING, "", ratchet_allowed),
+            (_PLANE2_SENTENCE, _PLANE2_SENTENCE + "\n   ```\n   Unless the owner waives this.\n   ```", _PLANE2_HEADING, _PLANE2_LEAD_IN, plane2_allowed),
+            (_RATCHET_SENTENCE, _RATCHET_SENTENCE + "\n   ~~~\n   All of these are optional.\n   ~~~", _RATCHET_HEADING, "", ratchet_allowed),
             # HTML comments inside clause block (block & inline)
-            (_PLANE2_SENTENCE, _PLANE2_SENTENCE + "\n   <!-- Unless the owner waives this. -->", _PLANE2_LEAD_IN, plane2_allowed),
-            (_RATCHET_SENTENCE, _RATCHET_SENTENCE + " <!-- optional -->", "", ratchet_allowed),
+            (_PLANE2_SENTENCE, _PLANE2_SENTENCE + "\n   <!-- Unless the owner waives this. -->", _PLANE2_HEADING, _PLANE2_LEAD_IN, plane2_allowed),
+            (_RATCHET_SENTENCE, _RATCHET_SENTENCE + " <!-- optional -->", _RATCHET_HEADING, "", ratchet_allowed),
             # Rephrased added waiver bullets with ZERO classic deny-list words
-            (_PLANE2_SENTENCE, _PLANE2_SENTENCE + "\n   - Non-binding guidance only.", _PLANE2_LEAD_IN, plane2_allowed),
-            (_RATCHET_SENTENCE, _RATCHET_SENTENCE + "\n   - Waiving these requirements is permitted.", "", ratchet_allowed),
-            (_RATCHET_SENTENCE, _RATCHET_SENTENCE + "\n   - Teams may opt out.", "", ratchet_allowed),
+            (_PLANE2_SENTENCE, _PLANE2_SENTENCE + "\n   - Non-binding guidance only.", _PLANE2_HEADING, _PLANE2_LEAD_IN, plane2_allowed),
+            (_RATCHET_SENTENCE, _RATCHET_SENTENCE + "\n   - Waiving these requirements is permitted.", _RATCHET_HEADING, "", ratchet_allowed),
+            (_RATCHET_SENTENCE, _RATCHET_SENTENCE + "\n   - Teams may opt out.", _RATCHET_HEADING, "", ratchet_allowed),
             # Invisible zero-width format character (Cf) smuggling
-            (_PLANE2_SENTENCE, _PLANE2_SENTENCE + "\u200b", _PLANE2_LEAD_IN, plane2_allowed),
+            (_PLANE2_SENTENCE, _PLANE2_SENTENCE + "\u200b", _PLANE2_HEADING, _PLANE2_LEAD_IN, plane2_allowed),
         )
-        for sentence, replacement, lead_in, allowed in bad_mutations:
-            mutated = raw_section_6.replace(sentence, replacement, 1)
-            _req(mutated != raw_section_6, f"Test setup failed to mutate sentence: {sentence!r}")
+        for target_text, replacement, exp_heading, lead_in, allowed in bad_mutations:
+            mutated = raw_section_6.replace(target_text, replacement, 1)
+            _req(mutated != raw_section_6, f"Test setup failed to mutate target: {target_text!r}")
+            check_sentence = _PLANE2_SENTENCE if exp_heading == _PLANE2_HEADING else _RATCHET_SENTENCE
             try:
-                _assert_exact_obligation_clause(mutated, sentence, lead_in=lead_in, allowed_block_bullets=allowed)
+                _assert_exact_obligation_clause(
+                    mutated,
+                    check_sentence,
+                    expected_heading=exp_heading,
+                    lead_in=lead_in,
+                    allowed_block_bullets=allowed,
+                )
             except AssertionError:
                 pass
             else:
                 raise AssertionError(f"Tampered clause was not rejected: {replacement!r}")
 
-        # Section-wide waiver overrides outside items 4 & 5 MUST also fail closed
+        # Section-wide waiver overrides, extra numbered items, and column-0 subheadings outside items 4 & 5 MUST fail closed
         outside_waiver_mutations = (
             raw_section_6.replace(
                 "## 6. v1.1\u2013v2.0 Executable Modules & Epistemic Accounting\n",
@@ -415,7 +490,27 @@ class TestSpecSection6Clauses(unittest.TestCase):
             ),
             raw_section_6.replace(
                 "schema alignment.\n",
-                "schema alignment.\n7. **Override:** Item 4 and item 5 requirements may be waived by teams.\n",
+                "schema alignment.\n7. **Scope:** Items 4 and 5 above are recommendations, not requirements.\n",
+                1,
+            ),
+            raw_section_6.replace(
+                "schema alignment.\n",
+                "schema alignment.\n7. **Scope:** The ratchet and Plane-2 text above is guidance only.\n",
+                1,
+            ),
+            raw_section_6.replace(
+                "schema alignment.\n",
+                "schema alignment.\n   - Items 4 and 5 above are recommendations, not requirements.\n",
+                1,
+            ),
+            raw_section_6.replace(
+                "schema alignment.\n",
+                "schema alignment.\n   - The ratchet and Plane-2 text above is guidance only.\n",
+                1,
+            ),
+            raw_section_6.replace(
+                "schema alignment.\n",
+                "schema alignment.\n#### Scope\nAll of these are optional.\n",
                 1,
             ),
             raw_section_6.replace(
@@ -433,10 +528,11 @@ class TestSpecSection6Clauses(unittest.TestCase):
             else:
                 raise AssertionError(f"Section-6 outside waiver was not rejected: {mutated_s6[-160:]!r}")
 
-        # Positive controls: clean standalone clause block passes
+        # Positive controls: clean standalone clause block (bounded by column-0 `### Next`) passes
         _assert_exact_obligation_clause(
             f"4. **Clause:**\n   - {_PLANE2_LEAD_IN} {_PLANE2_SENTENCE}\n\n### Next",
             _PLANE2_SENTENCE,
+            expected_heading="4. **Clause:**",
             lead_in=_PLANE2_LEAD_IN,
             allowed_block_bullets=(f"{_PLANE2_LEAD_IN} {_PLANE2_SENTENCE}",),
         )
@@ -636,7 +732,7 @@ class TestSpecSection6Clauses(unittest.TestCase):
         else:
             raise AssertionError("KEEP(d1)->DISCARD(d1)->KEEP(d1) was not rejected")
 
-        # KEEP(d1) -> DISCARD(d2) -> KEEP(d1) MUST fail (DISCARD does not change active baseline)
+        # KEEP(d1) -> DISCARD(d2) -> KEEP(d2) MUST pass (DISCARD does not block a changed KEEP)
         disc_diff = build_ratchet_record(
             step=1, prev_hash=r0["record_hash"], decision="DISCARD", note="d2", ast_sha256=d2, **kw,
         )
@@ -646,6 +742,7 @@ class TestSpecSection6Clauses(unittest.TestCase):
         ver_dk = verify_ratchet_ledger_records([r0, disc_diff, keep_after_disc_diff])
         _req(ver_dk["valid"] is True and ver_dk["status"] == "VALID", f"Valid KEEP->DISCARD(diff)->KEEP(diff) rejected: {ver_dk}")
 
+        # KEEP(d1) -> DISCARD(d2) -> KEEP(d1) MUST fail (DISCARD does not change active baseline)
         keep_d1_after_disc_d2 = build_ratchet_record(
             step=2, prev_hash=disc_diff["record_hash"], decision="KEEP", note="k1_again", ast_sha256=d1, **kw,
         )
@@ -677,7 +774,7 @@ class TestSpecSection6Clauses(unittest.TestCase):
         ver_aba = verify_ratchet_ledger_records([r0, diff, keep_back_to_d1])
         _req(ver_aba["valid"] is True and ver_aba["status"] == "VALID", f"Valid A->B->A progression rejected: {ver_aba}")
 
-        # REVERT updates active baseline to restored digest:
+        # REVERT updates active baseline to a previously kept digest:
         # KEEP(d1) -> KEEP(d2) -> REVERT(d1) -> KEEP(d1) MUST fail with AST_UNCHANGED_KEEP
         rev_to_d1 = build_ratchet_record(
             step=2, prev_hash=diff["record_hash"], decision="REVERT", note="rev_d1", ast_sha256=d1, **kw,
@@ -699,24 +796,37 @@ class TestSpecSection6Clauses(unittest.TestCase):
         ver_rev_ok = verify_ratchet_ledger_records([r0, diff, rev_to_d1, keep_diff_after_rev])
         _req(ver_rev_ok["valid"] is True and ver_rev_ok["status"] == "VALID", f"Valid post-REVERT KEEP rejected: {ver_rev_ok}")
 
-        # Consecutive non-KEEP records with identical ast_sha256 MUST remain valid, and REVERT establishes baseline
-        disc0 = build_ratchet_record(step=0, prev_hash=genesis, decision="DISCARD", note="d0", ast_sha256=d1, **kw)
-        disc1 = build_ratchet_record(step=1, prev_hash=disc0["record_hash"], decision="REVERT", note="rev", ast_sha256=d1, **kw)
-        keep_after_nonkeep = build_ratchet_record(
-            step=2, prev_hash=disc1["record_hash"], decision="KEEP", note="k3", ast_sha256=d3, **kw,
+        # REVERT to an unkept digest MUST fail closed with REVERT_TO_UNKNOWN_BASELINE
+        # (blocks `KEEP(d1) -> REVERT(d2) -> KEEP(d1)` masquerading an unchanged KEEP)
+        rev_unkept_d2 = build_ratchet_record(
+            step=1, prev_hash=r0["record_hash"], decision="REVERT", note="rev_unkept", ast_sha256=d2, **kw,
         )
-        ver_nk = verify_ratchet_ledger_records([disc0, disc1, keep_after_nonkeep])
-        _req(ver_nk["valid"] is True and ver_nk["status"] == "VALID", f"Valid non-KEEP sequence rejected: {ver_nk}")
-
-        keep_unchanged_after_rev0 = build_ratchet_record(
-            step=2, prev_hash=disc1["record_hash"], decision="KEEP", note="k1_bad", ast_sha256=d1, **kw,
+        keep_d1_after_unkept_rev = build_ratchet_record(
+            step=2, prev_hash=rev_unkept_d2["record_hash"], decision="KEEP", note="k1_smuggle", ast_sha256=d1, **kw,
         )
         try:
-            verify_ratchet_ledger_records([disc0, disc1, keep_unchanged_after_rev0])
+            verify_ratchet_ledger_records([r0, rev_unkept_d2, keep_d1_after_unkept_rev])
         except AletheiaError as exc:
-            _req(exc.code == "AST_UNCHANGED_KEEP", f"Expected AST_UNCHANGED_KEEP after initial REVERT(d1), got {exc.code}")
+            _req(exc.code == "REVERT_TO_UNKNOWN_BASELINE", f"Expected REVERT_TO_UNKNOWN_BASELINE for unkept REVERT(d2), got {exc.code}")
         else:
-            raise AssertionError("DISCARD(d1)->REVERT(d1)->KEEP(d1) was not rejected")
+            raise AssertionError("KEEP(d1)->REVERT(d2)->KEEP(d1) with unkept d2 was not rejected")
+
+        # Consecutive DISCARD/LATCH_HALT with identical ast_sha256 remain valid, while REVERT before any KEEP fails
+        disc0 = build_ratchet_record(step=0, prev_hash=genesis, decision="DISCARD", note="d0", ast_sha256=d1, **kw)
+        halt1 = build_ratchet_record(step=1, prev_hash=disc0["record_hash"], decision="LATCH_HALT", note="h1", ast_sha256=d1, **kw)
+        keep_after_nonkeep = build_ratchet_record(
+            step=2, prev_hash=halt1["record_hash"], decision="KEEP", note="k3", ast_sha256=d3, **kw,
+        )
+        ver_nk = verify_ratchet_ledger_records([disc0, halt1, keep_after_nonkeep])
+        _req(ver_nk["valid"] is True and ver_nk["status"] == "VALID", f"Valid non-KEEP sequence rejected: {ver_nk}")
+
+        rev_before_keep = build_ratchet_record(step=1, prev_hash=disc0["record_hash"], decision="REVERT", note="rev0", ast_sha256=d1, **kw)
+        try:
+            verify_ratchet_ledger_records([disc0, rev_before_keep])
+        except AletheiaError as exc:
+            _req(exc.code == "REVERT_TO_UNKNOWN_BASELINE", f"Expected REVERT_TO_UNKNOWN_BASELINE before any KEEP, got {exc.code}")
+        else:
+            raise AssertionError("DISCARD(d1)->REVERT(d1) with no prior KEEP was not rejected")
 
         # Invalid/non-canonical ast_sha256 MUST fail closed at BOTH build_ratchet_record AND verify_ratchet_ledger_records
         class _EvilStr(str):

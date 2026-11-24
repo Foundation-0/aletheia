@@ -159,6 +159,7 @@ def verify_ratchet_ledger_records(records: Sequence[Mapping[str, Any]]) -> dict[
     require_ok(len(records) >= 1, "EMPTY_LEDGER", "ratchet ledger must contain >= 1 record")
     expected_prev = "sha256:" + ("0" * 64)
     last_active_ast: str | None = None
+    seen_baselines: set[str] = set()
     for idx, rec in enumerate(records):
         require_ok(isinstance(rec, Mapping), "INVALID_RECORD", f"record[{idx}] must be object")
         require_ok(rec.get("schema") == RATCHET_LEDGER_SCHEMA, "INVALID_SCHEMA", f"record[{idx}] bad schema")
@@ -195,7 +196,13 @@ def verify_ratchet_ledger_records(records: Sequence[Mapping[str, Any]]) -> dict[
                     f"record[{idx}] KEEP has unchanged ast_sha256 relative to active baseline",
                 )
             last_active_ast = ast_digest
+            seen_baselines.add(ast_digest)
         elif decision == "REVERT":
+            require_ok(
+                ast_digest in seen_baselines,
+                "REVERT_TO_UNKNOWN_BASELINE",
+                f"record[{idx}] REVERT ast_sha256 does not match any prior kept baseline",
+            )
             last_active_ast = ast_digest
         expected_prev = stored
     return {
