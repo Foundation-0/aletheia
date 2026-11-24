@@ -46,12 +46,26 @@ def require(cond: bool, code: str, msg: str) -> None:
         raise CalculusError(code, msg)
 
 
+MAX_SERIALIZED_INT_BITS = 14000
+
+
 def is_exact_int(x: Any) -> bool:
-    return isinstance(x, int) and not isinstance(x, bool)
+    return type(x) is int
+
+
+def _require_serializable_int(n: Any) -> int:
+    require(is_exact_int(n), "INVALID_INT_TYPE", "Serializable integer must be exact int")
+    require(
+        n.bit_length() <= MAX_SERIALIZED_INT_BITS,
+        "VALUE_SERIALIZATION_LIMIT",
+        f"Integer component exceeds {MAX_SERIALIZED_INT_BITS}-bit serialization limit",
+    )
+    return n
 
 
 def frac_str(x: Fraction) -> str:
-    return f"{x.numerator}/{x.denominator}"
+    require(type(x) is Fraction, "INVALID_FRACTION_TYPE", "frac_str requires exact Fraction")
+    return f"{_require_serializable_int(x.numerator)}/{_require_serializable_int(x.denominator)}"
 
 
 def canonical_json(obj: Any) -> str:
@@ -941,6 +955,10 @@ def op_r5_gate(spec: R5Spec, target: Any) -> GateResult:
 # 4. Live Unicode & ASCII Fallback Lexer + Recursive-Descent Parser + Evaluator
 # =============================================================================
 
+MAX_EXPR_DEPTH = 64
+MAX_INT_DIGITS = 1000
+_ASCII_DIGITS = frozenset("0123456789")
+
 GLYPH_TO_TOKEN = {
     "\u29c4": "SCHUR",    # ⧄
     "\u29c5": "SHADOW",   # ⧅
@@ -965,6 +983,7 @@ ASCII_TO_TOKEN = {
 
 
 def tokenize(expr: str) -> list[tuple[str, str]]:
+    require(type(expr) is str, "INVALID_EXPRESSION_TYPE", "Expression must be exact str")
     tokens: list[tuple[str, str]] = []
     i = 0
     n = len(expr)
@@ -1003,13 +1022,13 @@ def tokenize(expr: str) -> list[tuple[str, str]]:
             tokens.append((ch, ch))
             i += 1
             continue
-        if ch.isdigit():
+        if ch in _ASCII_DIGITS:
             j = i
-            while j < n and expr[j].isdigit():
+            while j < n and expr[j] in _ASCII_DIGITS:
                 j += 1
-            if j < n and expr[j] == "/" and j + 1 < n and expr[j + 1].isdigit():
+            if j < n and expr[j] == "/" and j + 1 < n and expr[j + 1] in _ASCII_DIGITS:
                 j += 1
-                while j < n and expr[j].isdigit():
+                while j < n and expr[j] in _ASCII_DIGITS:
                     j += 1
             tokens.append(("NUM", expr[i:j]))
             i = j
@@ -1026,14 +1045,45 @@ def tokenize(expr: str) -> list[tuple[str, str]]:
     return tokens
 
 
+def _parse_rational_literal(val: str) -> Fraction:
+    require(type(val) is str, "INVALID_LITERAL_TYPE", "Rational literal must be exact str")
+    if "/" in val:
+        num_s, den_s = val.split("/", 1)
+        require(
+            len(num_s) <= MAX_INT_DIGITS and len(den_s) <= MAX_INT_DIGITS,
+            "INT_LITERAL_TOO_LONG",
+            f"Rational literal exceeds {MAX_INT_DIGITS} digits",
+        )
+        den = int(den_s)
+        require(den != 0, "ZERO_DENOMINATOR", "Zero denominator in rational literal")
+        return Fraction(int(num_s), den)
+    require(
+        len(val) <= MAX_INT_DIGITS,
+        "INT_LITERAL_TOO_LONG",
+        f"Integer literal exceeds {MAX_INT_DIGITS} digits",
+    )
+    return Fraction(int(val), 1)
+
+
 class Parser:
     """Precedence-climbing / recursive-descent parser respecting glyph_registry.json:
     prec 20: ⫩ | prec 30: ⩩ | prec 40: +,- | prec 45: *,| | prec 50: ⟠ | prec 55: ⦷ | prec 60: ⧄,⧅ | prec 70: prefix ⧇,⦺
     """
 
-    def __init__(self, tokens: list[tuple[str, str]]) -> None:
+    def __init__(self, tokens: list[tuple[str, str]], *, max_depth: int = MAX_EXPR_DEPTH) -> None:
+        require(is_exact_int(max_depth) and max_depth >= 1, "INVALID_MAX_DEPTH", "max_depth must be positive int")
         self.tokens = tokens
         self.pos = 0
+        self.max_depth = max_depth
+        self._depth = 0
+
+    def _enter_depth(self) -> None:
+        self._depth += 1
+        require(
+            self._depth <= self.max_depth,
+            "EXPR_DEPTH_EXCEEDED",
+            f"Expression nesting exceeds max depth {self.max_depth}",
+        )
 
     def peek(self) -> tuple[str, str]:
         return self.tokens[self.pos]
@@ -1110,11 +1160,19 @@ class Parser:
         tk = self.peek()[0]
         if tk in ("OBST", "INERTIA", "INERTIA_+", "INERTIA_0", "INERTIA_-"):
             self.consume()
-            arg = self.parse_prefix()
+            self._enter_depth()
+            try:
+                arg = self.parse_prefix()
+            finally:
+                self._depth -= 1
             return (tk, arg)
         if tk == "-":
             self.consume("-")
-            arg = self.parse_prefix()
+            self._enter_depth()
+            try:
+                arg = self.parse_prefix()
+            finally:
+                self._depth -= 1
             return ("NEG", arg)
         return self.parse_atom()
 
@@ -1122,36 +1180,47 @@ class Parser:
         tk, val = self.peek()
         if tk == "(":
             self.consume("(")
-            first = self.parse_r5()
-            if self.peek()[0] == ",":
-                elems = [first]
-                while self.peek()[0] == ",":
-                    self.consume(",")
-                    elems.append(self.parse_r5())
+            self._enter_depth()
+            try:
+                first = self.parse_r5()
+                if self.peek()[0] == ",":
+                    elems = [first]
+                    while self.peek()[0] == ",":
+                        self.consume(",")
+                        elems.append(self.parse_r5())
+                    self.consume(")")
+                    return ("TUPLE", tuple(elems))
                 self.consume(")")
-                return ("TUPLE", tuple(elems))
-            self.consume(")")
-            return first
+                return first
+            finally:
+                self._depth -= 1
         if tk == "NUM":
             self.consume("NUM")
-            return ("NUM", Fraction(val))
+            return ("NUM", _parse_rational_literal(val))
         if tk == "IDENT":
             self.consume("IDENT")
             if self.peek()[0] == "(":
                 self.consume("(")
-                args = []
-                if self.peek()[0] != ")":
-                    args.append(self.parse_r5())
-                    while self.peek()[0] == ",":
-                        self.consume(",")
+                self._enter_depth()
+                try:
+                    args = []
+                    if self.peek()[0] != ")":
                         args.append(self.parse_r5())
-                self.consume(")")
-                return ("CALL", val, tuple(args))
+                        while self.peek()[0] == ",":
+                            self.consume(",")
+                            args.append(self.parse_r5())
+                    self.consume(")")
+                    return ("CALL", val, tuple(args))
+                finally:
+                    self._depth -= 1
             return ("VAR", val)
         raise CalculusError(f"[PARSE_ERR] Unexpected token {tk!r} ({val!r})")
 
 
-def eval_ast(node: Any, env: dict[str, Any]) -> Any:
+def eval_ast(node: Any, env: dict[str, Any], *, _depth: int = 0, max_depth: int = MAX_EXPR_DEPTH) -> Any:
+    require(is_exact_int(max_depth) and max_depth >= 1, "INVALID_MAX_DEPTH", "max_depth must be a positive integer")
+    require(_depth <= max_depth, "EXPR_DEPTH_EXCEEDED", f"AST evaluation depth exceeds {max_depth}")
+    nxt = _depth + 1
     tag = node[0]
     if tag == "NUM":
         return node[1]
@@ -1160,64 +1229,64 @@ def eval_ast(node: Any, env: dict[str, Any]) -> Any:
         require(name in env, "UNBOUND_VAR", f"Unknown identifier {name!r}")
         return env[name]
     if tag == "TUPLE":
-        vals = tuple(eval_ast(x, env) for x in node[1])
+        vals = tuple(eval_ast(x, env, _depth=nxt, max_depth=max_depth) for x in node[1])
         if len(vals) == 3 and all(isinstance(v, Fraction) and v.denominator == 1 for v in vals):
             return InertiaTriple(int(vals[0]), int(vals[1]), int(vals[2]))
         return vals
     if tag == "NEG":
-        v = eval_ast(node[1], env)
+        v = eval_ast(node[1], env, _depth=nxt, max_depth=max_depth)
         if isinstance(v, Fraction):
             return -v
         if isinstance(v, tuple) and len(v) > 0 and isinstance(v[0], tuple):
             return qscale(Fraction(-1), v)
         raise CalculusError(f"[BAD_NEG] Cannot negate {type(v).__name__}")
     if tag == "SCHUR":
-        return op_schur_pushforward(eval_ast(node[1], env), eval_ast(node[2], env))
+        return op_schur_pushforward(eval_ast(node[1], env, _depth=nxt, max_depth=max_depth), eval_ast(node[2], env, _depth=nxt, max_depth=max_depth))
     if tag == "SHADOW":
-        return op_dark_mode_shadow(eval_ast(node[1], env), eval_ast(node[2], env))
+        return op_dark_mode_shadow(eval_ast(node[1], env, _depth=nxt, max_depth=max_depth), eval_ast(node[2], env, _depth=nxt, max_depth=max_depth))
     if tag == "UNMASK":
-        return op_holonomy_unmask(eval_ast(node[1], env), eval_ast(node[2], env))
+        return op_holonomy_unmask(eval_ast(node[1], env, _depth=nxt, max_depth=max_depth), eval_ast(node[2], env, _depth=nxt, max_depth=max_depth))
     if tag == "EQOBS":
-        return op_observer_equalizer(eval_ast(node[1], env), eval_ast(node[2], env))
+        return op_observer_equalizer(eval_ast(node[1], env, _depth=nxt, max_depth=max_depth), eval_ast(node[2], env, _depth=nxt, max_depth=max_depth))
     if tag == "OBST":
-        return op_cohom_obstruction(eval_ast(node[1], env))
+        return op_cohom_obstruction(eval_ast(node[1], env, _depth=nxt, max_depth=max_depth))
     if tag == "INERTIA":
-        return op_krein_inertia(eval_ast(node[1], env))
+        return op_krein_inertia(eval_ast(node[1], env, _depth=nxt, max_depth=max_depth))
     if tag == "INERTIA_+":
-        return Fraction(op_krein_inertia(eval_ast(node[1], env)).pos)
+        return Fraction(op_krein_inertia(eval_ast(node[1], env, _depth=nxt, max_depth=max_depth)).pos)
     if tag == "INERTIA_0":
-        return Fraction(op_krein_inertia(eval_ast(node[1], env)).zero)
+        return Fraction(op_krein_inertia(eval_ast(node[1], env, _depth=nxt, max_depth=max_depth)).zero)
     if tag == "INERTIA_-":
-        return Fraction(op_krein_inertia(eval_ast(node[1], env)).neg)
+        return Fraction(op_krein_inertia(eval_ast(node[1], env, _depth=nxt, max_depth=max_depth)).neg)
     if tag == "EXACTEQ":
-        return op_exact_null_equiv(eval_ast(node[1], env), eval_ast(node[2], env))
+        return op_exact_null_equiv(eval_ast(node[1], env, _depth=nxt, max_depth=max_depth), eval_ast(node[2], env, _depth=nxt, max_depth=max_depth))
     if tag == "R5GATE":
-        return op_r5_gate(eval_ast(node[1], env), eval_ast(node[2], env))
+        return op_r5_gate(eval_ast(node[1], env, _depth=nxt, max_depth=max_depth), eval_ast(node[2], env, _depth=nxt, max_depth=max_depth))
     if tag == "+":
-        a, b = eval_ast(node[1], env), eval_ast(node[2], env)
+        a, b = eval_ast(node[1], env, _depth=nxt, max_depth=max_depth), eval_ast(node[2], env, _depth=nxt, max_depth=max_depth)
         if isinstance(a, InertiaTriple) and isinstance(b, InertiaTriple):
             return a + b
         if isinstance(a, tuple) and isinstance(b, tuple):
             return qadd(a, b)
         return to_q(a) + to_q(b)
     if tag == "-":
-        a, b = eval_ast(node[1], env), eval_ast(node[2], env)
+        a, b = eval_ast(node[1], env, _depth=nxt, max_depth=max_depth), eval_ast(node[2], env, _depth=nxt, max_depth=max_depth)
         if isinstance(a, tuple) and isinstance(b, tuple):
             return qsub(a, b)
         return to_q(a) - to_q(b)
     if tag == "*":
-        a, b = eval_ast(node[1], env), eval_ast(node[2], env)
+        a, b = eval_ast(node[1], env, _depth=nxt, max_depth=max_depth), eval_ast(node[2], env, _depth=nxt, max_depth=max_depth)
         if isinstance(a, CocycleZ2) and isinstance(b, CocycleZ2):
             return a.product(b)
         if isinstance(a, tuple) and isinstance(b, tuple):
             return qmul(a, b)
         return to_q(a) * to_q(b)
     if tag == "|":
-        a, b = eval_ast(node[1], env), eval_ast(node[2], env)
+        a, b = eval_ast(node[1], env, _depth=nxt, max_depth=max_depth), eval_ast(node[2], env, _depth=nxt, max_depth=max_depth)
         require(isinstance(a, IndexSet) and isinstance(b, IndexSet), "BAD_UNION", "| requires IndexSet operands")
         return a.union(b)
     if tag == "CALL":
-        fn, args = node[1], tuple(eval_ast(x, env) for x in node[2])
+        fn, args = node[1], tuple(eval_ast(x, env, _depth=nxt, max_depth=max_depth) for x in node[2])
         if fn == "rk":
             arg = args[0]
             return Fraction(arg.r_cross if isinstance(arg, ShadowRecord) else qrank(arg))
@@ -1968,26 +2037,32 @@ def build_default_env() -> dict[str, Any]:
     }
 
 
-def serialize_calculus_value(val: Any) -> tuple[str, Any]:
+def serialize_calculus_value(val: Any, *, _depth: int = 0, max_depth: int = MAX_EXPR_DEPTH) -> tuple[str, Any]:
     """Serialize any exact calculus value into zero-float canonical JSON form."""
+    require(is_exact_int(max_depth) and max_depth >= 1, "INVALID_MAX_DEPTH", "max_depth must be a positive integer")
+    require(_depth <= max_depth, "VALUE_DEPTH_EXCEEDED", f"Serialized value nesting exceeds {max_depth}")
     if isinstance(val, bool):
         return ("bool", val)
     if isinstance(val, Fraction):
         return ("rational", frac_str(val))
     if is_exact_int(val):
-        return ("int", val)
+        return ("int", _require_serializable_int(val))
     if isinstance(val, InertiaTriple):
-        return ("inertia_triple", list(val.as_tuple()))
+        a, b, c = val.as_tuple()
+        return (
+            "inertia_triple",
+            [_require_serializable_int(a), _require_serializable_int(b), _require_serializable_int(c)],
+        )
     if isinstance(val, IndexSet):
-        return ("index_set", list(val.indices))
+        return ("index_set", [_require_serializable_int(i) for i in val.indices])
     if isinstance(val, CocycleZ2):
         return ("cocycle_z2", list(val.signs))
     if isinstance(val, ShadowRecord):
         return (
             "shadow_record",
             {
-                "dim_dark": val.dim_dark,
-                "r_cross": val.r_cross,
+                "dim_dark": _require_serializable_int(val.dim_dark),
+                "r_cross": _require_serializable_int(val.r_cross),
                 "kernel_basis": [[frac_str(c) for c in vec] for vec in val.kernel_basis],
                 "coupling_map": (
                     [[frac_str(c) for c in row] for row in val.coupling_map]
@@ -2002,15 +2077,15 @@ def serialize_calculus_value(val: Any) -> tuple[str, Any]:
             {
                 "passed": val.passed,
                 "accept_target": val.accept_target,
-                "killed": val.killed,
-                "total_mutants": val.total_mutants,
+                "killed": _require_serializable_int(val.killed),
+                "total_mutants": _require_serializable_int(val.total_mutants),
                 "kill_ratio": frac_str(val.kill_ratio),
             },
         )
     if isinstance(val, tuple):
-        if len(val) > 0 and isinstance(val[0], tuple):
+        if len(val) > 0 and all(isinstance(row, tuple) and all(isinstance(c, Fraction) for c in row) for row in val):
             return ("qmat", [[frac_str(c) for c in row] for row in val])
-        return ("tuple", [serialize_calculus_value(el)[1] for el in val])
+        return ("tuple", [serialize_calculus_value(el, _depth=_depth + 1, max_depth=max_depth)[1] for el in val])
     raise CalculusError("UNSERIALIZABLE_VALUE", f"Cannot serialize value of type {type(val).__name__}")
 
 
@@ -2032,7 +2107,7 @@ def list_glyphs() -> dict[str, Any]:
 
 def eval_calculus_expression(expr: str, env: dict[str, Any] | None = None) -> dict[str, Any]:
     """Lex, parse, and evaluate an exact pure-Q Unicode or ASCII operator-calculus expression."""
-    require(isinstance(expr, str) and len(expr.strip()) > 0, "EMPTY_EXPRESSION", "Expression must be non-empty")
+    require(type(expr) is str and len(expr.strip()) > 0, "EMPTY_EXPRESSION", "Expression must be non-empty")
     active_env = build_default_env() if env is None else env
     tokens = tokenize(expr)
     ast = Parser(tokens).parse()

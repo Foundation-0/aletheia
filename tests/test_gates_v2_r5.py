@@ -5,8 +5,9 @@ Zero bare asserts. Covers all 9 Aletheia v2.0 pure-Q gates (R6/R7, Two-Direction
 Sampled NOT_SHOWN, Oracle Contract, Gate-8 Subspace Latch, Law 2b Transformational
 Steelman, Own-Terms-First Phase 1, Orthogonal Model Ladder, and Rule-2 Symbol
 Operational-Utility Classifier) plus dynamic self-test tampering, killing all 156/156
-raise-guard deletions, all 213/213 `aletheia mutate` sites, and the targeted
-sub-condition and classification regressions from review 6012061680.
+raise-guard deletions, all 220/220 `aletheia mutate --max-mutants 0` sites (measured;
+the 213/213 published earlier did not reproduce, see CHANGELOG [Unreleased]), and the
+targeted sub-condition and classification regressions from review 6012061680.
 """
 from __future__ import annotations
 
@@ -744,6 +745,69 @@ class TestGatesV2R5(unittest.TestCase):
             self.assertEqual(st_bad_ts["verdict"], "ALETHEIA_V2_GATES_FAILED")
             self.assertFalse(st_bad_ts["checks"]["law2b_steelman_accept"])
             self.assertFalse(st_bad_ts["checks"]["law2b_steelman_reject"])
+
+    # Named controls for the four `_strict_typed_equal` guards that survived
+    # `aletheia mutate aletheia/gates_v2.py --max-mutants 0` at a07d7db (216/220 killed;
+    # survivors M011 line 239, M015 and M016 line 256, M018 line 258). One control per guard,
+    # after cave-expedition's outside mutation harness, which pairs each mutant with the
+    # control it must turn red (verification/outside/checks/twoloop_stack/mutate_stack_guards.py).
+
+    def test_08_typed_equal_dict_length_guard(self) -> None:
+        # `if len(typed_b) != len(a): return False`. Without it, every key of `a` is found in `b`
+        # and `b`'s extra key is never looked at.
+        self.assertFalse(g2._strict_typed_equal({"a": 1}, {"a": 1, "b": 2}))
+        self.assertTrue(g2._strict_typed_equal({"a": 1, "b": 2}, {"b": 2, "a": 1}))
+
+    def test_09_typed_equal_set_guard(self) -> None:
+        # `if typed_a != typed_b_set: return False`. Deleting the guard makes any two sets equal;
+        # flipping `!=` to `==` makes equal sets unequal.
+        self.assertFalse(g2._strict_typed_equal({1, 2}, {1, 3}))
+        self.assertFalse(g2._strict_typed_equal(frozenset({"x"}), frozenset({"y"})))
+        self.assertFalse(g2._strict_typed_equal({1}, {True}))
+        self.assertTrue(g2._strict_typed_equal({1, "x"}, {"x", 1}))
+        self.assertTrue(g2._strict_typed_equal(frozenset({(1, "a")}), frozenset({(1, "a")})))
+
+    def test_10_typed_equal_scalar_guard(self) -> None:
+        # `elif a != b: return False`. Without it, two values of the same type are never compared.
+        self.assertFalse(g2._strict_typed_equal(1, 2))
+        self.assertFalse(g2._strict_typed_equal("VERIFIED", "FAILED"))
+        self.assertFalse(g2._strict_typed_equal({"a": [1]}, {"a": [2]}))
+
+    def test_11_r3_noop_detection_uses_every_typed_equal_guard(self) -> None:
+        # The same four guards seen through the public gate: a re-spelling that differs only by a
+        # dropped key, a set member or a scalar is a real re-spelling and must not be refused as a
+        # no-op, and an exact copy that holds a set must still be refused as one. (A re-spelling is
+        # compared as the left operand, so an added key is caught by the key lookup; only a dropped
+        # key needs the length guard.)
+        ok = {"flag": True, "v": "VERIFIED", "tags": {"a", "b"}}
+        bad = {"flag": True, "v": "FAILED", "tags": {"a", "b"}}
+
+        def strict_fn(r):
+            return (
+                isinstance(r, dict)
+                and set(r) == {"flag", "v", "tags"}
+                and r["flag"] is True
+                and r["v"] == "VERIFIED"
+                and r["tags"] == {"a", "b"}
+            )
+
+        res = g2.certify_two_direction_r3(
+            strict_fn,
+            ok,
+            bad,
+            [
+                ("dropped_key", {"flag": True, "v": "VERIFIED"}),
+                ("extra_key", {**ok, "extra": 1}),
+                ("set_member", {**ok, "tags": {"a", "c"}}),
+                ("scalar", {**ok, "v": "verified"}),
+            ],
+            [("d2_scalar", {**bad, "v": "failed"})],
+        )
+        self.assertTrue(res["passed"])
+        self.assertEqual(res["dir1_rejected"], 4)
+        with self.assertRaisesRegex(ValueError, "R3_NOOP_DIR1_CASE"):
+            g2.certify_two_direction_r3(strict_fn, ok, bad, [("copy", {**ok, "tags": {"b", "a"}})],
+                                        [("d2_scalar", {**bad, "v": "failed"})])
 
 
 if __name__ == "__main__":

@@ -20,7 +20,7 @@ Standard AI research workflows—and standard critique-first review loops—fall
 flowchart LR
     A["1. Raw Portal / Anomaly<br/>(Draft, Coincidence, Bug, or Wall)"] --> B["2. Active Portal Keeper<br/>(Re-Enter Source + Steelman Operator)"]
     B --> C["3. Domain Probe / Branch<br/>(Exact Proof or Live Empirical Test)"]
-    C --> D["4. Verifier Tomography G_obs<br/>(Zero-Shared-Code Oracle + R1-R5)"]
+    C --> D["4. Verifier Tomography G_obs<br/>(Zero-Shared-Code Oracle + R1-R7)"]
     D -->|"Counterexample or Sharpness Wall"| B
     D -->|"VERIFIED N2 + New Anomaly"| E["5. Exact-Operator Transfer<br/>(Cross-Pollinate Peer Front)"]
     E --> C
@@ -29,7 +29,7 @@ flowchart LR
 1. **Never park the Portal Keeper:** Raw sources, lab logs, and unfinished repos are *portals* to re-enter whenever an anomaly appears—not static filing cabinets indexed once.
 2. **Perceive beyond language & beyond numerology (v1.2):** Strip disciplinary labels and base-10/coordinate numerology (*Stage A*), then distill raw relational geometry into coordinate-free, unit-free, radix-free exact invariants or zero-residual null-equivalences (*Stage B*, [`THEORY.md`](THEORY.md#35-beyond-language-beyond-numerology-structural-perception-v12)).
 3. **Steelman before falsifying:** Separate prototype bugs from the underlying mathematical or physical invariant; test the strongest repaired statement before declaring a direction dead.
-4. **Verify via independent multi-basis tomography ($\mathcal{G}_{\mathrm{obs}}$):** Zero shared code, strict `exact` / `sampled` / `anchor` oracle honesty, R1–R5 gate-integrity & mutation testing, and full-text prior-art verification before claiming `N1` or `N2`.
+4. **Verify via independent multi-basis tomography ($\mathcal{G}_{\mathrm{obs}}$):** Zero shared code, strict `exact` / `sampled` / `anchor` oracle honesty, R1–R7 gate-integrity contracts (R5 mutation testing, R6 pinned checks, R7 measured-not-declared values), and full-text prior-art verification before claiming `N1` or `N2`.
 
 ---
 
@@ -42,9 +42,9 @@ Aletheia was not designed abstractly—it emerged from a live natural experiment
 | **Cartographer / Portal Role** | One-shot static map (`#10`–`#14`), then parked `[done]` | Active **Portal Keeper** re-entering raw sources on every anomaly (`#16`, `#25`, `#38`, `#46`, `#47`, `#52`, `#53`) |
 | **Handling of Rough Drafts** | Cataloged bugs (`AUDIT-001` `FALSIFIED`, `AUDIT-003` `PARTIAL`) and stopped | Separated prototype defects from underlying invariants; steelmanned first, then certified in exact arithmetic |
 | **Verifier Role** | Rejection gate only | **Active Tomography ($\mathcal{G}_{\mathrm{obs}}$):** caught `5/5` real intermediate defects (`AUDIT-006/007/013/015/020`), supplied minimal reproducers & sharpness walls, driving clean upgrades to `VERIFIED` |
-| **Verified Yield (`AUDIT-001`–`021`)** | **`0` confirmed `N2`** (our sibling team's ledger read *"New ground: still none"* after its own critique-first pass on overlapping sources) | Ten results were labelled `N2` by the expedition's own verifier (plus `1` `N1`/`N2` and `8` `N1` advances across `14` verifier scripts; `0` unresolved defects in the results checked, with two check scripts `check_007`/`check_008` later needing re-pinning against patched heads). An independent two-pass outside check (`cave-expedition#4`) confirmed every central computation it covered, kept one at `N2` (`F_8 -> E_8` fold, medium confidence) and one as a strong candidate (all-$n$ `D_n` fold), and reclassified the rest to `N1` or `N0` after finding the same mechanisms under other fields' names. Published across [2 canonical `Foundation-0` repos & 10 open Draft PRs](evidence/cave-expedition-case-study.md#4-complete-published-artifact-ledger). |
+| **Verified Yield (`AUDIT-001`–`021`)** | **`0` confirmed `N2`** (our sibling team's ledger read *"New ground: still none"* after its own critique-first pass on overlapping sources) | Ten results were labelled `N2` by the expedition's own verifier (plus `1` `N1`/`N2` and `8` `N1` advances across `14` verifier scripts; `0` unresolved defects in the results checked, with two check scripts `check_007`/`check_008` later needing re-pinning against patched heads). An independent two-pass outside check (`cave-expedition#4`) confirmed every central computation it covered, kept one at `N2` (`F_8 -> E_8` fold, medium confidence) and one as a strong candidate (all-$n$ `D_n` fold), and reclassified the rest to `N1` or `N0` after finding the same mechanisms under other fields' names. Published across [2 canonical `Foundation-0` repos & 10 Draft PRs](evidence/cave-expedition-case-study.md#4-complete-published-artifact-ledger), recorded as open when that ledger was written; one of them, `project-asma#101`, has since been merged into project-asma `main` as `f2f92ee` (2026-11-22). |
 
-> **Provenance Standing:** Every cross-repo mathematical/physical contribution from the Cave Expedition remains an open Draft PR awaiting human and external peer review; internal "`VERIFIED`" and "`N2`" tags denote survival of our verification protocol and full-text checks of the cited prior work. An outside check (`cave-expedition#4`, `evidence/outside/`) found several of the same mechanisms under other fields' names—directly driving v2.0's Gate 9 Mechanism-First Prior Art and Gate 10 Advocate Pass.
+> **Provenance Standing:** Every cross-repo mathematical/physical contribution from the Cave Expedition was opened as a Draft PR for human and external peer review. One, `project-asma#101`, has since been merged into project-asma `main` (`f2f92ee`, 2026-11-22); project-asma labels that study author self-checked, with no in-repo second checker (`studies/expedition-mobius-ropt/README.md:3` at `de88b12`), so the merge is not an external peer review. The other nine were not rechecked when this line was updated. Internal "`VERIFIED`" and "`N2`" tags denote survival of our verification protocol and full-text checks of the cited prior work. An outside check (`cave-expedition#4`, `evidence/outside/`) found several of the same mechanisms under other fields' names—directly driving v2.0's Gate 9 Mechanism-First Prior Art and Gate 10 Advocate Pass.
 
 ---
 
@@ -133,17 +133,19 @@ aletheia/
 ├── pyproject.toml                             # Zero-dependency PEP 621 Python 3 stdlib package config (v2.1.0)
 ├── spec/
 │   ├── LAWS_AND_GATES.md                      # Canonical v2.0 spec: Laws 1–5 + Law 2b, Own-Terms-First, 10 Gates, R1–R7, CS-01..CS-14
+│   ├── proposals/EMPIRICAL_CLAIMS.md          # Proposal (not adopted, text only): an exact core for empirical claims, 12 gates, grades E0–E5
 │   ├── proposals/OWN_TERMS_FIRST.md           # Own-Terms-First rule (direction confirmed 2026-11-22 in d43cb1c7; adopted in v2.0.0) + OTF-TIGHT-01..05
 │   └── twin_contract.json                      # Pinned claims this repo and cave-expedition make about each other (aletheia twin-check)
 ├── evidence/
 │   ├── outside/README.md                      # Permanent index of external audits & two-pass Advocate rulings
+│   ├── EXTERNAL_EVIDENCE.md                   # Where each cited sibling-repo script or record lives, and at which revision
 │   ├── cave-expedition-case-study.md          # Wave 1 empirical case study (Pass 1 vs Pass 2+, 5 chains, AUDIT-001..021)
 │   ├── symbiosis-wave2-case-study.md          # Wave 2 Rounds 1–2 symbiosis across 30+ repos & v1.0->v1.1 (AUDIT-023..034R)
 │   ├── symbiosis-round3-10labs-case-study.md  # Wave 2 Round 3 10-lab epistemic web, Beyond-Language & v1.2 (AUDIT-035..039)
 │   ├── symbiosis-round4-ramanujan-hawking-case-study.md  # Wave 2 Round 4 Ramanujan/Hawking, Operator Calculus & v1.3 (AUDIT-041..054)
 │   └── symbiosis-round6-warp-drive-case-study.md         # Wave 2 Round 6 Moissanite-Labs/warp-drive 5-arm audit & v1.4 (AUDIT-061R..065)
 ├── aletheia/                                  # Executable Python 3 stdlib CLI v2.1.0 (init, audit-check, mutate, diagnose, gate-v2, safety-scan, ratchet, mde, calculus, handoff, install, twin-check)
-├── tests/                                     # Self-verifying stdlib test & R5 mutation suite (tests/run_all.py, test_gates_v2_r5.py, test_safety_r5.py, test_audit_walk_fail_closed.py, test_twin_check.py)
+├── tests/                                     # Self-verifying stdlib test & R5 mutation suite (tests/run_all.py, test_gates_v2_r5.py, test_safety_r5.py, test_audit_walk_fail_closed.py, test_twin_check.py, test_external_evidence.py)
 ├── examples/
 │   └── worked_resonance_cycle/                # 3-second zero-float executable demo of a full Aletheia breakthrough cycle
 ├── domains/                                   # 6 practitioner Domain Adaptation Packs + Rosetta Stone index (domains/README.md)
