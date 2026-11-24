@@ -1043,6 +1043,7 @@ def scan_hidden_unicode(text: str, file_label: str = "<input>") -> list[dict[str
 
 def _scan_structured_auto_yes_config(text: str) -> list[tuple[int, str]]:
     """Detect non-JSON structured (YAML/fenced-JSON) npx/bunx auto-yes configs in strictly O(n) time."""
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
     n = len(text)
     events: list[tuple[int, int, str, str]] = []
 
@@ -1060,6 +1061,9 @@ def _scan_structured_auto_yes_config(text: str) -> list[tuple[int, str]]:
         pos = m_args.end()
         while pos < n and text[pos] in " \t":
             pos += 1
+        if pos != n and text[pos] == "#":
+            nl_c = text.find("\n", pos)
+            pos = nl_c if nl_c != -1 else n
         has_yes = False
         end_pos = pos
         if pos < n and text[pos] == "[":

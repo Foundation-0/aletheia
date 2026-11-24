@@ -475,6 +475,16 @@ class TestSafetyEvasionsAndBounds(unittest.TestCase):
         self.assertTrue(safety.scan_text_safety_surface(f"{_CMD}: {_NX}\n{_ARGS}:\n  - --no-yes\n  - safe\n", "nx_noyes.yml")["clean"])
         self.assertTrue(safety.scan_text_safety_surface(f"{_CMD}: {_NX}\n{_ARGS}:\n  - -q\n  - yaml\n", "nx_q.yml")["clean"])
 
+        # Windows CRLF (\r\n), bare CR (\r), and inline comment after args: regression controls
+        self._assert_hits(f"{_CMD}: {_NX}\r\n{_ARGS}:\r\n  - {_YF}\r\n  - evil\r\n", "crlf_y.yml", "CYA-GAP-02", "npx_auto_yes_structured_config")
+        self._assert_hits(f"{_CMD}: {_NX}\r\n{_ARGS}:\r\n  - {qy_flag}\r\n  - evil\r\n", "crlf_qy.yml", "CYA-GAP-02", "npx_auto_yes_structured_config")
+        self._assert_hits(f"{_CMD}: {_BX}\r\n{_ARGS}:\r\n  - {_YESF}\r\n  - evil\r\n", "crlf_yes.yml", "CYA-GAP-02", "bunx_auto_yes_structured_config")
+        self._assert_hits(f"{_ARGS}:\r\n  - {_YF}\r\n  - evil\r\n{_CMD}: {_NX}\r\n", "crlf_af.yml", "CYA-GAP-02", "npx_auto_yes_structured_config")
+        self._assert_hits(f"{_CMD}: {_NX}\r{_ARGS}:\r  - {_YF}\r", "cr_y.yml", "CYA-GAP-02", "npx_auto_yes_structured_config")
+        self._assert_hits(f"{_CMD}: {_NX}\n{_ARGS}: # inline note\n  - {_YF}\n", "cmt_y.yml", "CYA-GAP-02", "npx_auto_yes_structured_config")
+        self.assertTrue(safety.scan_text_safety_surface(f"{_CMD}: {_NX}\r\n{_ARGS}:\r\n  - --help\r\n", "crlf_ok.yml")["clean"])
+        self.assertTrue(safety.scan_text_safety_surface(f"{_CMD}: {_NX}\n{_ARGS}: # eof comment", "cmt_eof.yml")["clean"])
+
         # O(n) YAML/bracket args ReDoS & structured proximity/floor boundary regression tests (< 50 ms each)
         for label, payload, expect_clean in (
             ("yaml_npx_200", f"{_CMD}: {_NX}\n{_ARGS}:\n" + "  - foo\n" * 200 + "  - bar\n", True),
