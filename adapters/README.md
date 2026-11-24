@@ -1,6 +1,6 @@
 # Platform Adapters — Drop-In Aletheia Everywhere
 
-**The Aletheia Method** ships with first-class, zero-dependency adapters for every major AI coding and research environment. All six adapters share the exact same **5 Operational Laws**, **9 Verification Gates**, **R1–R5 Gate Contracts**, and **Novelty/Oracle Taxonomy** defined in [`../spec/LAWS_AND_GATES.md`](../spec/LAWS_AND_GATES.md).
+**The Aletheia Method** ships with first-class, zero-dependency adapters for every major AI coding and research environment. All six adapters share the exact same **5 Operational Laws**, **10 Verification Gates**, **R1–R7 Gate Contracts**, and **Novelty/Oracle Taxonomy** defined in [`../spec/LAWS_AND_GATES.md`](../spec/LAWS_AND_GATES.md).
 
 ## Platform Comparison & 1-Line Install
 

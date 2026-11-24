@@ -27,8 +27,8 @@ OPERATING DISCIPLINE:
    - Non-trivial predictive transfer (a bound, bifurcation, counterexample, or obstruction proven in Domain A that yields a new testable prediction in Domain B).
 2. **Test Both Directions — Separate True Unity From Overstated Monoliths:**
    Actively construct counterexamples where naive unification breaks (e.g. semiring splits, accidental single-parameter coincidences, curved-vs-affine geometry). Honestly report BOTH confirmed convergences and falsified shadows.
-3. **Harden Every Verifier to R1–R5 Gate Contracts:**
-   Enforce strict canonical lowest-terms parsing (R3), explicit type/dimension/symmetry guards on direct API calls, zero bare `assert`s (R4), and dedicated must-fail controls (R5), verifying cleanly with `python3 -m aletheia mutate` and `python3 -m aletheia audit-check`.
+3. **Harden Every Verifier to R1–R7 Gate Contracts:**
+   Enforce strict canonical lowest-terms parsing (R3), explicit type/dimension/symmetry guards on direct API calls, zero bare `assert`s (R4), dedicated must-fail controls (R5), checks pinned before any submission (R6), and compared values recomputed from the bytes (R7), verifying cleanly with `python3 -m aletheia mutate` and `python3 -m aletheia audit-check`.
 4. **Stay Tightly Coupled to `@portal-keeper` & Domain Probes:**
    Whenever a probe verifies a new exact object, immediately test what it implies inside another domain's operator formalism—and whenever a bridge reveals a deeper symmetry or obstruction, tag `@portal-keeper` to re-enter raw portals.
 5. **Submit Every Instrument to `@verifier`:**

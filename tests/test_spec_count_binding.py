@@ -111,6 +111,70 @@ class TestSpecCounts(unittest.TestCase):
             _req(stale_count_claims(ok) == [], f"legitimate phrase flagged: {ok!r} -> {stale_count_claims(ok)}")
 
 
+# Agent-instruction and documentation files: no v1 counts at all.
+DOC_FILES = ("AGENTS.md", "README.md", "THEORY.md", "CONTRIBUTING.md")
+DOC_GLOBS = ("adapters/**/*", ".agents/**/*", "agents/**/*", "prompts/**/*", "domains/**/*", "docs/**/*")
+DOC_SUFFIXES = (".md", ".mdc", ".json", ".html", ".txt")
+# Intentional R1-R5 mentions that scope a claim instead of stating the contract count.
+ALLOWED_PHRASES = (
+    "R1–R5 are necessary, not sufficient",  # spec section 4, quoted
+    "R1 to R5 are the floor. R6 and R7 close the gap",  # docs/method/index.html
+    "contracts R1–R5 and the two measurement contracts R6–R7",  # domains/computer-science-and-systems.md
+)
+
+# Tool help strings and generated CI step names: R1-R5 may appear only in the scoped form,
+# and each listed file must carry the scope note (R6/R7 exist only as library certifiers).
+TOOL_SCOPE_NOTE = "R6/R7 not automated by this command"
+TOOL_FILES = {"aletheia/cli.py": 2, "aletheia/audit_check.py": 2, "aletheia/installer.py": 1}
+
+
+def doc_files() -> list[Path]:
+    paths = {ROOT / rel for rel in DOC_FILES}
+    for pattern in DOC_GLOBS:
+        paths.update(p for p in ROOT.glob(pattern) if p.is_file() and p.suffix in DOC_SUFFIXES)
+    return sorted(p for p in paths if p.is_file())
+
+
+def doc_stale_hits() -> list[str]:
+    hits: list[str] = []
+    for path in doc_files():
+        rel = path.relative_to(ROOT).as_posix()
+        for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+            for allowed in ALLOWED_PHRASES:
+                line = line.replace(allowed, "")
+            hits.extend(f"{rel}:{lineno}: {phrase}" for phrase in stale_count_claims(line))
+    return hits
+
+
+class TestAgentFacingCounts(unittest.TestCase):
+    def test_doc_scope_covers_the_adapters_prompts_and_packs(self) -> None:
+        rels = {p.relative_to(ROOT).as_posix() for p in doc_files()}
+        for must in (
+            "AGENTS.md",
+            "adapters/README.md",
+            "adapters/claude-code/CLAUDE.md",
+            "adapters/cursor/.cursor/rules/aletheia-research.mdc",
+            ".agents/plugins/aletheia-research/skills/aletheia-research/SKILL.md",
+            "prompts/verifier-tomography.md",
+            "domains/README.md",
+        ):
+            _req(must in rels, f"count-binding scan misses {must}")
+
+    def test_agent_instruction_and_doc_files_carry_no_v1_counts(self) -> None:
+        hits = doc_stale_hits()
+        _req(hits == [], "v1 count claims (spec: 10 gates, R1-R7):\n" + "\n".join(hits))
+
+    def test_tool_help_strings_scope_r1_r5_and_r6_r7(self) -> None:
+        for rel, min_notes in TOOL_FILES.items():
+            text = (ROOT / rel).read_text(encoding="utf-8")
+            notes = text.count(TOOL_SCOPE_NOTE)
+            _req(notes >= min_notes, f"{rel}: {notes} scope note(s) {TOOL_SCOPE_NOTE!r}, expected >= {min_notes}")
+            for lineno, line in enumerate(text.splitlines(), start=1):
+                _req(_NINE_GATES_RE.search(line) is None, f"{rel}:{lineno}: nine-gate claim")
+                if _R1_R5_RE.search(line) is not None:
+                    _req(TOOL_SCOPE_NOTE in line, f"{rel}:{lineno}: R1-R5 without the scope note: {line.strip()}")
+
+
 class TestScaffoldProtocol(unittest.TestCase):
     def test_protocol_names_every_spec_gate_by_title(self) -> None:
         text = _protocol_markdown("x")

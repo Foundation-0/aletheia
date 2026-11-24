@@ -1,5 +1,6 @@
 """
-`aletheia audit-check <path>`: Automated R1-R5 & Gate 1-9 verification checker.
+`aletheia audit-check <path>`: Automated R1-R4 hygiene & Gate 1-9 verification checker
+(R5 is `aletheia mutate`; R6/R7 not automated by this command).
 
 Checks:
   1. Hygiene & R1-R4 static checks:
@@ -1364,7 +1365,7 @@ def run_audit_check(
     include_host_hygiene: bool = False,
     allow_symlinks: bool = False,
 ) -> dict[str, Any]:
-    """Run complete Aletheia R1-R5 & Gate 1-9 audit check on `target_path`."""
+    """Run the Aletheia R1-R4 hygiene & Gate 1-9 audit check on `target_path` (R5 is `aletheia mutate`; R6/R7 not automated by this command)."""
     root = target_path.resolve()
     require_ok(root.exists(), "TARGET_NOT_FOUND", f"target path does not exist: {root}")
     root_mode = os.stat(root).st_mode
