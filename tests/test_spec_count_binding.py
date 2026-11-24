@@ -127,6 +127,22 @@ ALLOWED_PHRASES = (
 TOOL_SCOPE_NOTE = "R6/R7 not automated by this command"
 TOOL_FILES = {"aletheia/cli.py": 2, "aletheia/audit_check.py": 2, "aletheia/installer.py": 1}
 
+# Agent instructions: a line that names `audit-check` next to R6/R7 must say that no command runs them
+# (`audit-check` runs no R6/R7 check; they exist only as `aletheia.gates_v2.evaluate_r6_r7_gate`).
+AGENT_INSTRUCTION_PREFIXES = ("AGENTS.md", "adapters/", ".agents/", "agents/", "prompts/", "domains/")
+_AUDIT_CHECK_RE = re.compile(r"\baudit-check\b")
+_R6_R7_RE = re.compile(r"\bR[67]\b|R1`?\s*(?:–|-|—|to)\s*`?R7\b")
+_R6_R7_SCOPE_RE = re.compile(r"does not run|not automated|no CLI command runs", re.IGNORECASE)
+
+
+def audit_check_r6_r7_overclaims(line: str) -> bool:
+    """True when `line` names `audit-check` and R6/R7 without saying that no command runs R6/R7."""
+    return (
+        _AUDIT_CHECK_RE.search(line) is not None
+        and _R6_R7_RE.search(line) is not None
+        and _R6_R7_SCOPE_RE.search(line) is None
+    )
+
 
 def doc_files() -> list[Path]:
     paths = {ROOT / rel for rel in DOC_FILES}
@@ -173,6 +189,34 @@ class TestAgentFacingCounts(unittest.TestCase):
                 _req(_NINE_GATES_RE.search(line) is None, f"{rel}:{lineno}: nine-gate claim")
                 if _R1_R5_RE.search(line) is not None:
                     _req(TOOL_SCOPE_NOTE in line, f"{rel}:{lineno}: R1-R5 without the scope note: {line.strip()}")
+
+
+    def test_audit_check_is_not_said_to_verify_r6_r7(self) -> None:
+        # Must-flag control: the synthesizer wording this test was written for.
+        _req(
+            audit_check_r6_r7_overclaims(
+                "dedicated must-fail controls (R5), checks pinned before any submission (R6), and compared values "
+                "recomputed from the bytes (R7), verifying cleanly with `python3 -m aletheia mutate` and "
+                "`python3 -m aletheia audit-check`."
+            ),
+            "overclaim control not flagged",
+        )
+        # Must-pass controls.
+        for ok in (
+            "`aletheia.gates_v2.evaluate_r6_r7_gate` implements R6 and R7 as a library certifier; `aletheia audit-check` does not run them.",
+            "Verify R4 hygiene with `audit-check`. No CLI command runs R6/R7 on your instrument.",
+            "Run `aletheia audit-check .` before every Draft PR.",
+        ):
+            _req(not audit_check_r6_r7_overclaims(ok), f"scoped line flagged: {ok!r}")
+        hits: list[str] = []
+        for path in doc_files():
+            rel = path.relative_to(ROOT).as_posix()
+            if not rel.startswith(AGENT_INSTRUCTION_PREFIXES):
+                continue
+            for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+                if audit_check_r6_r7_overclaims(line):
+                    hits.append(f"{rel}:{lineno}: {line.strip()[:160]}")
+        _req(hits == [], "audit-check named next to R6/R7 without saying no command runs them:\n" + "\n".join(hits))
 
 
 class TestScaffoldProtocol(unittest.TestCase):
