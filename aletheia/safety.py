@@ -7,10 +7,13 @@ pure Python 3 stdlib deterministic scanners integrated into `aletheia audit-chec
                 CVE-2021-42574 BiDi controls, Variation Selectors U+FE00..FE0F & U+E0100..E01EF, Unicode Tags)
   - CYA-GAP-02: Unpinned MCP tags, auto-yes package runners (shell + single/multi-line JSON/YAML),
                 duplicate JSON keys, bounded-depth JSON traversal, permission-bypass flags, and session hooks
-  - CYA-GAP-03: Unguarded recursive force-delete of shell/Makefile variables plus command-wrapper evasions
-                (eval-wrapped deletion, find delete actions, busybox deletion wrappers, spaceless xargs
-                invocations, and printf piped to shell interpreters) without top-level non-conditional/
-                non-heredoc `set -u` (guards unset only) or `${VAR:?}` (guards unset and empty)
+  - CYA-GAP-03: (a) Unguarded recursive force-delete of shell/Makefile variables without
+                top-level non-conditional/non-heredoc `set -u` (guards unset only) or `${VAR:?}`
+                (guards unset and empty); and (b) unconditional detection of dynamic-execution and
+                deletion-wrapper evasions (eval-wrapped deletion, find delete and -exec removal
+                actions, busybox deletion wrappers, xargs removal invocations including spaceless
+                forms, and printf piped to shell interpreters), which fire regardless of `set -u`,
+                `${VAR:?}`, or literal paths.
   - CYA-GAP-04: Untrusted CI workflow privilege (`pull_request_target` with secrets, `secrets: inherit`, write
                 permissions, or untrusted PR head checkout via dot/bracket exprs, step outputs, `pull/N/head`, or `gh pr checkout`)
   - CYA-GAP-05: Prose-only governance illusions & host-home tilde path dependencies in rule/prompt docs
@@ -31,6 +34,7 @@ from .strict_io import AletheiaError
 _VCS_IGNORE_DIRS = {".git"}
 
 MAX_JSON_DEPTH = 64
+MAX_JSON_NUMBER_CHARS = 4300
 MAX_SCAN_FILE_BYTES = 2 * 1024 * 1024
 _READ_CHUNK_BYTES = 65536
 _MAX_SHELL_NESTING = 8
@@ -86,80 +90,52 @@ _STRUCTURED_NPX_YES_ARGS_FIRST_RE = re.compile(
     + r"[\"']?\b"
 )
 
-_XARGS_OPT_RE = (
-    r"(?:\s*(?:--(?:arg-file|delimiter|eof|max-args|max-chars|max-lines|max-procs|replace)\s+\S+"
-    r"|--[A-Za-z0-9_-]+(?:=\S+)?"
-    r"|-[IEnLPdasJ]\s*\S+"
-    r"|-[A-Za-z0-9]+"
-    r"|--))"
-)
-_OPT_PATH_PREFIX_RE = r"(?:(?:/[A-Za-z0-9._-]+)+/|\\)?"
-_OPT_BUSYBOX_PREFIX_RE = r"(?:" + _OPT_PATH_PREFIX_RE + _BUSYBOX_TOKEN + r"\s+)?"
-_XARGS_WRAPPER_RE = (
-    r"(?:(?:"
-    + _OPT_PATH_PREFIX_RE
-    + r"(?:env(?:\s+(?:-[uCS]\s+\S+|-[A-Za-z]+))*|sudo(?:\s+(?:-[uUgChp]\s+\S+|-[A-Za-z]+))*|"
-    + _BUSYBOX_TOKEN
-    + r")|command(?:\s+(?:-[pvV]+|--))*)\s+)*"
-)
-_QUOTED_RM_RE = (
-    r"(?:"
-    + _OPT_PATH_PREFIX_RE
-    + r"rm|'"
-    + _OPT_PATH_PREFIX_RE
-    + r"rm'|\"(?:"
-    + _OPT_PATH_PREFIX_RE
-    + r")rm\")"
-)
 _FIND_EXEC_FLAGS = frozenset({"-exec", "-execdir", "-ok", "-okdir"})
-_FIND_EXEC_WRAPPERS = frozenset({"env", _BUSYBOX_TOKEN, "command", "sudo"})
-
-_SHELL_PREFIX_RE = (
-    r"^\s*"
-    r"(?:(?:-\s+)?run:\s*|RUN(?:\s+--[A-Za-z0-9_-]+=\S+)*\s+)?"
-    r"(?:(?:[({!]\s*|(?:then|do|else)\s+))*"
-    r"(?:(?:[A-Za-z_][A-Za-z0-9_]*=\S*"
-    r"|" + _OPT_PATH_PREFIX_RE + r"sudo(?:\s+(?:-[uUgChp]\s+\S+|-[A-Za-z]+))*"
-    r"|command(?:\s+(?:-[pvV]+|--))*"
-    r"|" + _OPT_PATH_PREFIX_RE + r"env(?:\s+(?:-[uCS]\s+\S+|-[A-Za-z]+))*"
-    r"|" + _OPT_PATH_PREFIX_RE + _XARGS_TOKEN + _XARGS_OPT_RE + r"*"
-    r"|builtin|exec|nohup|nice(?:\s+-n\s+\S+)?|time)\s+)*"
+_FIND_EXEC_END = frozenset({";", "\\;", "+"})
+_SHELL_INTERPRETERS = frozenset({"sh", "bash", "zsh", "dash", "ash", "ksh"})
+_XARGS_LONG_VAL_OPTS = frozenset(
+    {
+        "--arg-file",
+        "--delimiter",
+        "--eof",
+        "--max-args",
+        "--max-chars",
+        "--max-lines",
+        "--max-procs",
+        "--replace",
+    }
+)
+_XARGS_SHORT_VAL_FLAGS = frozenset({"I", "E", "n", "L", "P", "d", "a", "s", "J"})
+_ENV_VAL_OPTS = frozenset({"-u", "-C", "--unset", "--chdir"})
+_SUDO_VAL_OPTS = frozenset(
+    {
+        "-u",
+        "-U",
+        "-g",
+        "-C",
+        "-h",
+        "-p",
+        "-r",
+        "-t",
+        "-D",
+        "-R",
+        "-T",
+        "--user",
+        "--other-user",
+        "--group",
+        "--host",
+        "--prompt",
+    }
+)
+_NICE_VAL_OPTS = frozenset({"-n", "--adjustment"})
+_TIMEOUT_VAL_OPTS = frozenset({"-k", "-s", "--kill-after", "--signal"})
+_STDBUF_VAL_OPTS = frozenset({"-i", "-o", "-e", "--input", "--output", "--error"})
+_STAGE_LEADING_PREFIX_RE = re.compile(
+    r"^\s*(?:(?:-\s+)?run:\s*|RUN(?:\s+--[A-Za-z0-9_-]+=\S+)*\s+)?"
 )
 _SET_OPT_PREFIX_RE = r"(?:(?:[-+][A-Za-z]+|[-+]o\s+[A-Za-z]+)\s+)*"
 _SET_TOPLEVEL_NOUNSET_ON_RE = re.compile(
     r"^set\s+" + _SET_OPT_PREFIX_RE + r"(?:-[A-Za-z]*u[A-Za-z]*|-o\s+nounset)\b"
-)
-_SET_NOUNSET_OFF_RE = re.compile(
-    _SHELL_PREFIX_RE + r"set\s+" + _SET_OPT_PREFIX_RE + r"(?:\+[A-Za-z]*u[A-Za-z]*|\+o\s+nounset)\b"
-)
-_RM_CMD_RE = re.compile(_SHELL_PREFIX_RE + r"(?:[@+-]+\s*)?" + _OPT_PATH_PREFIX_RE + r"rm\s+([^\n;&|]+)")
-_EVAL_CMD_RE = re.compile(
-    _SHELL_PREFIX_RE + r"(?:[@+-]+\s*)?(?:\\)?" + _EVAL_TOKEN + r"(?:\s+--)?\s+([^\n]+)"
-)
-_FIND_CMD_RE = re.compile(
-    _SHELL_PREFIX_RE + r"(?:[@+-]+\s*)?" + _OPT_BUSYBOX_PREFIX_RE + _OPT_PATH_PREFIX_RE + _FIND_TOKEN + r"\s+([^\n]+)"
-)
-_BUSYBOX_RM_RE = re.compile(
-    _SHELL_PREFIX_RE + r"(?:[@+-]+\s*)?" + _OPT_PATH_PREFIX_RE + _BUSYBOX_TOKEN + r"\s+rm(?:\s|$)"
-)
-_XARGS_RM_RE = re.compile(
-    _SHELL_PREFIX_RE
-    + r"(?:[@+-]+\s*)?"
-    + _OPT_BUSYBOX_PREFIX_RE
-    + _OPT_PATH_PREFIX_RE
-    + _XARGS_TOKEN
-    + r"(?:"
-    + _XARGS_OPT_RE
-    + r"*\s+"
-    + _XARGS_WRAPPER_RE
-    + _QUOTED_RM_RE
-    + r"|(?:\s*-[0-9]|\s*-I\{\})?rm)(?:\s|$)"
-)
-_PRINTF_CMD_RE = re.compile(
-    _SHELL_PREFIX_RE + r"(?:[@+-]+\s*)?" + _OPT_BUSYBOX_PREFIX_RE + _OPT_PATH_PREFIX_RE + _PRINTF_TOKEN + r"(?:\s|$)"
-)
-_PIPE_SHELL_SINK_RE = re.compile(
-    _SHELL_PREFIX_RE + r"(?:[@+-]+\s*)?" + _OPT_BUSYBOX_PREFIX_RE + _OPT_PATH_PREFIX_RE + r"(?:ba|z|da|a|k)?sh(?:\s|$)"
 )
 _VAR_REF_RE = re.compile(r"\$(?:\{([^}]+)\}|\(([A-Za-z_][A-Za-z0-9_]*)\)|([A-Za-z_][A-Za-z0-9_]*))")
 _HEREDOC_START_RE = re.compile(r"<<(-)?\s*['\"]?([A-Za-z_][A-Za-z0-9_]*)['\"]?")
@@ -411,36 +387,341 @@ def _unquote_eval_arg(raw: str) -> str:
     return "".join(out)
 
 
+def _strip_cmd_token(tok: str) -> str:
+    """Normalize a shell command token (strip quotes, path prefix, and leading backslash)."""
+    s = tok.strip()
+    if len(s) >= 2 and s[0] == s[-1] and s[0] in ("'", '"'):
+        s = s[1:-1]
+    return s.rsplit("/", 1)[-1].lstrip("\\")
+
+
+def _is_env_assign(tok: str) -> bool:
+    """Return True if tok is a POSIX NAME=value environment assignment."""
+    name, sep, _ = tok.partition("=")
+    if not sep or not name:
+        return False
+    if not (name[0].isascii() and (name[0].isalpha() or name[0] == "_")):
+        return False
+    return all(ch.isascii() and (ch.isalnum() or ch == "_") for ch in name[1:])
+
+
+def _is_spaceless_xargs_rm_tail(tail: str) -> bool:
+    """Return True for spaceless xargs option+rm tails like '-0rm' or '-I{}rm'."""
+    if tail == "-I{}rm":
+        return True
+    return len(tail) == 4 and tail[0] == "-" and "0" <= tail[1] <= "9" and tail[2:] == "rm"
+
+
+def _split_shell_tokens(text: str) -> list[tuple[str, int, int]]:
+    """Split text into quote-aware whitespace tokens with (token, start, end) offsets in O(n)."""
+    tokens: list[tuple[str, int, int]] = []
+    n = len(text)
+    i = 0
+    while i < n and text[i].isspace():
+        i += 1
+    while i < n:
+        start = i
+        in_single = False
+        in_double = False
+        while i < n:
+            ch = text[i]
+            if in_single:
+                if ch == "'":
+                    in_single = False
+                i += 1
+            elif in_double:
+                if ch == "\\":
+                    i += 2
+                elif ch == '"':
+                    in_double = False
+                    i += 1
+                else:
+                    i += 1
+            else:
+                if ch.isspace():
+                    break
+                if ch == "\\":
+                    i += 2
+                elif ch == "'":
+                    in_single = True
+                    i += 1
+                elif ch == '"':
+                    in_double = True
+                    i += 1
+                else:
+                    i += 1
+        tokens.append((text[start:i], start, i))
+        while i < n and text[i].isspace():
+            i += 1
+    return tokens
+
+
+def _skip_xargs_options(tokens: list[str], idx: int) -> tuple[int, bool]:
+    """Advance idx past xargs options in strictly linear O(n) time."""
+    n = len(tokens)
+    while idx < n:
+        t = tokens[idx]
+        if t == "--":
+            idx += 1
+            break
+        if _is_spaceless_xargs_rm_tail(t):
+            return (idx + 1, True)
+        if t in _XARGS_LONG_VAL_OPTS:
+            idx += 2
+            continue
+        if t.startswith("--"):
+            idx += 1
+            continue
+        if t.startswith("-") and len(t) >= 2:
+            if len(t) == 2 and t[1] in _XARGS_SHORT_VAL_FLAGS:
+                idx += 2
+            else:
+                idx += 1
+            continue
+        break
+    return (idx, False)
+
+
+def _skip_wrapper_flag_args(
+    tokens: list[str],
+    idx: int,
+    val_opts: frozenset[str],
+    *,
+    allow_env_assign: bool = False,
+) -> int:
+    """Advance idx past a wrapper command's options in strictly linear O(n) time."""
+    n = len(tokens)
+    while idx < n:
+        t = tokens[idx]
+        if t == "--":
+            return idx + 1
+        if allow_env_assign and _is_env_assign(t):
+            idx += 1
+            continue
+        if t in val_opts:
+            idx += 2
+            continue
+        if t.startswith("-") and len(t) >= 2:
+            idx += 1
+            continue
+        break
+    return idx
+
+
+def _skip_command_wrappers(
+    tokens: list[str],
+    idx: int,
+    *,
+    stop_tokens: frozenset[str] = frozenset(),
+) -> tuple[int, bool, bool, bool]:
+    """Skip leading env assignments and wrapper commands in O(n); return (cmd_idx, saw_busybox, saw_xargs, spaceless_xargs_rm)."""
+    n = len(tokens)
+    saw_busybox = False
+    saw_xargs = False
+    while idx < n and _is_env_assign(tokens[idx]):
+        idx += 1
+    while idx < n:
+        cmd = _strip_cmd_token(tokens[idx])
+        if cmd == _XARGS_TOKEN + "rm":
+            return (idx + 1, saw_busybox, True, True)
+        if cmd.startswith(_XARGS_TOKEN + "-"):
+            saw_xargs = True
+            tail = cmd[len(_XARGS_TOKEN) :]
+            if _is_spaceless_xargs_rm_tail(tail):
+                return (idx + 1, saw_busybox, True, True)
+            if len(tail) == 2 and tail[1] in _XARGS_SHORT_VAL_FLAGS:
+                idx += 2
+            else:
+                idx += 1
+            idx, hit = _skip_xargs_options(tokens, idx)
+            if hit:
+                return (idx, saw_busybox, True, True)
+            continue
+        if cmd == _XARGS_TOKEN:
+            saw_xargs = True
+            idx, hit = _skip_xargs_options(tokens, idx + 1)
+            if hit:
+                return (idx, saw_busybox, True, True)
+            continue
+        if cmd == _BUSYBOX_TOKEN:
+            saw_busybox = True
+            idx += 1
+            continue
+        if cmd == "env":
+            idx = _skip_wrapper_flag_args(tokens, idx + 1, _ENV_VAL_OPTS, allow_env_assign=True)
+            continue
+        if cmd == "sudo":
+            idx = _skip_wrapper_flag_args(tokens, idx + 1, _SUDO_VAL_OPTS, allow_env_assign=True)
+            continue
+        if cmd == "command":
+            idx = _skip_wrapper_flag_args(tokens, idx + 1, frozenset())
+            continue
+        if cmd == "nice":
+            idx = _skip_wrapper_flag_args(tokens, idx + 1, _NICE_VAL_OPTS)
+            continue
+        if cmd == "stdbuf":
+            idx = _skip_wrapper_flag_args(tokens, idx + 1, _STDBUF_VAL_OPTS)
+            continue
+        if cmd == "timeout":
+            idx = _skip_wrapper_flag_args(tokens, idx + 1, _TIMEOUT_VAL_OPTS)
+            if idx < n and tokens[idx] not in stop_tokens:
+                idx += 1
+            continue
+        if cmd == "exec":
+            idx = _skip_wrapper_flag_args(tokens, idx + 1, frozenset({"-a"}))
+            continue
+        if cmd == "time":
+            idx = _skip_wrapper_flag_args(tokens, idx + 1, frozenset())
+            continue
+        if cmd in ("nohup", "builtin"):
+            idx += 1
+            continue
+        break
+    return (idx, saw_busybox, saw_xargs, False)
+
+
+def _parse_shell_stage_command(stage: str) -> tuple[str, list[str], str, int, bool, bool, bool]:
+    """Parse one shell pipeline stage in O(n), stripping YAML/Dockerfile/control prefixes and wrappers."""
+    m_pre = _STAGE_LEADING_PREFIX_RE.match(stage)
+    pos = m_pre.end() if m_pre is not None else 0
+    n = len(stage)
+    while pos < n:
+        if stage[pos].isspace() or stage[pos] in "({!":
+            pos += 1
+            continue
+        matched_kw = False
+        for kw in ("then", "do", "else"):
+            kw_end = pos + len(kw)
+            if stage.startswith(kw, pos) and kw_end < n and stage[kw_end].isspace():
+                pos = kw_end + 1
+                matched_kw = True
+                break
+        if matched_kw:
+            continue
+        break
+    while pos < n and stage[pos] in "@+-":
+        pos += 1
+    tok_spans = _split_shell_tokens(stage[pos:])
+    if not tok_spans:
+        return ("", [], "", len(stage), False, False, False)
+    raw_tokens = [t for t, _s, _e in tok_spans]
+    cmd_idx, saw_busybox, saw_xargs, spaceless_xargs_rm = _skip_command_wrappers(raw_tokens, 0)
+    if spaceless_xargs_rm:
+        rest_tokens = raw_tokens[cmd_idx:]
+        end_off = pos + tok_spans[cmd_idx - 1][2]
+        return ("rm", rest_tokens, stage[end_off:].strip(), end_off, saw_busybox, True, True)
+    if cmd_idx >= len(raw_tokens):
+        return ("", [], "", len(stage), saw_busybox, saw_xargs, False)
+    cmd = _strip_cmd_token(raw_tokens[cmd_idx])
+    end_off = pos + tok_spans[cmd_idx][2]
+    rest_tokens = raw_tokens[cmd_idx + 1 :]
+    return (cmd, rest_tokens, stage[end_off:].strip(), end_off, saw_busybox, saw_xargs, False)
+
+
+def _stage_disables_nounset(stage: str) -> bool:
+    """Return True if stage invokes `set +u` or `set +o nounset` (outside `--`)."""
+    cmd, rest_tokens, _rest_str, _end_off, _bb, _xa, _srm = _parse_shell_stage_command(stage)
+    if cmd != "set":
+        return False
+    idx = 0
+    n = len(rest_tokens)
+    while idx < n:
+        t = rest_tokens[idx]
+        if t == "--":
+            break
+        if t == "+o" and idx + 1 < n:
+            if rest_tokens[idx + 1] == "nounset":
+                return True
+            idx += 2
+            continue
+        if t == "-o":
+            idx += 2
+            continue
+        if t.startswith("+") and "u" in t[1:]:
+            return True
+        idx += 1
+    return False
+
+
 def _pipeline_has_printf_to_shell(stages: list[str]) -> bool:
     """Return True if a pipeline invokes printf before piping into a shell interpreter."""
     seen_printf = False
     for raw_stage in stages:
-        stage = raw_stage.strip()
-        if seen_printf and _PIPE_SHELL_SINK_RE.search(stage) is not None:
+        cmd, _rest, _rest_str, _end_off, _bb, _xa, _srm = _parse_shell_stage_command(raw_stage.strip())
+        if seen_printf and cmd in _SHELL_INTERPRETERS:
             return True
-        if _PRINTF_CMD_RE.search(stage) is not None:
+        if cmd == _PRINTF_TOKEN:
             seen_printf = True
     return False
 
 
 def _find_tokens_exec_rm(find_tokens: list[str]) -> bool:
     """Return True if any find -exec/-execdir/-ok/-okdir action invokes rm (directly or via wrapper)."""
-    for idx, tok in enumerate(find_tokens):
-        if tok in _FIND_EXEC_FLAGS:
-            j = idx + 1
-            while j < len(find_tokens):
-                cand = find_tokens[j].strip("'\"").rsplit("/", 1)[-1].lstrip("\\")
-                if cand in _FIND_EXEC_WRAPPERS:
-                    j += 1
-                    continue
-                if cand == "rm":
-                    return True
-                break
+    n = len(find_tokens)
+    idx = 0
+    while idx < n:
+        if find_tokens[idx] in _FIND_EXEC_FLAGS:
+            cmd_idx, _bb, _xa, spaceless_xargs_rm = _skip_command_wrappers(
+                find_tokens, idx + 1, stop_tokens=_FIND_EXEC_END
+            )
+            if spaceless_xargs_rm:
+                return True
+            if cmd_idx < n and _strip_cmd_token(find_tokens[cmd_idx]) == "rm":
+                return True
+            idx = cmd_idx + 1
+            continue
+        idx += 1
     return False
 
 
+def _extract_quoted_subcommands(stage: str, excluded_spans: list[tuple[int, int]]) -> list[str]:
+    """Extract non-excluded quoted string contents containing whitespace for subcommand scanning."""
+    subcmds: list[str] = []
+    n = len(stage)
+    i = 0
+    while i < n:
+        ch = stage[i]
+        if ch == "\\":
+            i += 2
+            continue
+        if ch not in ("'", '"'):
+            i += 1
+            continue
+        quote = ch
+        start = i
+        i += 1
+        buf: list[str] = []
+        closed = False
+        while i < n:
+            c = stage[i]
+            if quote == '"' and c == "\\" and i + 1 < n:
+                nxt = stage[i + 1]
+                if nxt in ('"', "\\"):
+                    buf.append(nxt)
+                else:
+                    buf.append(c)
+                    buf.append(nxt)
+                i += 2
+                continue
+            if c == quote:
+                closed = True
+                i += 1
+                break
+            buf.append(c)
+            i += 1
+        end = i
+        if not closed:
+            break
+        if any(start >= es and end <= ee for es, ee in excluded_spans):
+            continue
+        inner = "".join(buf)
+        if any(c.isspace() for c in inner):
+            subcmds.append(inner)
+    return subcmds
+
+
 def _scan_shell_segment_findings(seg: str, parent_nounset: bool) -> list[str]:
-    """Iteratively inspect one shell segment (plus nested subshells, command subs, and eval) for CYA-GAP-03."""
+    """Iteratively inspect one shell segment (plus nested subshells, command subs, quoted strings, and eval) for CYA-GAP-03."""
     details: list[str] = []
     stack: list[tuple[str, bool, bool, bool, int]] = [(seg, parent_nounset, False, False, 0)]
     while stack:
@@ -458,59 +739,68 @@ def _scan_shell_segment_findings(seg: str, parent_nounset: bool) -> list[str]:
                 if is_subshell:
                     if _SET_TOPLEVEL_NOUNSET_ON_RE.search(stage) is not None:
                         local_nounset = True
-                    if _SET_NOUNSET_OFF_RE.search(stage) is not None:
+                    if _stage_disables_nounset(stage):
                         local_nounset = False
 
-                m_eval = _EVAL_CMD_RE.search(stage)
-                if m_eval is not None:
-                    unquoted = _unquote_eval_arg(m_eval.group(1).strip())
-                    stack.append((unquoted, False, True, False, depth + 1))
+                excluded_spans: list[tuple[int, int]] = []
+                cmd, rest_tokens, rest_str, cmd_end, saw_busybox, saw_xargs, spaceless_xargs_rm = (
+                    _parse_shell_stage_command(stage)
+                )
+
+                if cmd == _EVAL_TOKEN:
+                    eval_arg = rest_str[2:].strip() if rest_tokens and rest_tokens[0] == "--" else rest_str
+                    if eval_arg:
+                        excluded_spans.append((cmd_end, len(stage)))
+                        unquoted = _unquote_eval_arg(eval_arg)
+                        stack.append((unquoted, False, True, False, depth + 1))
 
                 for m_sub in _CMD_SUB_RE.finditer(stage):
+                    excluded_spans.append((m_sub.start(), m_sub.end()))
                     inner = m_sub.group(1) if m_sub.group(1) is not None else m_sub.group(2)
                     if any(ch.isspace() for ch in inner):
                         stack.append((inner, local_nounset, from_eval, False, depth + 1))
 
                 for m_sh in _SHELL_C_RE.finditer(stage):
+                    excluded_spans.append((m_sh.start(), m_sh.end()))
                     flags = m_sh.group(1)
                     body = m_sh.group(2) if m_sh.group(2) is not None else m_sh.group(3).replace('\\"', '"')
                     stack.append((body, "u" in flags, False, True, depth + 1))
 
-                m_find = _FIND_CMD_RE.search(stage)
-                if m_find is not None:
-                    find_tokens = [tok.rstrip(")}") for tok in m_find.group(1).split()]
+                for quoted_inner in _extract_quoted_subcommands(stage, excluded_spans):
+                    stack.append((quoted_inner, local_nounset, from_eval, True, depth + 1))
+
+                if spaceless_xargs_rm:
+                    details.append("xargs_rm")
+                    continue
+
+                if cmd == _FIND_TOKEN:
+                    find_tokens = [tok.rstrip(")}") for tok in rest_tokens]
                     if _DELETE_FLAG in find_tokens:
                         details.append("find_delete")
                     if _find_tokens_exec_rm(find_tokens):
                         details.append("find_exec_rm")
                     continue
 
-                if _BUSYBOX_RM_RE.search(stage) is not None:
-                    details.append("busybox_rm")
-                    continue
-
-                if _XARGS_RM_RE.search(stage) is not None:
-                    details.append("xargs_rm")
-                    continue
-
-                m_rm = _RM_CMD_RE.search(stage)
-                if m_rm is None:
-                    continue
-                if from_eval:
-                    details.append("eval_wrapped_rm")
-                    continue
-                arg_str = m_rm.group(1)
-                tokens = arg_str.split()
-                if not _rm_args_are_recursive_force(tokens):
-                    continue
-                if local_nounset:
-                    continue
-                for vm in _VAR_REF_RE.finditer(arg_str):
-                    braced = vm.group(1)
-                    if braced is not None and ":?" in braced:
+                if cmd == "rm":
+                    if saw_xargs:
+                        details.append("xargs_rm")
                         continue
-                    details.append("unguarded_rm_rf_variable")
-                    break
+                    if saw_busybox:
+                        details.append("busybox_rm")
+                        continue
+                    if from_eval:
+                        details.append("eval_wrapped_rm")
+                        continue
+                    if not _rm_args_are_recursive_force(rest_tokens):
+                        continue
+                    if local_nounset:
+                        continue
+                    for vm in _VAR_REF_RE.finditer(rest_str):
+                        braced = vm.group(1)
+                        if braced is not None and ":?" in braced:
+                            continue
+                        details.append("unguarded_rm_rf_variable")
+                        break
     return details
 
 
@@ -649,12 +939,33 @@ def _find_json_npx_yes_objects(obj: Any, *, max_depth: int = MAX_JSON_DEPTH) -> 
     )
 
 
+def _parse_bounded_json_int(token: str) -> int:
+    if len(token) > MAX_JSON_NUMBER_CHARS:
+        raise ValueError("SAFETY_JSON_NUMBER_LIMIT_EXCEEDED")
+    return int(token)
+
+
+def _parse_bounded_json_float(token: str) -> str:
+    if len(token) > MAX_JSON_NUMBER_CHARS:
+        raise ValueError("SAFETY_JSON_NUMBER_LIMIT_EXCEEDED")
+    return token
+
+
 def _read_regular_file_bounded(
     p: Path,
     *,
     max_bytes: int = MAX_SCAN_FILE_BYTES,
 ) -> tuple[str, bytes | str | OSError]:
-    """Open p with O_RDONLY|O_NOFOLLOW|O_NONBLOCK, verify fstat S_ISREG, and stream at most max_bytes."""
+    """Check lstat S_ISREG before opening with O_RDONLY|O_NOFOLLOW|O_NONBLOCK, verify fstat dev/ino, and stream at most max_bytes."""
+    try:
+        lst = os.lstat(p)
+    except OSError as exc:
+        return ("unreadable", exc)
+    if stat.S_ISLNK(lst.st_mode):
+        return ("skipped", "symlink_not_followed")
+    if not stat.S_ISREG(lst.st_mode):
+        return ("skipped", "non_regular_file")
+
     flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
     try:
         fd = os.open(p, flags)
@@ -669,6 +980,8 @@ def _read_regular_file_bounded(
         st = os.fstat(fd)
         if not stat.S_ISREG(st.st_mode):
             return ("skipped", "non_regular_file")
+        if st.st_dev != lst.st_dev or st.st_ino != lst.st_ino:
+            return ("skipped", "path_changed_during_open")
         if st.st_size > max_bytes:
             return ("skipped", "file_size_limit_exceeded")
         chunks: list[bytes] = []
@@ -758,7 +1071,12 @@ def scan_text_safety_surface(
     if json_candidate.startswith(("{", "[")):
         try:
             _check_json_nesting_depth(json_candidate)
-            parsed_json = json.loads(json_candidate, object_pairs_hook=_JsonObjectPairs)
+            parsed_json = json.loads(
+                json_candidate,
+                object_pairs_hook=_JsonObjectPairs,
+                parse_int=_parse_bounded_json_int,
+                parse_float=_parse_bounded_json_float,
+            )
             json_details = _scan_json_safety_tree(parsed_json)
             json_handled = True
             for detail in json_details:
@@ -841,7 +1159,7 @@ def scan_text_safety_surface(
                     block_depth += 1
                 if not in_heredoc and block_depth == 0 and not indented and seg_idx == 0 and _SET_TOPLEVEL_NOUNSET_ON_RE.search(seg):
                     nounset_active = True
-                if _SET_NOUNSET_OFF_RE.search(seg):
+                if _stage_disables_nounset(seg):
                     nounset_active = False
                 for detail in _scan_shell_segment_findings(seg, nounset_active):
                     findings.append(
@@ -943,16 +1261,36 @@ def scan_directory_safety_surface(
 ) -> dict[str, Any]:
     """Scan a file or directory tree for CYA-GAP-01..06 safety findings.
 
-    Scans regular working-tree text files up to max_file_bytes using O_RDONLY|O_NOFOLLOW|O_NONBLOCK
-    and fstat S_ISREG verification (including dotfiles, extensionless files, build/dist/node_modules,
-    and UTF-16 files; excluding only `.git` VCS metadata). Fails closed (`clean=False`) whenever any
-    findings, skipped entries (broken/unfollowed symlinks, symlinked directories, oversized files,
-    or non-regular files such as FIFOs, sockets, and devices), undecodable/binary/NUL-containing
-    files (including UTF-32 with BOM), or unreadable files/directories are present.
+    Verifies `lstat` S_ISREG before opening with `O_RDONLY|O_NOFOLLOW|O_NONBLOCK`, confirms `fstat`
+    `S_ISREG` and `(st_dev, st_ino)` identity, and streams up to `max_file_bytes` (including
+    dotfiles, extensionless files, build/dist/node_modules, and UTF-16 files; excluding only `.git`
+    VCS metadata). Direct symlink targets, broken/looping symlinks, out-of-root symlinks, and
+    symlinked directories are refused fail-closed; in-root regular-file symlinks (such as
+    `CLAUDE.md -> AGENTS.md`) are resolved within the scanned root and scanned through their target.
+    Fails closed (`clean=False`) whenever any findings, skipped entries (unfollowed/broken/outside
+    symlinks, symlinked directories, oversized files, TOCTOU path changes, or non-regular files such
+    as FIFOs, sockets, and devices), undecodable/binary/NUL-containing files (including UTF-32 with
+    BOM), or unreadable files/directories are present.
     """
     if type(max_file_bytes) is not int or max_file_bytes < 1:
         raise AletheiaError("SAFETY_INVALID_MAX_BYTES", "max_file_bytes must be a positive int")
-    if target_path.is_symlink():
+    try:
+        top_lst = os.lstat(target_path)
+    except FileNotFoundError:
+        raise ValueError("SAFETY_TARGET_NOT_FOUND") from None
+    except OSError as exc:
+        return {
+            "clean": False,
+            "target": str(target_path),
+            "files_scanned": 0,
+            "finding_count": 0,
+            "gap_ids_present": [],
+            "findings": [],
+            "skipped_files": [],
+            "undecodable_files": [],
+            "unreadable_files": [{"file": target_path.name, "error": type(exc).__name__, "detail": str(exc)}],
+        }
+    if stat.S_ISLNK(top_lst.st_mode):
         reason = "symlink_directory_not_followed" if target_path.is_dir() else "symlink_not_followed"
         return {
             "clean": False,
@@ -966,8 +1304,6 @@ def scan_directory_safety_surface(
             "unreadable_files": [],
         }
     resolved = target_path.resolve()
-    if not resolved.exists():
-        raise ValueError("SAFETY_TARGET_NOT_FOUND")
 
     all_findings: list[dict[str, Any]] = []
     skipped_files: list[dict[str, str]] = []
@@ -993,7 +1329,36 @@ def scan_directory_safety_surface(
         res = scan_text_safety_surface(decoded, label, include_host_hygiene=include_host_hygiene)
         all_findings.extend(res["findings"])
 
-    if not resolved.is_dir():
+    def _scan_walk_file(fp: Path, label: str) -> None:
+        try:
+            entry_lst = os.lstat(fp)
+        except OSError as exc:
+            unreadable_files.append({"file": label, "error": type(exc).__name__, "detail": str(exc)})
+            return
+        if stat.S_ISLNK(entry_lst.st_mode):
+            try:
+                link_target = fp.resolve(strict=True)
+            except (OSError, RuntimeError):
+                skipped_files.append({"file": label, "reason": "symlink_not_followed"})
+                return
+            try:
+                link_target.relative_to(resolved)
+            except ValueError:
+                skipped_files.append({"file": label, "reason": "symlink_not_followed"})
+                return
+            try:
+                target_lst = os.lstat(link_target)
+            except OSError as exc:
+                unreadable_files.append({"file": label, "error": type(exc).__name__, "detail": str(exc)})
+                return
+            if stat.S_ISDIR(target_lst.st_mode):
+                skipped_files.append({"file": label, "reason": "symlink_directory_not_followed"})
+                return
+            _scan_one(link_target, label)
+            return
+        _scan_one(fp, label)
+
+    if not stat.S_ISDIR(top_lst.st_mode):
         _scan_one(resolved, resolved.name)
     else:
         def _on_walk_err(exc: OSError) -> None:
@@ -1021,7 +1386,7 @@ def scan_directory_safety_surface(
             for fn in sorted(filenames):
                 fp = dp / fn
                 label = str(fp.relative_to(resolved))
-                _scan_one(fp, label)
+                _scan_walk_file(fp, label)
 
     clean = (
         len(all_findings) == 0

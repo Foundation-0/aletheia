@@ -13,8 +13,10 @@ import os
 from pathlib import Path
 import socket
 import stat
+import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from unittest import mock
 
@@ -22,7 +24,7 @@ CLI_ROOT = Path(__file__).resolve().parent.parent
 if str(CLI_ROOT) not in sys.path:
     sys.path.insert(0, str(CLI_ROOT))
 
-from aletheia import safety
+from aletheia import audit_check, safety
 from aletheia.cli import main as cli_main
 from aletheia.strict_io import AletheiaError
 
@@ -143,8 +145,31 @@ class TestSafetyEvasionsAndBounds(unittest.TestCase):
             f"{_FN} . -exec /bin/{_BB} {_RM} {_RF} {{}} +\n",
             f"{_FN} . -exec env {_RM} {_RF} {{}} +\n",
             f"{_FN} . -exec /usr/bin/env /bin/{_RM} {_RF} {{}} +\n",
+            f"{_FN} . -exec env FOO=1 {_RM} {_RF} {{}} +\n",
+            f"{_FN} . -exec env -i {_RM} {_RF} {{}} +\n",
+            f"{_FN} . -exec env -u HOME -- {_RM} {_RF} {{}} +\n",
             f"{_FN} . -exec command {_RM} {_RF} {{}} +\n",
+            f"{_FN} . -exec command -p {_RM} {_RF} {{}} +\n",
+            f"{_FN} . -exec command -- {_RM} {_RF} {{}} +\n",
             f"{_FN} . -exec sudo {_RM} {_RF} {{}} +\n",
+            f"{_FN} . -exec sudo -n {_RM} {_RF} {{}} +\n",
+            f"{_FN} . -exec sudo -u root {_RM} {_RF} {{}} +\n",
+            f"{_FN} . -exec sudo FOO=1 -- {_RM} {_RF} {{}} +\n",
+            f"{_FN} . -exec nice {_RM} {_RF} {{}} +\n",
+            f"{_FN} . -exec nice -n 10 {_RM} {_RF} {{}} +\n",
+            f"{_FN} . -exec nice -- {_RM} {_RF} {{}} +\n",
+            f"{_FN} . -exec timeout 10 {_RM} {_RF} {{}} +\n",
+            f"{_FN} . -exec timeout -s 9 10 {_RM} {_RF} {{}} +\n",
+            f"{_FN} . -exec timeout -- 10 {_RM} {_RF} {{}} +\n",
+            f"{_FN} . -exec stdbuf -oL {_RM} {_RF} {{}} +\n",
+            f"{_FN} . -exec stdbuf -o L -- {_RM} {_RF} {{}} +\n",
+            f"{_FN} . -exec nohup {_RM} {_RF} {{}} +\n",
+            f"{_FN} . -exec builtin {_RM} {_RF} {{}} +\n",
+            f"{_FN} . -exec time -p {_RM} {_RF} {{}} +\n",
+            f"{_FN} . -exec exec -a alt -- {_RM} {_RF} {{}} +\n",
+            f"{_FN} . -exec {_XA} -0 {_RM} {_RF} {{}} +\n",
+            f"{_FN} . -exec {_XA}-0{_RM} {_RF} {{}} +\n",
+            f"{_FN} . -exec sudo -u root env -i FOO=1 nice -n 5 timeout 10 stdbuf -oL command -p {_RM} {_RF} {{}} +\n",
             f"{_FN} . -ok {_RM} {_RF} {{}} \\;\n",
             f"{_FN} . -okdir {_RM} {_RF} {{}} \\;\n",
         )
@@ -160,6 +185,14 @@ class TestSafetyEvasionsAndBounds(unittest.TestCase):
                 f"{_FN} . -exec echo {{}} \\;\n",
                 f"{_FN} . -execdir ls {{}} +\n",
                 f"{_FN} . -ok echo {{}} \\;\n",
+                f"{_FN} . -exec env FOO=1 echo {{}} +\n",
+                f"{_FN} . -exec command FOO=1 {_RM} {_RF} {{}} +\n",
+                f"{_FN} . -exec sudo - {_RM} {{}} +\n",
+                f"{_FN} . -exec sudo -u root ls {{}} +\n",
+                f"{_FN} . -exec timeout 10 ls {{}} +\n",
+                f"{_FN} . -exec timeout \\;\n",
+                f"{_FN} . -exec timeout \\; {_RM} {_RF} {{}} +\n",
+                f"{_FN} . -exec timeout\n",
                 f"{_FN} . -exec env\n",
                 f"{_FN} . -exec\n",
                 f"# {_FN} /tmp {_DEL}\n",
@@ -213,10 +246,30 @@ class TestSafetyEvasionsAndBounds(unittest.TestCase):
             f"echo / | {_XA} -0 /usr/bin/env {_RM} {_RF}\n",
             f"echo / | {_XA} -0 '{_RM}' {_RF}\n",
             f'echo / | {_XA} -0 "{_RM}" {_RF}\n',
+            f"echo / | {_XA} -I 'a b' {_RM} {_RF}\n",
+            f"echo / | {_XA}-n 1 {_RM} {_RF}\n",
+            f"echo / | {_XA}-n1 {_RM} {_RF}\n",
+            f"echo / | {_XA} -1{_RM} {_RF}\n",
+            f"echo / | {_XA}-0 -I{{}}{_RM} {_RF}\n",
+            f"echo / | {_XA} -0 sudo -u root env -i FOO=1 command -p {_RM} {_RF}\n",
             f"{_SH} -c '{_FN} . |{_XA} {_RM} {_RF}'\n",
         )
         for idx, snippet in enumerate(xa_cases):
             self._assert_hits(snippet, f"xa_{idx}.sh", "CYA-GAP-03", "xargs_rm")
+
+        # Linear-time ReDoS regression tests for repeated xargs/sudo/env options & dashes
+        for label, payload, expect_clean in (
+            ("xargs_a40", f"{_XA} " + "-a" * 40 + " X\n", True),
+            ("xargs_dash54_echo", f"{_XA} " + "-" * 54 + " echo ok\n", True),
+            ("xargs_dash54_rm", f"{_XA} " + "-" * 54 + f" {_RM} {_RF} /tmp/x\n", False),
+            ("sudo_u40", "sudo " + "-u " * 40 + "X\n", True),
+            ("env_u40", "env " + "-u " * 40 + "X\n", True),
+        ):
+            t0 = time.monotonic()
+            r_perf = safety.scan_text_safety_surface(payload, f"{label}.sh")
+            elapsed = time.monotonic() - t0
+            self.assertLess(elapsed, 2.0, msg=f"ReDoS regression on {label}: {elapsed:.3f}s")
+            self.assertEqual(r_perf["clean"], expect_clean, msg=f"unexpected result on {label}: {r_perf}")
 
         for idx, clean_xa in enumerate(
             (
@@ -227,6 +280,8 @@ class TestSafetyEvasionsAndBounds(unittest.TestCase):
                 f"echo a | {_XA} -0fo{_RM}\n",
                 f"echo a | {_XA} --platfo{_RM} foo\n",
                 f"echo a | {_XA} {_RM}dir\n",
+                f"echo a | {_XA} -a -0 {_RM}dir\n",
+                f"echo a | {_XA} - {_RM} {_RF}\n",
                 f"# {_FN} . |{_XA} {_RM} {_RF}\n",
             )
         ):
@@ -300,6 +355,63 @@ class TestSafetyEvasionsAndBounds(unittest.TestCase):
         self.assertTrue(safety.scan_text_safety_surface(hd_open_safe, "hd_open_safe.sh")["clean"])
         hd_close_bad = f"if false; then\ncat <<'EOF'\nfi\nEOF\nset -u\nfi\n{_RM} {_RF} \"$X\"\n"
         self._assert_hits(hd_close_bad, "hd_close_bad.sh", "CYA-GAP-03", "unguarded_rm_rf_variable")
+
+        # Quoted command strings (YAML run, package.json, ssh, Dockerfile exec-form)
+        quoted_cases = (
+            ("ci.yml", f'run: "cd build && {_RM} {_RF} $OUT_DIR"\n'),
+            ("package.json", f'{{"scripts":{{"clean": "cd build && {_RM} {_RF} $OUT_DIR"}}}}\n'),
+            ("deploy.sh", f'ssh host "cd /srv; {_RM} {_RF} $DIR"\n'),
+            ("Dockerfile", f'RUN ["/bin/{_SH}", "-c", "cd /app; {_RM} {_RF} $BUILD"]\n'),
+            ("escaped.json", f'{{"run": "cd /app && {_RM} {_RF} \\"$DIR\\""}}\n'),
+            ("sub_after.sh", f'$(echo ok) "cd /a && {_RM} {_RF} $X"\n'),
+            ("sub_before.sh", f'"cd /a && {_RM} {_RF} $X" $(echo ok)\n'),
+            ("spaced_paren.sh", f'!  ( {_RM} {_RF} "$X" )\n'),
+        )
+        for fn, snippet in quoted_cases:
+            self._assert_hits(snippet, fn, "CYA-GAP-03", "unguarded_rm_rf_variable")
+
+        # Quoted clean controls & helper boundary coverage (_is_env_assign, _stage_disables_nounset, _split_shell_tokens)
+        self.assertTrue(safety.scan_text_safety_surface(f"{_BASH} -cu '{_RM} {_RF} $CHILD'\n", "cu.sh")["clean"])
+        self.assertTrue(safety.scan_text_safety_surface(f'echo "{_RM} {_RF} /tmp/static"\n', "lit.sh")["clean"])
+        self.assertTrue(safety.scan_text_safety_surface('echo "unclosed quote\n', "uncl.sh")["clean"])
+        self.assertTrue(safety.scan_text_safety_surface(f'do_{_RM} {_RF} "$X"\n', "do_pfx.sh")["clean"])
+        self.assertTrue(safety.scan_text_safety_surface(f"{_EV}\n{_EV} --\n", "bare_ev.sh")["clean"])
+        self.assertTrue(safety.scan_text_safety_surface(f'set -u\nset -- +u\n{_RM} {_RF} "$X"\n', "dash_u.sh")["clean"])
+        self.assertTrue(safety.scan_text_safety_surface(f'set -u\nset -o errexit\n{_RM} {_RF} "$X"\n', "opt_e.sh")["clean"])
+        self.assertTrue(safety.scan_text_safety_surface(f'set -u\nset +o errexit\n{_RM} {_RF} "$X"\n', "opt_pe.sh")["clean"])
+        self._assert_hits(f'set -u\nset -e +u\n{_RM} {_RF} "$X"\n', "pe_u.sh", "CYA-GAP-03", "unguarded_rm_rf_variable")
+        self._assert_hits(f'set -u\nset +o nounset\n{_RM} {_RF} "$X"\n', "po_u.sh", "CYA-GAP-03", "unguarded_rm_rf_variable")
+        self.assertFalse(safety._stage_disables_nounset("echo +u"))
+        self.assertFalse(safety._stage_disables_nounset("set +"))
+        self.assertFalse(safety._stage_disables_nounset("set +e"))
+        self.assertFalse(safety._stage_disables_nounset("set +o"))
+        self.assertFalse(safety._stage_disables_nounset("set -o"))
+        self.assertFalse(safety._stage_disables_nounset("set -o +u"))
+        self.assertTrue(safety._stage_disables_nounset("set +u"))
+        self.assertEqual(safety._strip_cmd_token("'"), "'")
+        self.assertEqual(safety._strip_cmd_token('""'), "")
+        self.assertEqual(safety._strip_cmd_token(f"'{_RM}"), f"'{_RM}")
+        self.assertEqual(safety._strip_cmd_token(""), "")
+        self.assertTrue(safety._is_spaceless_xargs_rm_tail(f"-0{_RM}"))
+        self.assertTrue(safety._is_spaceless_xargs_rm_tail(f"-I{{}}{_RM}"))
+        self.assertFalse(safety._is_spaceless_xargs_rm_tail(f"--0{_RM}"))
+        self.assertFalse(safety._is_spaceless_xargs_rm_tail(f"x0{_RM}"))
+        self.assertFalse(safety._is_spaceless_xargs_rm_tail(f"-a{_RM}"))
+        self.assertFalse(safety._is_spaceless_xargs_rm_tail("-0xx"))
+        self.assertTrue(safety._is_env_assign("A_1=val"))
+        self.assertTrue(safety._is_env_assign("_X=1"))
+        self.assertFalse(safety._is_env_assign("no_equals"))
+        self.assertFalse(safety._is_env_assign("=val"))
+        self.assertFalse(safety._is_env_assign("1BAD=val"))
+        self.assertFalse(safety._is_env_assign("A-B=val"))
+        self.assertFalse(safety._is_env_assign("\u03b1=1"))
+        self.assertFalse(safety._is_env_assign("A\u03b1=1"))
+        self.assertEqual([t for t, _s, _e in safety._split_shell_tokens("a 'b c' \"d\\\"e\" f\\ g")], ["a", "'b c'", '"d\\"e"', "f\\ g"])
+        self.assertEqual([t for t, _s, _e in safety._split_shell_tokens("   ")], [])
+        self.assertEqual(safety._extract_quoted_subcommands('echo "a \\x b" \\"x\\"', []), ['a \\x b'])
+        self.assertEqual(safety._extract_quoted_subcommands('"a b\\', []), [])
+        self.assertEqual(safety._extract_quoted_subcommands("'a \\\" b'", []), ['a \\" b'])
+        self.assertEqual(safety._extract_quoted_subcommands('"a b"', [(0, 5)]), [])
 
     def test_05_bunx_auto_yes_and_duplicate_json_keys(self) -> None:
         for idx, line in enumerate(
@@ -431,9 +543,17 @@ class TestSafetyEvasionsAndBounds(unittest.TestCase):
             safety._find_json_npx_yes_objects(deep_2000)
         self.assertEqual(ctx2.exception.code, "SAFETY_JSON_DEPTH_EXCEEDED")
 
-        # Huge-digit JSON integer triggers ValueError in json.loads -> fail-closed finding, never crash
-        huge_int_json = '{"n":1' + ("0" * 4500) + "}"
-        self._assert_hits(huge_int_json, "huge_int.json", "CYA-GAP-02", "json_parse_limit_exceeded")
+        # Explicit JSON numeric token length cap (enforced even with CPython int_max_str_digits disabled)
+        ncap = safety.MAX_JSON_NUMBER_CHARS
+        prev_digits = sys.get_int_max_str_digits()
+        sys.set_int_max_str_digits(0)
+        try:
+            self.assertTrue(safety.scan_text_safety_surface('{"n":1' + ("0" * (ncap - 1)) + "}", "int_ok.json")["clean"])
+            self._assert_hits('{"n":1' + ("0" * ncap) + "}", "int_over.json", "CYA-GAP-02", "json_parse_limit_exceeded")
+        finally:
+            sys.set_int_max_str_digits(prev_digits)
+        self.assertTrue(safety.scan_text_safety_surface('{"x":1.' + ("0" * (ncap - 2)) + "}", "flt_ok.json")["clean"])
+        self._assert_hits('{"x":1.' + ("0" * (ncap - 1)) + "}", "flt_over.json", "CYA-GAP-02", "json_parse_limit_exceeded")
 
     def test_07_bounded_streaming_file_reads_and_special_files(self) -> None:
         with tempfile.TemporaryDirectory() as td:
@@ -520,7 +640,7 @@ class TestSafetyEvasionsAndBounds(unittest.TestCase):
                 self.assertFalse(r_dn["clean"])
                 self.assertEqual(r_dn["skipped_files"], [{"file": "null", "reason": "non_regular_file"}])
 
-            # Symlink to regular file inside directory -> refused via O_NOFOLLOW (ELOOP)
+            # Symlink to regular file OUTSIDE directory -> refused as symlink_not_followed
             sym_dir = root / "sym_case"
             sym_dir.mkdir()
             sym_file = sym_dir / "sym_file.txt"
@@ -529,6 +649,109 @@ class TestSafetyEvasionsAndBounds(unittest.TestCase):
             self.assertFalse(r_sym["clean"])
             self.assertEqual(r_sym["files_scanned"], 0)
             self.assertEqual(r_sym["skipped_files"], [{"file": "sym_file.txt", "reason": "symlink_not_followed"}])
+
+            # In-tree file symlink (CLAUDE.md -> AGENTS.md) is followed & scanned; audit-check --allow-symlinks passes
+            in_root_dir = root / "in_root_sym"
+            in_root_dir.mkdir()
+            (in_root_dir / "AGENTS.md").write_text("# Clean repository guide\n", encoding="utf-8")
+            (in_root_dir / "CLAUDE.md").symlink_to("AGENTS.md")
+            r_inroot = safety.scan_directory_safety_surface(in_root_dir)
+            self.assertTrue(r_inroot["clean"])
+            self.assertEqual(r_inroot["files_scanned"], 2)
+            self.assertEqual(r_inroot["skipped_files"], [])
+            ac_allow = audit_check.run_audit_check(in_root_dir, safety_scan=True, allow_symlinks=True)
+            self.assertTrue(ac_allow["passed"], msg=f"audit-check --safety-scan --allow-symlinks failed: {ac_allow['failures']}")
+
+            # In-tree symlink to hazardous file reports findings on both files
+            haz_dir = root / "in_root_haz"
+            haz_dir.mkdir()
+            (haz_dir / "a.sh").write_text(f'{_RM} {_RF} "$DIR"\n', encoding="utf-8")
+            (haz_dir / "b.sh").symlink_to("a.sh")
+            r_haz = safety.scan_directory_safety_surface(haz_dir)
+            self.assertFalse(r_haz["clean"])
+            self.assertEqual(r_haz["files_scanned"], 2)
+            self.assertEqual(r_haz["finding_count"], 2)
+
+            # In-tree symlink loop refused cleanly as symlink_not_followed
+            loop_dir = root / "loop_case"
+            loop_dir.mkdir()
+            (loop_dir / "la").symlink_to("lb")
+            (loop_dir / "lb").symlink_to("la")
+            r_loop = safety.scan_directory_safety_surface(loop_dir)
+            self.assertFalse(r_loop["clean"])
+            self.assertEqual(len(r_loop["skipped_files"]), 2)
+            self.assertTrue(all(s["reason"] == "symlink_not_followed" for s in r_loop["skipped_files"]))
+
+            # FIFO blocked-writer non-release test (lstat before open never opens or breaks FIFO writers)
+            if hasattr(os, "mkfifo"):
+                fifo_dir = root / "fifo_live"
+                fifo_dir.mkdir()
+                fifo_live = fifo_dir / "pipe"
+                os.mkfifo(fifo_live)
+                (fifo_dir / "link_to_pipe").symlink_to("pipe")
+                writer = subprocess.Popen(
+                    [sys.executable, "-c", f"f=open({str(fifo_live)!r},'w'); print('OPENED', flush=True); f.write('x'); f.flush()"],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                )
+                try:
+                    time.sleep(0.15)
+                    self.assertIsNone(writer.poll())
+                    r_flive = safety.scan_directory_safety_surface(fifo_dir)
+                    time.sleep(0.15)
+                    self.assertIsNone(writer.poll(), msg="FIFO writer was released by scanner open()")
+                    self.assertFalse(r_flive["clean"])
+                    self.assertEqual(
+                        r_flive["skipped_files"],
+                        [
+                            {"file": "link_to_pipe", "reason": "non_regular_file"},
+                            {"file": "pipe", "reason": "non_regular_file"},
+                        ],
+                    )
+                finally:
+                    writer.terminate()
+                    w_out, w_err = writer.communicate(timeout=3)
+                self.assertEqual(w_out, "")
+                self.assertNotIn("BrokenPipeError", w_err)
+
+            # Direct _read_regular_file_bounded lstat/open/fstat TOCTOU race-window controls
+            self.assertEqual(safety._read_regular_file_bounded(sym_file), ("skipped", "symlink_not_followed"))
+            with mock.patch("aletheia.safety.os.open", side_effect=OSError(errno.ELOOP, "loop")):
+                self.assertEqual(safety._read_regular_file_bounded(clean_file), ("skipped", "symlink_not_followed"))
+            with mock.patch("aletheia.safety.os.open", side_effect=OSError(errno.ENXIO, "enxio")):
+                self.assertEqual(safety._read_regular_file_bounded(clean_file), ("skipped", "non_regular_file"))
+            with mock.patch("aletheia.safety.os.open", side_effect=OSError(errno.EACCES, "denied")):
+                st_acc, _ = safety._read_regular_file_bounded(clean_file)
+                self.assertEqual(st_acc, "unreadable")
+            with mock.patch("aletheia.safety.os.lstat", side_effect=OSError(errno.EACCES, "denied")):
+                st_ls, _ = safety._read_regular_file_bounded(clean_file)
+                self.assertEqual(st_ls, "unreadable")
+                r_top_err = safety.scan_directory_safety_surface(clean_file)
+                self.assertFalse(r_top_err["clean"])
+                self.assertEqual(len(r_top_err["unreadable_files"]), 1)
+
+            def _fifo_fstat(fd: int) -> os.stat_result:
+                vals = list(real_fstat(fd))
+                vals[stat.ST_MODE] = stat.S_IFIFO | 0o600
+                return os.stat_result(vals)
+
+            def _ino_changed_fstat(fd: int) -> os.stat_result:
+                vals = list(real_fstat(fd))
+                vals[stat.ST_INO] = vals[stat.ST_INO] + 1
+                return os.stat_result(vals)
+
+            def _dev_changed_fstat(fd: int) -> os.stat_result:
+                vals = list(real_fstat(fd))
+                vals[stat.ST_DEV] = vals[stat.ST_DEV] + 1
+                return os.stat_result(vals)
+
+            with mock.patch("aletheia.safety.os.fstat", side_effect=_fifo_fstat):
+                self.assertEqual(safety._read_regular_file_bounded(clean_file), ("skipped", "non_regular_file"))
+            with mock.patch("aletheia.safety.os.fstat", side_effect=_ino_changed_fstat):
+                self.assertEqual(safety._read_regular_file_bounded(clean_file), ("skipped", "path_changed_during_open"))
+            with mock.patch("aletheia.safety.os.fstat", side_effect=_dev_changed_fstat):
+                self.assertEqual(safety._read_regular_file_bounded(clean_file), ("skipped", "path_changed_during_open"))
 
             # Direct symlink target_path (regular file, directory, and broken) refused before resolve()
             r_dsf = safety.scan_directory_safety_surface(sym_file)
