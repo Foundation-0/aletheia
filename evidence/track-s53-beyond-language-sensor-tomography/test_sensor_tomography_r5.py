@@ -773,6 +773,48 @@ class TestTrackS53BeyondLanguageR5(unittest.TestCase):
         err_obj = json.loads(proc_bad.stderr)
         self.assertEqual(err_obj["code"], "FILE_NOT_FOUND")
 
+        # Auto-pairing --check <cert> without --raw across all 3 canonical filenames + explicit --raw override
+        import sensor_tomography_probe as probe
+
+        s_pre, rb_pre, rs_pre = _build_synthetic_snapshot(with_rapl=False, phase2_audio=False)
+        c_pre = probe.analyze_snapshot(s_pre, rs_pre)
+        s_p2, rb_p2, rs_p2 = _build_synthetic_snapshot(with_rapl=True, phase2_audio=True)
+        c_p2 = probe.analyze_snapshot(s_p2, rs_p2)
+        with tempfile.TemporaryDirectory(prefix="s53_autopair_") as td:
+            td_p = Path(td)
+            (td_p / "pre_rapl_baseline_snapshot.json").write_bytes(rb_pre)
+            (td_p / "pre_rapl_baseline_certificate.json").write_bytes(audit.canonical_json_bytes(c_pre))
+            (td_p / "phase2_controlled_snapshot.json").write_bytes(rb_p2)
+            (td_p / "phase2_controlled_certificate.json").write_bytes(audit.canonical_json_bytes(c_p2))
+            for cert_name in ("pre_rapl_baseline_certificate.json", "phase2_controlled_certificate.json"):
+                proc_ap = subprocess.run(
+                    [sys.executable, "-I", "-B", str(HERE / "sensor_tomography_audit.py"), "--check", cert_name],
+                    cwd=str(td_p),
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                self.assertEqual(proc_ap.returncode, 0, proc_ap.stderr)
+                self.assertTrue(json.loads(proc_ap.stdout)["valid"])
+            proc_ovr = subprocess.run(
+                [
+                    sys.executable,
+                    "-I",
+                    "-B",
+                    str(HERE / "sensor_tomography_audit.py"),
+                    "--raw",
+                    "pre_rapl_baseline_snapshot.json",
+                    "--check",
+                    "phase2_controlled_certificate.json",
+                ],
+                cwd=str(td_p),
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(proc_ovr.returncode, 2)
+            self.assertEqual(json.loads(proc_ovr.stderr)["code"], "RAW_SHA_MISMATCH")
+
     def test_09_live_frozen_snapshots_all_three_phases(self) -> None:
         pairs = (
             ("pre_rapl_baseline_snapshot.json", "pre_rapl_baseline_certificate.json", 26),

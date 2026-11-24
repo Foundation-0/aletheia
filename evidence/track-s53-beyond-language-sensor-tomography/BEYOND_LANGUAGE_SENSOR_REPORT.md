@@ -161,8 +161,8 @@ OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python3 -I -B test_sensor_tomography_r5
 | :--- | ---: | ---: | :---: | :--- |
 | `sensor_tomography_probe.py` | `1,571` | `65,224` | `0o644` | `a30f6bea7a3b27c1bf98aa1d1a4bdb21f734e869b1eb8fc506aff9300b590002` |
 | `phase2_controlled_capture.py` | `534` | `21,068` | `0o644` | `b379124b7771611aedfad9f6a87258c3fcae44ab1102c0864a760e2645b0c319` |
-| `sensor_tomography_audit.py` | `1,202` | `54,609` | `0o644` | `6d46f4437d5cbc027b22e290b5c718947f96174898b87570ad063fbfcadeef5a` |
-| `test_sensor_tomography_r5.py` | `985` | `59,226` | `0o644` | `8e37202e31f70a8ee9fc9335b99ea8a5a92ee40b04a4ceba3c1baf40b26bcfdb` |
+| `sensor_tomography_audit.py` | `1,213` | `54,969` | `0o644` | `fa894bad62e4bb0a10f798dac4ed54b8fdc7cf1da314749894b16e71330341c6` |
+| `test_sensor_tomography_r5.py` | `1,027` | `61,373` | `0o644` | `ff8ba6333d5ce0ca8fbe7fa87a1d40c8170c2afcb31b14b0c5c37dcc0747a7ad` |
 | `pre_rapl_baseline_snapshot.json` | `1` | `56,524` | `0o600` | `510a9a76a876e7b359203514cc09190147ef21a30a774b5176cdc8a1e0cd9b71` |
 | `pre_rapl_baseline_certificate.json` | `1` | `18,065` | `0o600` | `ac191f235fec87357ee7a73987483ab5d1019721245cae1c1c6b2a7a1d44a8d4` |
 | `raw_sensor_snapshot.json` | `1` | `65,599` | `0o600` | `35704929e5579ea89f6a0289ac3fa044e4dcd07a7c82e022284359704ae62bf5` |

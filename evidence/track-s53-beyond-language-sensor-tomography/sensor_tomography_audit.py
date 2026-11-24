@@ -1164,6 +1164,13 @@ def _validate_argv(argv: Optional[Sequence[str]]) -> Optional[List[str]]:
     return out
 
 
+_CERT_TO_DEFAULT_RAW: Dict[str, str] = {
+    "pre_rapl_baseline_certificate.json": "pre_rapl_baseline_snapshot.json",
+    "sensor_tomography_certificate.json": "raw_sensor_snapshot.json",
+    "phase2_controlled_certificate.json": "phase2_controlled_snapshot.json",
+}
+
+
 def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="Track S53 Independent Zero-Shared-Code Verifier")
     parser.add_argument("--self-test", action="store_true", help="Run deterministic mathematical & Zone-B self-test")
@@ -1184,7 +1191,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             res = run_self_test()
             print(json.dumps(res, sort_keys=True, separators=(",", ":"), ensure_ascii=True))
             return 0
-        raw_p = args.raw if args.raw is not None else (args.check.parent / "raw_sensor_snapshot.json")
+        raw_p = (
+            args.raw
+            if args.raw is not None
+            else (args.check.parent / _CERT_TO_DEFAULT_RAW.get(args.check.name, "raw_sensor_snapshot.json"))
+        )
         raw_bytes = read_regular_bytes_safe(raw_p, "raw_snapshot")
         cert_bytes = read_regular_bytes_safe(args.check, "certificate")
         raw_obj = parse_strict_json_bytes(raw_bytes, "raw_snapshot")
