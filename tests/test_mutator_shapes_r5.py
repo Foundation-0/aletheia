@@ -195,7 +195,8 @@ class TestMutatorRefusalShapes(unittest.TestCase):
             "        res['passed'] = False\n"
             "    return res\n"
         )
-        # Refusal tuple (incl. 1-elem), refusal call positional/kwarg False, sys.exit, exit, accumulator, ann-assign preservation.
+        # Refusal tuple (incl. 1-elem), refusal call positional/kwarg False, sys.exit, exit, accumulator,
+        # ann-assign preservation, alias-then-return, annotated alias, annotated verdict subscript, `+=` accumulator, `with` raise.
         src_extras = (
             "import sys\n"
             "def f1(x):\n    if x < 0:\n        r = (False, 'neg')\n        return r\n"
@@ -206,25 +207,34 @@ class TestMutatorRefusalShapes(unittest.TestCase):
             "def f6(x):\n    findings = []\n    if x < 0:\n        findings.append('neg')\n"
             "def f7(x):\n    if x < 0:\n        return (False,)\n"
             "def f8(x):\n    if x < 0:\n        res = {'passed': False}\n        res: dict\n        return res\n"
+            "def f9(x):\n    if x < 0:\n        r1 = {'passed': False}\n        r2 = r1\n        return r2\n"
+            "def f10(x):\n    if x < 0:\n        r1 = {'passed': False}\n        r2: dict = r1\n        return r2\n"
+            "def f11(x):\n    res = {'passed': True}\n    if x < 0:\n        res['passed']: bool = False\n    return res\n"
+            "def f12(x):\n    findings = []\n    if x < 0:\n        findings += ['neg']\n"
+            "def f13(x, ctx):\n    if x < 0:\n        with ctx:\n            raise ValueError(x)\n"
+            "async def f14(x, ctx):\n    if x < 0:\n        async with ctx:\n            raise ValueError(x)\n"
         )
         for sample in (src_dict, src_ann, src_sub):
             _, sites = mutator.discover_mutant_sites(sample)
             self.assertEqual({s.kind for s in sites}, {"guard_if_reject", "boundary_cmp"})
         _, ext_sites = mutator.discover_mutant_sites(src_extras)
-        self.assertEqual(len([s for s in ext_sites if s.kind == "guard_if_reject"]), 8)
+        self.assertEqual(len([s for s in ext_sites if s.kind == "guard_if_reject"]), 14)
 
-        # Negative controls: overwritten refusal variable (plain & annotated), non-Name AnnAssign, non-verdict/non-Constant subscript,
-        # empty & non-refusal tuples, non-refusal calls with Name/True args & kwargs.
+        # Negative controls: overwritten refusal variable (plain, annotated, aliased), non-Name AnnAssign, non-verdict/non-Constant subscript,
+        # non-Add AugAssign, non-accumulator `+=`, benign `with`, empty & non-refusal tuples, non-refusal calls.
         benign = (
             "def b1(x):\n    if x < 0:\n        res = {'passed': False}\n        res = {'passed': True}\n        return res\n"
             "def b2(x):\n    if x < 0:\n        res: dict = {'passed': False}\n        res: dict = {'passed': True}\n        return res\n"
             "def b3(x, obj):\n    if x < 0:\n        obj.res: dict = {'passed': False}\n        return {'passed': True}\n"
-            "def b4(x, k):\n    d = {}\n    if x < 0:\n        d['note'] = False\n        d[0] = False\n        d[k] = False\n        d['passed'] = True\n    return d\n"
+            "def b4(x, k):\n    d = {}\n    if x < 0:\n        d['note'] = False\n        d[0] = False\n        d[k] = False\n        d['passed'] = True\n        d['note']: bool = False\n        d['passed']: bool = True\n    return d\n"
             "def b5(x):\n    if x < 0:\n        t = ()\n        return t\n"
             "def b6(x):\n    if x < 0:\n        other = {'passed': False}\n        good = {'passed': True}\n        return good\n"
-            "def b7(x):\n    items = []\n    if x < 0:\n        items.append('ok')\n"
+            "def b7(x, obj):\n    items = []\n    findings = []\n    if x < 0:\n        items.append('ok')\n        items += ['ok']\n        findings.clear()\n        obj.findings.append('ok')\n        obj.x += 1\n    count_findings = 1\n    if x < 0:\n        count_findings -= 1\n"
             "def b8(x):\n    if x < 0:\n        return (True, 'ok')\n"
             "def b9(x, fn):\n    if x < 0:\n        return fn(x, True, k=x, ok=True)\n"
+            "def b10(x):\n    if x < 0:\n        r1 = {'passed': False}\n        r2 = r1\n        r2 = {'passed': True}\n        return r2\n"
+            "def b11(x, ctx):\n    if x < 0:\n        with ctx:\n            pass\n"
+            "def b12(x, sys, get_sys):\n    if x < 0:\n        'note'\n        sys.getrecursionlimit()\n        get_sys().exit(1)\n"
         )
         self.assertEqual(mutator.discover_mutant_sites(benign)[1], [])
 
@@ -478,6 +488,250 @@ class TestMutatorRefusalShapes(unittest.TestCase):
         )
         _, sc_sites = mutator.discover_mutant_sites(sc_src, self_check_mode=True)
         self.assertIn("guard_selfcheck_negate", {s.kind for s in sc_sites})
+
+        # Self-check boundary checks: non-guard call & 0-arg guard call do NOT trigger top-level guard suppression,
+        # while a 1-arg guard call DOES trigger `guard_selfcheck_negate` and suppresses `if FAILS: sys.exit(1)`.
+        sc_non_guard = "import sys\nFAILS = []\nprint('ok')\nif FAILS:\n    sys.exit(1)\n"
+        self.assertEqual([s.kind for s in mutator.discover_mutant_sites(sc_non_guard, self_check_mode=True)[1]], ["guard_if_reject"])
+        sc_zero_arg = "import sys\nFAILS = []\ncheck()\nif FAILS:\n    sys.exit(1)\n"
+        self.assertEqual([s.kind for s in mutator.discover_mutant_sites(sc_zero_arg, self_check_mode=True)[1]], ["guard_if_reject"])
+        sc_one_arg = "\"\"\"doc\"\"\"\nimport sys\nFAILS = []\ncheck(2 + 2 == 4)\nif FAILS:\n    sys.exit(1)\n"
+        sc_one_kinds = {s.kind for s in mutator.discover_mutant_sites(sc_one_arg, self_check_mode=True)[1]}
+        self.assertIn("guard_selfcheck_negate", sc_one_kinds)
+        self.assertNotIn("guard_if_reject", sc_one_kinds)
+
+    def test_07_scoped_and_reassignment_safe_guard_aliases(self) -> None:
+        # 1. Reassigned aliases (in function or at module level) MUST NOT emit false-positive mutations.
+        reassigned_src = (
+            "def benign(v):\n    return v\n"
+            "m_chk = require_ok\n"
+            "m_chk = benign\n"
+            "def f_mod(x):\n    return m_chk(x > 0)\n"
+            "def f_local(x):\n    chk = require_ok\n    chk = benign\n    return chk(x > 0)\n"
+            "def f_const(x):\n    chk = require_ok\n    chk = 42\n    return chk(x > 0)\n"
+            "def f_chain_poison(x):\n    chk1 = require_ok\n    chk2 = chk1\n    chk1 = benign\n    return chk2(x > 0)\n"
+            "def f_ann_poison(x):\n    chk: object = require_ok\n    chk: object = benign\n    return chk(x > 0)\n"
+            "def f_ann_nonname(x, box):\n    box.chk: object = require_ok\n    return box.chk(x > 0)\n"
+            "def f_rebind_kinds(x, items, ctx):\n"
+            "    a = require_ok\n    a += benign\n    a(x > 0)\n"
+            "    b = require_ok\n    print(b := benign)\n    b(x > 0)\n"
+            "    c = require_ok\n    del c\n    c(x > 0)\n"
+            "    d = require_ok\n    for d in items:\n        d(x > 0)\n"
+            "    e = require_ok\n    with ctx as e:\n        e(x > 0)\n"
+            "    f = require_ok\n    try:\n        pass\n    except Exception as f:\n        f(x > 0)\n"
+            "    g = require_ok\n    g, _ = require_ok, 1\n    g(x > 0)\n"
+            "    h = require_ok\n    from mod import other as h\n    h(x > 0)\n"
+            "    k = require_ok\n    import math as k\n    k(x > 0)\n"
+            "    import check\n    check(x > 0)\n"
+            "    m = require_ok\n    def m(v):\n        return v\n    m(x > 0)\n"
+            "    items.g = require_ok\n"
+            "    with ctx:\n        pass\n"
+            "    try:\n        pass\n    except Exception:\n        pass\n"
+            "    del items[0]\n"
+        )
+        self.assertEqual(mutator.discover_mutant_sites(reassigned_src)[1], [])
+
+        # 2. Conflicting polarities in SEPARATE functions stay strictly scoped (zero silent polarity inversion!),
+        #    while conflicting polarities in the SAME scope are invalidated cleanly.
+        polarity_src = (
+            "def reject_bad(bad):\n"
+            "    if bad:\n"
+            "        raise ValueError('bad')\n\n"
+            "def fn1(x):\n"
+            "    g = reject_bad\n"
+            "    g(x < 0)\n\n"
+            "def fn2(x):\n"
+            "    g = require_ok\n"
+            "    g(x > 0, 'E', 'e')\n\n"
+            "def fn_conflict(x):\n"
+            "    g = reject_bad\n"
+            "    g = require_ok\n"
+            "    g(x > 0)\n\n"
+            "def fn_imp_conflict(x):\n"
+            "    from aletheia.strict_io import require_ok as g\n"
+            "    g = reject_bad\n"
+            "    g(x > 0)\n"
+        )
+        _, pol_sites = mutator.discover_mutant_sites(polarity_src)
+        call_sites = [(s.lineno, s.kind, s.mutated_src) for s in pol_sites if s.kind in ("guard_require_call", "guard_reject_call")]
+        self.assertEqual(
+            call_sites,
+            [
+                (7, "guard_reject_call", "g(False, ...)"),
+                (11, "guard_require_call", "g(True, ...)"),
+            ],
+        )
+
+        # 3. Cross-function / bool-field / parameter shadowing / lambda isolation.
+        leak_src = (
+            "import aletheia.strict_io as sio\n"
+            "mod_chk = require_ok\n"
+            "def fn1(obj, x):\n"
+            "    ok = obj.check\n"
+            "    ok2 = getattr(obj, 'check')\n"
+            "    ok3 = (obj()).check\n"
+            "    chk = require_ok\n"
+            "    chk(x > 0, 'E', 'e')\n"
+            "    return ok(x) or ok2(x) or ok3(x)\n"
+            "def fn2(ok, chk, x):\n"
+            "    return ok(x) or chk(x)\n"
+            "def fn_shadow_mod(mod_chk, x):\n"
+            "    return mod_chk(x)\n"
+            "def fn_shadow_var(*mod_chk, **other):\n"
+            "    return mod_chk(1) or other(1)\n"
+            "def fn_shadow_kw(**mod_chk):\n"
+            "    return mod_chk(1)\n"
+            "def fn_shadow_ns(sio, x):\n"
+            "    loc = sio.require_ok\n"
+            "    return loc(x)\n"
+            "def fn_lambdas(x):\n"
+            "    f_shadow = lambda mod_chk: mod_chk(x > 0)\n"
+            "    f_use = lambda v: mod_chk(v > 0, 'E', 'e')\n"
+            "    return f_shadow, f_use\n"
+        )
+        _, leak_sites = mutator.discover_mutant_sites(leak_src)
+        leak_calls = [(s.lineno, s.kind, s.original_src) for s in leak_sites if s.kind in ("guard_require_call", "guard_reject_call")]
+        self.assertEqual(
+            leak_calls,
+            [
+                (8, "guard_require_call", "chk(x > 0, ...)"),
+                (23, "guard_require_call", "mod_chk(v > 0, ...)"),
+            ],
+        )
+
+        # 4. Valid namespace aliases: unaliased `import`, unaliased & aliased `from ... import`, `class` namespace,
+        #    unaliased guard `from ... import require_ok`, and value-less annotation preserving an alias.
+        ns_src = (
+            "import aletheia\n"
+            "from aletheia import strict_io\n"
+            "from aletheia import strict_io as sio2\n"
+            "from aletheia.strict_io import require_ok\n"
+            "class Box:\n"
+            "    def run(self, x):\n"
+            "        c_cls = Box.check\n"
+            "        c_cls(x > 0, 'E')\n"
+            "c1 = aletheia.strict_io.require_ok\n"
+            "c2 = strict_io.require_ok\n"
+            "c3 = sio2.require_ok\n"
+            "c4 = require_ok\n"
+            "c4: object\n"
+            "def use_all(x):\n"
+            "    c1(x > 1, 'E1', 'e1')\n"
+            "    c2(x > 2, 'E2', 'e2')\n"
+            "    c3(x > 3, 'E3', 'e3')\n"
+            "    c4(x > 4, 'E4', 'e4')\n"
+            "    require_ok(x > 5, 'E5', 'e5')\n"
+        )
+        _, ns_sites = mutator.discover_mutant_sites(ns_src)
+        ns_lines = sorted(s.lineno for s in ns_sites if s.kind == "guard_require_call")
+        self.assertEqual(ns_lines, [8, 15, 16, 17, 18, 19])
+
+        # Module-level non-guard import / non-wrapper def shadows an outer/built-in name cleanly.
+        shadow_top = (
+            "from other_mod import benign\n"
+            "def check(x):\n"
+            "    return x + 1\n"
+            "def caller(x):\n"
+            "    return benign(x)\n"
+        )
+        self.assertEqual(mutator.discover_mutant_sites(shadow_top)[1], [])
+
+        # Explicit `--guards` callback parameters (both def and lambda) remain mutable.
+        cb_src = "def f(x, cb):\n    cb(x > 0, 'neg')\n    return lambda cb: cb(x > 1, 'neg2')\n"
+        _, cb_sites = mutator.discover_mutant_sites(cb_src, extra_guards=("cb",))
+        self.assertEqual(len([s for s in cb_sites if s.kind == "guard_require_call"]), 2)
+
+    def test_08_wrapper_preamble_and_non_shadowing_scope(self) -> None:
+        # 1. Tuple-unpacking and walrus parameter reassignments MUST reject wrapper classification,
+        #    while reading `cond` in a preamble (`print(cond)`) MUST still be accepted.
+        preamble_src = (
+            "def invert_tuple(cond, msg):\n"
+            "    cond, tag = not cond, msg\n"
+            "    if not cond:\n"
+            "        raise ValueError(tag)\n\n"
+            "def invert_walrus_expr(cond, msg):\n"
+            "    print(cond := not cond)\n"
+            "    if not cond:\n"
+            "        raise ValueError(msg)\n\n"
+            "def invert_walrus_assign(cond, msg):\n"
+            "    tag = (cond := not cond)\n"
+            "    if not cond:\n"
+            "        raise ValueError(msg)\n\n"
+            "def req_log_cond(cond, msg):\n"
+            "    print(cond, msg)\n"
+            "    if not cond:\n"
+            "        raise ValueError(msg)\n"
+        )
+        self.assertEqual(mutator.discover_local_refusal_wrappers(ast.parse(preamble_src)), {"req_log_cond": "require"})
+
+        # 2. Nested `def` MUST NOT hijack unrelated top-level functions OR overwrite top-level wrapper polarity.
+        nested_src = (
+            "def helper(n):\n"
+            "    return n + 1\n\n"
+            "def gate(bad):\n"
+            "    if bad:\n"
+            "        raise ValueError('bad')\n\n"
+            "def outer(x):\n"
+            "    def helper(cond):\n"
+            "        if not cond:\n"
+            "            raise ValueError('nested')\n"
+            "    def gate(ok):\n"
+            "        if not ok:\n"
+            "            raise ValueError('nested')\n"
+            "    gate(x > 0)\n"
+            "    return helper(x > 0)\n\n"
+            "def caller(x):\n"
+            "    gate(x < 0)\n"
+            "    return helper(x)\n"
+        )
+        tree_n = ast.parse(nested_src)
+        self.assertEqual(mutator.discover_local_refusal_wrappers(tree_n), {"gate": "reject"})
+        _, nested_sites = mutator.discover_mutant_sites(nested_src)
+        nested_calls = [(s.lineno, s.kind, s.original_src, s.mutated_src) for s in nested_sites if s.kind in ("guard_require_call", "guard_reject_call")]
+        self.assertEqual(nested_calls, [(19, "guard_reject_call", "gate(x < 0, ...)", "gate(False, ...)")])
+
+        # 3. Direct ClassDef wrapper methods, async top-level wrappers, top-level precedence over class methods,
+        #    conflicting class-method polarities dropped, and module-level redefinition drops stale wrapper.
+        scope_src = (
+            "class Validator:\n"
+            "    def must_ok(self, cond):\n"
+            "        if not cond:\n"
+            "            raise ValueError('v')\n"
+            "    def helper(self, cond):\n"
+            "        if not cond:\n"
+            "            raise ValueError('h')\n"
+            "    def conflict(self, cond):\n"
+            "        if not cond:\n"
+            "            raise ValueError('a')\n"
+            "    def non_wrap(self, x):\n"
+            "        return x\n"
+            "    def only_self(self):\n"
+            "        return 1\n"
+            "    X = 1\n\n"
+            "class OtherValidator:\n"
+            "    def conflict(self, bad):\n"
+            "        if bad:\n"
+            "            raise ValueError('b')\n\n"
+            "def non_param_else(x):\n"
+            "    if x > 0:\n"
+            "        return 1\n"
+            "    else:\n"
+            "        raise ValueError('bad')\n\n"
+            "def helper(n):\n"
+            "    return n + 1\n\n"
+            "async def async_req(cond):\n"
+            "    if not cond:\n"
+            "        raise ValueError('a')\n\n"
+            "def redef(bad):\n"
+            "    if bad:\n"
+            "        raise ValueError('r')\n\n"
+            "def redef(n):\n"
+            "    return n\n"
+        )
+        self.assertEqual(
+            mutator.discover_local_refusal_wrappers(ast.parse(scope_src)),
+            {"must_ok": "require", "async_req": "require"},
+        )
 
 
 if __name__ == "__main__":
