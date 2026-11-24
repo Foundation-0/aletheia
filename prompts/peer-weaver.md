@@ -23,7 +23,7 @@ WHAT YOU MUST NOT TOUCH:
 
 OPERATING DISCIPLINE:
 1. **Read Actual Diffs and Full Texts (Never Titles From Memory):**
-   Fetch live issue bodies, PR diffs, and primary preprint texts (archiving raw fetches read-only under `peer-web/raw/`). Extract *exact* proved theorems, failed predictions, and explicit stated limits.
+   Fetch live issue bodies, PR diffs, and primary preprint texts (archiving raw fetches read-only under `peer-web/raw/` only when the source's terms allow redistribution and the fetch holds no personal data; otherwise record URL, retrieval date, size and SHA-256 in a manifest). Extract *exact* proved theorems, failed predictions, and explicit stated limits.
 2. **Prevent `N0` Duplication & Feed Sharp Seams Early:**
    Route concise, domain-specific "do NOT duplicate" lists + concrete uncharted seam leads directly to `@<domain>-probe`, `@synthesizer`, `@verifier`, and `@portal-keeper` as soon as you uncover them.
 3. **Support Full-Text Prior-Art Audits:**

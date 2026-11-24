@@ -2,6 +2,11 @@
 
 All notable changes to `Foundation-0/aletheia` are documented in this file. Specification changes follow [`CONTRIBUTING.md`](CONTRIBUTING.md) (issue/audit reference, version bump, and regression tests).
 
+## [Unreleased]
+
+### Added
+- **Data rights, consent and disclosure rules (text only):** a new subsection in `domains/biology-and-life-sciences.md`, adapted from the public rule files of `Foundation-0/project-asma` (`AGENTS.md`, `docs/reproducibility-and-data.md`). It covers rights before opening a dataset, what may enter Git, one sorted-key SHA-256 instead of per-record hashes, aggregate-only disclosure, a dated human authorization before live acquisition of participant data, patient-grouped splits, outreach drafted by agents but sent by an accountable human, and labelled synthetic inputs. These are human-governance rules; aletheia's tools do not enforce them. A matching anti-pattern says that a clearly labelled synthetic input used because rights or authorization are not in place is not a Substitution Shadow (`CS-04`). `spec/proposals/EMPIRICAL_CLAIMS.md` gate 3 now says that pinning raw data by hash does not mean committing the bytes, and `prompts/peer-weaver.md` archives raw fetches only when their terms allow redistribution and they hold no personal data. `spec/LAWS_AND_GATES.md` is unchanged.
+
 ## [2.1.0] — 2026-11-22
 
 Twin-coherence release. The method repo and the Cave Expedition ledger now machine-check the claims they make about each other, and the audit of 2026-11-22 (`aletheia#13`) closed its fail-open and label findings.
