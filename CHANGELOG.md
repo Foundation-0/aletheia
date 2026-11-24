@@ -2,6 +2,13 @@
 
 All notable changes to `Foundation-0/aletheia` are documented in this file. Specification changes follow [`CONTRIBUTING.md`](CONTRIBUTING.md) (issue/audit reference, version bump, and regression tests).
 
+## [Unreleased]
+
+Text and records only: no change to `spec/LAWS_AND_GATES.md`, `schemas/` or `aletheia/`, so no version bump. Drafted by an automated agent session from a cross-check against `Foundation-0/project-asma` (`de88b12`) and `Foundation-0/cave-expedition` (`9729839`); not yet independently reviewed.
+
+### Changed
+- **Biology pack, project-asma cross-links (`domains/biology-and-life-sciences.md`, `domains/computer-science-and-systems.md`):** Worked Pattern A now says the compartment model is project-asma's toy two-state model with invented values (`V19`), that the cross-ratio checks are Check 10 of a Python study that project-asma labels author self-checked and `N0`, and what the invariants can and cannot test: they reject a non-Möbius readout but take the same values in every setting they were meant to separate, `CR4` is blind to affine readout shifts, and `CR3` moves with readout loss. The separating test is project-asma's paired-input design (`V48`), with its stated conditions. Pattern B now calls the "project-asma chimeric benchmark" a synthetic Gram matrix with invented weights and gives the `Scan 23848` regimes their source (a two-weight model from cave-expedition, not project-asma's spectrum). The `AUDIT-006R` evidence rows record that `project-asma#101` is merged (`f2f92ee`) and give the outside check's own wording for what it checked.
+
 ## [2.1.0] — 2026-11-22
 
 Twin-coherence release. The method repo and the Cave Expedition ledger now machine-check the claims they make about each other, and the audit of 2026-11-22 (`aletheia#13`) closed its fail-open and label findings.
