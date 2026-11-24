@@ -621,7 +621,7 @@ def _check_operator_equivalence(rec: dict[str, Any]) -> dict[str, Any]:
     reasons: list[str] = []
     if c_prov == "exact_operator" and w_prov != "exact_operator":
         reasons.append("SURROGATE_OVERCLAIMED_AS_EXACT")
-    if c_prov == "exact_operator" and c_op != w_op:
+    if c_op != w_op:
         reasons.append("OPERATOR_IDENTITY_MISMATCH")
     if claims_grad and not witness_grad:
         reasons.append("UNVERIFIED_GRADIENT_COVERAGE")
@@ -1327,6 +1327,17 @@ def compute_blind_spot_tomography() -> dict[str, Any]:
 def build_certificate() -> dict[str, Any]:
     """Deterministically build the exact Z/Q claim-to-witness self-test certificate."""
     payload = compute_blind_spot_tomography()
+    suite = payload["reference_escape_suite"]
+    if (
+        suite["negative_escapes_caught"] != suite["negative_escapes_total"]
+        or suite["false_positives"] != 0
+        or suite["positive_controls_passed"] != suite["positive_controls_total"]
+    ):
+        raise ClaimWitnessError(
+            "SELF_TEST_FAILED",
+            f"self-test failed: escapes={suite['negative_escapes_caught']}/{suite['negative_escapes_total']} "
+            f"false_positives={suite['false_positives']}",
+        )
     payload_sha = canonical_sha256(payload)
     body: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
@@ -1385,7 +1396,11 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if args.check is None:
-        cert = build_certificate()
+        try:
+            cert = build_certificate()
+        except ClaimWitnessError as exc:
+            sys.stderr.write(f"FAIL {exc.code}: {exc.detail}\n")
+            return 1
         if args.json:
             sys.stdout.write(canonical_json_bytes(cert).decode("ascii") + "\n")
             return 0

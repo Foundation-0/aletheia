@@ -551,6 +551,64 @@ def _make_hollow_resigned_cert(valid_cert: dict[str, Any]) -> dict[str, Any]:
     return _resign_envelope(target)
 
 
+def _replace_first_int_with_float(obj: Any) -> tuple[Any, bool]:
+    """Replace the first strict int leaf with an equal IEEE-754 float via json.loads (zero AST floats)."""
+    if type(obj) is dict:
+        out: dict[str, Any] = {}
+        changed = False
+        for k, v in obj.items():
+            if not changed:
+                nv, changed = _replace_first_int_with_float(v)
+                out[k] = nv
+            else:
+                out[k] = copy.deepcopy(v)
+        return out, changed
+    if type(obj) is list:
+        out_l: list[Any] = []
+        changed = False
+        for item in obj:
+            if not changed:
+                ni, changed = _replace_first_int_with_float(item)
+                out_l.append(ni)
+            else:
+                out_l.append(copy.deepcopy(item))
+        return out_l, changed
+    if type(obj) is int:
+        return json.loads(f"{obj}.0"), True
+    return copy.deepcopy(obj), False
+
+
+def _make_float_resigned_cert(valid_cert: dict[str, Any]) -> dict[str, Any]:
+    """Build a valid re-signed certificate forgery with a float leaf on the trust path."""
+    target = copy.deepcopy(valid_cert)
+    if "payload" in target:
+        forged_payload, did_flip = _replace_first_int_with_float(target["payload"])
+        if not did_flip and type(forged_payload) is dict:
+            forged_payload["zb08_float"] = json.loads("1.5")
+        target["payload"] = forged_payload
+    else:
+        forged_root, did_flip = _replace_first_int_with_float(target)
+        if not did_flip:
+            forged_root["zb08_float"] = json.loads("1.5")
+        target = forged_root
+    return _resign_envelope(target)
+
+
+def _make_dup_unicode_key_resigned_text(valid_obj: dict[str, Any]) -> str:
+    """Splice a preceding \\u-escaped duplicate key into the canonical valid cert (last-value-wins for stdlib json)."""
+    if not valid_obj:
+        return '{"schema":"a","\\u0073chema":"b"}\n'
+    canon = _safe_dumps(valid_obj, ensure_ascii=True)
+    dup_key = "schema" if "schema" in valid_obj else sorted(valid_obj.keys())[0]
+    esc_key = f"\\u{ord(dup_key[0]):04x}{dup_key[1:]}"
+    return '{"' + esc_key + '":"__ZB07_DUP__",' + canon[1:] + "\n"
+
+
+def _resolved_temp_root() -> str:
+    """Resolve symlinked TMPDIR bases (such as macOS /var -> /private/var) before O_NOFOLLOW checks."""
+    return os.path.realpath(tempfile.gettempdir())
+
+
 # ---------------------------------------------------------------------------
 # CLI & In-Memory Fuzzing Engines
 # ---------------------------------------------------------------------------
@@ -596,8 +654,15 @@ def build_cli_attack_cases(
     ) + "\n"
     _emit_text("ZB02_lone_surrogate_digest", "lone_surrogate_64", zb02_txt)
 
-    # ZB03: 5,000-digit integer JSON literal (triggers Python 4,300-digit ValueError if uncaught)
-    _emit_text("ZB03_huge_int_5000_digits", "json_5000_digits", '{"huge":' + ("9" * 5000) + "}\n")
+    # ZB03: 5,000-digit integer JSON literal embedded in valid cert structure
+    zb03_marker = "__ZB03_HUGE_INT__"
+    zb03_obj = copy.deepcopy(valid_obj)
+    if "payload" in zb03_obj and type(zb03_obj["payload"]) is dict:
+        zb03_obj["payload"]["zb03_huge"] = zb03_marker
+    else:
+        zb03_obj["zb03_huge"] = zb03_marker
+    zb03_txt = _safe_dumps(zb03_obj, ensure_ascii=True).replace('"' + zb03_marker + '"', "9" * 5000) + "\n"
+    _emit_text("ZB03_huge_int_5000_digits", "json_5000_digits", zb03_txt)
 
     # ZB04: deep nesting (100-deep and 1,500-deep)
     _emit_text("ZB04_deep_nesting", "depth_100", ("[" * 100) + "0" + ("]" * 100) + "\n")
@@ -613,10 +678,13 @@ def build_cli_attack_cases(
         zb06_obj["bool_as_int"] = True
     _emit_text("ZB06_bool_as_int_injection", "bool_as_int", _safe_dumps(zb06_obj, ensure_ascii=True) + "\n")
 
-    # ZB07: duplicate key with \u-escape
+    # ZB07: duplicate key with \u-escape (standalone and spliced into valid baseline cert)
     _emit_text("ZB07_duplicate_keys_unicode_escape", "dup_unicode_key", '{"schema":"a","\\u0073chema":"b"}\n')
+    _emit_text("ZB07_duplicate_keys_unicode_escape", "dup_unicode_key_resigned", _make_dup_unicode_key_resigned_text(valid_obj))
 
-    # ZB08: float literal, NaN, Infinity, -Infinity
+    # ZB08: re-signed float forgery on valid cert + standalone float, NaN, Infinity, -Infinity
+    zb08_resigned = _make_float_resigned_cert(valid_obj)
+    _emit_text("ZB08_nonfinite_and_float_literals", "float_resigned", _safe_dumps(zb08_resigned, ensure_ascii=True) + "\n")
     _emit_text("ZB08_nonfinite_and_float_literals", "float_lit", '{"val":1.5}\n')
     _emit_text("ZB08_nonfinite_and_float_literals", "nan_const", '{"val":NaN}\n')
     _emit_text("ZB08_nonfinite_and_float_literals", "inf_const", '{"val":Infinity}\n')
@@ -626,9 +694,17 @@ def build_cli_attack_cases(
     _emit_text("ZB09_non_dict_root", "list_root", "[]\n")
     _emit_text("ZB09_non_dict_root", "null_root", "null\n")
 
-    # ZB10: CRLF line endings & non-canonical pretty-printed JSON
-    _emit_bytes("ZB10_crlf_and_noncanonical_bytes", "crlf", valid_cert_bytes.replace(b"\n", b"\r\n"))
-    _emit_text("ZB10_crlf_and_noncanonical_bytes", "pretty_noncanon", _safe_dumps(valid_obj, indent=2) + "\n")
+    # ZB10: CRLF line endings & non-canonical pretty-printed JSON (always distinct from baseline)
+    crlf_bytes = (
+        valid_cert_bytes.replace(b"\n", b"\r\n")
+        if b"\n" in valid_cert_bytes
+        else valid_cert_bytes + b"\r\n"
+    )
+    _emit_bytes("ZB10_crlf_and_noncanonical_bytes", "crlf", crlf_bytes)
+    pretty_bytes = (_safe_dumps(valid_obj, indent=2) + "\n").encode("utf-8")
+    if pretty_bytes == valid_cert_bytes:
+        pretty_bytes = (_safe_dumps(valid_obj, indent=4) + "\n").encode("utf-8")
+    _emit_bytes("ZB10_crlf_and_noncanonical_bytes", "pretty_noncanon", pretty_bytes)
 
     # ZB13: hollow re-signed self-consistent SHA payload
     zb13_obj = _make_hollow_resigned_cert(valid_obj)
@@ -710,7 +786,8 @@ def build_memory_attack_cases(valid_cert: dict[str, Any]) -> list[tuple[str, str
         zb06_obj["bool_as_int"] = True
     cases.append(("ZB06_bool_as_int_injection", "bool_as_int", zb06_obj))
 
-    # ZB08: float & NaN in-memory (hostile attack fixture generation only; zero AST float/float() calls)
+    # ZB08: re-signed float forgery + unsigned float/NaN/Infinity in-memory (zero AST float/float() calls)
+    cases.append(("ZB08_nonfinite_and_float_literals", "float_resigned", _make_float_resigned_cert(valid_cert)))
     for sub, fval in (
         ("float_val", json.loads("1.5")),
         ("nan_val", json.loads("NaN")),
@@ -761,7 +838,7 @@ def fuzz_cli_checker(
     check_flag: str = "--check",
     timeout_sec: int = 30,
 ) -> dict[str, Any]:
-    """Run baseline check + full CLI Zone-B corpus against an external `--check` CLI."""
+    """Run baseline check + full CLI Zone-B corpus under forced `python3 -I -O -B -W error` against a `--check` CLI."""
     _read_regular_bytes_atomic(script_path, MAX_JSON_BYTES, not_found_code="SCRIPT_NOT_FOUND")
     valid_bytes = _read_regular_bytes_atomic(
         cert_path,
@@ -792,13 +869,15 @@ def fuzz_cli_checker(
             "crashes": 0,
             "findings": [],
         }
-    if base.returncode != 0:
+    base_has_tb, base_tb_tail = detect_python_traceback(base.stderr, base.stdout)
+    if base.returncode != 0 or base_has_tb:
         return {
             "surface": "cli",
             "baseline_ok": False,
             "passed": False,
-            "status": "BASELINE_FAILED",
+            "status": "NOISY_BASELINE" if base.returncode == 0 else "BASELINE_FAILED",
             "baseline_rc": base.returncode,
+            "baseline_traceback_tail": base_tb_tail,
             "cases_run": 0,
             "clean_rejections": 0,
             "bypasses": 0,
@@ -812,7 +891,7 @@ def fuzz_cli_checker(
     crash_count = 0
     findings: list[dict[str, Any]] = []
 
-    with tempfile.TemporaryDirectory(prefix="aletheia_zb_") as td:
+    with tempfile.TemporaryDirectory(prefix="aletheia_zb_", dir=_resolved_temp_root()) as td:
         work_dir = Path(td)
         cases = build_cli_attack_cases(valid_bytes, work_dir)
         for vid, sub, attack_path in cases:
@@ -1091,8 +1170,16 @@ def _foil_broken_baseline(cert: Any) -> dict[str, Any]:
 
 
 def _foil_raw_int_digit_limit(cert: Any) -> dict[str, Any]:
-    """Vulnerable foil 6: calls json.dumps without integer bit-length cap (crashes on ZB03)."""
-    json.dumps(cert)
+    """Vulnerable foil 6: formats untrusted ints via str() without bit-length cap (crashes on ZB03 across all Python 3.11+)."""
+    stack: list[Any] = [cert]
+    while stack:
+        item = stack.pop()
+        if type(item) is int:
+            str(item)
+        elif type(item) is dict:
+            stack.extend(item.values())
+        elif type(item) is list:
+            stack.extend(item)
     return reference_verify_dict(cert)
 
 
@@ -1103,8 +1190,36 @@ def _foil_unhandled_surrogate_utf8(cert: Any) -> dict[str, Any]:
     return reference_verify_dict(cert)
 
 
+def _foil_float_tolerant(cert: Any) -> dict[str, Any]:
+    """Vulnerable foil 8: bool-safe, SHA-verifying checker that accepts float==int forgeries (bypasses on ZB08)."""
+    if type(cert) is not dict or set(cert.keys()) != _REF_KEYS:
+        raise ZoneBFuzzError("FOIL_SCHEMA", "bad schema")
+    if cert["schema"] != _REF_SCHEMA:
+        raise ZoneBFuzzError("FOIL_SCHEMA", "bad schema name")
+    p_sha = require_sha256_hex(cert["payload_sha256"], "payload_sha256")
+    c_sha = require_sha256_hex(cert["certificate_sha256"], "certificate_sha256")
+    payload = cert["payload"]
+    if type(payload) is not dict:
+        raise ZoneBFuzzError("FOIL_PAYLOAD", "payload not dict")
+    comp_p = hashlib.sha256(_safe_dumps(payload, ensure_ascii=True).encode("utf-8")).hexdigest()
+    if not hmac.compare_digest(p_sha, comp_p):
+        raise ZoneBFuzzError("FOIL_SHA", "payload sha mismatch")
+    env = {"schema": cert["schema"], "payload_sha256": p_sha, "payload": payload}
+    comp_c = hashlib.sha256(_safe_dumps(env, ensure_ascii=True).encode("utf-8")).hexdigest()
+    if not hmac.compare_digest(c_sha, comp_c):
+        raise ZoneBFuzzError("FOIL_SHA", "cert sha mismatch")
+    expected_payload = build_reference_cert()["payload"]
+    if set(payload.keys()) != set(expected_payload.keys()):
+        raise ZoneBFuzzError("FOIL_PAYLOAD", "payload keys mismatch")
+    for k, want in expected_payload.items():
+        val = payload[k]
+        if (type(val) is bool) != (type(want) is bool) or val != want:
+            raise ZoneBFuzzError("FOIL_PAYLOAD", f"payload field mismatch: {k}")
+    return {"valid": True}
+
+
 def build_self_certification_payload() -> dict[str, Any]:
-    """Run all 16 corpus vectors against hardened reference (CLI + memory) and vulnerable foils."""
+    """Run all 16 corpus vectors against hardened reference (CLI + memory) and 8 vulnerable foils."""
     ref_cert = build_reference_cert()
     mem_hardened = fuzz_python_validator(
         reference_verify_dict,
@@ -1112,7 +1227,7 @@ def build_self_certification_payload() -> dict[str, Any]:
         expected_exc_types=(ZoneBFuzzError,),
     )
 
-    with tempfile.TemporaryDirectory(prefix="aletheia_zb_self_") as td:
+    with tempfile.TemporaryDirectory(prefix="aletheia_zb_self_", dir=_resolved_temp_root()) as td:
         ref_path = Path(td) / "ref_cert.json"
         ref_path.write_bytes(canonical_json_bytes(ref_cert) + b"\n")
         cli_hardened = fuzz_cli_checker(
@@ -1128,6 +1243,7 @@ def build_self_certification_payload() -> dict[str, Any]:
     foil_broken = fuzz_python_validator(_foil_broken_baseline, ref_cert, expected_exc_types=(ZoneBFuzzError,))
     foil_int_limit = fuzz_python_validator(_foil_raw_int_digit_limit, ref_cert, expected_exc_types=(ValueError,))
     foil_surrogate = fuzz_python_validator(_foil_unhandled_surrogate_utf8, ref_cert, expected_exc_types=(ValueError,))
+    foil_float_tol = fuzz_python_validator(_foil_float_tolerant, ref_cert, expected_exc_types=(ZoneBFuzzError,))
 
     def _finding_ids(rep: dict[str, Any], outcome: str) -> list[str]:
         return sorted({f["vector_id"] for f in rep["findings"] if f["outcome"] == outcome})
@@ -1146,6 +1262,7 @@ def build_self_certification_payload() -> dict[str, Any]:
         "foil_broken_baseline_caught": foil_broken["status"] == "BASELINE_FAILED",
         "foil_raw_int_limit_caught_crash_zb03": "ZB03_huge_int_5000_digits" in _finding_ids(foil_int_limit, "CRASH"),
         "foil_surrogate_utf8_caught_crash_zb02": "ZB02_lone_surrogate_digest" in _finding_ids(foil_surrogate, "CRASH"),
+        "foil_float_tolerant_caught_bypass_zb08": "ZB08_nonfinite_and_float_literals" in _finding_ids(foil_float_tol, "BYPASS"),
     }
     failed = [k for k, ok in checks.items() if not ok]
     if failed:
@@ -1177,6 +1294,7 @@ def build_self_certification_payload() -> dict[str, Any]:
             "broken_baseline_status": foil_broken["status"],
             "raw_int_digit_limit_crash_vectors": _finding_ids(foil_int_limit, "CRASH"),
             "unhandled_surrogate_utf8_crash_vectors": _finding_ids(foil_surrogate, "CRASH"),
+            "float_tolerant_bypass_vectors": _finding_ids(foil_float_tol, "BYPASS"),
         },
         "invariant_checks": checks,
         "all_passed": True,

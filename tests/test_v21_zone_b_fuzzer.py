@@ -615,14 +615,14 @@ class TestFuzzerEnginesAndFoils(unittest.TestCase):
             "passed": True,
             "status": "PASS",
             "baseline_rc": 0,
-            "cases_run": 23,
-            "clean_rejections": 23,
+            "cases_run": 25,
+            "clean_rejections": 25,
             "bypasses": 0,
             "crashes": 0,
             "findings": [],
         }
 
-        for bad_cli in (dict(ok_cli, clean_rejections=22), dict(ok_cli, passed=False)):
+        for bad_cli in (dict(ok_cli, clean_rejections=24), dict(ok_cli, passed=False)):
             with mock.patch.object(mod, "fuzz_cli_checker", return_value=bad_cli):
                 with self.assertRaises(mod.ZoneBFuzzError) as ctx:
                     mod.build_self_certification_payload()
@@ -782,13 +782,13 @@ class TestFuzzerEnginesAndFoils(unittest.TestCase):
                 "passed": True,
                 "status": "PASS",
                 "baseline_rc": 0,
-                "cases_run": 23,
-                "clean_rejections": 23,
+                "cases_run": 25,
+                "clean_rejections": 25,
                 "bypasses": 0,
                 "crashes": 0,
                 "findings": [],
             }
-            fail_rep = dict(ok_rep, passed=False, status="FAIL", bypasses=1, clean_rejections=22)
+            fail_rep = dict(ok_rep, passed=False, status="FAIL", bypasses=1, clean_rejections=24)
             with mock.patch.object(mod, "fuzz_cli_checker", return_value=ok_rep):
                 out_txt = io.StringIO()
                 with mock.patch("sys.stdout", out_txt):
@@ -1264,13 +1264,13 @@ class TestFuzzerEnginesAndFoils(unittest.TestCase):
                         mod.fuzz_cli_checker(mod.HERE / "zone_b_fuzzer.py", good_f)
                     self.assertEqual(ctx.exception.code, "FILE_TOO_LARGE")
 
-            # Live renameat2(RENAME_EXCHANGE) TOCTOU race: 0 secret leaks & 0 symlink-followed cert accepts
-            secret_f = root / "secret.json"
-            secret_f.write_bytes(b'{"secret":"TOP_SECRET_LEAK"}\n')
+            # Live renameat2(RENAME_EXCHANGE) TOCTOU race: 0 canary leaks & 0 symlink-followed cert accepts
+            canary_f = root / "canary.json"
+            canary_f.write_bytes(b'{"canary":"TOP_CANARY_LEAK"}\n')
             victim_f = root / "victim.json"
             victim_f.write_bytes(b'{"pub":1}\n')
             bait_sym = root / "bait_sym.json"
-            bait_sym.symlink_to(secret_f)
+            bait_sym.symlink_to(canary_f)
             stop_ev = threading.Event()
             swap_errs: list[str] = []
 
@@ -1284,20 +1284,20 @@ class TestFuzzerEnginesAndFoils(unittest.TestCase):
 
             t_swap = threading.Thread(target=_swap_loop, args=(victim_f, bait_sym))
             t_swap.start()
-            secret_leaks = 0
+            canary_leaks = 0
             try:
                 for _ in range(300):
                     try:
                         data = mod._read_regular_bytes_atomic(victim_f, 4096)
-                        if b"TOP_SECRET_LEAK" in data:
-                            secret_leaks += 1
+                        if b"TOP_CANARY_LEAK" in data:
+                            canary_leaks += 1
                     except mod.ZoneBFuzzError as exc:
                         self.assertEqual(exc.code, "SYMLINK_FORBIDDEN")
             finally:
                 stop_ev.set()
                 t_swap.join(timeout=10)
             self.assertEqual(swap_errs, [])
-            self.assertEqual(secret_leaks, 0)
+            self.assertEqual(canary_leaks, 0)
 
             # Live renameat2(RENAME_EXCHANGE) cert-accept race: invalid regular file <-> symlink to valid ref cert
             bad_reg = root / "race_cert.json"
@@ -1353,6 +1353,207 @@ class TestFuzzerEnginesAndFoils(unittest.TestCase):
             self.assertIn(burst_target.read_bytes(), valid_80)
             self.assertEqual(stat.S_IMODE(os.stat(burst_target).st_mode), 0o600)
             self.assertEqual(list(burst_target.parent.glob(".zb.*.tmp")), [])
+
+    def test_pr32_review_closures_resigned_zb07_zb08_zb10_tmpdir_and_noisy_baseline(self) -> None:
+        # 1. Helper branch coverage: _replace_first_int_with_float, _make_float_resigned_cert, _make_dup_unicode_key_resigned_text
+        flt_list, ch_l = mod._replace_first_int_with_float(["x", [2, 3], 4])
+        self.assertTrue(ch_l)
+        self.assertIs(type(flt_list[1][0]), type(json.loads("2.0")))
+        self.assertEqual(flt_list[1][1], 3)
+        self.assertEqual(flt_list[2], 4)
+
+        no_int_p = mod._make_float_resigned_cert({"schema": "s", "payload": {"k": "v"}, "payload_sha256": "0" * 64})
+        self.assertIn("zb08_float", no_int_p["payload"])
+        list_p = mod._make_float_resigned_cert({"schema": "s", "payload": ["str_only"], "payload_sha256": "0" * 64})
+        self.assertEqual(list_p["payload"], ["str_only"])
+        no_pay_int = mod._make_float_resigned_cert({"schema": "s", "n": 7})
+        self.assertIs(type(no_pay_int["n"]), type(json.loads("7.0")))
+        no_pay_str = mod._make_float_resigned_cert({"schema": "s", "k": "v"})
+        self.assertIn("zb08_float", no_pay_str)
+
+        self.assertEqual(mod._make_dup_unicode_key_resigned_text({}), '{"schema":"a","\\u0073chema":"b"}\n')
+        dup_no_schema = mod._make_dup_unicode_key_resigned_text({"alpha": 1})
+        self.assertIn("\\u0061lpha", dup_no_schema)
+        self.assertEqual(json.loads(dup_no_schema), {"alpha": 1})
+
+        # 2. _foil_float_tolerant direct branches & ZB08 BYPASS detection
+        self.assertEqual(mod._foil_float_tolerant(self.ref_cert), {"valid": True})
+        for bad in ([], {"wrong": 1}, dict(self.ref_cert, schema="other")):
+            with self.assertRaises(mod.ZoneBFuzzError) as ctx:
+                mod._foil_float_tolerant(bad)
+            self.assertEqual(ctx.exception.code, "FOIL_SCHEMA")
+        with self.assertRaises(mod.ZoneBFuzzError) as ctx:
+            mod._foil_float_tolerant(dict(self.ref_cert, payload="not_dict"))
+        self.assertEqual(ctx.exception.code, "FOIL_PAYLOAD")
+        bad_psha = copy.deepcopy(self.ref_cert)
+        bad_psha["payload_sha256"] = "0" * 64
+        bad_psha["certificate_sha256"] = hashlib.sha256(
+            mod._safe_dumps(
+                {"schema": bad_psha["schema"], "payload_sha256": bad_psha["payload_sha256"], "payload": bad_psha["payload"]},
+                ensure_ascii=True,
+            ).encode("utf-8")
+        ).hexdigest()
+        with self.assertRaises(mod.ZoneBFuzzError) as ctx:
+            mod._foil_float_tolerant(bad_psha)
+        self.assertEqual(ctx.exception.code, "FOIL_SHA")
+        bad_csha = copy.deepcopy(self.ref_cert)
+        bad_csha["certificate_sha256"] = "0" * 64
+        with self.assertRaises(mod.ZoneBFuzzError) as ctx:
+            mod._foil_float_tolerant(bad_csha)
+        self.assertEqual(ctx.exception.code, "FOIL_SHA")
+        hollow = mod._make_hollow_resigned_cert(self.ref_cert)
+        with self.assertRaises(mod.ZoneBFuzzError) as ctx:
+            mod._foil_float_tolerant(hollow)
+        self.assertEqual(ctx.exception.code, "FOIL_PAYLOAD")
+        bool_res = mod._make_bool_resigned_cert(self.ref_cert)
+        with self.assertRaises(mod.ZoneBFuzzError) as ctx:
+            mod._foil_float_tolerant(bool_res)
+        self.assertEqual(ctx.exception.code, "FOIL_PAYLOAD")
+        val_diff = copy.deepcopy(self.ref_cert)
+        val_diff["payload"]["exact_count"] = 2
+        val_diff = mod._resign_envelope(val_diff)
+        with self.assertRaises(mod.ZoneBFuzzError) as ctx:
+            mod._foil_float_tolerant(val_diff)
+        self.assertEqual(ctx.exception.code, "FOIL_PAYLOAD")
+        flt_res = mod._make_float_resigned_cert(self.ref_cert)
+        self.assertEqual(mod._foil_float_tolerant(flt_res), {"valid": True})
+        rep_ft = mod.fuzz_python_validator(mod._foil_float_tolerant, self.ref_cert, expected_exc_types=(mod.ZoneBFuzzError,))
+        self.assertFalse(rep_ft["passed"])
+        self.assertEqual(
+            sorted({f["vector_id"] for f in rep_ft["findings"] if f["outcome"] == "BYPASS"}),
+            ["ZB08_nonfinite_and_float_literals"],
+        )
+
+        # 3. _foil_raw_int_digit_limit iterative (no RecursionError on 1500-deep ZB04; Python 3.11-3.14 invariant)
+        with self.assertRaises(ValueError) as ctx_raw:
+            mod._foil_raw_int_digit_limit(10**5000)
+        self.assertIs(type(ctx_raw.exception), ValueError)
+        deep_1500: list[object] = []
+        cur = deep_1500
+        for _ in range(1500):
+            nxt: list[object] = []
+            cur.append(nxt)
+            cur = nxt
+        with self.assertRaises(mod.ZoneBFuzzError) as ctx:
+            mod._foil_raw_int_digit_limit({"payload": deep_1500})
+        self.assertEqual(ctx.exception.code, "JSON_DEPTH_EXCEEDED")
+        rep_int = mod.fuzz_python_validator(mod._foil_raw_int_digit_limit, self.ref_cert, expected_exc_types=(ValueError,))
+        self.assertEqual(
+            sorted({f["vector_id"] for f in rep_int["findings"] if f["outcome"] == "CRASH"}),
+            ["ZB03_huge_int_5000_digits"],
+        )
+
+        with tempfile.TemporaryDirectory(prefix="zb_pr32_", dir=mod._resolved_temp_root()) as td:
+            root = Path(td)
+            # 4. ZB10 baseline without trailing LF passes cleanly (no false BYPASS) EVEN under a symlinked TMPDIR!
+            real_tmp = root / "real_tmp"
+            real_tmp.mkdir()
+            sym_tmp = root / "sym_tmp"
+            sym_tmp.symlink_to(real_tmp)
+            nonl_cert = root / "ref_nonl.json"
+            nonl_cert.write_bytes(mod.canonical_json_bytes(self.ref_cert))
+            with mock.patch.object(mod.tempfile, "gettempdir", return_value=str(sym_tmp)):
+                self.assertEqual(mod._resolved_temp_root(), os.path.realpath(str(real_tmp)))
+                rep_nonl = mod.fuzz_cli_checker(mod.HERE / "zone_b_fuzzer.py", nonl_cert, check_flag="--ref-check")
+                self.assertTrue(rep_nonl["passed"])
+                self.assertEqual(rep_nonl["bypasses"], 0)
+                self.assertEqual(rep_nonl["crashes"], 0)
+                seen_self_dirs: list[str] = []
+
+                def _spy_cli(_sp: Path, cp: Path, **_kw: object) -> dict[str, object]:
+                    seen_self_dirs.append(str(cp.parent))
+                    mod.require_no_symlink_path(cp)
+                    return {
+                        "surface": "cli",
+                        "baseline_ok": True,
+                        "passed": True,
+                        "status": "PASS",
+                        "baseline_rc": 0,
+                        "cases_run": 25,
+                        "clean_rejections": 25,
+                        "bypasses": 0,
+                        "crashes": 0,
+                        "findings": [],
+                    }
+
+                with mock.patch.object(mod, "fuzz_cli_checker", side_effect=_spy_cli):
+                    sc_symtmp = mod.build_self_certification_payload()
+                    self.assertTrue(sc_symtmp["all_passed"])
+                self.assertEqual(len(seen_self_dirs), 1)
+                self.assertTrue(seen_self_dirs[0].startswith(os.path.realpath(str(real_tmp))))
+
+            pretty_work = root / "pretty_cases"
+            pretty_work.mkdir()
+            pretty_base = (mod._safe_dumps(self.ref_cert, indent=2) + "\n").encode("utf-8")
+            p_cases = mod.build_cli_attack_cases(pretty_base, pretty_work)
+            pretty_probes = [p.read_bytes() for v, s, p in p_cases if v == "ZB10_crlf_and_noncanonical_bytes" and s == "pretty_noncanon"]
+            self.assertEqual(len(pretty_probes), 1)
+            self.assertNotEqual(pretty_probes[0], pretty_base)
+            # Also cover ZB03 with dict payload, non-dict payload, and without payload key
+            zb03_dict_probes = [p.read_text(encoding="utf-8") for v, _, p in p_cases if v == "ZB03_huge_int_5000_digits"]
+            self.assertEqual(len(zb03_dict_probes), 1)
+            self.assertIn('"payload":{', zb03_dict_probes[0])
+            self.assertIn('"zb03_huge":' + ("9" * 5000), zb03_dict_probes[0])
+            nopay_work = root / "nopay_cases"
+            nopay_work.mkdir()
+            np_cases = mod.build_cli_attack_cases(b'{"schema":"x","payload":["a"]}\n', nopay_work)
+            zb03_list_probes = [p.read_text(encoding="utf-8") for v, _, p in np_cases if v == "ZB03_huge_int_5000_digits"]
+            self.assertEqual(len(zb03_list_probes), 1)
+            self.assertIn('"payload":["a"],"schema":"x","zb03_huge":' + ("9" * 5000), zb03_list_probes[0])
+
+            # 5. CLI float-tolerant & dup-key-tolerant foils are caught with BYPASS on ZB08 and ZB07!
+            ref_nl = root / "ref_nl.json"
+            ref_nl.write_bytes(mod.canonical_json_bytes(self.ref_cert) + b"\n")
+            foil_cli = root / "foil_float_dup_cli.py"
+            foil_cli.write_text(
+                "import hashlib, json, sys\n"
+                "from pathlib import Path\n"
+                "p = Path(sys.argv[2])\n"
+                "if p.is_symlink() or not p.is_file(): sys.exit(2)\n"
+                "raw = p.read_bytes()\n"
+                "if b'\\r' in raw: sys.exit(2)\n"
+                "try:\n"
+                "    obj = json.loads(raw.decode('utf-8'))\n"
+                "except Exception:\n"
+                "    sys.exit(2)\n"
+                "if type(obj) is not dict or set(obj.keys()) != {'schema','payload_sha256','certificate_sha256','payload'}:\n"
+                "    sys.exit(2)\n"
+                "pay = obj['payload']\n"
+                "if type(pay) is not dict:\n"
+                "    sys.exit(2)\n"
+                "want = {'all_passed': True, 'exact_count': 1, 'vectors_defined': 16, 'zero_flag': 0}\n"
+                "if set(pay.keys()) != set(want.keys()): sys.exit(2)\n"
+                "for k, w in want.items():\n"
+                "    v = pay[k]\n"
+                "    if (type(v) is bool) != (type(w) is bool) or v != w: sys.exit(2)\n"
+                "ps = hashlib.sha256(json.dumps(pay, sort_keys=True, separators=(',',':')).encode()).hexdigest()\n"
+                "if obj['payload_sha256'] != ps: sys.exit(2)\n"
+                "env = {'schema': obj['schema'], 'payload_sha256': ps, 'payload': pay}\n"
+                "cs = hashlib.sha256(json.dumps(env, sort_keys=True, separators=(',',':')).encode()).hexdigest()\n"
+                "if obj['certificate_sha256'] != cs: sys.exit(2)\n"
+                "sys.exit(0)\n",
+                encoding="utf-8",
+            )
+            rep_foil_cli = mod.fuzz_cli_checker(foil_cli, ref_nl)
+            self.assertFalse(rep_foil_cli["passed"])
+            bypass_vids = {f["vector_id"] for f in rep_foil_cli["findings"] if f["outcome"] == "BYPASS"}
+            self.assertIn("ZB08_nonfinite_and_float_literals", bypass_vids)
+            self.assertIn("ZB07_duplicate_keys_unicode_escape", bypass_vids)
+
+            # 6. Noisy baseline (rc=0 with ResourceWarning traceback in stderr) reports NOISY_BASELINE
+            noisy_cli = root / "noisy_baseline_cli.py"
+            noisy_cli.write_text(
+                "import sys\n"
+                "sys.stderr.write('Traceback (most recent call last):\\nResourceWarning: unclosed file\\n')\n"
+                "sys.exit(0)\n",
+                encoding="utf-8",
+            )
+            rep_noisy = mod.fuzz_cli_checker(noisy_cli, ref_nl)
+            self.assertFalse(rep_noisy["passed"])
+            self.assertFalse(rep_noisy["baseline_ok"])
+            self.assertEqual(rep_noisy["status"], "NOISY_BASELINE")
+            self.assertEqual(rep_noisy["baseline_rc"], 0)
+            self.assertIn("ResourceWarning", rep_noisy["baseline_traceback_tail"])
 
 
 if __name__ == "__main__":

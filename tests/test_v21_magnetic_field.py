@@ -440,13 +440,31 @@ class TestRouterCouplingAndGate8(unittest.TestCase):
             "DEF-12", "vein-a", ["vein-a", "vein-b", "vein-c"], ["vein-a"]
         )
         self.assertEqual(res["dispatch_target_veins"], ["vein-b", "vein-c"])
+        self.assertEqual(res["uncovered_veins"], [])
         self.assertTrue(res["zero_sink_conserved"])
+
+        # Independent dispatched_veins conservation check (complete vs siloed/incomplete)
+        res_full = mf.compute_field_coupling_dispatch(
+            "DEF-12", "vein-a", ["vein-a", "vein-b", "vein-c"], ["vein-a"], dispatched_veins=["vein-b", "vein-c"]
+        )
+        self.assertTrue(res_full["zero_sink_conserved"])
+        self.assertEqual(res_full["uncovered_veins"], [])
+        self.assertEqual(res_full["post_coupling_coverage_q"], "1")
+
+        res_silo = mf.compute_field_coupling_dispatch(
+            "DEF-12", "vein-a", ["vein-a", "vein-b", "vein-c"], ["vein-a"], dispatched_veins=["vein-b"]
+        )
+        self.assertFalse(res_silo["zero_sink_conserved"])
+        self.assertEqual(res_silo["uncovered_veins"], ["vein-c"])
+        self.assertEqual(res_silo["post_coupling_coverage_q"], "2/3")
 
         for kwargs, code in (
             ({"active_veins": ["a", "a"], "source_vein": "a"}, "DUPLICATE_ACTIVE_VEIN"),
             ({"active_veins": ["a", "b"], "source_vein": "z"}, "UNKNOWN_SOURCE_VEIN"),
             ({"active_veins": ["a", "b"], "source_vein": "a", "already_hardened_veins": ["a", "a"]}, "DUPLICATE_HARDENED_VEIN"),
             ({"active_veins": ["a", "b"], "source_vein": "a", "already_hardened_veins": ["z"]}, "UNKNOWN_HARDENED_VEIN"),
+            ({"active_veins": ["a", "b"], "source_vein": "a", "dispatched_veins": ["b", "b"]}, "DUPLICATE_DISPATCHED_VEIN"),
+            ({"active_veins": ["a", "b"], "source_vein": "a", "dispatched_veins": ["z"]}, "UNKNOWN_DISPATCHED_VEIN"),
         ):
             with self.assertRaises(mf.MagneticFieldError) as cm:
                 mf.compute_field_coupling_dispatch("SIG", **kwargs)
@@ -586,6 +604,32 @@ class TestPrePushGateAndCLI(unittest.TestCase):
 
         mod_hyg = dict(clean_bundle, staged_text="bad\r\n")
         self.assertEqual(mf.evaluate_pre_push_bundle(mod_hyg)["violations"], ["CR_LINE_ENDINGS_FORBIDDEN"])
+
+        # Strict key-set enforcement: unknown/typo keys and missing required staged_text fail closed.
+        typo_bundle = dict(clean_bundle)
+        typo_bundle.pop("staged_text")
+        typo_bundle["staged_diff"] = "leaked"
+        with self.assertRaises(mf.MagneticFieldError) as cm_u:
+            mf.evaluate_pre_push_bundle(typo_bundle)
+        self.assertEqual(cm_u.exception.code, "UNKNOWN_BUNDLE_KEYS")
+
+        missing_staged = dict(clean_bundle)
+        missing_staged.pop("staged_text")
+        with self.assertRaises(mf.MagneticFieldError) as cm_m:
+            mf.evaluate_pre_push_bundle(missing_staged)
+        self.assertEqual(cm_m.exception.code, "MISSING_BUNDLE_KEYS")
+
+        # --self-test exits non-zero (rc=2) when all_passed is False (both plain and --json).
+        with mock.patch.object(mf, "check_openblas_pin", return_value=True):
+            out_fail = io.StringIO()
+            with redirect_stdout(out_fail):
+                self.assertEqual(mf.main(["--self-test"]), 2)
+            self.assertIn("FAIL magnetic_field_v21 all_passed=False", out_fail.getvalue())
+
+            out_fail_j = io.StringIO()
+            with redirect_stdout(out_fail_j):
+                self.assertEqual(mf.main(["--self-test", "--json"]), 2)
+            self.assertFalse(json.loads(out_fail_j.getvalue())["all_passed"])
 
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
@@ -793,13 +837,13 @@ class TestPrePushGateAndCLI(unittest.TestCase):
                         mf.load_strict_json_file(kallsyms)
                     self.assertEqual(cm.exception.code, "FILE_TOO_LARGE")
 
-            # Live renameat2(RENAME_EXCHANGE) TOCTOU race: 0 secret leaks
-            secret_f = root / "secret.json"
-            secret_f.write_bytes(b'{"secret":"TOP_SECRET_LEAK"}\n')
+            # Live renameat2(RENAME_EXCHANGE) TOCTOU race: 0 canary leaks
+            canary_f = root / "canary.json"
+            canary_f.write_bytes(b'{"canary":"TOP_CANARY_LEAK"}\n')
             victim_f = root / "victim.json"
             victim_f.write_bytes(b'{"pub":1}\n')
             bait_sym = root / "bait_sym.json"
-            bait_sym.symlink_to(secret_f)
+            bait_sym.symlink_to(canary_f)
             stop_ev = threading.Event()
             swap_errs: list[str] = []
             arch = os.uname().machine
@@ -820,7 +864,7 @@ class TestPrePushGateAndCLI(unittest.TestCase):
                 for _ in range(300):
                     try:
                         obj = mf.load_strict_json_file(victim_f)
-                        if "secret" in obj:
+                        if "canary" in obj:
                             leaks += 1
                     except mf.MagneticFieldError as exc:
                         self.assertEqual(exc.code, "SYMLINK_FORBIDDEN")

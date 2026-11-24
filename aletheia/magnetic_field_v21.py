@@ -557,8 +557,10 @@ def compute_field_coupling_dispatch(
     source_vein: str,
     active_veins: list[str] | tuple[str, ...],
     already_hardened_veins: list[str] | tuple[str, ...] = (),
+    *,
+    dispatched_veins: list[str] | tuple[str, ...] | None = None,
 ) -> dict[str, Any]:
-    """Law-1b omni-directional solenoidal field-coupling dispatcher (divergence-free propagation)."""
+    """Law-1b omni-directional solenoidal field-coupling dispatcher and conservation verifier."""
     sig = require_str(defect_signature, "defect_signature", min_len=1, max_len=128)
     src = require_str(source_vein, "source_vein", min_len=1, max_len=64)
     act_seq = require_seq(active_veins, "active_veins", min_len=1)
@@ -585,15 +587,34 @@ def compute_field_coupling_dispatch(
 
     targets = sorted(active_set - hardened_set)
     hardened_sorted = sorted(hardened_set)
-    coverage_after = ratio_q(len(hardened_sorted) + len(targets), len(active_set), "coverage_after")
+    if dispatched_veins is None:
+        actual_dispatched = targets
+        covered_set = active_set
+    else:
+        disp_seq = require_seq(dispatched_veins, "dispatched_veins", min_len=0)
+        disp_set: set[str] = set()
+        for v in disp_seq:
+            vn = require_str(v, "dispatched_vein", min_len=1, max_len=64)
+            if vn in disp_set:
+                raise MagneticFieldError("DUPLICATE_DISPATCHED_VEIN", f"duplicate dispatched vein {vn}")
+            if vn not in active_set:
+                raise MagneticFieldError("UNKNOWN_DISPATCHED_VEIN", f"dispatched vein {vn} not in active_veins")
+            disp_set.add(vn)
+        actual_dispatched = sorted(disp_set)
+        covered_set = hardened_set | disp_set
+
+    uncovered = sorted(active_set - covered_set)
+    coverage_after = ratio_q(len(covered_set), len(active_set), "coverage_after")
     return {
         "defect_signature": sig,
         "source_vein": src,
         "active_vein_count": len(active_set),
         "already_hardened_veins": hardened_sorted,
         "dispatch_target_veins": targets,
+        "dispatched_veins": actual_dispatched,
+        "uncovered_veins": uncovered,
         "dispatch_count": len(targets),
-        "zero_sink_conserved": len(hardened_sorted) + len(targets) == len(active_set),
+        "zero_sink_conserved": len(uncovered) == 0,
         "post_coupling_coverage_q": fmt_q(coverage_after),
     }
 
@@ -776,20 +797,44 @@ def check_text_hygiene(text: str) -> list[str]:
     return sorted(found)
 
 
+_PRE_PUSH_REQUIRED_KEYS = frozenset({
+    "commit_message",
+    "repo_is_private",
+    "explicit_private_allowed",
+    "git_changed_files",
+    "graphql_files_listed",
+    "openblas_num_threads",
+    "pr_is_self_authored",
+    "review_action",
+    "staged_text",
+})
+_PRE_PUSH_ALLOWED_KEYS = _PRE_PUSH_REQUIRED_KEYS | frozenset({
+    "manifest_files",
+    "git_tracked_files",
+})
+
+
 def evaluate_pre_push_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
-    """Unified fail-closed pre-push & pre-review gate over a structured bundle dictionary."""
+    """Unified fail-closed pre-push & pre-review gate over a strict-key bundle dictionary."""
     m = require_mapping(bundle, "pre_push_bundle")
+    keys = set(m.keys())
+    unknown_keys = sorted(keys - _PRE_PUSH_ALLOWED_KEYS)
+    if unknown_keys:
+        raise MagneticFieldError("UNKNOWN_BUNDLE_KEYS", f"unexpected pre_push_bundle keys: {unknown_keys}")
+    missing_keys = sorted(_PRE_PUSH_REQUIRED_KEYS - keys)
+    if missing_keys:
+        raise MagneticFieldError("MISSING_BUNDLE_KEYS", f"missing required pre_push_bundle keys: {missing_keys}")
     violations: list[str] = []
 
-    if not check_dco_signoff(m.get("commit_message")):  # type: ignore[arg-type]
+    if not check_dco_signoff(m["commit_message"]):
         violations.append("MISSING_DCO_SIGNOFF")
-    if not check_repo_visibility(m.get("repo_is_private"), m.get("explicit_private_allowed")):  # type: ignore[arg-type]
+    if not check_repo_visibility(m["repo_is_private"], m["explicit_private_allowed"]):
         violations.append("PRIVATE_REPO_BLOCKED")
-    if not check_graphql_file_completeness(m.get("git_changed_files"), m.get("graphql_files_listed")):  # type: ignore[arg-type]
+    if not check_graphql_file_completeness(m["git_changed_files"], m["graphql_files_listed"]):
         violations.append("GRAPHQL_100_FILE_TRUNCATION")
-    if not check_openblas_pin(m.get("openblas_num_threads")):  # type: ignore[arg-type]
+    if not check_openblas_pin(m["openblas_num_threads"]):
         violations.append("OPENBLAS_THREADS_UNPINNED")
-    if not check_pr_review_action(m.get("pr_is_self_authored"), m.get("review_action")):  # type: ignore[arg-type]
+    if not check_pr_review_action(m["pr_is_self_authored"], m["review_action"]):
         violations.append("SELF_AUTHORED_REVIEW_422")
 
     dropped = check_gitignore_receipt_integrity(
@@ -799,7 +844,7 @@ def evaluate_pre_push_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
     if len(dropped) > 0:
         violations.append("GITIGNORE_DROPPED_MANIFEST_FILES")
 
-    text_issues = check_text_hygiene(m.get("staged_text", ""))  # type: ignore[arg-type]
+    text_issues = check_text_hygiene(m["staged_text"])
     for issue in text_issues:
         violations.append(issue)
 
@@ -866,6 +911,14 @@ def run_self_test() -> dict[str, Any]:
         "vein-alpha",
         ["vein-alpha", "vein-beta", "vein-gamma", "vein-delta", "vein-epsilon"],
         ["vein-alpha", "vein-beta"],
+        dispatched_veins=["vein-gamma", "vein-delta", "vein-epsilon"],
+    )
+    coupling_silo = compute_field_coupling_dispatch(
+        "DEF-12_non_ascii_hmac_and_int_bit_cap",
+        "vein-alpha",
+        ["vein-alpha", "vein-beta", "vein-gamma", "vein-delta", "vein-epsilon"],
+        ["vein-alpha", "vein-beta"],
+        dispatched_veins=["vein-gamma"],
     )
     historical_drag = evaluate_monitor_cadence(1122, 6, 32, 108)
     upgraded_cadence = evaluate_monitor_cadence(60, 6, 4, 108)
@@ -908,6 +961,8 @@ def run_self_test() -> dict[str, Any]:
         balanced["target"] == "verifier-a",
         coupling["dispatch_count"] == 3,
         coupling["zero_sink_conserved"],
+        not coupling_silo["zero_sink_conserved"],
+        coupling_silo["uncovered_veins"] == ["vein-delta", "vein-epsilon"],
         not historical_drag["efficient"],
         upgraded_cadence["efficient"],
         gate8_ok["passed"],
@@ -929,6 +984,7 @@ def run_self_test() -> dict[str, Any]:
             "starvation_reroute": starve_reroute,
             "balanced_route": balanced,
             "omni_vein_coupling": coupling,
+            "omni_vein_silo_detected": coupling_silo,
             "historical_drag": historical_drag,
             "upgraded_cadence": upgraded_cadence,
         },
@@ -970,13 +1026,14 @@ def main(argv: list[str] | None = None) -> int:
         res = run_self_test()
         if args.json:
             sys.stdout.write(canonical_json_bytes(res).decode("ascii") + "\n")
-            return 0
-        print(
-            f"OK magnetic_field_v21 all_passed={res['all_passed']} "
-            f"io_blocked={res['strict_io']['vectors_blocked']}/{res['strict_io']['vectors_total']} "
-            f"sha256={res['sha256']}"
-        )
-        return 0
+        else:
+            status = "OK" if res["all_passed"] else "FAIL"
+            print(
+                f"{status} magnetic_field_v21 all_passed={res['all_passed']} "
+                f"io_blocked={res['strict_io']['vectors_blocked']}/{res['strict_io']['vectors_total']} "
+                f"sha256={res['sha256']}"
+            )
+        return 0 if res["all_passed"] else 2
     except (MagneticFieldError, OSError) as exc:
         print(f"REJECT {exc}", file=sys.stderr)
         return 2

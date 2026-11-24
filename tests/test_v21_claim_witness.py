@@ -467,9 +467,9 @@ class TestThreePillarsUnitAndBoundary(unittest.TestCase):
                 "witness_proves_only_distributional_symmetry": False,
             },
             {
-                "id": "valid_surrogate_renamed",
+                "id": "valid_surrogate_matched",
                 "kind": "operator_equivalence",
-                "claimed_operator": "SiLU_approx",
+                "claimed_operator": "rational_silu",
                 "claimed_provenance": "surrogate_operator",
                 "witness_operator": "rational_silu",
                 "witness_provenance": "surrogate_operator",
@@ -477,6 +477,30 @@ class TestThreePillarsUnitAndBoundary(unittest.TestCase):
                 "witness_has_gradient_coverage": False,
                 "claims_causal_impossibility": True,
                 "witness_proves_only_distributional_symmetry": False,
+            },
+            {
+                "id": "fail_surrogate_op_mismatch",
+                "kind": "operator_equivalence",
+                "claimed_operator": "rational_silu_rmslike",
+                "claimed_provenance": "surrogate_operator",
+                "witness_operator": "piecewise_linear_relu",
+                "witness_provenance": "surrogate_operator",
+                "claims_gradient_coverage": True,
+                "witness_has_gradient_coverage": True,
+                "claims_causal_impossibility": False,
+                "witness_proves_only_distributional_symmetry": True,
+            },
+            {
+                "id": "fail_surrogate_vs_exact_mismatch",
+                "kind": "operator_equivalence",
+                "claimed_operator": "rational_silu_rmslike",
+                "claimed_provenance": "surrogate_operator",
+                "witness_operator": "GELU",
+                "witness_provenance": "exact_operator",
+                "claims_gradient_coverage": True,
+                "witness_has_gradient_coverage": True,
+                "claims_causal_impossibility": False,
+                "witness_proves_only_distributional_symmetry": True,
             },
             {
                 "id": "fail_op_name_only",
@@ -515,11 +539,13 @@ class TestThreePillarsUnitAndBoundary(unittest.TestCase):
                 "witness_proves_only_distributional_symmetry": True,
             },
         ])
-        _check(not op_res["passed"] and op_res["failed_count"] == 3, "3 op failures")
+        _check(not op_res["passed"] and op_res["failed_count"] == 5, "5 op failures")
         _check(op_res["results"][0]["passed"] and op_res["results"][1]["passed"], "2 op passes")
-        _check(op_res["results"][2]["reasons"] == ["OPERATOR_IDENTITY_MISMATCH"], "op name")
-        _check(op_res["results"][3]["reasons"] == ["UNVERIFIED_GRADIENT_COVERAGE"], "grad only")
-        _check(op_res["results"][4]["reasons"] == ["DISTRIBUTIONAL_OVERCLAIMED_AS_CAUSAL"], "causal only")
+        _check(op_res["results"][2]["reasons"] == ["OPERATOR_IDENTITY_MISMATCH"], "surrogate op mismatch")
+        _check(op_res["results"][3]["reasons"] == ["OPERATOR_IDENTITY_MISMATCH"], "surrogate vs exact mismatch")
+        _check(op_res["results"][4]["reasons"] == ["OPERATOR_IDENTITY_MISMATCH"], "op name")
+        _check(op_res["results"][5]["reasons"] == ["UNVERIFIED_GRADIENT_COVERAGE"], "grad only")
+        _check(op_res["results"][6]["reasons"] == ["DISTRIBUTIONAL_OVERCLAIMED_AS_CAUSAL"], "causal only")
 
         _expect_error(
             "UNKNOWN_OPERATOR_PROVENANCE",
@@ -1130,13 +1156,13 @@ class TestCertificateAndCLI(unittest.TestCase):
             if kallsyms.exists():
                 _expect_error("FILE_TOO_LARGE", cwc.read_strict_utf8_file, kallsyms, max_bytes=1024)
 
-            # Live renameat2(RENAME_EXCHANGE) TOCTOU race: 0 secret leaks
-            secret_f = root / "secret.json"
-            secret_f.write_bytes(b'{"secret":"TOP_SECRET_LEAK"}\n')
+            # Live renameat2(RENAME_EXCHANGE) TOCTOU race: 0 canary leaks
+            canary_f = root / "canary.json"
+            canary_f.write_bytes(b'{"canary":"TOP_CANARY_LEAK"}\n')
             victim_f = root / "victim.json"
             victim_f.write_bytes(b'{"pub":1}\n')
             bait_sym = root / "bait_sym.json"
-            bait_sym.symlink_to(secret_f)
+            bait_sym.symlink_to(canary_f)
             stop_ev = threading.Event()
             swap_errs: list[str] = []
             arch = os.uname().machine
@@ -1157,7 +1183,7 @@ class TestCertificateAndCLI(unittest.TestCase):
                 for _ in range(300):
                     try:
                         _raw, txt = cwc.read_strict_utf8_file(victim_f, max_bytes=4096)
-                        if "TOP_SECRET_LEAK" in txt:
+                        if "TOP_CANARY_LEAK" in txt:
                             leaks += 1
                     except cwc.ClaimWitnessError as exc:
                         _check(exc.code == "SYMLINK_FORBIDDEN", f"unexpected race error {exc.code}")
@@ -1165,7 +1191,37 @@ class TestCertificateAndCLI(unittest.TestCase):
                 stop_ev.set()
                 th.join(timeout=10)
             _check(swap_errs == [], f"swap errors: {swap_errs}")
-            _check(leaks == 0, f"secret leaks: {leaks}")
+            _check(leaks == 0, f"canary leaks: {leaks}")
+
+    def test_self_test_cli_exits_nonzero_on_missed_escape_or_fp(self) -> None:
+        # Must fail closed via build_certificate() and CLI exit code if an escape is missed or FP occurs.
+        with patch.object(
+            cwc,
+            "_check_delivery_scope",
+            return_value={"id": "p", "kind": "delivery_scope", "passed": True, "reasons": []},
+        ):
+            _expect_error("SELF_TEST_FAILED", cwc.build_certificate)
+            err_buf = io.StringIO()
+            with patch("sys.stderr", err_buf):
+                rc = cwc.main(["--self-test", "--json"])
+            _check(rc == 1, f"expected rc=1 on missed escape, got {rc}")
+            _check("SELF_TEST_FAILED" in err_buf.getvalue(), "expected SELF_TEST_FAILED on stderr")
+
+        real_tomo = cwc.compute_blind_spot_tomography
+
+        def _fp_tomo() -> dict[str, object]:
+            p = real_tomo()
+            p["reference_escape_suite"]["false_positives"] = 1
+            return p
+
+        def _pos_tomo() -> dict[str, object]:
+            p = real_tomo()
+            p["reference_escape_suite"]["positive_controls_passed"] = 5
+            return p
+
+        for fn in (_fp_tomo, _pos_tomo):
+            with patch.object(cwc, "compute_blind_spot_tomography", side_effect=fn):
+                _expect_error("SELF_TEST_FAILED", cwc.build_certificate)
 
 
 if __name__ == "__main__":
