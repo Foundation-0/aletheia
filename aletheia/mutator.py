@@ -334,8 +334,7 @@ def _is_self_check_invocation(target: Path, test_cmd: str) -> bool:
         parts = shlex.split(test_cmd.replace("{target}", target.name))
     except ValueError:
         return False
-    if not parts:
-        return False
+    # An empty command needs no guard here: parts[1:] is then empty and any() is False.
     return any(Path(tok).name == target.name for tok in parts[1:])
 
 

@@ -2067,6 +2067,71 @@ class TestAletheiaCLI(unittest.TestCase):
             except AletheiaError as exc:
                 _req(exc.code == "NULL_MUTANT_TIMEOUT", f"wrong code for hanging null mutant: {exc.code}")
 
+    def test_40_mutator_own_refusal_sites_have_named_controls(self) -> None:
+        """One control per refusal site of aletheia/mutator.py that no test reached.
+
+        At a07d7db, `aletheia mutate aletheia/mutator.py --max-mutants 0 --add-cwd --work-root .
+        --test-cmd "python3 -B -m unittest discover -s tests"` killed 3 of 21 sites. Each check below
+        expects the exact refusal code, so a deleted or loosened guard either returns without error
+        or fails with a different exception.
+        """
+        import ast
+
+        from aletheia.mutator import MutantSite, _parse_extra_guards, _prepare_cmd, apply_single_mutation
+
+        def code_of(fn) -> str:
+            try:
+                fn()
+            except AletheiaError as exc:
+                return exc.code
+            return "NO_ERROR"
+
+        # _parse_extra_guards: polarity must be require/reject and the name non-empty.
+        _req(code_of(lambda: _parse_extra_guards(["need:bogus"])) == "INVALID_GUARD_SPEC", "bad polarity accepted")
+        _req(code_of(lambda: _parse_extra_guards([":require"])) == "INVALID_GUARD_SPEC", "empty guard name accepted")
+        # _prepare_cmd: an empty test command is refused by code.
+        _req(code_of(lambda: _prepare_cmd("", "t.py")) == "EMPTY_TEST_CMD", "empty test command accepted")
+        _req(code_of(lambda: _prepare_cmd("   ", "t.py")) == "EMPTY_TEST_CMD", "blank test command accepted")
+
+        # apply_single_mutation: a site must point at an in-range node of the kind it names.
+        src = "def f(x):\n    if x < 0:\n        raise ValueError(x)\n    check(x == 'a')\n    return x\n"
+        nodes = list(ast.walk(ast.parse(src)))
+        if_idx = next(i for i, n in enumerate(nodes) if isinstance(n, ast.If))
+        call_idx = next(i for i, n in enumerate(nodes) if isinstance(n, ast.Call) and getattr(n.func, "id", "") == "check")
+
+        def site(kind: str, idx: int, extra: int = -1) -> MutantSite:
+            return MutantSite("M999", kind, 1, 0, idx, "orig", "mut", extra)
+
+        for kind, idx, extra, want in (
+            ("guard_if_reject", -1, -1, "MUTANT_INDEX_OOB"),
+            ("guard_if_reject", len(nodes), -1, "MUTANT_INDEX_OOB"),
+            ("guard_if_reject", 0, -1, "MUTANT_NODE_TYPE"),
+            ("guard_if_reject", call_idx, -1, "MUTANT_NODE_TYPE"),
+            ("boundary_cmp", call_idx, 0, "MUTANT_NODE_TYPE"),
+            ("guard_require_call", if_idx, -1, "MUTANT_NODE_TYPE"),
+            ("guard_reject_call", if_idx, -1, "MUTANT_NODE_TYPE"),
+            ("boundary_cmp_require", if_idx, 0, "MUTANT_NODE_TYPE"),
+            ("boundary_const_require", if_idx, 0, "MUTANT_NODE_TYPE"),
+            ("boundary_const_require", call_idx, 0, "MUTANT_NODE_TYPE"),
+            ("no_such_kind", if_idx, -1, "UNKNOWN_MUTANT_KIND"),
+        ):
+            got = code_of(lambda: apply_single_mutation(src, site(kind, idx, extra)))
+            _req(got == want, f"{kind} at node {idx}: expected {want}, got {got}")
+
+        # run_mutation_suite: missing target, target outside work_root, and a target with no guards.
+        with tempfile.TemporaryDirectory(prefix="aletheia_t_mutrefuse_") as td:
+            root = Path(td)
+            (root / "a").mkdir()
+            (root / "b").mkdir()
+            write_lf_text(root / "a" / "g.py", "def f(x):\n    if x < 0:\n        raise ValueError(x)\n    return x\n")
+            write_lf_text(root / "a" / "plain.py", "def f(x):\n    return x\n")
+            _req(code_of(lambda: run_mutation_suite(root / "a" / "missing.py", "python3 -c pass")) == "TARGET_SCRIPT_NOT_FOUND",
+                 "missing target not refused by code")
+            _req(code_of(lambda: run_mutation_suite(root / "a" / "g.py", "python3 -c pass", work_root=root / "b"))
+                 == "TARGET_OUTSIDE_WORKROOT", "target outside work_root not refused by code")
+            _req(code_of(lambda: run_mutation_suite(root / "a" / "plain.py", "python3 -c pass")) == "NO_MUTANTS_DISCOVERED",
+                 "target without guards not refused by code")
+
 
 if __name__ == "__main__":
     unittest.main()
