@@ -8,6 +8,7 @@ Zero external dependencies. Zero bare asserts. Safe across all isolated R4 modes
 """
 from __future__ import annotations
 
+import enum
 from fractions import Fraction
 import hashlib
 import io
@@ -27,12 +28,21 @@ from aletheia.scaffold import init_workspace
 from aletheia.strict_io import AletheiaError, parse_strict_json_text, write_lf_text
 
 
+class _Color(enum.IntEnum):
+    ONE = 1
+
+
 class _SubInt(int):
     pass
 
 
 class _SubStr(str):
     pass
+
+
+class _LyingStr(str):
+    def split(self, *args: object, **kwargs: object) -> list[str]:
+        return ["1", "2"]
 
 
 def _run_cli(argv: list[str]) -> tuple[int, str, str]:
@@ -143,10 +153,13 @@ class TestCalculusDiagnoseMdeHardening(unittest.TestCase):
             calculus.Parser(calculus.tokenize("rk(rk(rk(M)))"), max_depth=2).parse()
         self.assertEqual(cm_c.exception.code, "EXPR_DEPTH_EXCEEDED")
 
-        for bad_md in (0, -1, True, "2"):
+        for bad_md in (0, -1, True, "2", _SubInt(2), _Color.ONE):
             with self.assertRaises(calculus.CalculusError) as cm_md:
                 calculus.Parser(calculus.tokenize("1"), max_depth=bad_md)  # type: ignore[arg-type]
             self.assertEqual(cm_md.exception.code, "INVALID_MAX_DEPTH")
+        self.assertTrue(calculus.is_exact_int(0))
+        for bad_i in (True, False, _SubInt(1), _Color.ONE, "1"):
+            self.assertFalse(calculus.is_exact_int(bad_i))
 
         # Direct deep AST and deep serialized tuple depth guards.
         self.assertEqual(calculus.serialize_calculus_value(()), ("tuple", []))
@@ -223,6 +236,46 @@ class TestCalculusDiagnoseMdeHardening(unittest.TestCase):
             with self.assertRaises(calculus.CalculusError) as cm_l:
                 calculus.eval_calculus_expression(huge, env={})
             self.assertEqual(cm_l.exception.code, "INT_LITERAL_TOO_LONG")
+
+        # Strict str checks reject subclasses and custom .split() overrides in eval/tokenize/_parse_rational_literal.
+        for bad_expr in ("", "   ", _SubStr("1"), _LyingStr("1/0"), 123, None):
+            with self.assertRaises(calculus.CalculusError) as cm_e:
+                calculus.eval_calculus_expression(bad_expr, env={})  # type: ignore[arg-type]
+            self.assertEqual(cm_e.exception.code, "EMPTY_EXPRESSION")
+        for bad_tok in (_SubStr("1"), _LyingStr("1/0"), 123):
+            with self.assertRaises(calculus.CalculusError) as cm_t:
+                calculus.tokenize(bad_tok)  # type: ignore[arg-type]
+            self.assertEqual(cm_t.exception.code, "INVALID_EXPRESSION_TYPE")
+            with self.assertRaises(calculus.CalculusError) as cm_r:
+                calculus._parse_rational_literal(bad_tok)  # type: ignore[arg-type]
+            self.assertEqual(cm_r.exception.code, "INVALID_LITERAL_TYPE")
+
+        # Bounded rational serialization in frac_str (exact bit boundary passes; >14000-bit num/den & 5x1000-digit product fail closed).
+        max_bits = calculus.MAX_SERIALIZED_INT_BITS
+        max_val = (1 << max_bits) - 1
+        over_val = 1 << max_bits
+        self.assertEqual(calculus.frac_str(Fraction(max_val, 1)), f"{max_val}/1")
+        self.assertEqual(calculus.frac_str(Fraction(1, max_val)), f"1/{max_val}")
+        for huge_frac in (Fraction(over_val, 1), Fraction(1, over_val)):
+            with self.assertRaises(calculus.CalculusError) as cm_fs:
+                calculus.frac_str(huge_frac)
+            self.assertEqual(cm_fs.exception.code, "VALUE_SERIALIZATION_LIMIT")
+
+        prod_5000 = "*".join([f"({nines})"] * 5)
+        with self.assertRaises(calculus.CalculusError) as cm_p:
+            calculus.eval_calculus_expression(prod_5000, env={})
+        self.assertEqual(cm_p.exception.code, "VALUE_SERIALIZATION_LIMIT")
+        inv_prod_5000 = "*".join([f"(1/{nines})"] * 5)
+        with self.assertRaises(calculus.CalculusError) as cm_ip:
+            calculus.eval_calculus_expression(inv_prod_5000, env={})
+        self.assertEqual(cm_ip.exception.code, "VALUE_SERIALIZATION_LIMIT")
+
+        rc_5k, out_5k, err_5k = _run_cli(["calculus", "--eval", prod_5000, "--json"])
+        self.assertEqual(rc_5k, 2)
+        self.assertEqual(err_5k, "")
+        p_5k = parse_strict_json_text(out_5k, allow_float=False)
+        self.assertEqual(p_5k["status"], "ERROR")
+        self.assertEqual(p_5k["code"], "VALUE_SERIALIZATION_LIMIT")
 
     def test_03_diagnose_strict_board_seq_and_fail_closed_jsonl(self) -> None:
         # Direct helper boundary checks: seq=0 passes, omitted seq uses fallback, bool/neg/subclass/str/float/None fail.

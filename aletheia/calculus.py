@@ -46,11 +46,20 @@ def require(cond: bool, code: str, msg: str) -> None:
         raise CalculusError(code, msg)
 
 
+MAX_SERIALIZED_INT_BITS = 14000
+
+
 def is_exact_int(x: Any) -> bool:
-    return isinstance(x, int) and not isinstance(x, bool)
+    return type(x) is int
 
 
 def frac_str(x: Fraction) -> str:
+    require(
+        x.numerator.bit_length() <= MAX_SERIALIZED_INT_BITS
+        and x.denominator.bit_length() <= MAX_SERIALIZED_INT_BITS,
+        "VALUE_SERIALIZATION_LIMIT",
+        f"Rational component exceeds {MAX_SERIALIZED_INT_BITS}-bit serialization limit",
+    )
     return f"{x.numerator}/{x.denominator}"
 
 
@@ -969,6 +978,7 @@ ASCII_TO_TOKEN = {
 
 
 def tokenize(expr: str) -> list[tuple[str, str]]:
+    require(type(expr) is str, "INVALID_EXPRESSION_TYPE", "Expression must be exact str")
     tokens: list[tuple[str, str]] = []
     i = 0
     n = len(expr)
@@ -1031,6 +1041,7 @@ def tokenize(expr: str) -> list[tuple[str, str]]:
 
 
 def _parse_rational_literal(val: str) -> Fraction:
+    require(type(val) is str, "INVALID_LITERAL_TYPE", "Rational literal must be exact str")
     if "/" in val:
         num_s, den_s = val.split("/", 1)
         require(
@@ -2085,7 +2096,7 @@ def list_glyphs() -> dict[str, Any]:
 
 def eval_calculus_expression(expr: str, env: dict[str, Any] | None = None) -> dict[str, Any]:
     """Lex, parse, and evaluate an exact pure-Q Unicode or ASCII operator-calculus expression."""
-    require(isinstance(expr, str) and len(expr.strip()) > 0, "EMPTY_EXPRESSION", "Expression must be non-empty")
+    require(type(expr) is str and len(expr.strip()) > 0, "EMPTY_EXPRESSION", "Expression must be non-empty")
     active_env = build_default_env() if env is None else env
     tokens = tokenize(expr)
     ast = Parser(tokens).parse()
