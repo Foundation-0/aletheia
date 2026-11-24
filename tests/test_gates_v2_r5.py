@@ -767,6 +767,18 @@ class TestGatesV2R5(unittest.TestCase):
         self.assertTrue(g2._strict_typed_equal({1, "x"}, {"x", 1}))
         self.assertTrue(g2._strict_typed_equal(frozenset({(1, "a")}), frozenset({(1, "a")})))
 
+        class _UnhashableIterSet(set):
+            def __init__(self, bad: bool) -> None:
+                super().__init__()
+                self._bad = bad
+
+            def __iter__(self):
+                if self._bad:
+                    yield [1]
+
+        self.assertFalse(g2._strict_typed_equal(_UnhashableIterSet(True), _UnhashableIterSet(False)))
+        self.assertFalse(g2._strict_typed_equal(_UnhashableIterSet(False), _UnhashableIterSet(True)))
+
     def test_10_typed_equal_scalar_guard(self) -> None:
         # `elif a != b: return False`. Without it, two values of the same type are never compared.
         self.assertFalse(g2._strict_typed_equal(1, 2))
