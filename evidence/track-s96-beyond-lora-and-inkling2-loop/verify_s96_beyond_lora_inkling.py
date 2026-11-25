@@ -48,7 +48,7 @@ from s96_beyond_lora_inkling_oracle import (
     S96Error,
     UPSTREAM_CERT_MANIFEST,
     CROSS_REPO_UPSTREAM,
-    CROSS_REPO_SOURCE,
+    UPSTREAM_PIN_SOURCES,
     build_certificate,
     canonical_json_bytes,
     frac_to_dec_str,
@@ -1151,14 +1151,15 @@ def check_certificate_file(path: Path) -> dict[str, Any]:
 
 
 def verify_upstream_manifest(exp_root: Path) -> dict[str, Any]:
-    """Verify upstream pins: in-repo pins are opened and re-hashed on disk; cross-repo pins
-    (8 of 10) are external pins: some resolve in Foundation-0/math0@main, the rest in no readable repo."""
+    """Verify upstream pins: in-repo pins are opened and re-hashed on disk; each cross-repo pin
+    (8 of 10) carries its exact repo@ref:path in UPSTREAM_PIN_SOURCES and is listed, not
+    re-hashed, unless its repo clone is supplied — so a partial run reports UPSTREAM_PARTIAL."""
     _validate_path(exp_root)
     verified = 0
     cross_repo = []
     for tid, rel, expected_sha in UPSTREAM_CERT_MANIFEST:
         if tid in CROSS_REPO_UPSTREAM:
-            cross_repo.append({"track_id": tid, "source_repo": CROSS_REPO_SOURCE, "sha256": expected_sha})
+            cross_repo.append({"track_id": tid, "source": UPSTREAM_PIN_SOURCES[tid], "sha256": expected_sha})
             continue
         raw = read_regular_file_bytes(exp_root / rel, max_bytes=MAX_JSON_BYTES)
         actual_sha = hashlib.sha256(raw).hexdigest()
@@ -1169,10 +1170,11 @@ def verify_upstream_manifest(exp_root: Path) -> dict[str, Any]:
         )
         verified += 1
     return {
-        "status": "UPSTREAM_VERIFIED",
+        "status": "UPSTREAM_PARTIAL" if cross_repo else "UPSTREAM_VERIFIED",
         "tracks_verified": verified,
         "cross_repo_pins": cross_repo,
         "expected_tracks": len(UPSTREAM_CERT_MANIFEST),
+        "note": "cross-repo pins listed with repo@ref:path, not re-hashed (supply their clones to re-hash)" if cross_repo else "all pins re-hashed on disk",
     }
 
 

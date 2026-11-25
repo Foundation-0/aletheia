@@ -20,7 +20,7 @@ Before formulating exact algebraic alternatives to standard Low-Rank Adaptation 
   3. **Unit-Conservation Forgetting Wall** (`S78` Fig 7 exact `1:1` forgetting/learning ratio when updates are unprojected onto the calibration nullspace).
 
 Conversely, each epistemic-native alternative AND looped-core mechanism certified here carries its own exact **Law-5 obstruction** — proved directly in pure-$\mathbb{Q}$ and Lean 4 rather than hidden:
-- `Aletheia-BlockH4-Butterfly` suffers **exact zero cross-block mixing (`0`)** unless paired with an interleave permutation (`QuadSnake` stride permutation `[0,4,1,5,2,6,3,7]`), AND on live bf16 weights suffers `81.40%` (`407/500`) `< ½-ULP` merge annihilation (`8140/873 = 9.3242×` LoRA's `8.73%`), motivating the budget-matched **`ButterflyHead-8+8`** (`S=8` Butterfly + `r=8` nullspace-projected low-rank head = `28,672` params/proj on `d=896`) preregistered hybrid.
+- `Aletheia-BlockH4-Butterfly` suffers **exact zero cross-block mixing (`0`)** unless paired with an interleave permutation (`QuadSnake` stride permutation `[0,4,1,5,2,6,3,7]`), AND on bf16 weights an external collaboration report measured `81.40%` (`407/500`) `< ½-ULP` merge annihilation (`8140/873 = 9.3242×` LoRA's `8.73%`; external collab figures, not shipped or reproduced here), motivating the budget-matched **`ButterflyHead-8+8`** (`S=8` Butterfly + `r=8` nullspace-projected low-rank head = `28,672` params/proj on `d=896`) preregistered hybrid.
 - `Aletheia-NullSpace-Projected` (`⧅`) achieves **exact zero base-task forgetting (`0`)** while retaining positive update energy (`11`), ONLY while $\mathrm{rank}(X_{\mathrm{base}}) < d$; at full calibration rank ($\mathrm{rank}(X_{\mathrm{base}}) = d$), capacity collapses identically to **`0`**, forcing ambient dimension lifting (`S87` grafting).
 - `thinkingmachines/Inkling-2-Mini` (`26.4B` total / `3.4B` physical active / `5.4B` effective active, `~20 GB` NVFP4) delivers exact **`3×`** loop-core adapter leverage across its `12`-layer `3`-pass looped core (`6..18`), yet faces TWO explicit obstructions:
   1. **Per-Pass Quantization-Noise Accumulation (`Thm 18`):** Even when initial-state error contracts ($\rho^3 < 1$), fresh NVFP4 quantization error injected on EVERY pass accumulates by the geometric sum $G_3(\rho) = 1 + \rho + \rho^2$ (strictly exceeding $\rho^3$ for all $0 < \rho < 1$: at `S76` $\rho=1/4$, $G_3 = 21/16 = 1.3125 = 84\times \rho^3 \le 2$; at contractive $\rho=3/4$, $\rho^3 = 27/64 < 1$ yet $G_3 = 37/16 = 2.3125 > 2$, breaching the falsifiable `M1-H1` kill gate past the golden-ratio threshold $\rho_* = (\sqrt{5}-1)/2 \in (3/5, 5/8)$ where $G_3(3/5)=49/25 < 2$ and $G_3(5/8)=129/64 > 2$).
@@ -118,7 +118,7 @@ Compiled standalone via scrubbed `lean --stdin` (`PATH`/`LANG`/`LC_ALL`/optional
 
 ### 5.2 Cryptographically Pinned Provenance (`10` Upstream Certs + `2` Inkling-2-Mini Specs)
 
-| Source / Track | Relative Path / Filename | Verified SHA-256 |
+| Source / Track | Relative Path / Filename | Pinned SHA-256 (status) |
 | :--- | :--- | :--- |
 | `Inkling-2-Mini` Config | `inkling2_mini_config.json` | `a7a349601f0984c4abf999c480ef775d8567d21f5f84b4e8a3e035b44f288dc2` |
 | `Inkling-2-Mini` README | `inkling2_mini_README.md` | `ab4fbc79a26f57a4160eae83ff33f7ec5442f4a6cae21478fdda36b4a0c13592` |
@@ -151,9 +151,9 @@ All `7/8` frozen companion files in this directory (with this `REPORT.md` as the
 | `lakefile.toml` | `6` | `146` | `0o644` | `bf65bf58add1e3fc68fde9d4d403160cfe188920754593c792900784ddb98756` |
 | `lean-toolchain` | `1` | `25` | `0o644` | `582a63f8f9c5128067b688778c1051cf1464c3ca9d57b9325025c051c29b774a` |
 | `s96_beyond_lora_inkling_certificate.json` | `1` | `11,179` | `0o600` | `2491f96992a6c4dbad7de801f4daf2fbc2ea2455466cc43b0bb51246399b5e91` |
-| `s96_beyond_lora_inkling_oracle.py` | `844` | `36,663` | `0o644` | `9e1e0c34192507ae91a57d3926e2c040606626bf02167c0657a24eca24b21f32` |
-| `verify_s96_beyond_lora_inkling.py` | `1,744` | `72,379` | `0o644` | `38edf2b1c2056a51d0da071fcbbf09ce40782c5202daba9e7598993637feba54` |
-| `test_s96_r5.py` | `1,717` | `119,701` | `0o644` | `fb44850d2d903f90298e615e892aa3d79ff7f28ddff8c2b622999d28b537c182` |
+| `s96_beyond_lora_inkling_oracle.py` | `866` | `38,540` | `0o644` | `41de0e13017f431313f21f34f673954318141881f4e20d32b140024344e0cf53` |
+| `verify_s96_beyond_lora_inkling.py` | `1,754` | `73,047` | `0o644` | `32a6921a7039d00a047cce4378a8c9e6f840b3e14437ba75bb9eade048cf5d60` |
+| `test_s96_r5.py` | `1,727` | `120,496` | `0o644` | `1e0f6adc2b2425ebba3bb4c408131095267dced5debfad40c632940a5a5851b3` |
 
 ---
 
@@ -168,7 +168,8 @@ python3 -I -B verify_s96_beyond_lora_inkling.py --check s96_beyond_lora_inkling_
 python3 -I -B verify_s96_beyond_lora_inkling.py --verify-lean BeyondLoraAndInklingLoop.lean --json
 
 # 3. Pinned upstream corpus (10 tracks: 2/10 re-hashed on disk in-repo (S80, S83); 8/10 cross-repo
-#    SHA pins: S80/S83 on disk here; others in Foundation-0/math0@main or external historical pins resolving nowhere readable) & Inkling-2-Mini specs
+#    SHA pins, each with an exact repo@ref:path in UPSTREAM_PIN_SOURCES — siliquant@main (S42, S59, S78),
+#    math0@main (S76, S82), or UNMERGED branches siliquant PR#103 / PR#101 / math0 PR#43 (S73, S79, S87)) & Inkling-2-Mini specs
 python3 -I -B verify_s96_beyond_lora_inkling.py --verify-upstream .. --json
 python3 -I -B verify_s96_beyond_lora_inkling.py --verify-inkling <INKLING_SPEC_DIR> --json
 

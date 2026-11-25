@@ -1090,6 +1090,16 @@ class TestS96VerifierZoneBAndIO(unittest.TestCase):
                 with self.assertRaises(s96.S96Error) as e_up:
                     ver.verify_upstream_manifest(fake_root)
                 self.assertEqual(e_up.exception.code, "UPSTREAM_SHA_MISMATCH")
+            # Partial-status branch: a manifest mixing an in-repo pin with a CROSS_REPO_UPSTREAM
+            # pin must report UPSTREAM_PARTIAL with the per-pin repo@ref:path source.
+            self.assertEqual(set(ver.CROSS_REPO_UPSTREAM), set(ver.UPSTREAM_PIN_SOURCES))
+            (fake_root / "t1" / "c1.json").write_bytes(fake_bytes)
+            fake_manifest2 = fake_manifest + (("S42", "x/c2.json", fake_sha),)
+            with mock.patch.object(ver, "UPSTREAM_CERT_MANIFEST", fake_manifest2):
+                res = ver.verify_upstream_manifest(fake_root)
+                self.assertEqual(res["status"], "UPSTREAM_PARTIAL")
+                self.assertEqual(res["tracks_verified"], 1)
+                self.assertEqual(res["cross_repo_pins"][0]["source"], ver.UPSTREAM_PIN_SOURCES["S42"])
 
             # Verify --verify-inkling with synthetic matching & tampered spec dirs
             fake_spec_dir = tdir / "spec_dir"

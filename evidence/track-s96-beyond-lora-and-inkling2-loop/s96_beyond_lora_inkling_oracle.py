@@ -61,14 +61,24 @@ INKLING_SPEC_MANIFEST: tuple[tuple[str, str], ...] = (
     ("inkling2_mini_README.md", "ab4fbc79a26f57a4160eae83ff33f7ec5442f4a6cae21478fdda36b4a0c13592"),
 )
 
-# Upstream certificate pins: only S80 and S83 resolve to files in this repo. Of the other 8
-# (S42, S59, S73, S76, S78, S79, S82, S87), several resolve in Foundation-0/math0@main
-# (studies/track-sNN-…/); the rest are absent from aletheia, cave-expedition, and
-# math0@f9970082 — external historical SHA-256 pins resolving in no readable repo.
+# Upstream certificate pins: only S80 and S83 resolve to files in this repo. Each of the other
+# 8 (CROSS_REPO_UPSTREAM) resolves byte-exact at the pinned repo@ref:path below — re-hashed
+# across every branch and PR head of siliquant, math0, cave-expedition and aletheia. NOTE:
+# S73, S79 and S87 currently exist ONLY on unmerged branches (siliquant PR #103 / #101,
+# math0 PR #43), so those pins may move if those PRs change before merging.
 CROSS_REPO_UPSTREAM: frozenset[str] = frozenset({
     "S42", "S59", "S73", "S76", "S78", "S79", "S82", "S87",
 })
-CROSS_REPO_SOURCE = "external-historical-pin (math0@main for some; aletheia/cave-expedition/math0@f9970082 checked)"
+UPSTREAM_PIN_SOURCES: dict[str, str] = {
+    "S42": "Foundation-0/siliquant@main:studies/expedition-fisher-kintsugi-memt/fisher_kintsugi_memt_certificate.json",
+    "S59": "Foundation-0/siliquant@main:studies/exact-e8-vs-a16-hadamard-law/e8_vs_a16_hadamard_certificate.json",
+    "S73": "Foundation-0/siliquant@PR#103-3065627d:studies/rtx3080-s73-lowbit-and-sharednorm-quad-snake/rtx3080_s73_certificate.json",
+    "S76": "Foundation-0/math0@main:studies/s76-circular-pc-loop-schur-holonomy/s76_circular_pc_certificate.json",
+    "S78": "Foundation-0/siliquant@main:studies/s78-engram-lora-capacity-siliquant-mdl/s78_engram_lora_siliquant_certificate.json",
+    "S79": "Foundation-0/siliquant@PR#101-3e06f18c:studies/s79-2dsd-multipole-dense-sparse-laws/s79_2dsd_multipole_certificate.json",
+    "S82": "Foundation-0/math0@main:studies/s82-vpvnp-cross-field-propagation/s82_vpvnp_propagation_certificate.json",
+    "S87": "Foundation-0/math0@PR#43-c336d381:studies/s87-universal-higher-order-atlas/s87_higher_order_atlas_certificate.json",
+}
 
 UPSTREAM_CERT_MANIFEST: tuple[tuple[str, str, str], ...] = (
     (
