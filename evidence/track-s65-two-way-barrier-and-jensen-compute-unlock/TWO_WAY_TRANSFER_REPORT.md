@@ -7,7 +7,7 @@ This study formalizes two-way exact-operator transfer between macroscopic physic
 1. **Pillar 1 — Competing-Potential Barrier Turnover & Sub-Barrier Bridge Dominance:**
    - **Native algebra:** Whenever a two-term objective $\Delta(s) = R(s) - A(s)$ pits a repulsive barrier term $R(s)$ against a faster-growing attractive pull term $A(s)$ — covering both classical Coulomb-vs-short-range potentials $r^3 V(r) = a r^2 - b$ (`coulomb_short_range_turnover_universal`) and Reed-Muller $RM(1,4)$ lattice axis-coarsening penalty vs. scale-growing off-diagonal mixing gain (`competing_potential_sign_inversion`) — crossing $A(s)/R(s) = 1$ forces a strict sign inversion from net repulsion ($\Delta > 0$) to net pull ($\Delta < 0$).
    - **Sub-barrier bridge theorem (`sub_barrier_bridge_dominance_universal`):** An intermediate bridge operator $B$ (`Block-H2`) with reduced barrier $\rho_B < \rho_H$ and strictly lower crossover threshold $\rho_B / \gamma_B < \rho_H / \gamma_H$ enters the attractive regime strictly inside the sub-barrier band $(\rho_B/\gamma_B,\ \rho_H/\gamma_H)$ where the full-mixing operator $H$ is still repulsive ($\Delta_B < 0 < \Delta_H$). Moreover, even when $\gamma_H > \gamma_B$, the bridge dominance ceiling $(\rho_H - \rho_B)/(\gamma_H - \gamma_B)$ **strictly exceeds** $H$'s own crossover $\rho_H/\gamma_H$, so $B$ strictly dominates $H$ both across and beyond $H$'s sign flip.
-   - **Exact empirical verification across frozen `0.36B -> 0.5B -> 1.5B` quantization receipts (`qwen_smollm_scale_flip_exact_witness`):**
+   - **Exact verification across frozen `0.36B -> 0.5B -> 1.5B` quantization scale-flip receipts (`qwen_smollm_scale_flip_exact_witness`; the KL numbers are frozen receipts hardcoded as `FROZEN_SCALE_KL_NANO`, not live measurements; the source JSONs are external to this repo and pinned only by sha256 `42ad90b1ddfba30d3d99b9d0a7a624770192b084dbe86b1e51c3a747cb7181e7` / `9155e1b679c7019cf49071ef27bfae7b3e4f77c21d099b2ff9c9f4ddb90cf27b` in `FROZEN_LLM_PROVENANCE`, oracle.py:36-44):**
 
 | Model (`4,088` tok/split) | Corpus | `A16_axis` KL | `A16_BlockH2` KL ($\Delta$ vs `axis`) | `A16_H16` KL ($\Delta$ vs `axis`) | Regime |
 |---|---|---:|---:|---:|---|
@@ -27,7 +27,7 @@ This study formalizes two-way exact-operator transfer between macroscopic physic
      - `jensen_fixed_work_smooth_beats_bursty_universal`: Over any fixed wall window $T = t_1 + t_2$ at identical work $W = f_1 t_1 + f_2 t_2$, exact cubic factorization $(t_1 + t_2)^2(f_1^3 t_1 + f_2^3 t_2) - (f_1 t_1 + f_2 t_2)^3 = t_1 t_2 (f_1 - f_2)^2 (t_1 (2 f_1 + f_2) + t_2 (f_1 + 2 f_2)) > 0$ proves continuous smooth pacing strictly beats any non-uniform/bursty schedule under continuous DVFS.
      - `parallel_impedance_ucurve_universal`: Proves conditional sufficiency for the concurrency energy U-curve: if physical scaling outruns static floor $P_u$ while SMT threads saturate ($s_2 \le s^*$), physical concurrency $p^*$ strictly minimizes Joules/job against both under-utilization ($p_1$) and SMT over-subscription ($p_2$).
    - **Live Hardware Provenance (`measured_live_silicon: true`, `audio/camera/display = false`):**
-     - Executed inside exclusive OS `flock` serialization and hardware provenance stamper (`mlos_zone_b_receipt.json`, `0o600`, `clean_hardware_run: true`, `anomalies: []`, `exit_code: 0`, `duration: 24.60 s`, GPU verified idle `P8` `0%` util / `2 MiB` KMD baseline at both start and end).
+     - Executed inside exclusive OS `flock` serialization and hardware provenance stamper (`mlos_zone_b_receipt.json`, written `0o600` by `--write`, `0644` in git, `clean_hardware_run: true`, `anomalies: []`, `exit_code: 0`, `duration: 24.60 s`, GPU verified idle `P8` `0%` util / `2 MiB` KMD baseline at both start and end).
      - Exact deterministic checksums conserved across all `10/10` Experiment A trials (`b2da26c4ad818ec3`) and all `14/14` Experiment B trials (`a0f68ce8e7c05f78`).
      - **Platform Rail Scale Disclosure:** Raw `intel-rapl:1` (`psys`) reads `4.435 W` idle vs. `64.574 W` on `intel-rapl:0` (`package-0`, `psys_vendor_scale_obstruction_detected: true`), confirming an uncalibrated vendor scale on `psys`. Accordingly, `psys` is evaluated strictly via dimensionless scale-invariant ratios, never raw `P_psys - P_pkg` subtraction.
    - **Live Experiment A — Pacing vs. Bursty vs. Race-to-Sleep (`W_A = 4,800` blocks = `5,033,164,800` ops, `4` physical cores):**
@@ -76,11 +76,11 @@ This study formalizes two-way exact-operator transfer between macroscopic physic
 
 ## 3. Frozen Deliverable Manifest
 
-- **Certificate Digests (`two_way_transfer_certificate.json`, `0o600`, canonical compact ASCII JSON + LF):**
+- **Certificate Digests (`two_way_transfer_certificate.json`, written `0o600` by `--write`; `0644` in git, canonical compact ASCII JSON + LF):**
   - `file_sha256`: `ea0e5ae60e175e73b6694a936f464a84db60aca8c82b433d4933add58d827f0d`
   - `payload_sha256`: `fdbd198cc8ef0adaeaff4d0667798447d59ee9a366ae4b93cc9b8d3cc0efe456`
   - `certificate_sha256`: `bf53497d93a249d3d384a64b8eb855328df83761ab5178932b59dff2965971c0`
-- **Verification Summary:** `10/10` live `Lean 4.36.0` theorems (`8` universal `∀` + `2` zero-axiom witnesses, `0` warnings, clean-copy `lake build` `4` jobs `RC=0`), `15/15` live Lean 4 static-gate escapes blocked, `4`-mode `-I` parity + `umask 077` (`12/12 OK` ×5), `1,052/1,052` direct secondary tamper kills, `82/82` 4-surface strict-I/O fuzzer `PASS`, `253/253` (`93/93 + 160/160`, `100.0%`) live parallel mutation kills, `192/192` (`139/139 + 53/53`, `100.0%`) whole-file DFS AST `BoolOp` kills.
+- **Verification Summary:** `10/10` live `Lean 4.36.0` theorems (`8` universal `∀` + `2` zero-axiom witnesses, `0` warnings, clean-copy `lake build` `4` jobs `RC=0`), `15/15` live Lean 4 static-gate escapes blocked, `test_two_way_transfer_r5.py` **`12/12 OK` in all 3 R4 CI modes** (`-I -B`, `-I -O -B`, `-I -B -W error`), shipped tamper controls `51/51` re-signed certificate tampers rejected (`test_10`) + `12/12` mlos receipt negative controls (`test_09`). The larger sweeps quoted in the PR body (`2,406`/`1,052`-case tamper sweeps, `82/82` zone_b_fuzzer, `253/253` `aletheia mutate`, `192/192` BoolOp DFS) were one-off local runs whose drivers are not shipped in this repo.
 
 | File | Lines | Bytes | Mode | SHA-256 |
 |---|---:|---:|---:|---|
@@ -88,10 +88,12 @@ This study formalizes two-way exact-operator transfer between macroscopic physic
 | `lakefile.toml` | `6` | `116` | `0o644` | `e108788f37b5015a164064cf7cd044b7263cae956697e81bb24f4d3b59af2ed9` |
 | `TwoWayTransfer.lean` | `615` | `33,865` | `0o644` | `ba45f37bf96dab5e580df20aa0c656fdfceb59c69f83d2509ff4f89c226d46ca` |
 | `two_way_silicon_probe.c` | `401` | `14,918` | `0o644` | `ef1fe7b327fb72320022f59dbf02cdf5c4cef4f30af48ac66620d6a49997f559` |
-| `two_way_silicon_live_results.json` | `33` | `6,550` | `0o600` | `6bf858811bf7b9119790cc006270d8be93f464385627939d0297ecd4fa36f671` |
-| `mlos_zone_b_receipt.json` | `93` | `2,642` | `0o600` | `bf13ff15117b3e58746b2aefe0cc7477052e82f784be4f7d44c3b8310ad9a91e` |
+| `two_way_silicon_live_results.json` | `33` | `6,550` | `0o644` | `6bf858811bf7b9119790cc006270d8be93f464385627939d0297ecd4fa36f671` |
+| `mlos_zone_b_receipt.json` | `93` | `2,642` | `0o644` | `bf13ff15117b3e58746b2aefe0cc7477052e82f784be4f7d44c3b8310ad9a91e` |
 | `two_way_transfer_oracle.py` | `1,013` | `42,495` | `0o644` | `a5c0639aeb49b6ef554f01a7b04d9561ff4f2d974365a7a9e5df81134325ef15` |
 | `two_way_transfer_audit.py` | `1,000` | `45,369` | `0o644` | `5fccd441ff08dbc1fffe5149bd27d36a21feea4c686810edf1b53777cb2208ba` |
 | `test_two_way_transfer_r5.py` | `963` | `61,491` | `0o644` | `fff08f50819cffd3488996dc1b1f345a929eb043ae731707301787de8b7bed06` |
-| `two_way_transfer_certificate.json` | `1` | `14,042` | `0o600` | `ea0e5ae60e175e73b6694a936f464a84db60aca8c82b433d4933add58d827f0d` |
+| `two_way_transfer_certificate.json` | `1` | `14,042` | `0o644` | `ea0e5ae60e175e73b6694a936f464a84db60aca8c82b433d4933add58d827f0d` |
 | `TWO_WAY_TRANSFER_REPORT.md` | *(this file)* | — | `0o644` | *(self-documenting report)* |
+
+Mode column: the JSON receipts and the certificate are written `0o600` by the audit's `--write` path; `0644` in git (git cannot store `0600`).
