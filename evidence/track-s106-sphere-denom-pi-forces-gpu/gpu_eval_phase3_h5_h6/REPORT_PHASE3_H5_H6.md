@@ -66,4 +66,4 @@
 | `s106_h6_hypersphere_arrangement_eval.py` | `558` | `29,946` | `0o644` (git 100644) | `639529b2019234f9722a4ed1d2715a03bf02bb7c77b02e725c77c571f1504d85` | Amendment 2 (H6a/H6b/H6c) held-out + micro-LM evaluator |
 | `s106_h6_results.json` | `1` | `17,711` | `0o644` (git 100644) | `f8b6e2a163f88c95d518a51a2f94af02acd24fcb450ede55a9742f6de2664fc4` | Canonical H6 results (`26/26` arms + `4` micro-LMs, `result_sha256=5ab86f4b...`) |
 | `test_s106_phase3_r5.py` | `189` | `9,824` | `0o644` (git 100644) | `fc1286b7e9d04cf1720b9f67a6d36c086d4a3dae46c41ce7f0357c20f48f7a4d` | Pure-stdlib R5 adversarial + hygiene test suite (6/6 tests, 0 bare asserts) |
-| `verify_s106_phase3.py` | `296` L / `14,482` B | `5069283b940ca0025f7d9cb242b3e8f3edba17a25003410fed7db4897070bf04` | Pure-stdlib integrity, receipt re-sign + bound-link, and literal locked-rule verdict verifier |
+| `verify_s106_phase3.py` | `296` | `14,482` | `0o644` (git 100644) | `5069283b940ca0025f7d9cb242b3e8f3edba17a25003410fed7db4897070bf04` | Pure-stdlib integrity, receipt re-sign + bound-link, and literal locked-rule verdict verifier |
