@@ -25,7 +25,7 @@
 | --- | --- | --- | --- |
 | `silq_boundary_calculus_oracle.py` | `1693` | `71256` | `6c10f2d18cee35fc466beaf6579af8d005f74a4ee15e02b6622bda57e7a216dc` |
 | `silq_boundary_calculus_audit.py` | `815` | `36152` | `0ff7f48f380ee93a6a9408eeb60a6b4b1c3af474a85a7ef0f81923fd24a9f237` |
-| `test_silq_boundary_calculus_r5.py` | `1214` | `80251` | `2f6c2dd1b0394879ad811bebd0b902a86822f9e2f87bf8eefc086f8437929a0f` |
+| `test_silq_boundary_calculus_r5.py` | `1225` | `80991` | `c3d346a7275fe401a3267225126dbf685d754cc5a8173cac66849137d97696b8` |
 | `silq_boundary_calculus_certificate.json` | `1` | `11520` | `0f294a81f8523d630fd7da8369590d500867247956d686933dcfe25cf5a39c92` |
 
 ---
@@ -115,7 +115,7 @@ For two finite exact bipartite states $|\Psi\rangle_{OH}$ over $\mathbb{D}[i, \s
      PYTHONHASHSEED=42 python3 -B silq_boundary_calculus_audit.py --check silq_boundary_calculus_certificate.json --json
      PYTHONHASHSEED=42 python3 -B test_silq_boundary_calculus_r5.py
      ```
-     **Observed:** Bit-identical `file_sha256=0f294a81f8523d630fd7da8369590d500867247956d686933dcfe25cf5a39c92`, `valid=true`, `full_replay=true`, `secondary_audit_passed=true`, and **`15/15 OK`** across all three isolated R4 modes and the non-isolated `PYTHONHASHSEED=42` check (on Linux/glibc: `>= 500` `renameat2(RENAME_EXCHANGE)` swaps, `>= 420` hardlink race cycles, `16T` distinct/same-target & `80T` barrier burst writers, `0` errors, `0` leftover temp files).
+     **Observed:** Bit-identical `file_sha256=0f294a81f8523d630fd7da8369590d500867247956d686933dcfe25cf5a39c92`, `valid=true`, `full_replay=true`, `secondary_audit_passed=true`, and **`15/15 OK`** across all three isolated R4 modes and the non-isolated `PYTHONHASHSEED=42` check (on Linux/glibc; these counts are asserted inside the race test, not printed by the commands above: `>= 500` `renameat2(RENAME_EXCHANGE)` swaps, `>= 420` hardlink race cycles, `16T` distinct/same-target & `80T` barrier burst writers, `0` errors, `0` leftover temp files).
   2. **Live `aletheia mutate --max-mutants 0` (Every Refusal Site, Zero Truncation):**
      ```bash
      PYTHONPATH=. python3 -B -m aletheia mutate evidence/track-s38-silq-nested-boundary-calculus/silq_boundary_calculus_audit.py \

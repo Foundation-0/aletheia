@@ -696,6 +696,10 @@ class Test04PayloadAndSecondaryAuditTamperMatrix(unittest.TestCase):
             ("oracle_class", "approx", "INVALID_PAYLOAD_META"),
             ("novelty_classification", "N9", "INVALID_PAYLOAD_META"),
             ("novelty_classification", [], "INVALID_PAYLOAD_META"),
+            ("novelty_classification", "", "INVALID_PAYLOAD_META"),
+            ("novelty_classification", 0, "INVALID_PAYLOAD_META"),
+            ("novelty_classification", True, "INVALID_PAYLOAD_META"),
+            ("novelty_classification", None, "INVALID_PAYLOAD_META"),
             ("zero_floats_exact_arithmetic", False, "INVALID_PAYLOAD_META"),
             ("all_verified", False, "INVALID_PAYLOAD_META"),
             ("literature_anchors_n0", "ab", "INVALID_PAYLOAD_META"),
@@ -705,6 +709,13 @@ class Test04PayloadAndSecondaryAuditTamperMatrix(unittest.TestCase):
             t_m = copy.deepcopy(self.valid_cert)
             t_m["payload"][field] = bad_v
             self._expect_err(code, oracle.validate_certificate_payload, self._resign(t_m), full_replay=False)
+
+        # A str subclass is rejected even earlier: the strict JSON tree gate
+        # (validate_json_tree_iterative) requires exact types, so it fires
+        # FORBIDDEN_JSON_TYPE before the tier check and cannot be re-signed.
+        evil_str = copy.deepcopy(self.valid_cert)
+        evil_str["payload"]["novelty_classification"] = _EvilStr("N0")
+        self._expect_err("FORBIDDEN_JSON_TYPE", oracle.validate_certificate_payload, evil_str, full_replay=False)
 
         unver = copy.deepcopy(self.valid_cert)
         unver["payload"]["pillar1_cyclotomic_clifford_t"]["pillar_verified"] = False
