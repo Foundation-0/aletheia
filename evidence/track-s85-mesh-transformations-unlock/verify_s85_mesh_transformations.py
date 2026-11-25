@@ -892,7 +892,9 @@ def secondary_audit_payload(payload: Any) -> dict[str, Any]:
     for k in oracle.UPSTREAM_CERT_SHAS:
         exp = expected_sources.get(k, "aletheia (in-repo; re-hashed by verifier)")
         oracle.require_ok(oracle.upstream_pin_source(k) == exp, "UPSTREAM_LABEL", k)
-        oracle.require_ok(k in oracle.CROSS_REPO_UPSTREAM or k in expected_sources or exp.startswith("aletheia"), "UPSTREAM_LABEL_CLASS", k)
+        # Real class check: the literal table's external set must equal PIN_SOURCES exactly
+        # (a pin added to PIN_SOURCES but not to the literal table — or vice versa — fails).
+        oracle.require_ok((k in expected_sources) == (k in oracle.PIN_SOURCES), "UPSTREAM_LABEL_CLASS", f"{k}: external/in-repo class mismatch vs PIN_SOURCES")
 
     # T1: Line-graph & Hodge invariants
     t1 = _require_exact_dict(payload["t1_line_graph_and_hodge"], _T1_KEYS, "t1")
