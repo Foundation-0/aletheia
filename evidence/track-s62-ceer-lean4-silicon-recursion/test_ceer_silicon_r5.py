@@ -1545,7 +1545,7 @@ class Test08EndToEndLiveLean4(unittest.TestCase):
     def test_live_lean4_build_and_check_certificate(self) -> None:
         cert = A.build_certificate(_TRACK_DIR, run_live_lean=True)
         self.assertEqual(cert["lean4_verification"]["total_modules"], 6)
-        self.assertEqual(cert["lean4_verification"]["total_theorems"], 36)
+        self.assertEqual(cert["lean4_verification"]["total_theorems"], 37)
         self.assertEqual(cert["lean4_verification"]["static_findings"], 0)
         self.assertTrue(cert["lean4_verification"]["witness_telemetry_parity"])
         disk_cert = json.loads((_TRACK_DIR / "ceer_silicon_certificate.json").read_text(encoding="utf-8"))

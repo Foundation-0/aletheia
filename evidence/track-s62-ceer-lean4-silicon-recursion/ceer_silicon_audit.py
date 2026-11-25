@@ -54,7 +54,7 @@ _MAX_TMP_RETRIES = 16
 STANDARD_LEAN4_AXIOMS = frozenset({"propext", "Classical.choice", "Quot.sound"})
 
 LEAN_MODULES: tuple[tuple[str, int], ...] = (
-    ("CEERSiliconCerts/CEER_Cycle0_Theory.lean", 7),
+    ("CEERSiliconCerts/CEER_Cycle0_Theory.lean", 8),
     ("CEERSiliconCerts/CEER_Cycle0_Verdict.lean", 6),
     ("CEERSiliconCerts/CEER_Cycle1_Theory.lean", 4),
     ("CEERSiliconCerts/CEER_Cycle1_Verdict.lean", 7),
@@ -65,6 +65,7 @@ LEAN_MODULES: tuple[tuple[str, int], ...] = (
 EXPECTED_LEAN_THEOREMS: dict[str, frozenset[str]] = {
     "CEER_Cycle0_Theory.lean": frozenset(
         {
+            "CEERSiliconCerts.Cycle0Theory.closedConstTrapArea_eq",
             "CEERSiliconCerts.Cycle0Theory.constant_fan_zero_hyst_area",
             "CEERSiliconCerts.Cycle0Theory.falsify_H0a",
             "CEERSiliconCerts.Cycle0Theory.falsify_H0b_dark",
@@ -1070,7 +1071,7 @@ def secondary_audit_payload(payload: Any) -> dict[str, Any]:
         or lv["witness_telemetry_parity"] is not True
         or lv["axioms_subset_standard"] is not True
         or lv["total_modules"] != 6
-        or lv["total_theorems"] != 36
+        or lv["total_theorems"] != 37
         or type(mods) is not list
         or len(mods) != 6
     ):

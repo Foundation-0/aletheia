@@ -144,3 +144,4 @@ end CEERSiliconCerts.Cycle0Theory
 #print axioms CEERSiliconCerts.Cycle0Theory.falsify_H0d_area
 #print axioms CEERSiliconCerts.Cycle0Theory.falsify_H0d_rpm
 #print axioms CEERSiliconCerts.Cycle0Theory.constant_fan_zero_hyst_area
+#print axioms CEERSiliconCerts.Cycle0Theory.closedConstTrapArea_eq

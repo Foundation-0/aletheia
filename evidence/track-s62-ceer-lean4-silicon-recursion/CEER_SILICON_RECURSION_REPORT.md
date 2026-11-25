@@ -5,8 +5,8 @@
 This package implements and certifies a live, three-cycle **Calculational-Experimental Epistemic Recursion (`CEER`)** closing an unbroken loop between formal pure-`Init` **`Lean 4.36.0`** theories/proofs and live physical silicon telemetry on an 8-core / 16-thread Intel Core i9-11900H (`UX582HS`, `24 MiB` shared L3, `70 W` PL1 thermal envelope) with discrete RTX 3080 verified idle (`P8`, `0%` GPU utilization, `2 MiB` KMD baseline VRAM, `0` compute/graphics processes) before and after every cycle.
 
 - **Hard Safety & Privacy Locks:** Zero microphone access, zero camera access, zero display/brightness modifications; C11 actuator (`ceer_actuator.c`) compiled strictly into ephemeral `0o700` scratch directories (`ELF = 0` in frozen package).
-- **Anti-Goodhart Cryptographic Pre-Registration:** Before every live silicon execution $k \in \{0, 1, 2\}$, `cycle_<k>_prereg.json` (`0o600`) cryptographically commits to `CEER_Cycle<k>_Theory.lean` (`theory_lean_sha256`), the prior cycle's Lean 4 kernel verdict (`parent_cycle_verdict_sha256`), exact pure-$\mathbb{Z}/\mathbb{Q}$ falsifiable predictions, and strictly **pairwise-disjoint held-out micro-levers**. Zero thresholds or pre-registrations were modified after observing telemetry; every live falsification and hardware obstruction is proved constructively in `Lean 4.36.0` and lifted into the subsequent cycle's theory.
-- **Ring-0 `mlos` Execution Receipts (all `0o600`, `clean_hardware_run: true`, `determinism_zone: "B"`, `anomalies: []`, `exit_code: 0`, zero personal path leaks):**
+- **Anti-Goodhart Cryptographic Pre-Registration:** Before every live silicon execution $k \in \{0, 1, 2\}$, `cycle_<k>_prereg.json` (written `0o600` by `--write`; `0644` in git) cryptographically commits to `CEER_Cycle<k>_Theory.lean` (`theory_lean_sha256`), the prior cycle's Lean 4 kernel verdict (`parent_cycle_verdict_sha256`), exact pure-$\mathbb{Z}/\mathbb{Q}$ falsifiable predictions, and strictly **pairwise-disjoint held-out micro-levers**. Zero thresholds or pre-registrations were modified after observing telemetry; every live falsification and hardware obstruction is proved constructively in `Lean 4.36.0` and lifted into the subsequent cycle's theory.
+- **Ring-0 `mlos` Execution Receipts (all written `0o600` by `--write`, `0644` in git; `clean_hardware_run: true`, `determinism_zone: "B"`, `anomalies: []`, `exit_code: 0`, zero personal path leaks):**
   - Cycle 0 (`mlos_cycle0_receipt.json`, `receipt_sha256 = 32a10a25314c05dc2d809b6833ff26377b2b3ed1abd38cc3ad028780369d0a73`): `30,496 ms`, `14` segments, GPU `0% -> 0%`.
   - Cycle 1 (`mlos_cycle1_receipt.json`, `receipt_sha256 = 75fdec1e93abfe24016aaa8f7d4fcec00d2bb1d82e7dfbac7470a78cfefab9a2`): `29,500 ms`, `10` segments, GPU `0% -> 0%`.
   - Cycle 2 (`mlos_cycle2_receipt.json`, `receipt_sha256 = a740558f75fbe701df75702f57b4e5453f7f765b7e631b9ad2533ea26dab9d51`): `27,612 ms`, `11` segments, GPU `0% -> 0%`.
@@ -59,12 +59,12 @@ Cleanly corroborated composite hypotheses rose strictly monotonically across the
 
 ---
 
-## 4. Pure-`Init` `Lean 4.36.0` Kernel Inventory (`6` Modules, `36/36` Theorems, `0` Warnings, `0` Mathlib)
+## 4. Pure-`Init` `Lean 4.36.0` Kernel Inventory (`6` Modules, `37/37` Theorems, `0` Warnings, `0` Mathlib)
 
 - **Toolchain:** `leanprover/lean4:v4.36.0` (`0` external imports, `0` `sorry`/`admit`/`axiom`/`unsafe`/`native_decide`/`partial`/`debug.skipKernelTC`/`extern`/`implemented_by`).
 - **Clean-Copy `lake build`:** `Build completed successfully (14 jobs)`, `RC = 0`, `0` warnings (scratch build directory deleted post-run; `.lake = 0` in frozen package).
-- **Exact `#print axioms` Allowlist Verification:** All `36/36` theorems strictly $\subseteq \{\text{propext}, \text{Classical.choice}, \text{Quot.sound}\}$, including **`5/36` zero-axiom `[]` kernel theorems**:
-  1. `CEERSiliconCerts/CEER_Cycle0_Theory.lean` (`7` theorems): `falsify_H0a`, `falsify_H0b_energy`, `falsify_H0b_dark`, `falsify_H0c`, `falsify_H0d_area` (`[]`), `falsify_H0d_rpm`, `constant_fan_zero_hyst_area`.
+- **Exact `#print axioms` Allowlist Verification:** All `37/37` theorems strictly $\subseteq \{\text{propext}, \text{Classical.choice}, \text{Quot.sound}\}$, including **`5/37` zero-axiom `[]` kernel theorems**:
+  1. `CEERSiliconCerts/CEER_Cycle0_Theory.lean` (`8` theorems): `falsify_H0a`, `falsify_H0b_energy`, `falsify_H0b_dark`, `falsify_H0c`, `falsify_H0d_area` (`[]`), `falsify_H0d_rpm`, `constant_fan_zero_hyst_area`, `closedConstTrapArea_eq`.
   2. `CEERSiliconCerts/CEER_Cycle0_Verdict.lean` (`6` theorems): `cycle0_disproof_H0b`, `cycle0_H0b_cliff_gt_80x`, `cycle0_disproof_H0c`, `cycle0_H0a_degenerate_pl1_saturation`, `cycle0_H0d_fan_plateau_and_thermal_lag`, `cycle0_on_package_dark_power_positive`.
   3. `CEERSiliconCerts/CEER_Cycle1_Theory.lean` (`4` theorems): `pl1_flat_power_implies_eff_gain`, `falsify_H1d_temp_lag`, `falsify_H1c_contrast`, `falsify_H1b_cliff`.
   4. `CEERSiliconCerts/CEER_Cycle1_Verdict.lean` (`7` theorems): `cycle1_corroborates_H1a`, `cycle1_disproof_H1b`, `cycle1_H1b_residual_cliff_and_dark_power`, `cycle1_corroborates_H1c`, `cycle1_H1c_static_dominance_obstruction`, `cycle1_disproof_H1d`, `cycle1_H1d_reversed_loop_obstruction`.
@@ -75,15 +75,15 @@ Cleanly corroborated composite hypotheses rose strictly monotonically across the
 
 ## 5. Independent Verification Gates & Hardening Summary (Post-Last-Edit `100.0%` PASS)
 
-- **Certificate Digest (`ceer_silicon_certificate.json`, `0o600`):** `certificate_sha256 = 04b818b610ccbaaa9bcab2ee9c2d25663fe821dbee17d23e3860a0f7fad25497`, raw file SHA-256 `cef74336a38edc2d7c0b05007952690c0f8608607bc800036292aa4642665b53` (`11,121` B; zero floats; binds all `19` frozen core source/data/receipt/proof SHAs + exact anchored unique telemetry-to-Lean witness parity across all `69/69` witness fields).
+- **Certificate Digest (`ceer_silicon_certificate.json`, written `0o600` by `--write`, `0644` in git):** `certificate_sha256 = 4c0cb09860f0a1dd4e505059b7ef43795ea40f61fe66895422df0d781ecc9b5a`, raw file SHA-256 `2a46bb17e6b108258a67acef7eebd9d2c2dc49f029e5b764d70647dbc0923dae` (`11,201` B; zero floats; binds all `19` frozen core source/data/receipt/proof SHAs + exact anchored unique telemetry-to-Lean witness parity across all `69/69` witness fields).
 - **R4 3-Mode Isolated Python Parity (`-I -B`, `-I -O -B`, `-I -B -W error`) + `PYTHONHASHSEED=42 -I -B` + `umask 077`:**
-  - `ceer_silicon_audit.py` (zero-arg) & `--standalone --json`: `cef74336a38edc2d7c0b05007952690c0f8608607bc800036292aa4642665b53` (bit-identical across all 3 R4 modes + `PYTHONHASHSEED=42`).
-  - `ceer_silicon_audit.py --check ceer_silicon_certificate.json`: `7fdd6ed1aee84ba4c3c42b43f89e37202fb91e4dbafc501dfb682e3691244e73` (bit-identical across all 3 R4 modes + `PYTHONHASHSEED=42`).
+  - `ceer_silicon_audit.py` (zero-arg) & `--standalone --json`: `2a46bb17e6b108258a67acef7eebd9d2c2dc49f029e5b764d70647dbc0923dae` (bit-identical across all 3 R4 modes + `PYTHONHASHSEED=42`).
+  - `ceer_silicon_audit.py --check ceer_silicon_certificate.json`: `306d697238acafcc938519ce0c0264fadc059219b0e2632dedacb9e1cc659555` (bit-identical across all 3 R4 modes + `PYTHONHASHSEED=42`).
   - `test_ceer_silicon_r5.py`: `23/23 OK` across all 3 R4 modes + `PYTHONHASHSEED=42` under `umask 077`.
 - **4-Surface Adversarial Fuzzer:** **`82 / 82 PASS`** (`25/25 CLI + 19/19 FR1 + 19/19 FR0 + 19/19 SEC`, `bypasses = 0, crashes = 0`).
-- **Exhaustive Hardening Controls:** Strict `read_regular_file_strict` pre-load of all `19` artifacts before oracle JSON parsing (`O_NOFOLLOW`, `O_NONBLOCK`, `st_nlink == 1`, `MAX_FILE_BYTES`), iterative JSON tree guard (`MAX_JSON_DEPTH = 64`, `MAX_JSON_NODES = 100,000`, `MAX_INT_BITS = 2048`), strict `parse_constant`/`parse_float`/`object_pairs_hook` + exact `int` `cycle_id`/`exit_code`, constant-time `hmac.compare_digest` certificate check, bounded `FileExistsError` retry + temp `st_nlink == 1` + wrapped `os.unlink` in `write_atomic_0600`, root-owned symlink verification on Darwin `/tmp`/`/var`/`/etc`, surrogate/NUL rejection across CLI paths & `$PWD`, anchored unique `def obs{0,1,2}` witness extraction rejecting duplicate fields and decoys, strict `#print axioms` full-stdout audit rejecting compiler warnings & unexpected stdout lines, and pinned per-module `36/36` theorem names + `5/5` zero-axiom `[]` invariants across `FR0`, `FR1 (run_live_lean=False)`, and direct `SEC`.
+- **Exhaustive Hardening Controls:** Strict `read_regular_file_strict` pre-load of all `19` artifacts before oracle JSON parsing (`O_NOFOLLOW`, `O_NONBLOCK`, `st_nlink == 1`, `MAX_FILE_BYTES`), iterative JSON tree guard (`MAX_JSON_DEPTH = 64`, `MAX_JSON_NODES = 100,000`, `MAX_INT_BITS = 2048`), strict `parse_constant`/`parse_float`/`object_pairs_hook` + exact `int` `cycle_id`/`exit_code`, constant-time `hmac.compare_digest` certificate check, bounded `FileExistsError` retry + temp `st_nlink == 1` + wrapped `os.unlink` in `write_atomic_0600`, root-owned symlink verification on Darwin `/tmp`/`/var`/`/etc`, surrogate/NUL rejection across CLI paths & `$PWD`, anchored unique `def obs{0,1,2}` witness extraction rejecting duplicate fields and decoys, strict `#print axioms` full-stdout audit rejecting compiler warnings & unexpected stdout lines, and pinned per-module `37/37` theorem names + `5/5` zero-axiom `[]` invariants across `FR0`, `FR1 (run_live_lean=False)`, and direct `SEC`.
 - **Lean 4 Static Trust-Escape Hardening:** Full identifier-prime-safe `Char` (`'"'`, blocking `x' '"'` desync), raw-string (`r"..."`/`r#"..."#`), interpolated-string (`s!"{...}"`/`m!"{...}"`/`f!"{...}"`), nested-comment, French-guillemet (`«native»`/`«config»`), `decide` `+native`/`(native := ...)`/`(config := ...)`/`DecideConfig`, `attribute [extern/implemented_by]`, `#eval`/`#reduce`/`#print <non-axioms>`, and 64-digit witness-integer scanner + exact strict `STANDARD_LEAN4_AXIOMS` allowlist.
-- **Live Guard Mutation Sweep (`aletheia mutate --guards require_ok --workers 4 --timeout 180 --max-mutants 0`):** **`41/41` oracle + `126/126` audit = `167 / 167` (`100.0%`, `survived = 0`, `timeout = 0`, `null_mutant = passed`, `truncated = False`)**.
+- **Live Guard Mutation Sweep (`aletheia mutate --guards require_ok --timeout 180 --max-mutants 0`; the `--workers` flag does not exist at this CLI):** **`41/41` oracle + `126/126` audit = `167 / 167` (`100.0%`, `survived = 0`, `timeout = 0`, `null_mutant = passed`, `truncated = False`)** (one-off local run, not shipped).
 - **Whole-File DFS AST `BoolOp` Mutation Sweep (`OP_SWAP` + `SUBCOND_DEL`):** **`64/64` oracle (`19` nodes) + `194/194` audit (`53` nodes) = `258 / 258` (`100.0%`, `survived = 0`)**.
 - **Static & Hygiene Audit (`aletheia audit-check . --lean-audit --strict-ancestors --safety-scan --scripts ceer_silicon_audit.py test_ceer_silicon_r5.py`):** **`PASS`** (`0` findings, `0` notices, `6/6` Lean clean, `2/2` R4 parity, `0` leaks, `0` CRLF, `0` bare asserts, `0` AST floats, `0` `.isdigit()`, `0` null-device refs, `ELF = 0`, `PYC = 0`, `.lake = 0`).
 
@@ -91,28 +91,30 @@ Cleanly corroborated composite hypotheses rose strictly monotonically across the
 
 ## 6. Frozen Artifact Manifest (`23` Core Files + This Report)
 
+Mode column: `0o600` was the on-disk mode written by `--write` on the capture host; git records all files as `100644` (git cannot store `0600`). The certificate's `artifact_sha256` pins the `19` core artifacts (Lean modules, runner, actuator, preregs, telemetries, receipts, toolchain, lakefile); the audit/oracle/test/report files themselves are not hash-pinned by the certificate, so their trust boundary is git review.
+
 | File | Lines | Bytes | Mode | SHA-256 |
 |---|---:|---:|:---:|---|
-| `CEERSiliconCerts/CEER_Cycle0_Theory.lean` | `146` | `6,653` | `0o644` | `cd045146e520f1c1955c151c4d8e2c4cc162b3f5c2da8af44552356d7e2154e3` |
+| `CEERSiliconCerts/CEER_Cycle0_Theory.lean` | `147` | `6,720` | `0o644` | `8058c7fd24980e5c37abce7c2a4c71f2e682bec9189dc82970dadce7d078a1ab` |
 | `CEERSiliconCerts/CEER_Cycle0_Verdict.lean` | `125` | `4,629` | `0o644` | `354b305ccc6ad64ef2ddb9dedce72345cff702e7a8328813878ccc45d1165eb6` |
 | `CEERSiliconCerts/CEER_Cycle1_Theory.lean` | `114` | `5,345` | `0o644` | `4cbdd29f991d29a4d4088ed41f9f5044d0289102c6963e4be9bdb4827ed55457` |
 | `CEERSiliconCerts/CEER_Cycle1_Verdict.lean` | `137` | `5,833` | `0o644` | `75324d91a25c2c4b9299ef1e5654451158d64206763dea8af7b61b4cc3266422` |
 | `CEERSiliconCerts/CEER_Cycle2_Theory.lean` | `222` | `11,086` | `0o644` | `11d622de1106c537cf31095163b8cbb140f0a0273049c590970f8bf166de519f` |
 | `CEERSiliconCerts/CEER_Cycle2_Verdict.lean` | `221` | `9,461` | `0o644` | `2942e35865f8ae3d995ecadb8f03ed5727ed533e5a60602f7892bedeccfc4812` |
 | `ceer_actuator.c` | `377` | `12,287` | `0o644` | `a513986df0b65aa9bbac40c3b5ac893d11570c08d9c6f766da1b5c1e57ed46b3` |
-| `ceer_silicon_audit.py` | `1,316` | `54,783` | `0o644` | `d490fbae24c4a2926a008ed616ce9d3bae00594708c6d358a6ecd8d3779a0ff0` |
-| `ceer_silicon_certificate.json` | `1` | `11,121` | `0o600` | `cef74336a38edc2d7c0b05007952690c0f8608607bc800036292aa4642665b53` |
+| `ceer_silicon_audit.py` | `1,317` | `54,851` | `0o644` | `164e74825e50299e486c46cea2bda561695787ef8f59f997f86f1c65f03291c6` |
+| `ceer_silicon_certificate.json` | `1` | `11,201` | `0o600 (git: 100644)` | `2a46bb17e6b108258a67acef7eebd9d2c2dc49f029e5b764d70647dbc0923dae` |
 | `ceer_silicon_oracle.py` | `615` | `26,991` | `0o644` | `a73c82d474de5fcef9c30bc262f570266623dbe53e6ee625ee516c493c9eee2e` |
 | `ceer_silicon_runner.py` | `449` | `16,193` | `0o644` | `9734852393a2dbe217dcc4404f6d2367ebb42579163fbcb60f2ebe350b5dcf0e` |
-| `cycle_0_prereg.json` | `1` | `1,879` | `0o600` | `6551ef9adb5b1be954b72314bbdd743c8c0bb6ff98472732702f5fc369edab7d` |
-| `cycle_0_telemetry.json` | `1` | `201,869` | `0o600` | `6d0333826c23cdaff3643ca12b27b4b34242c31dd2c3cd823ecc23dd697a5a95` |
-| `cycle_1_prereg.json` | `1` | `1,777` | `0o600` | `6a75abdc1ab0efa2662704b11e10ddced86bc507d8582e58a902cc8c50b04d8a` |
-| `cycle_1_telemetry.json` | `1` | `190,864` | `0o600` | `df2993b47a8bd7c88be2cfc4c127adf485431dcd12558438ae3a3205089bf8b6` |
-| `cycle_2_prereg.json` | `1` | `2,004` | `0o600` | `40389e5a4cdd359963edd940ce31c801bf31e2c694e4d146631fd9fcc8268659` |
-| `cycle_2_telemetry.json` | `1` | `179,216` | `0o600` | `ea8939df68e0c8e6883940f8b290817a7def46d99e820dc0b47e43daf6d76278` |
+| `cycle_0_prereg.json` | `1` | `1,879` | `0o600 (git: 100644)` | `8eed5486024c2fc7fd14a00fdd5fe34dd3baa1d34025c045a4e7d0edeabf5e80` |
+| `cycle_0_telemetry.json` | `1` | `201,869` | `0o600 (git: 100644)` | `56de8798a6f0bea39f5261fbad3b1c6d3a04dd2cce33c135a4afc0e3d5b0eaa9` |
+| `cycle_1_prereg.json` | `1` | `1,777` | `0o600 (git: 100644)` | `6a75abdc1ab0efa2662704b11e10ddced86bc507d8582e58a902cc8c50b04d8a` |
+| `cycle_1_telemetry.json` | `1` | `190,864` | `0o600 (git: 100644)` | `df2993b47a8bd7c88be2cfc4c127adf485431dcd12558438ae3a3205089bf8b6` |
+| `cycle_2_prereg.json` | `1` | `2,004` | `0o600 (git: 100644)` | `40389e5a4cdd359963edd940ce31c801bf31e2c694e4d146631fd9fcc8268659` |
+| `cycle_2_telemetry.json` | `1` | `179,216` | `0o600 (git: 100644)` | `ea8939df68e0c8e6883940f8b290817a7def46d99e820dc0b47e43daf6d76278` |
 | `lakefile.toml` | `14` | `383` | `0o644` | `74f8839f29f0947848b2dc17172bed56f17d0ce362600fe350955fcc6c0b12f8` |
 | `lean-toolchain` | `1` | `25` | `0o644` | `582a63f8f9c5128067b688778c1051cf1464c3ca9d57b9325025c051c29b774a` |
-| `mlos_cycle0_receipt.json` | `93` | `2,645` | `0o600` | `61db8181febd2845cb9c0f01b72068409ca17b997927e3f18d9269e25eba1d4b` |
-| `mlos_cycle1_receipt.json` | `93` | `2,645` | `0o600` | `006b598328031366b1ef6ac12ce4f5816c04f48c8d18644fabbbea165ee2c3da` |
-| `mlos_cycle2_receipt.json` | `93` | `2,645` | `0o600` | `37ee49c768fd96a737e323e7844def6dcc640711cfeafbfe33d2b3ddc0a5fa9b` |
-| `test_ceer_silicon_r5.py` | `1,569` | `86,751` | `0o644` | `e991601ed8c495f672e522fb8841a8ddd450148db315c01bd958059a8851c295` |
+| `mlos_cycle0_receipt.json` | `93` | `2,645` | `0o600 (git: 100644)` | `61db8181febd2845cb9c0f01b72068409ca17b997927e3f18d9269e25eba1d4b` |
+| `mlos_cycle1_receipt.json` | `93` | `2,645` | `0o600 (git: 100644)` | `006b598328031366b1ef6ac12ce4f5816c04f48c8d18644fabbbea165ee2c3da` |
+| `mlos_cycle2_receipt.json` | `93` | `2,645` | `0o600 (git: 100644)` | `37ee49c768fd96a737e323e7844def6dcc640711cfeafbfe33d2b3ddc0a5fa9b` |
+| `test_ceer_silicon_r5.py` | `1,569` | `86,751` | `0o644` | `7c40c48b5d9d0836506cdc92cae0d03aed2d50c25c2ff3a18b96f10db66b3bf7` |
