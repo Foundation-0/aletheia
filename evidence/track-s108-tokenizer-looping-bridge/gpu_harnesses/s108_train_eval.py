@@ -26,6 +26,7 @@ import hashlib
 import json
 import math
 import os
+import platform
 from pathlib import Path
 import random
 import re
@@ -1198,7 +1199,16 @@ def run_h8c_experiment(
             "part2_markov_vs_parallel_tf": p2_mk_vs_par_tf,
             "part2_markov_vs_local_ar_tf": p2_mk_vs_ar_tf,
             "part2_verdict": p2_verdict,
+            "part2_exploratory_note": (
+                "PREREG:89 CONFIRMED requires markov>=5% over parallel on multi-domain primary BPB "
+                "AND matching/beating equal-param BPE AND equal total params; the TF coupling leg "
+                "is post-hoc N0 exploratory only."
+            ),
             "part3_verdict": p3_verdict,
+            "part3_exploratory_note": (
+                "PREREG:90/AMENDMENT:6 gate is total wire bits (framing+hash); the payload-only "
+                "result is post-hoc N0 exploratory only."
+            ),
         },
     }
 
@@ -1333,6 +1343,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     protocol: dict[str, Any] = {
         "schema": "aletheia.track_s108.locked_protocol.v1",
+        "harness_interpreter": f"CPython {platform.python_version()}",
         "created_utc": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "parent_preregistration_sha256": ops.PREREG_S108_SHA256,
         "amendment1_sha256": ops.AMENDMENT1_SHA256,

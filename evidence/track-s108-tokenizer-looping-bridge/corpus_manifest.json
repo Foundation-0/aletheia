@@ -11,7 +11,8 @@
       "split_sha256": "c7767b125fd4d942054a261bda43a18f5ec7f92330ae0987b1c5e63f08b6f384",
       "bpe4096_bytes_per_tok": 3.012,
       "rebuildable_on_audit_workstation": false,
-      "reason": "HF cache absent on audit workstation; digest is a lab-recorded value"
+      "reason": "HF cache absent on audit workstation; digest is a lab-recorded value",
+      "recipe": "HuggingFace dataset 'wikitext', config 'wikitext-2-v1': save the validation split as ~/.cache/huggingface/s49b_eval/wikitext2_val.txt and the test split as wikitext2_test.txt; train = first 262144 B of the val file, eval = first 87381 B of the test file, each UTF-8-snapped on character boundaries; split_sha256 = sha256(train + b'\\x00' + eval). The raw wikitext-2 zip (wiki.valid.raw/wiki.test.raw) does NOT reproduce the digest \u2014 the processed HF splits are required."
     },
     "python": {
       "source": "CPython 3.12 stdlib modules, strictly file-disjoint: train ast/fractions/decimal/inspect/difflib vs eval json/argparse/unittest",
@@ -29,7 +30,61 @@
       "split_sha256": "6d5afa8819f4520f7e1e738554871d35c196ee5a88da17b9a6acd22ac008e9a5",
       "bpe4096_bytes_per_tok": 2.238,
       "rebuildable_on_audit_workstation": false,
-      "reason": "publish/bayt-al-hikma resolves nowhere in the 4 repos; digest is a lab-recorded value"
+      "reason": "publish/bayt-al-hikma resolves nowhere in the 4 repos; the local expedition copy (10 files) hashes to a different split digest, so the run-time file set is not recoverable \u2014 the recorded split_sha256 remains the lab value; per-file hashes above are of the currently available tree",
+      "source_files": [
+        {
+          "path": "publish/bayt-al-hikma/PREREGISTERED_HYPOTHESES.md",
+          "bytes": 9086,
+          "sha256": "a28633cb95e66f6b8eb5e1d7cb9224f0ac95ad7aa191edbe8e5532cb08b2468d"
+        },
+        {
+          "path": "publish/bayt-al-hikma/README.md",
+          "bytes": 19921,
+          "sha256": "ce4032a849d821a61aff98b66ef78374ed20e5e517b243b77db9b00a7a35622f"
+        },
+        {
+          "path": "publish/bayt-al-hikma/arabic-continuum/ARABIC_CONTINUUM_AUDIT_REPORT.md",
+          "bytes": 12616,
+          "sha256": "e809204ecde8a0f6fd93b36f18e615552a6f348961ec62d2c7a55038306268a6"
+        },
+        {
+          "path": "publish/bayt-al-hikma/arabic-continuum/arabic_continuum_certificate.json",
+          "bytes": 21058,
+          "sha256": "7081c463ad8ce4cce12f61f29f31f0f4741bbbfb4d43d85824622bcc62ac9069"
+        },
+        {
+          "path": "publish/bayt-al-hikma/arabic-lexicon/ARABIC_LEXICON_TOPOLOGY_REPORT.md",
+          "bytes": 9069,
+          "sha256": "5b3527d80a5b5bc18500973a74bd02693ca7d72dd92deeb506a4ddb349fd7d52"
+        },
+        {
+          "path": "publish/bayt-al-hikma/arabic-lexicon/arabic_lexicon_certificate.json",
+          "bytes": 21659,
+          "sha256": "96d855fac3d017f716adf67f4d8af1a6eb8b620372b93ae5a945ee6a1da62586"
+        },
+        {
+          "path": "publish/bayt-al-hikma/polymath-lineage/BAYT_AL_HIKMA_POLYMATH_REPORT.md",
+          "bytes": 14237,
+          "sha256": "309164abf64ea1a4bb4555f258197e72c439a06778c7d0cac42075bf1805e1b4"
+        },
+        {
+          "path": "publish/bayt-al-hikma/polymath-lineage/bayt_al_hikma_polymath_certificate.json",
+          "bytes": 10013,
+          "sha256": "76fac8902c7f34a92f309f463a8f584bbc1d26e336791819f0adc722778a2688"
+        },
+        {
+          "path": "publish/bayt-al-hikma/veins-and-branches/BAYT_AL_HIKMA_VEINS_AND_BRANCHES_REPORT.md",
+          "bytes": 13597,
+          "sha256": "c016bb3f0d8a13128904147390f4dc9952bd8ec89b00b24c4f5d4f896290bef9"
+        },
+        {
+          "path": "publish/bayt-al-hikma/veins-and-branches/bayt_al_hikma_veins_certificate.json",
+          "bytes": 9547,
+          "sha256": "236c165d9130cfca5565f57a553cdf5eb69b786a6850efda7d2239b6f99e5714"
+        }
+      ],
+      "source_file_count": 10,
+      "split_rule": "sorted file list; train = files with i % 4 != 3 joined by b'\\n', eval = files with i % 4 == 3; each split UTF-8-snapped to 262144 / 87381 B; split_sha256 = sha256(train + b'\\x00' + eval)"
     },
     "abios_calculus": {
       "source": "ABIOS/3 specs, schemas and SYM-2P JSONL agent traces (104 files: 78 train / 26 eval, i % 4 == 3 held out)",
@@ -38,7 +93,8 @@
       "split_sha256": "2773d7b08fba76f5e43b61a20b066b1fe38a8f8d03fbaa964d2cbf1dc1d6c835",
       "bpe4096_bytes_per_tok": 3.076,
       "rebuildable_on_audit_workstation": false,
-      "reason": "publish/abios-wire-lists-lossless-fix resolves nowhere in the 4 repos; digest is a lab-recorded value"
+      "reason": "publish/abios-wire-lists-lossless-fix exists in none of the 4 repos and not on this workstation; no per-file list can be published; the recorded split_sha256 remains the lab value",
+      "split_rule": "sorted file list; train = files with i % 4 != 3 joined by b'\\n', eval = files with i % 4 == 3; each split UTF-8-snapped to 262144 / 87381 B; split_sha256 = sha256(train + b'\\x00' + eval)"
     }
   }
 }

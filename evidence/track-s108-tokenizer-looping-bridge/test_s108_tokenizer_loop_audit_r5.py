@@ -162,15 +162,82 @@ class TestTrackS108TokenizerLoopAuditR5(unittest.TestCase):
                 rc = audit.main(["--check", str(Path(td) / "missing.json")])
             self.assertEqual(rc, 2)
 
+    def _flip_results_and_rebind(self, td_path: Path, track: str, key: str, value: str) -> None:
+        """Flip a recorded grading verdict, re-sign the results AND rebind the receipt, so
+        only the computed-vs-recorded verdict guard (or the bound_results guard when the
+        receipt is left stale) can catch the tamper."""
+        res_p = td_path / f"gpu_results_{track}" / "s108_gpu_full_results.json"
+        res = json.loads(res_p.read_text(encoding="utf-8"))
+        res["results"][track]["grading"][key] = value
+        res["result_sha256"] = audit.canonical_sha256({k: v for k, v in res.items() if k != "result_sha256"})
+        res_p.write_text(json.dumps(res, separators=(",", ":")), encoding="utf-8")
+        rec_p = td_path / f"mlos_zone_b_{track}_receipt.json"
+        rec = json.loads(rec_p.read_text(encoding="utf-8"))
+        rec["bound_results_sha256"] = audit.sha256_file(res_p)
+        rec["receipt_sha256"] = audit.canonical_sha256({k: v for k, v in rec.items() if k != "receipt_sha256"})
+        rec_p.write_text(json.dumps(rec, indent=2), encoding="utf-8")
+
     def test_10_swapped_receipt_fails_closed(self) -> None:
-        # H8c receipt re-signed into the h8a slot: only the bound_protocol_sha256 /
-        # bound_results_sha256 guards can catch it.
+        # H8c receipt re-signed into the h8a slot, with its execution window re-dated (and
+        # re-signed) to bracket the h8a protocol created_utc so the window guard passes:
+        # only the bound_protocol_sha256 / bound_results_sha256 guards can catch it.
         with tempfile.TemporaryDirectory() as td:
             td_path = Path(td)
             _copy_track_tree(td_path)
+            proto = json.loads((td_path / "gpu_results_h8a" / "s108_locked_protocol.json").read_text(encoding="utf-8"))
+            created = str(proto["created_utc"])
             src = json.loads((td_path / "mlos_zone_b_h8c_receipt.json").read_text(encoding="utf-8"))
+            src["execution"]["started_utc"] = "2026-11-25T00:00:00Z"
+            src["execution"]["ended_utc"] = "2026-11-26T00:00:00Z"
+            assert "2026-11-25T00:00:00Z" <= created <= "2026-11-26T00:00:00Z"
             src["receipt_sha256"] = audit.canonical_sha256({k: v for k, v in src.items() if k != "receipt_sha256"})
             (td_path / "mlos_zone_b_h8a_receipt.json").write_text(json.dumps(src, indent=2), encoding="utf-8")
+            with self.assertRaises(audit.S108AuditError):
+                audit.build_certificate(td_path)
+
+    def test_13_h8a_verdict_flip_rebound_fails_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            td_path = Path(td)
+            _copy_track_tree(td_path)
+            self._flip_results_and_rebind(td_path, "h8a", "verdict", "CONFIRMED")
+            with self.assertRaises(audit.S108AuditError):
+                audit.build_certificate(td_path)
+
+    def test_14_h8b_verdict_flip_rebound_fails_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            td_path = Path(td)
+            _copy_track_tree(td_path)
+            self._flip_results_and_rebind(td_path, "h8b", "verdict", "CONFIRMED")
+            with self.assertRaises(audit.S108AuditError):
+                audit.build_certificate(td_path)
+
+    def test_15_h8c_part1_verdict_flip_rebound_fails_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            td_path = Path(td)
+            _copy_track_tree(td_path)
+            self._flip_results_and_rebind(td_path, "h8c", "part1_verdict", "CONFIRMED")
+            with self.assertRaises(audit.S108AuditError):
+                audit.build_certificate(td_path)
+
+    def test_16_h8c_part3_verdict_flip_rebound_fails_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            td_path = Path(td)
+            _copy_track_tree(td_path)
+            self._flip_results_and_rebind(td_path, "h8c", "part3_verdict", "CONFIRMED")
+            with self.assertRaises(audit.S108AuditError):
+                audit.build_certificate(td_path)
+
+    def test_17_results_edit_without_rebind_fails_closed(self) -> None:
+        # Measured value edited and result_sha256 re-signed, but the receipt is NOT rebound:
+        # only the bound_results_sha256 guard can catch it.
+        with tempfile.TemporaryDirectory() as td:
+            td_path = Path(td)
+            _copy_track_tree(td_path)
+            res_p = td_path / "gpu_results_h8b" / "s108_gpu_full_results.json"
+            res = json.loads(res_p.read_text(encoding="utf-8"))
+            res["results"]["h8b"]["arms"]["spherepatch_geodesic2"]["runs"][0]["mean_bpb"] = 9.9
+            res["result_sha256"] = audit.canonical_sha256({k: v for k, v in res.items() if k != "result_sha256"})
+            res_p.write_text(json.dumps(res, separators=(",", ":")), encoding="utf-8")
             with self.assertRaises(audit.S108AuditError):
                 audit.build_certificate(td_path)
 
