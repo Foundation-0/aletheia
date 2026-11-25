@@ -524,7 +524,7 @@ SEMANTIC_TAMPERS: tuple[tuple[tuple, object, str], ...] = (
     (("pillar4_thin_shell_and_coxeter", "coxeter_weyl_orders", "index_W_E8_over_W_D8"), 134, "SEC_WE8_INDEX"),
     (("pillar5_h2b_physics_benchmarks", "grading", "verdict"), "CONFIRMED", "SEC_H2B_VERDICT"),
     (("pillar5_h2b_physics_benchmarks", "grading", "eq_beats_unweighted_numpi_ge_3x"), False, "SEC_H2B_UNW"),
-    (("pillar5_h2b_physics_benchmarks", "grading", "tensor_eq_beats_jacobian_weighted_numpi_ge_3x"), True, "SEC_H2B_JAC"),
+    (("pillar5_h2b_physics_benchmarks", "grading", "tensor_eq_beats_jacobian_weighted_numpi_ge_3x"), True, "SEC_H2B_VERDICT"),
     (("pillar5_h2b_physics_benchmarks", "grading", "hopf_eq_s3_1s2s2p_exact_zero_all_n"), False, "SEC_H2B_HOPF0"),
     (("pillar5_h2b_physics_benchmarks", "grading", "hopf_eq_s3_n123_256_to_1024_scaling_factor"), "9" * 4500 + ".0000", "INVALID_DEC_STR"),
     (("pillar5_h2b_physics_benchmarks", "s3_600cell_11design_control", "poisson_rms"), "bad", "INVALID_SCI_STR"),

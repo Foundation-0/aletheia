@@ -130,5 +130,5 @@ All post-last-edit verification gates passed **`100.0%`** (CPU-only, `0` GPU tou
 | `s106_physics_denom_pi_bench.py` | `720` | `29,370` | `0o644` | `230b76208e6a9f1cbceeffae8d4ed555438380c06fcf7c316a8a77cabd3ecafb` |
 | `s106_sphere_denom_pi_oracle.py` | `464` | `19,841` | `0o644` | `c105f9453e3f7cdafc12558c2e0b340a4f88826fa605dfb87d099cf5dadaf325` |
 | `verify_s106_sphere_denom_pi.py` | `615` | `28,958` | `0o644` | `7804407397177b57fc9e4edf0d7a303350ef91238c011623661394c9aed0b8d1` |
-| `test_s106_sphere_denom_pi_r5.py` | `723` | `40,780` | `0o644` | `17f6c28d0b918e0235adf33c4f92e1d93870bae8024cde57315376728a92554d` |
+| `test_s106_sphere_denom_pi_r5.py` | `723` | `40,784` | `0o644` | `a0e8a58dc71924d1de16f8c963e7ae14cc795419d912c6fc9755ec1e88d504a0` |
 | `s106_formal_physics_certificate.json` | `1` | `20,592` | `0o644` | `bb19e74ca41ad1cb388d3862961ec648ce52df8009cc8fba74d5e94983d6101e` |
