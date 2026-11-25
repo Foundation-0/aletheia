@@ -763,23 +763,37 @@ class TestR9PlusLean4StaticScannerAndLiveKernel(unittest.TestCase):
             audit.verify_lean_modules_live(_THIS_DIR, verify_live_lean=1)  # type: ignore[arg-type]
 
         lean_bin = _find_lean_bin()
-        self.assertIsNotNone(lean_bin, "Lean 4.36.0 binary must be available for live verification")
-        live_res = audit.verify_lean_modules_live(_THIS_DIR, lean_bin=lean_bin, verify_live_lean=True)
-        self.assertTrue(live_res["valid"])
-        self.assertTrue(live_res["live_lean_checked"])
-        self.assertEqual(live_res["kernel_theorems_verified"], 18)
-        self.assertEqual(live_res["zero_axiom_theorems"], 18)
-        self.assertEqual(live_res["banned_axioms_found"], 0)
+        if lean_bin is None:
+            if os.environ.get("ALETHEIA_REQUIRE_LEAN") == "1":
+                self.assertIsNotNone(lean_bin, "Lean 4.36.0 binary must be available for live verification")
+            with self.assertRaises(oracle.S80Error) as c_missing:
+                audit.verify_lean_modules_live(_THIS_DIR, verify_live_lean=True)
+            self.assertEqual(c_missing.exception.code, "LEAN_NOT_FOUND")
+            buf_err = io.StringIO()
+            with mock.patch.object(sys, "stderr", buf_err):
+                self.assertEqual(audit.main(["--verify-lean", str(_THIS_DIR)]), 2)
+            self.assertIn("LEAN_NOT_FOUND", buf_err.getvalue())
+        else:
+            live_res = audit.verify_lean_modules_live(_THIS_DIR, lean_bin=lean_bin, verify_live_lean=True)
+            self.assertTrue(live_res["valid"])
+            self.assertTrue(live_res["live_lean_checked"])
+            self.assertEqual(live_res["kernel_theorems_verified"], 18)
+            self.assertEqual(live_res["zero_axiom_theorems"], 18)
+            self.assertEqual(live_res["banned_axioms_found"], 0)
 
-        with mock.patch.dict(os.environ, {"LEAN_BIN": lean_bin}, clear=False):
-            buf_out = io.StringIO()
-            with mock.patch.object(sys, "stdout", buf_out):
-                self.assertEqual(audit.main(["--verify-lean", str(_THIS_DIR)]), 0)
-                self.assertIn("LEAN_VALID 1 18", buf_out.getvalue())
-            buf_out = io.StringIO()
-            with mock.patch.object(sys, "stdout", buf_out):
-                self.assertEqual(audit.main(["--verify-lean", str(_THIS_DIR), "--json"]), 0)
-                self.assertEqual(json.loads(buf_out.getvalue())["kernel_theorems_verified"], 18)
+            with mock.patch.dict(os.environ, {"LEAN_BIN": lean_bin}, clear=False):
+                buf_out = io.StringIO()
+                with mock.patch.object(sys, "stdout", buf_out):
+                    self.assertEqual(audit.main(["--verify-lean", str(_THIS_DIR)]), 0)
+                    self.assertIn("LEAN_VALID 1 18", buf_out.getvalue())
+                buf_out = io.StringIO()
+                with mock.patch.object(sys, "stdout", buf_out):
+                    self.assertEqual(audit.main(["--verify-lean", str(_THIS_DIR), "--json"]), 0)
+                    self.assertEqual(json.loads(buf_out.getvalue())["kernel_theorems_verified"], 18)
+
+            with mock.patch.dict(os.environ, {"LEAN_BIN": lean_bin}, clear=False):
+                env_res = audit.verify_lean_modules_live(_THIS_DIR, verify_live_lean=True)
+                self.assertTrue(env_res["valid"])
 
         with mock.patch.dict(os.environ, {"LEAN_BIN": ""}, clear=False):
             with mock.patch.object(shutil, "which", return_value=None):
@@ -787,28 +801,25 @@ class TestR9PlusLean4StaticScannerAndLiveKernel(unittest.TestCase):
                     audit.verify_lean_modules_live(_THIS_DIR, verify_live_lean=True)
                 self.assertEqual(c_nf.exception.code, "LEAN_NOT_FOUND")
 
-        with mock.patch.dict(os.environ, {"LEAN_BIN": lean_bin}, clear=False):
-            env_res = audit.verify_lean_modules_live(_THIS_DIR, verify_live_lean=True)
-            self.assertTrue(env_res["valid"])
-
+        mock_lean = lean_bin if lean_bin is not None else "lean"
         with mock.patch.object(subprocess, "run", side_effect=OSError("exec err")):
             with self.assertRaises(oracle.S80Error) as c_os:
-                audit.verify_lean_modules_live(_THIS_DIR, lean_bin=lean_bin, verify_live_lean=True)
+                audit.verify_lean_modules_live(_THIS_DIR, lean_bin=mock_lean, verify_live_lean=True)
             self.assertEqual(c_os.exception.code, "LEAN_EXEC_FAILED")
         with mock.patch.object(subprocess, "run", side_effect=subprocess.TimeoutExpired(["lean"], 120)):
             with self.assertRaises(oracle.S80Error) as c_to:
-                audit.verify_lean_modules_live(_THIS_DIR, lean_bin=lean_bin, verify_live_lean=True)
+                audit.verify_lean_modules_live(_THIS_DIR, lean_bin=mock_lean, verify_live_lean=True)
             self.assertEqual(c_to.exception.code, "LEAN_EXEC_FAILED")
 
         bad_rc = subprocess.CompletedProcess(["lean"], 1, stdout="", stderr="")
         with mock.patch.object(subprocess, "run", return_value=bad_rc):
             with self.assertRaises(oracle.S80Error) as c_rc:
-                audit.verify_lean_modules_live(_THIS_DIR, lean_bin=lean_bin, verify_live_lean=True)
+                audit.verify_lean_modules_live(_THIS_DIR, lean_bin=mock_lean, verify_live_lean=True)
             self.assertEqual(c_rc.exception.code, "LEAN_KERNEL_FAILED")
         bad_err = subprocess.CompletedProcess(["lean"], 0, stdout="", stderr="warning: bad")
         with mock.patch.object(subprocess, "run", return_value=bad_err):
             with self.assertRaises(oracle.S80Error) as c_se:
-                audit.verify_lean_modules_live(_THIS_DIR, lean_bin=lean_bin, verify_live_lean=True)
+                audit.verify_lean_modules_live(_THIS_DIR, lean_bin=mock_lean, verify_live_lean=True)
             self.assertEqual(c_se.exception.code, "LEAN_STDERR_NONEMPTY")
 
         ns = "S80.Test"
@@ -839,16 +850,17 @@ class TestR9PlusLean4StaticScannerAndLiveKernel(unittest.TestCase):
 
         with tempfile.TemporaryDirectory(prefix="s80_live_neg_") as td:
             td_p = Path(td)
-            warn_f = td_p / "Warn.lean"
-            warn_f.write_text(
-                "theorem warn_thm (unused_x : Int) : 1 = 1 := rfl\n#print axioms warn_thm\n",
-                encoding="utf-8",
-            )
-            p_warn = subprocess.run([lean_bin, str(warn_f)], capture_output=True, text=True, timeout=60, check=False)
-            self.assertEqual(p_warn.returncode, 0)
-            with self.assertRaises(oracle.S80Error) as c_wn:
-                audit._verify_lean_stdout_axioms(p_warn.stdout, "", (("warn_thm", ()),))
-            self.assertEqual(c_wn.exception.code, "LEAN_UNEXPECTED_STDOUT")
+            if lean_bin is not None:
+                warn_f = td_p / "Warn.lean"
+                warn_f.write_text(
+                    "theorem warn_thm (unused_x : Int) : 1 = 1 := rfl\n#print axioms warn_thm\n",
+                    encoding="utf-8",
+                )
+                p_warn = subprocess.run([lean_bin, str(warn_f)], capture_output=True, text=True, timeout=60, check=False)
+                self.assertEqual(p_warn.returncode, 0)
+                with self.assertRaises(oracle.S80Error) as c_wn:
+                    audit._verify_lean_stdout_axioms(p_warn.stdout, "", (("warn_thm", ()),))
+                self.assertEqual(c_wn.exception.code, "LEAN_UNEXPECTED_STDOUT")
 
             for fn in ("lean-toolchain", "lakefile.toml", "RocketSongeUnslothLaws.lean"):
                 shutil.copy2(_THIS_DIR / fn, td_p / fn)
