@@ -113,7 +113,8 @@ def _assert_close_stats(recomputed: Dict[str, Any], recorded: Dict[str, Any], la
     require_ok(abs(recomputed["z"] - float(recorded["z"])) <= 2e-3, f"{label}: z mismatch")
 
 
-def verify_mlos_receipt(path: Path) -> Dict[str, Any]:
+def verify_mlos_receipt(path: Path, bound_protocol_sha: str | None = None, bound_results_sha: str | None = None,
+                       proto_created_utc: str | None = None) -> Dict[str, Any]:
     rec = load_json_strict(path)
     require_ok(rec.get("schema") == "mlos-run-receipt/v0.1", f"{path.name}: unexpected mlos schema")
     require_ok(rec.get("clean_hardware_run") is True, f"{path.name}: clean_hardware_run is not True")
@@ -130,6 +131,16 @@ def verify_mlos_receipt(path: Path) -> Dict[str, Any]:
         hmac.compare_digest(canonical_sha256(no_sha), rec_sha),
         f"{path.name}: internal receipt_sha256 mismatch (tampered receipt)",
     )
+    if bound_protocol_sha is not None:
+        require_ok(hmac.compare_digest(str(rec.get("bound_protocol_sha256", "")), bound_protocol_sha),
+                   f"{path.name}: bound_protocol_sha256 does not match this track's locked protocol")
+    if bound_results_sha is not None:
+        require_ok(hmac.compare_digest(str(rec.get("bound_results_sha256", "")), bound_results_sha),
+                   f"{path.name}: bound_results_sha256 does not match this track's results JSON")
+    if proto_created_utc is not None:
+        started = str(exec_meta.get("started_utc", "")); ended = str(exec_meta.get("ended_utc", ""))
+        require_ok(started <= proto_created_utc <= ended,
+                   f"{path.name}: protocol created_utc {proto_created_utc} outside receipt window [{started}, {ended}]")
     return {
         "file": path.name,
         "sha256": sha256_file(path),
@@ -207,8 +218,9 @@ def _extract_seed_ordered(runs: List[Dict[str, Any]], label: str) -> List[Dict[s
 
 
 def audit_h8a(track_dir: Path) -> Dict[str, Any]:
-    _, res, env = verify_track_envelope(track_dir, "h8a")
-    mlos = verify_mlos_receipt(track_dir / "mlos_zone_b_h8a_receipt.json")
+    proto, res, env = verify_track_envelope(track_dir, "h8a")
+    mlos = verify_mlos_receipt(track_dir / "mlos_zone_b_h8a_receipt.json",
+                              env["protocol_file_sha256"], env["results_file_sha256"], str(proto.get("created_utc", "")))
     h8a = res["results"]["h8a"]
     require_ok(h8a.get("vocab_size") == 4096 and h8a.get("n_roots") == 64 and h8a.get("n_patterns") == 64, "H8a vocab factorization mismatch")
 
@@ -281,7 +293,7 @@ def audit_h8a(track_dir: Path) -> Dict[str, Any]:
     )
     en_py_ok = cmp_flat_en["rel_pct"] <= 0.5
     verdict = "CONFIRMED" if (beats_all_3 and en_py_ok) else "FALSIFIED"
-    require_ok(verdict == "FALSIFIED" and rec_grading.get("verdict") == verdict, "H8a verdict mismatch")
+    require_ok(rec_grading.get("verdict") == verdict, "H8a verdict mismatch (computed vs recorded)")
 
     embed_compression = round(float(ref_e) / float(arms["hybrid_kron_sphere"]["params"]["embed_params"]), 4)
     return {
@@ -303,8 +315,9 @@ def audit_h8a(track_dir: Path) -> Dict[str, Any]:
 
 
 def audit_h8b(track_dir: Path) -> Dict[str, Any]:
-    _, res, env = verify_track_envelope(track_dir, "h8b")
-    mlos = verify_mlos_receipt(track_dir / "mlos_zone_b_h8b_receipt.json")
+    proto, res, env = verify_track_envelope(track_dir, "h8b")
+    mlos = verify_mlos_receipt(track_dir / "mlos_zone_b_h8b_receipt.json",
+                              env["protocol_file_sha256"], env["results_file_sha256"], str(proto.get("created_utc", "")))
     h8b = res["results"]["h8b"]
     require_ok(h8b.get("ctx_bytes") == 512, "H8b expected ctx_bytes == 512")
 
@@ -358,7 +371,7 @@ def audit_h8b(track_dir: Path) -> Dict[str, Any]:
         verdict = "FALSIFIED_N0_HNET_EQUIV"
     else:
         verdict = "FALSIFIED"
-    require_ok(verdict == "FALSIFIED" and rec_grading.get("verdict") == verdict, "H8b verdict mismatch")
+    require_ok(rec_grading.get("verdict") == verdict, "H8b verdict mismatch (computed vs recorded)")
 
     td = h8b.get("turing_diagnostic")
     require_ok(isinstance(td, dict), "H8b missing turing_diagnostic")
@@ -405,8 +418,9 @@ def audit_h8b(track_dir: Path) -> Dict[str, Any]:
 
 
 def audit_h8c(track_dir: Path) -> Dict[str, Any]:
-    _, res, env = verify_track_envelope(track_dir, "h8c")
-    mlos = verify_mlos_receipt(track_dir / "mlos_zone_b_h8c_receipt.json")
+    proto, res, env = verify_track_envelope(track_dir, "h8c")
+    mlos = verify_mlos_receipt(track_dir / "mlos_zone_b_h8c_receipt.json",
+                              env["protocol_file_sha256"], env["results_file_sha256"], str(proto.get("created_utc", "")))
     h8c = res["results"]["h8c"]
     rec_grading = h8c["grading"]
 
@@ -445,7 +459,7 @@ def audit_h8c(track_dir: Path) -> Dict[str, Any]:
         if (p1_vs_uni["rel_pct"] <= -2.0 and p1_vs_uni["z"] <= -2.0 and p1_vs_rnd["rel_pct"] <= -2.0 and p1_vs_rnd["z"] <= -2.0)
         else "FALSIFIED"
     )
-    require_ok(p1_verdict == "FALSIFIED" and rec_grading.get("part1_verdict") == p1_verdict, "H8c Part 1 verdict mismatch")
+    require_ok(rec_grading.get("part1_verdict") == p1_verdict, "H8c Part 1 verdict mismatch (computed vs recorded)")
 
     # Part 2: Intra-patch coupling Markov-MTP8 vs Parallel-MTP8 vs LocalAR
     p2 = h8c["part2_mtp8_vs_ar"]
@@ -475,12 +489,22 @@ def audit_h8c(track_dir: Path) -> Dict[str, Any]:
     p2_mk_vs_ar_un = paired_stats([float(r["mtp_bpb_unrolled"]) for r in p2_runs["markov_mtp8"]], [float(r["mtp_bpb_unrolled"]) for r in p2_runs["local_ar"]])
     _assert_close_stats(p2_mk_vs_par, rec_grading["part2_markov_vs_parallel_tf"], "H8c.part2_markov_vs_parallel_tf")
     _assert_close_stats(p2_mk_vs_ar, rec_grading["part2_markov_vs_local_ar_tf"], "H8c.part2_markov_vs_local_ar_tf")
+    # PREREG:89 as written: CONFIRMED requires markov >=5% over parallel on the multi-domain
+    # PRIMARY BPB AND matching/beating equal-total-param BPE AND heads at equal total params
+    # (PREREG:79). The BPE leg was never run and the head params spread ~18%, so the literal
+    # verdict is FALSIFIED; the teacher-forced coupling leg is exploratory only.
+    p2_mk_vs_par_pr = paired_stats([float(r["primary_bpb"]) for r in p2_runs["markov_mtp8"]],
+                                   [float(r["primary_bpb"]) for r in p2_runs["parallel_mtp8"]])
+    p2_params = [p2_summary[hk]["total_params"] for hk in ("local_ar", "markov_mtp8", "parallel_mtp8")]
+    p2_spread = (max(p2_params) - min(p2_params)) / float(min(p2_params))
+    bpe_leg_present = p2.get("bpe_leg") is not None
     p2_verdict = (
         "CONFIRMED"
-        if (p2_mk_vs_par["rel_pct"] <= -5.0 and p2_mk_vs_par["z"] <= -2.0)
-        else ("PARTIAL" if p2_mk_vs_par["mean_diff"] < 0.0 else "FALSIFIED")
+        if (p2_mk_vs_par_pr["rel_pct"] <= -5.0 and p2_mk_vs_par_pr["z"] <= -2.0
+            and bpe_leg_present and p2_spread <= 0.005)
+        else "FALSIFIED"
     )
-    require_ok(p2_verdict == "CONFIRMED" and rec_grading.get("part2_verdict") == p2_verdict, "H8c Part 2 verdict mismatch")
+    require_ok(rec_grading.get("part2_verdict") == p2_verdict, "H8c Part 2 verdict mismatch (computed vs recorded)")
 
     # Part 3: Unconfounded nullmodem Block-8 E8 cell bus
     p3 = h8c["part3_nullmodem"]
@@ -505,16 +529,19 @@ def audit_h8c(track_dir: Path) -> Dict[str, Any]:
     payload_bits = int(p3_runs[0]["arms"]["nullmodem_sphere_cell"]["payload_bits"])
     total_bits = float(p3_runs[0]["arms"]["nullmodem_sphere_cell"]["total_wire_bits"])
 
+    # PREREG:90 + AMENDMENT:6: total wire bits (framing + hash) gate; FALSIFIED if ABIOS/3
+    # matches or beats NullModem at equal bytes. No PARTIAL tier exists in the prereg. The
+    # gauge-gap reduction the prereg requires was never measured. Payload-only bits are
+    # recorded as exploratory below.
+    abios_acc = float(p3_runs[0]["arms"]["abios_3"]["mean_frozen_judge_exact_acc"]) if "mean_frozen_judge_exact_acc" in p3_runs[0]["arms"]["abios_3"] else None
+    gauge_gap = p3.get("gauge_gap_reduction_fraction")
     p3_verdict = (
         "CONFIRMED"
-        if (total_bits < abios_bits and nm_exact >= 0.95 and nm_cf >= 0.95)
-        else (
-            "PARTIAL"
-            if (payload_bits < abios_bits and nm_field >= 0.95 and nm_cf >= 0.95)
-            else "FALSIFIED"
-        )
+        if (total_bits < abios_bits and nm_exact >= 0.95 and nm_cf >= 0.95
+            and gauge_gap is not None and float(gauge_gap) >= 0.5)
+        else "FALSIFIED"
     )
-    require_ok(p3_verdict == "PARTIAL" and rec_grading.get("part3_verdict") == p3_verdict, "H8c Part 3 verdict mismatch")
+    require_ok(rec_grading.get("part3_verdict") == p3_verdict, "H8c Part 3 verdict mismatch (computed vs recorded)")
 
     return {
         "envelope": env,
@@ -533,7 +560,7 @@ def audit_h8c(track_dir: Path) -> Dict[str, Any]:
             "markov_vs_local_ar_tf": p2_mk_vs_ar,
             "markov_vs_local_ar_unrolled": p2_mk_vs_ar_un,
             "verdict": p2_verdict,
-            "vs_local_ar_tf_verdict": "PARTIAL",
+            "vs_local_ar_tf_verdict": "EXPLORATORY_N0",
         },
         "part3_nullmodem": {
             "n_eval_per_seed": int(p3_runs[0]["n_eval"]),

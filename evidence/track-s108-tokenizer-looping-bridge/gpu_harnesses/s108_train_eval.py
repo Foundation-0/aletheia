@@ -136,6 +136,7 @@ def _synthetic_domain_bytes(domain: str, min_bytes: int) -> bytes:
 def load_multidomain_byte_splits(
     max_bytes_per_domain: int = 32_768,
     allow_local_caches: bool = True,
+    fail_closed: bool = False,
 ) -> tuple[dict[str, dict[str, bytes]], dict[str, str]]:
     """Load deterministic, strictly disjoint train/eval UTF-8 byte streams across all 4 domains."""
     expedition_root = _HERE.parent
@@ -152,6 +153,8 @@ def load_multidomain_byte_splits(
             eng_tr = _snap_utf8_slice(wt_val.read_bytes(), 0, max_bytes_per_domain)
             eng_ev = _snap_utf8_slice(wt_test.read_bytes(), 0, eval_cap)
     if len(eng_tr) < 2048 or len(eng_ev) < 1024:
+        if fail_closed:
+            raise RuntimeError("CORPUS_SOURCE_MISSING: english WikiText-2 cache absent; refusing synthetic fallback in gpu-full mode")
         full = _synthetic_domain_bytes("english", max_bytes_per_domain + eval_cap)
         eng_tr = _snap_utf8_slice(full, 0, max_bytes_per_domain)
         eng_ev = _snap_utf8_slice(full, max_bytes_per_domain, max_bytes_per_domain + eval_cap)
@@ -164,6 +167,8 @@ def load_multidomain_byte_splits(
     py_tr = b"\n".join((stdlib_dir / m).read_bytes() for m in py_tr_mods if (stdlib_dir / m).exists())
     py_ev = b"\n".join((stdlib_dir / m).read_bytes() for m in py_ev_mods if (stdlib_dir / m).exists())
     if len(py_tr) < 2048 or len(py_ev) < 1024:
+        if fail_closed:
+            raise RuntimeError("CORPUS_SOURCE_MISSING: python stdlib sources absent; refusing synthetic fallback in gpu-full mode")
         full_p = _synthetic_domain_bytes("python", max_bytes_per_domain + eval_cap)
         py_tr = _snap_utf8_slice(full_p, 0, max_bytes_per_domain)
         py_ev = _snap_utf8_slice(full_p, max_bytes_per_domain, max_bytes_per_domain + eval_cap)
@@ -189,6 +194,8 @@ def load_multidomain_byte_splits(
             ar_tr = _snap_utf8_slice(b"\n".join(tr_parts), 0, max_bytes_per_domain)
             ar_ev = _snap_utf8_slice(b"\n".join(ev_parts), 0, eval_cap)
     if len(ar_tr) < 2048 or len(ar_ev) < 1024:
+        if fail_closed:
+            raise RuntimeError("CORPUS_SOURCE_MISSING: arabic (bayt-al-hikma) sources absent; refusing synthetic fallback in gpu-full mode")
         full_ar = _synthetic_domain_bytes("arabic", max_bytes_per_domain + eval_cap)
         ar_tr = _snap_utf8_slice(full_ar, 0, max_bytes_per_domain)
         ar_ev = _snap_utf8_slice(full_ar, max_bytes_per_domain, max_bytes_per_domain + eval_cap)
@@ -208,6 +215,8 @@ def load_multidomain_byte_splits(
                 ab_tr = _snap_utf8_slice(b"\n".join(tr_ab), 0, max_bytes_per_domain)
                 ab_ev = _snap_utf8_slice(b"\n".join(ev_ab), 0, eval_cap)
     if len(ab_tr) < 2048 or len(ab_ev) < 1024:
+        if fail_closed:
+            raise RuntimeError("CORPUS_SOURCE_MISSING: abios_calculus publish sources absent; refusing synthetic fallback in gpu-full mode")
         full_ab = _synthetic_domain_bytes("abios_calculus", max_bytes_per_domain + eval_cap)
         ab_tr = _snap_utf8_slice(full_ab, 0, max_bytes_per_domain)
         ab_ev = _snap_utf8_slice(full_ab, max_bytes_per_domain, max_bytes_per_domain + eval_cap)
@@ -1307,6 +1316,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     splits, corpus_digests = load_multidomain_byte_splits(
         max_bytes_per_domain=preset["max_bytes_per_domain"],
         allow_local_caches=not args.no_local_caches,
+        fail_closed=(args.mode == "gpu-full"),
     )
 
     protocol: dict[str, Any] = {

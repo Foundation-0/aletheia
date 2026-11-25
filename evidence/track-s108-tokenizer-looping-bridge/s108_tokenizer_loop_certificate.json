@@ -1,5 +1,5 @@
 {
-  "certificate_sha256": "6a68f985fc8e692f76701feecd9cd6a1cc63c67bf5d8b296cfe9ab8af92ffb4b",
+  "certificate_sha256": "62849a4ebe0c5e6659afc606a0cfbe4c20e372a8da99a12e3ef288b6fcdcd880",
   "payload": {
     "amendment1_sha256": "5a9ddf089adb378c339d6f0e85b40cab673e80e6161f0f6725aef52728483194",
     "h8a": {
@@ -122,8 +122,8 @@
         "determinism_zone": "B",
         "exit_code": 0,
         "file": "mlos_zone_b_h8a_receipt.json",
-        "receipt_sha256": "29f54ccbb58dd681585b82fcdca9d52d9a9b8918c013487d3c06731a5ccff4d1",
-        "sha256": "9ec7963ca6bc82446a40975154f0639bf6a0fe5eea4560193af6cfba7ee48606"
+        "receipt_sha256": "6851e433f4269baede89cd12d33a7cba8085492eb25f7e290ef899d5fba70836",
+        "sha256": "0e46085e41a7c088bf5baff18cf03d4ab34cea8462c3476c6fcdb7525439a3b3"
       },
       "runs_count": 18,
       "verdict": "FALSIFIED",
@@ -212,8 +212,8 @@
         "determinism_zone": "B",
         "exit_code": 0,
         "file": "mlos_zone_b_h8b_receipt.json",
-        "receipt_sha256": "6ac0670334f2cbbe8fca961a4d2c01808a7cdb889389782acb46b9cb5366abdf",
-        "sha256": "b5920ca5e91d527bd694397837753581373bd780380c877ced69ba7378f28539"
+        "receipt_sha256": "4c9dffb149c02fd99d481bb929b643007c1fbda1f830490777fab3ee25a54798",
+        "sha256": "2e0f35e218ce9544e2abce1a496624abd564900b49903cd2e746d49652441e20"
       },
       "runs_count": 15,
       "turing_diagnostic": {
@@ -242,9 +242,9 @@
         },
         "protocol_file": "gpu_results_h8c/s108_locked_protocol.json",
         "protocol_file_sha256": "6c832bcf24a6f41c8d8c50b6de60cb31473f42b6b54f7ea0eedd46415d8e2d99",
-        "result_sha256": "c04499a9cc41cae16c330d1df146f9ea4571cc2941bb8a2f62c10efe6d389402",
+        "result_sha256": "2ab0ec261e669c37ba0090e828561fc8f62cd9e3a9389eaac3ca98b7b4cff6d6",
         "results_file": "gpu_results_h8c/s108_gpu_full_results.json",
-        "results_file_sha256": "b65bec15c6cfd8afc515b6d84d62943ae0bac09764f0f6c81968fdb2698a4ead"
+        "results_file_sha256": "b0d0196761a60797d9d0284df68f79d02edac01610684bcf168ebffffa969910"
       },
       "mlos": {
         "anomalies_count": 0,
@@ -252,8 +252,8 @@
         "determinism_zone": "B",
         "exit_code": 0,
         "file": "mlos_zone_b_h8c_receipt.json",
-        "receipt_sha256": "412b280a0e5c6e511cbc5af5f6d86424071f96a8de569ec9cec606977e7d8ea5",
-        "sha256": "5836c7c087c8dac4b96d5b4c381695dc8b56a817b63fc6b9eb3c7930f44019e8"
+        "receipt_sha256": "6da29f20a46c68be66d68e51f9ee04e53708508ce04d06ad57e36aeab80eec4a",
+        "sha256": "7dae4c6150044770082ac0f8f1eeb21a3988f0c8419e25c25d56d4407cc885b8"
       },
       "part1_adaptive_pacing": {
         "adaptive_vs_random": {
@@ -337,8 +337,8 @@
           "se": 0.014013,
           "z": -63.306
         },
-        "verdict": "CONFIRMED",
-        "vs_local_ar_tf_verdict": "PARTIAL"
+        "verdict": "FALSIFIED",
+        "vs_local_ar_tf_verdict": "EXPLORATORY_N0"
       },
       "part3_nullmodem": {
         "abios3_wire_bits": 144.0,
@@ -353,7 +353,7 @@
         "payload_bits": 32,
         "state_entropy_bits": 12.0,
         "total_wire_bits": 352.0,
-        "verdict": "PARTIAL"
+        "verdict": "FALSIFIED"
       },
       "part3_seeds_count": 3,
       "runs_count": 18
@@ -377,15 +377,15 @@
       "H8a": "FALSIFIED",
       "H8b": "FALSIFIED",
       "H8c_Part1": "FALSIFIED",
-      "H8c_Part2": "CONFIRMED",
-      "H8c_Part2_vs_LocalAR": "PARTIAL",
-      "H8c_Part3": "PARTIAL",
+      "H8c_Part2": "FALSIFIED",
+      "H8c_Part2_vs_LocalAR": "EXPLORATORY_N0",
+      "H8c_Part3": "FALSIFIED",
       "n2_claims": 0,
       "weights_saved": 0
     },
     "total_live_gpu_runs": 51,
     "track_id": "track-s108-tokenizer-looping-bridge"
   },
-  "payload_sha256": "729eb7e1be381e7949d2ee89909efd36a7953757270aef22a2ba44d1273d4719",
+  "payload_sha256": "88c42d422378cf9055b2a7173174e51f600ae0bba95db74a24f1cb9a8058f2dc",
   "schema_version": "aletheia.track_s108.tokenizer_looping_bridge.certificate.v1"
 }

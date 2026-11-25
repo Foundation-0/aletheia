@@ -52,9 +52,9 @@ class TestTrackS108TokenizerLoopAuditR5(unittest.TestCase):
         self.assertEqual(sc["H8a"], "FALSIFIED")
         self.assertEqual(sc["H8b"], "FALSIFIED")
         self.assertEqual(sc["H8c_Part1"], "FALSIFIED")
-        self.assertEqual(sc["H8c_Part2"], "CONFIRMED")
-        self.assertEqual(sc["H8c_Part2_vs_LocalAR"], "PARTIAL")
-        self.assertEqual(sc["H8c_Part3"], "PARTIAL")
+        self.assertEqual(sc["H8c_Part2"], "FALSIFIED")  # preregistered gate (BPE leg unrun, params not matched)
+        self.assertEqual(sc["H8c_Part2_vs_LocalAR"], "EXPLORATORY_N0")
+        self.assertEqual(sc["H8c_Part3"], "FALSIFIED")  # preregistered total-wire gate; no PARTIAL tier
         self.assertEqual(sc["n2_claims"], 0)
         self.assertEqual(sc["weights_saved"], 0)
         self.assertAlmostEqual(p["h8a"]["embed_compression_ratio"], 28.9811, places=4)

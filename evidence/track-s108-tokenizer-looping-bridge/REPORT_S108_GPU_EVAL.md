@@ -4,9 +4,9 @@
 - **Date (UTC):** `2026-11-25` | **Owner:** `continuum-bridge`
 - **Hardware & Provenance:** Live bare-metal NVIDIA GeForce RTX 3080 Laptop GPU (`8 GiB` VRAM), serialized via `flock` + `mlos gpu-lease --mode train` + `mlos stamp-run --zone B --require-gpu`, `HF_HUB_OFFLINE=1`, `PYTHONDONTWRITEBYTECODE=1`, `WEIGHTS=0`.
 - **Zone-B Hardware Receipts (`3/3` `clean_hardware_run=true`, `anomalies=[]`):**
-  - `H8a`: `mlos_zone_b_h8a_receipt.json` (`receipt_sha256=29f54ccbb58dd681585b82fcdca9d52d9a9b8918c013487d3c06731a5ccff4d1`, `159.336 s`)
-  - `H8b`: `mlos_zone_b_h8b_receipt.json` (`receipt_sha256=6ac0670334f2cbbe8fca961a4d2c01808a7cdb889389782acb46b9cb5366abdf`, `71.841 s`)
-  - `H8c`: `mlos_zone_b_h8c_receipt.json` (`receipt_sha256=412b280a0e5c6e511cbc5af5f6d86424071f96a8de569ec9cec606977e7d8ea5`, `111.541 s`)
+  - `H8a`: `mlos_zone_b_h8a_receipt.json` (`receipt_sha256=6851e433f4269baede89cd12d33a7cba8085492eb25f7e290ef899d5fba70836`, `159.336 s`)
+  - `H8b`: `mlos_zone_b_h8b_receipt.json` (`receipt_sha256=4c9dffb149c02fd99d481bb929b643007c1fbda1f830490777fab3ee25a54798`, `71.841 s`)
+  - `H8c`: `mlos_zone_b_h8c_receipt.json` (`receipt_sha256=6da29f20a46c68be66d68e51f9ee04e53708508ce04d06ad57e36aeab80eec4a`, `111.541 s`)
 - **GPU Lease & Telemetry:** Pre-run `held=false` (`54 °C`, `2 MiB / 8192 MiB`); Post-run `held=false` (`68 °C`, `2 MiB / 8192 MiB`, `0%` util). Total live GPU time: `342.72 s` (`5m 43s`) across `51` full training runs + `3`-seed Part-3 benchmark (`seeds = [42, 137, 2026]`).
 
 ---
@@ -18,8 +18,8 @@
 | **`H8a`** | Scale-gauge-proof unit-norm Hybrid Kronecker-Spherical `[A_r ⊗ B_p; A_r; B_p]` + `BlockStructuredProj` vs Flat BPE, Rank-1 Kron, RandPair null | **`FALSIFIED`** | Compresses embeddings **`28.98×`** (`1,572,864 -> 54,272`; `-14.85%` total params, `+0.00%` FLOPs), but loses to `flat_bpe` by **`+8.55%` (`z=+30.43`)** on `arabic+abios` (`2.6878` vs `2.4762` BPB) and **`+5.28%` (`z=+35.04`)** on `english+python` (`2.7968` vs `2.6565`); `hybrid_kron_sphere_reinvest` (`L=7`, `-3.31%` params, `+14.00%` FLOPs) still trails (`2.7092`); indistinguishable from `rank1_kron` (`2.6794`, `z=+0.65`) and `randpair` (`2.6819`, `z=+1.07`). |
 | **`H8b`** | Zero-`arccos` 2nd-order parallel-transport geodesic turning vs `H-Net` cosine (`N0`), `BLT-Entropy`, `Fixed-4B`, `BPE-Std` on identical `512 B` UTF-8 windows | **`FALSIFIED`** | Measured **`avg_plen = 1.020`** (`4.9569` BPB — boundary collapse explained geometrically by near-orthogonal adjacent byte tangents on $S^{95}$, where $c_t \approx 0.50$, not separately logged): loses by **`+11.18%` (`z=+6.17`)** vs `hnet_cosine` (`4.4584`), **`+14.10%` (`z=+9.81`)** vs `fixed_byte4` (`4.3443`), **`+17.40%` (`z=+16.16`)** vs `blt_entropy` (`4.2223`), **`+87.85%` (`z=+40.59`)** vs `bpe_std` (`2.6388`). |
 | **`H8c` Part 1** | Exact-budget adaptive loop pacing (`r_bar = 2.0`, `SafeHopfLoopCore`) vs uniform `r = 2` and random `r_bar = 2.0` | **`FALSIFIED`** | Exact `sum(r) == 2N` and contractive `SafeHopfLoopCore` (`rho = 0.88–0.97`) hold cleanly, but `adaptive` (`3.6329` BPB) is indistinguishable from `uniform` (`3.6338`, `-0.026%`, `z=-0.18`) and `random` (`3.6309`, `+0.054%`, `z=+0.54`). |
-| **`H8c` Part 2** | Intra-patch coupling obstruction: `Markov-MTP8` vs independent `Parallel-MTP8` vs non-strawman `LocalAR` byte decoder | **`CONFIRMED`** *(vs Parallel; `PARTIAL` vs `LocalAR`)* | `markov_mtp8` (`3.7008` TF BPB) crushes `parallel_mtp8` (`4.5879`) by **`-19.34%` (`-0.8871` BPB, `z=-63.31`)** while also lowering primary loop-exit BPB (`3.6316` vs `3.6930`). `local_ar` (`1.61M`) leads TF (`3.6088`, `+2.55%`, `z=+6.21`), while `markov_mtp8` resists unrolled exposure-bias drift better (`5.2840` vs `6.0296`, `-12.37%`). |
-| **`H8c` Part 3** | Unconfounded `nullmodem` Block-8 `E_8` `RAM==WIRE==HASH` cell bus vs `English JSON`, `ABIOS/3`, `Direct-Binary` at equal wire bits + frozen judge | **`PARTIAL`** | `100.0%` SHA-256 verified; **`99.74%`** frozen-judge field acc, **`98.96%`** exact 4-field acc, **`99.87%`** counterfactual edit agreement in **`32` payload bits** (`4.5×` smaller than `ABIOS/3` `144` bits, `10.75×` smaller than JSON `344` bits) — **but** the `320`-bit per-cell header+SHA-256 makes single-message total wire `352` bits `> 144` (`ABIOS/3`). |
+| **`H8c` Part 2** | Intra-patch coupling obstruction: `Markov-MTP8` vs independent `Parallel-MTP8` vs non-strawman `LocalAR` byte decoder | **`FALSIFIED`** *(preregistered gate; TF-coupling leg exploratory N0)* | Under PREREG:89 as written: no BPE arm was run at equal total params, head params are `1.61M–1.91M` (spread `18.3%`) vs the preregistered matched `~15M ± 0.5%` budget, and primary loop-exit BPB improves only `-1.66%` (`3.6316` vs `3.6930`, under the `≥ 5%` bar). The TF `MTP-8` coupling leg (`3.7008` vs `4.5879`, `-19.34%`, `z=-63.31`) and unrolled `-12.37%` (`5.2840` vs `6.0296`) survive only as post-hoc exploratory N0; `local_ar` leads TF (`3.6088`, `+2.55%`). |
+| **`H8c` Part 3** | Unconfounded `nullmodem` Block-8 `E_8` `RAM==WIRE==HASH` cell bus vs `English JSON`, `ABIOS/3`, `Direct-Binary` at equal wire bits + frozen judge | **`FALSIFIED`** *(preregistered total-wire gate; payload-only result exploratory N0)* | `100.0%` SHA-256 verified; **`99.74%`** field / **`98.96%`** exact / **`99.87%`** edit acc in **`32` payload bits** — but under `AMENDMENT1 §6` total-wire accounting (payload + framing + hash) single-message wire is **`352` bits `> 144`** (`ABIOS/3`, acc `1.0`), so the preregistered verdict is FALSIFIED and the `≥ 4`-state batching fix is an untested design change; the prereg's required `0.4272` gauge-gap reduction was never measured. |
 
 ---
 
@@ -30,11 +30,11 @@ Every train/eval split is strictly file-disjoint, valid UTF-8, zero synthetic re
 | Domain Key | Source Composition (Strictly File-Disjoint Train vs Eval) | Train Bytes | Eval Bytes | BPE-4096 Bytes/Tok | Split SHA-256 Prefix |
 | :--- | :--- | ---: | ---: | ---: | :--- |
 | `english` | WikiText-2 validation (train) vs WikiText-2 test (eval) | 262,144 | 87,381 | 3.012 | `c7767b125fd4` |
-| `python` | Disjoint Python 3.12 stdlib modules (`ast/fractions/decimal/inspect/difflib` vs `json/argparse/unittest`) | 262,144 | 87,381 | 3.294 | `eb47ed59b433` |
+| `python` | Disjoint Python 3.12 stdlib modules (`ast/fractions/decimal/inspect/difflib` vs `json/argparse/unittest`) — note: the GPU harness ran under **Python 3.14.8**, so this 3.12-stdlib digest is a lab-recorded value; only the `python`-domain split rebuilds byte-exact (`eb47ed59b433`) on the audit workstation | 262,144 | 87,381 | 3.294 | `eb47ed59b433` |
 | `arabic` | Multi-byte UTF-8 Unicode/Arabic/Lean formal corpus (`bayt-al-hikma` reports/JSON + `68` `.lean` files, `i % 4 == 3` held out) | 262,144 | 87,381 | 2.238 | `6d5afa8819f4` |
 | `abios_calculus` | `ABIOS/3` specs, schemas, and `SYM-2P` JSONL agent traces (`104` files: `78` train / `26` eval, `i % 4 == 3` held out) | 262,144 | 87,381 | 3.076 | `2773d7b08fba` |
 
-*Transparency note:* The `arabic` domain evaluates a real non-repeating multi-byte UTF-8 Unicode/Lean/Arabic formal corpus (`2.238` bytes/tok fertility — reproducing the elevated UTF-8 token fragmentation of non-ASCII scripts), rather than standalone classical OpenITI treatises (not cached on this workstation).
+*Transparency note:* The `arabic` domain evaluates a real non-repeating multi-byte UTF-8 Unicode/Lean/Arabic formal corpus (`bayt-al-hikma` markdown/JSON + Lean sources — **not** the prereg's `S92` Classical Arabic, an out-of-band substitution), with `2.238` bytes/tok fertility reproducing elevated UTF-8 token fragmentation of non-ASCII scripts, rather than standalone classical OpenITI treatises (not cached on this workstation). The `english`, `arabic`, and `abios_calculus` split digests (`c7767b125fd4`, `6d5afa8819f4`, `2773d7b08fba`) are lab-recorded values that do not independently re-derive on the audit workstation (HF caches absent); only the `python` domain digest rebuilds byte-exact. In `gpu-full` mode the harness now **fails closed** (`CORPUS_SOURCE_MISSING`) instead of falling back to synthetic bytes when a domain cache is absent.
 
 ---
 
@@ -82,7 +82,7 @@ Config: Identical `512`-byte raw UTF-8 windows across ALL `5` arms (`d_model=256
 - **Strict Causality Note (`BLTAuxEntropyRouter`):** In `DynamicBytePatchLM`, `BLTAuxEntropyRouter` receives the already right-shifted byte sequence (`shifted`), introducing an intentional 1-step lag so boundary decision $b_t$ depends strictly on prior bytes $x_{<t}$ with zero future leakage (verified `<1e-5` streaming-vs-TF parity in `s108_cpu_preflight.py` `test_05`).
 - **Portal-2 Turing Boundary-Nucleation Diagnostic:** Independently verified on `P_32` (`J=[[7,15],[-21/2,-10]]`): differential coupling `D = diag(1, 10)` nucleates cleanly (`growth_ratio = 1.3318`, `num_peaks = 10`, **`mean_boundary_period = 3.2222`**, squarely inside the exact Portal-2 theoretical band `[2.60, 3.45]`), whereas equal diffusion `D = diag(5, 5)` decays identically (`growth_ratio = 0.0`, `nucleated = False`, `num_peaks = 0`, and `mean_boundary_period = 32.0`, the `seq_len` sentinel emitted whenever `< 2` peaks exist).
 
-### 3.3 Track `H8c`: Adaptive Loop Pacing, Markov `MTP-8` vs `LocalAR`, & `nullmodem` Block-8 `E_8` Bus (`gpu_results_h8c/s108_gpu_full_results.json`, `result_sha256=c04499a9…`)
+### 3.3 Track `H8c`: Adaptive Loop Pacing, Markov `MTP-8` vs `LocalAR`, & `nullmodem` Block-8 `E_8` Bus (`gpu_results_h8c/s108_gpu_full_results.json`, `result_sha256=2ab0ec26…`)
 
 #### Part 1 — Exact-Budget Adaptive Loop Pacing (`SafeHopfLoopCore`, `d_model=256`, `350` steps × `B=16`)
 
@@ -98,14 +98,15 @@ Config: Identical `512`-byte raw UTF-8 windows across ALL `5` arms (`d_model=256
 
 | Head Architecture | `P_total` | Primary Loop-Exit BPB | Aux `MTP-8` TF BPB | Aux `MTP-8` Unrolled BPB | Exposure-Bias Drift (`Un - TF`) |
 | :--- | ---: | ---: | ---: | ---: | ---: |
-| `local_ar` (`COLLAB-CLAUDE B6` anchor) | 1,610,119 | **3.6047** | **3.6088** | 6.0296 | +2.4208 |
+| `local_ar` (out-of-band `COLLAB-CLAUDE B6` anchor — not a preregistered arm) | 1,610,119 | **3.6047** | **3.6088** | 6.0296 | +2.4208 |
 | `markov_mtp8` (low-rank Markov) | 1,756,423 | 3.6316 | 3.7008 | 5.2840 | +1.5832 |
 | `parallel_mtp8` (independent) | 1,905,415 | 3.6930 | 4.5879 | **4.5879** | **0.0000** |
 
 - **Paired-seed deltas:**
-  - `markov_mtp8` vs `parallel_mtp8` (TF `MTP-8` BPB): **`-0.8871` BPB (`-19.34%`, `SE=0.0140`, `z=-63.31`)** — **`CONFIRMED`!**
+  - `markov_mtp8` vs `parallel_mtp8` (TF `MTP-8` BPB): **`-0.8871` BPB (`-19.34%`, `SE=0.0140`, `t=-63.31`)** — post-hoc exploratory N0 only; the preregistered Part-2 gate (equal-total-param BPE comparison + `≥ 5%` multi-domain BPB) is **FALSIFIED** (see Deviation Register).
   - `markov_mtp8` vs `local_ar` (TF `MTP-8` BPB): `+0.0920` BPB (`+2.55%`, `z=+6.21`) — `local_ar` wins teacher-forced NLL at fewer params, whereas `markov_mtp8` cuts unrolled exposure-bias BPB by **`-12.37%`** (`5.2840` vs `6.0296`).
-- **Control Scope Disclosure:** `H8c` Part 2 isolates intra-patch byte-head coupling (`local_ar`, `markov_mtp8`, `parallel_mtp8`) on identical byte-patch loop latents; there is no separate BPE arm inside `H8c` Part 2 (`BPE-4096` anchors live in `H8a` and `H8b`).
+- **Control Scope Disclosure:** `H8c` Part 2 isolates intra-patch byte-head coupling (`local_ar`, `markov_mtp8`, `parallel_mtp8`) on identical byte-patch loop latents; there is no separate BPE arm inside `H8c` Part 2 (`BPE-4096` anchors live in `H8a` and `H8b`), so the prereg's equal-total-param BPE comparison was never executed for this track.
+- **Statistics note:** all deltas use paired seeds `n = 3` (`42, 137, 2026`); the reported `z` values are therefore paired-`t` statistics with `df = 2` (a `z` label would assume known variance — with `n = 3` the `t_{0.975,2} = 4.303` critical value applies, and every `|t| > 4.303` reported here remains significant, but `z`-style `±1.96` thresholds would overstate significance).
 
 #### Part 3 — Unconfounded `nullmodem` Block-8 `E_8` `RAM==WIRE==HASH` Cell Bus (`12`-Bit Structured State, `1,024` Samples, `3` Seeds)
 
@@ -116,7 +117,22 @@ Config: Identical `512`-byte raw UTF-8 windows across ALL `5` arms (`d_model=256
 | `english_json` (unauthenticated text) | 344 | 0 | 344.0 | n/a | 1.0000 | 1.0000 | 1.0000 |
 | **`nullmodem_sphere_cell` (`4×E_8`)** | **32** | **320** | **352.0** | **1.0000** | **0.9974** | **0.9896** | **0.9987** |
 
-- **Verdict (`PARTIAL`):** Block-8 `E_8` sphere quantization recovers **`99.74%`** per-field accuracy, **`98.96%`** exact 4-field accuracy, and **`99.87%`** counterfactual latent-edit fidelity in just **`32` payload bits** (`4.5×` smaller payload than `ABIOS/3`, `10.75×` smaller than `English JSON`, `100%` SHA-256 verified). However, under `AMENDMENT1 §6`'s honest total-wire accounting, a standalone `320`-bit header+SHA-256 wrapper pushes single-message wire size to `352` bits (`> 144` bits for unauthenticated `ABIOS/3`). Amortizing one SHA-256 envelope across batched cells (`>= 4` states or `>= 128`-bit latent payloads) is required for total-wire Pareto dominance.
+- **Verdict (`FALSIFIED` under the preregistered gate):** Block-8 `E_8` sphere quantization recovers **`99.74%`** per-field accuracy, **`98.96%`** exact 4-field accuracy, and **`99.87%`** counterfactual latent-edit fidelity in just **`32` payload bits** (`4.5×` smaller payload than `ABIOS/3`, `10.75×` smaller than `English JSON`, `100%` SHA-256 verified) — a genuine post-hoc N0 result. However, under `AMENDMENT1 §6`'s mandatory total-wire accounting (`wire_bits` = framing + hash + quantized payload), the standalone `320`-bit header+SHA-256 wrapper pushes single-message wire to **`352` bits `> 144`** (`ABIOS/3`, acc `1.0`), so `ABIOS/3` dominates on total wire and the preregistered Part-3 verdict is **FALSIFIED**. The proposed `>= 4`-state batching amortization is an untested design change, and the prereg's required `0.4272` gauge-gap measurement was never taken.
+
+---
+
+## 3.4 Preregistration Deviation Register (audit-facing)
+
+| # | Prereg Requirement | As Executed | Deviation |
+| :--- | :--- | :--- | :--- |
+| D1 | Matched total model params `~15M ± 0.5%` across all arms | H8c heads run at `1,610,119 / 1,756,423 / 1,905,415` params (`1.61M–1.91M`) | Budget missed by ~`8–9×`; head-to-head spread `18.3%` `≫ 0.5%` |
+| D2 | Part 2: equal-total-param BPE arm comparison | No BPE arm in `H8c` Part 2 | Gate untestable as run |
+| D3 | Part 2: primary multi-domain BPB improvement `≥ 5%` | `-1.66%` (`3.6316` vs `3.6930`) | Under threshold → FALSIFIED |
+| D4 | `arabic` domain = `S92` Classical Arabic | `bayt-al-hikma` markdown/JSON + Lean sources | Out-of-band substitution |
+| D5 | Part 3: gauge-gap (`0.4272`) reduction measured | Never measured | Missing required control |
+| D6 | Part 3: total wire bits = payload + framing + hash | Reported payload-only `32` bits | Total wire `352` bits `> 144` → FALSIFIED |
+| D7 | `z`-statistics with `n = 3` seeds | Reported as `z` | Actually paired `t`, `df = 2` (`t_{0.975,2} = 4.303`) |
+| D8 | Corpus: WikiText-2 + Python 3.12 stdlib caches | Harness interpreter Python 3.14.8; only `python` digest re-derives byte-exact | `english`/`arabic`/`abios` digests are lab values; `gpu-full` now fails closed (`CORPUS_SOURCE_MISSING`) |
 
 ---
 
