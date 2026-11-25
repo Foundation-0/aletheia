@@ -4,9 +4,9 @@
 - **Date (UTC):** `2026-11-25` | **Owner:** `continuum-bridge`
 - **Hardware & Provenance:** Live bare-metal NVIDIA GeForce RTX 3080 Laptop GPU (`8 GiB` VRAM), serialized via `flock` + `mlos gpu-lease --mode train` + `mlos stamp-run --zone B --require-gpu`, `HF_HUB_OFFLINE=1`, `PYTHONDONTWRITEBYTECODE=1`, `WEIGHTS=0`.
 - **Zone-B Hardware Receipts (`3/3` `clean_hardware_run=true`, `anomalies=[]`):**
-  - `H8a`: `mlos_zone_b_h8a_receipt.json` (`receipt_sha256=6851e433f4269baede89cd12d33a7cba8085492eb25f7e290ef899d5fba70836`, `159.336 s`)
-  - `H8b`: `mlos_zone_b_h8b_receipt.json` (`receipt_sha256=4c9dffb149c02fd99d481bb929b643007c1fbda1f830490777fab3ee25a54798`, `71.841 s`)
-  - `H8c`: `mlos_zone_b_h8c_receipt.json` (`receipt_sha256=6da29f20a46c68be66d68e51f9ee04e53708508ce04d06ad57e36aeab80eec4a`, `111.541 s`)
+  - `H8a`: `mlos_zone_b_h8a_receipt.json` (`receipt_sha256=d5cd2703f3d21fcf38a344cf1030e2f297810077d9a2c8d30438867adda5439a`, `159.336 s`)
+  - `H8b`: `mlos_zone_b_h8b_receipt.json` (`receipt_sha256=deff7ac71176175258109219e1c51c6c0c99ce60f7b7c868f58d751187ea4909`, `71.841 s`)
+  - `H8c`: `mlos_zone_b_h8c_receipt.json` (`receipt_sha256=1cea02ffa9b8a10ab8e17e8481d9a4e20f553e2d1fa8edd815769dd08dec75aa`, `111.541 s`)
 - **GPU Lease & Telemetry:** Pre-run `held=false` (`54 °C`, `2 MiB / 8192 MiB`); Post-run `held=false` (`68 °C`, `2 MiB / 8192 MiB`, `0%` util). Total live GPU time: `342.72 s` (`5m 43s`) across `51` full training runs + `3`-seed Part-3 benchmark (`seeds = [42, 137, 2026]`).
 
 ---
@@ -30,7 +30,7 @@ Every train/eval split is strictly file-disjoint, valid UTF-8, zero synthetic re
 | Domain Key | Source Composition (Strictly File-Disjoint Train vs Eval) | Train Bytes | Eval Bytes | BPE-4096 Bytes/Tok | Split SHA-256 Prefix |
 | :--- | :--- | ---: | ---: | ---: | :--- |
 | `english` | WikiText-2 validation (train) vs WikiText-2 test (eval) | 262,144 | 87,381 | 3.012 | `c7767b125fd4` |
-| `python` | Disjoint Python 3.12 stdlib modules (`ast/fractions/decimal/inspect/difflib` vs `json/argparse/unittest`) — note: the GPU harness ran under **Python 3.14.8**, so this 3.12-stdlib digest is a lab-recorded value; only the `python`-domain split rebuilds byte-exact (`eb47ed59b433`) on the audit workstation | 262,144 | 87,381 | 3.294 | `eb47ed59b433` |
+| `python` | Disjoint Python 3.12 stdlib modules (`ast/fractions/decimal/inspect/difflib` vs `json/argparse/unittest`) — note: the GPU harness ran under **CPython 3.12.x** (digest-proven: this split rebuilds byte-exact on 3.12.10/11/12, not on 3.14.8; 3.14.8 is the mlos receipt interpreter); `corpus_manifest.json` carries the full per-domain manifest and recipes | 262,144 | 87,381 | 3.294 | `eb47ed59b433` |
 | `arabic` | Multi-byte UTF-8 Unicode/Arabic/Lean formal corpus (`bayt-al-hikma` reports/JSON + `68` `.lean` files, `i % 4 == 3` held out) | 262,144 | 87,381 | 2.238 | `6d5afa8819f4` |
 | `abios_calculus` | `ABIOS/3` specs, schemas, and `SYM-2P` JSONL agent traces (`104` files: `78` train / `26` eval, `i % 4 == 3` held out) | 262,144 | 87,381 | 3.076 | `2773d7b08fba` |
 
@@ -40,7 +40,7 @@ Every train/eval split is strictly file-disjoint, valid UTF-8, zero synthetic re
 
 ## 3. Detailed Results & Mechanistic Analysis
 
-### 3.1 Track `H8a`: Hybrid Kronecker-Spherical Embeddings (`gpu_results_h8a/s108_gpu_full_results.json`, `result_sha256=50b17238…`)
+### 3.1 Track `H8a`: Hybrid Kronecker-Spherical Embeddings (`gpu_results_h8a/s108_gpu_full_results.json`, `result_sha256=704f2bef…`)
 
 Config: `V=4,096` (`64 × 64` injective morph-structural factorization), `d_a=d_b=16`, `d_model=384`, `n_heads=6`, `L=6` (`L=7` for iso-param `hybrid_kron_sphere_reinvest`), `batch_size=16`, `seq_tok=256`, `400` steps (`bf16` autocast, cosine LR with 10% warmup), evaluated in `fp32` on `32 × 512 B` held-out UTF-8 windows per domain.
 
@@ -61,7 +61,7 @@ Config: `V=4,096` (`64 × 64` injective morph-structural factorization), `d_a=d_
   - vs `hybrid_kron_randpair` (`ar+abios`): `+0.0059` BPB (`+0.22%`, `z=+1.07`) — byte-hash morph factoring did not beat random bijective pairs.
 - **Finding (`FALSIFIED`):** The `AMENDMENT1 §4` unit-normalized block-weighted repair genuinely eliminates scale-gauge collapse (`s108_cpu_preflight.py` Gate 2) and compresses the input table `28.98×` (`1,572,864 -> 54,272`), **but** compressing input embeddings under an untied `4,096`-way flat `lm_head` imposes a clear `+5.28%` to `+8.55%` BPB penalty that adding `+1` transformer layer (`+14.00%` FLOPs) did not recover in `400` steps. Furthermore, `flat_bpe_sphere` (`2.5680`) matches `flat_bpe` (`2.5663`), confirming `C_row(E)=1` is not hybrid-exclusive.
 
-### 3.2 Track `H8b`: 2nd-Order Geodesic Curvature vs `H-Net` Cosine (`N0`) & `BLT-Entropy` (`gpu_results_h8b/s108_gpu_full_results.json`, `result_sha256=10200bbb…`)
+### 3.2 Track `H8b`: 2nd-Order Geodesic Curvature vs `H-Net` Cosine (`N0`) & `BLT-Entropy` (`gpu_results_h8b/s108_gpu_full_results.json`, `result_sha256=b397ebda…`)
 
 Config: Identical `512`-byte raw UTF-8 windows across ALL `5` arms (`d_model=256, L=4, n_heads=4, d_b=96, batch_size=16, 400 steps`), zero `arccos` calls anywhere in the graph, strict causality verified (`<1e-5` streaming-vs-TF BPB).
 
@@ -82,7 +82,7 @@ Config: Identical `512`-byte raw UTF-8 windows across ALL `5` arms (`d_model=256
 - **Strict Causality Note (`BLTAuxEntropyRouter`):** In `DynamicBytePatchLM`, `BLTAuxEntropyRouter` receives the already right-shifted byte sequence (`shifted`), introducing an intentional 1-step lag so boundary decision $b_t$ depends strictly on prior bytes $x_{<t}$ with zero future leakage (verified `<1e-5` streaming-vs-TF parity in `s108_cpu_preflight.py` `test_05`).
 - **Portal-2 Turing Boundary-Nucleation Diagnostic:** Independently verified on `P_32` (`J=[[7,15],[-21/2,-10]]`): differential coupling `D = diag(1, 10)` nucleates cleanly (`growth_ratio = 1.3318`, `num_peaks = 10`, **`mean_boundary_period = 3.2222`**, squarely inside the exact Portal-2 theoretical band `[2.60, 3.45]`), whereas equal diffusion `D = diag(5, 5)` decays identically (`growth_ratio = 0.0`, `nucleated = False`, `num_peaks = 0`, and `mean_boundary_period = 32.0`, the `seq_len` sentinel emitted whenever `< 2` peaks exist).
 
-### 3.3 Track `H8c`: Adaptive Loop Pacing, Markov `MTP-8` vs `LocalAR`, & `nullmodem` Block-8 `E_8` Bus (`gpu_results_h8c/s108_gpu_full_results.json`, `result_sha256=2ab0ec26…`)
+### 3.3 Track `H8c`: Adaptive Loop Pacing, Markov `MTP-8` vs `LocalAR`, & `nullmodem` Block-8 `E_8` Bus (`gpu_results_h8c/s108_gpu_full_results.json`, `result_sha256=3e60b8f4…`)
 
 #### Part 1 — Exact-Budget Adaptive Loop Pacing (`SafeHopfLoopCore`, `d_model=256`, `350` steps × `B=16`)
 
@@ -132,7 +132,10 @@ Config: Identical `512`-byte raw UTF-8 windows across ALL `5` arms (`d_model=256
 | D5 | Part 3: gauge-gap (`0.4272`) reduction measured | Never measured | Missing required control |
 | D6 | Part 3: total wire bits = payload + framing + hash | Reported payload-only `32` bits | Total wire `352` bits `> 144` → FALSIFIED |
 | D7 | `z`-statistics with `n = 3` seeds | Reported as `z` | Actually paired `t`, `df = 2` (`t_{0.975,2} = 4.303`) |
-| D8 | Corpus: WikiText-2 + Python 3.12 stdlib caches | Harness interpreter Python 3.14.8; only `python` digest re-derives byte-exact | `english`/`arabic`/`abios` digests are lab values; `gpu-full` now fails closed (`CORPUS_SOURCE_MISSING`) |
+| D8 | Corpus: WikiText-2 + Python 3.12 stdlib caches | Harness interpreter **CPython 3.12.x** (digest-proven); mlos receipts record CPython 3.14.8; both now recorded in each `s108_locked_protocol.json` (`harness_interpreter` / `mlos_interpreter`) and in `corpus_manifest.json` | `english`/`arabic`/`abios` digests are lab values (per-domain manifest shipped in `corpus_manifest.json`); `gpu-full` fails closed (`CORPUS_SOURCE_MISSING`) |
+| D9 | No post-run edits to run artifacts | Results `grading` verdicts + exploratory notes, receipt `bound_*` fields, and protocol interpreter fields were edited **post-run** and re-signed; harness grading now mirrors the audit gates at this head | Measured values untouched (reviewer diffed key-by-key); full-chain unkeyed re-sign remains an inherent residual (Low) |
+| D10 | AMENDMENT1 §6: independent frozen judge across ALL arms | `ABIOS/3` and `English JSON` arms are scored by `lossless_text_acc` (text-equality), not an independent frozen judge; the audit gate now uses that accuracy (`nm_exact >= abios_acc`) | Judge confound for those two arms disclosed |
+| D11 | Matched total params `~15M ± 0.5%` across all arms | H8b `bpe_std` ran at `4,196,608` vs `2,217,602` params for the other H8b arms (REPORT:70) | H8b param mismatch disclosed |
 
 ---
 
@@ -141,6 +144,6 @@ Config: Identical `512`-byte raw UTF-8 windows across ALL `5` arms (`d_model=256
 - **CPU Pre-Flight Suite (`s108_cpu_preflight.py`, `CUDA_VISIBLE_DEVICES=""`):** `7/7 OK` across all 3 isolated `-I` modes (`-I -B`, `-I -O -B`, `-I -B -W error`, bit-identical R4 stdout); zero bare `assert`s; zero `acos`/`arccos` calls.
 - **Dual `aletheia audit-check --strict-ancestors --safety-scan --scripts s108_cpu_preflight.py` (`aletheia-fix-lean-gates-v2` & `aletheia-fast-mutate`):** `PASS ×2` (`r4_scripts_passed=1/1`, `bare_assert=0, crlf=0, leak=0, pycache=0, safety_findings=0, ancestors=0`).
 - **Artifacts (`WEIGHTS=0`, `0` GitHub pushes):**
-  - `s108_tokenizer_loop_ops.py`, `s108_train_eval.py`, `s108_cpu_preflight.py`, `REPORT_S108_GPU_EVAL.md`
+  - `s108_tokenizer_loop_ops.py`, `s108_train_eval.py`, `s108_cpu_preflight.py`, `REPORT_S108_GPU_EVAL.md`, `corpus_manifest.json`
   - `mlos_zone_b_h8a_receipt.json`, `mlos_zone_b_h8b_receipt.json`, `mlos_zone_b_h8c_receipt.json`
   - `gpu_results_h8a/`, `gpu_results_h8b/`, `gpu_results_h8c/` (each containing `s108_locked_protocol.json` and `s108_gpu_full_results.json`)

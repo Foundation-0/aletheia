@@ -1,0 +1,44 @@
+{
+  "schema": "aletheia.track_s108.corpus_manifest.v1",
+  "note": "Recorded corpus inputs for the 51-run gpu-full evaluation. Only the python domain rebuilds byte-exact on an audit workstation; the other three digests are lab-recorded values whose source files resolve nowhere in the 4 repos (foundation-0/aletheia, Moissanite-Labs/siliquant, math0, cave-expedition). gpu-full mode fails closed (CORPUS_SOURCE_MISSING) when a cache is absent.",
+  "harness_interpreter": "CPython 3.12.x (digest-proven: python-domain split sha256 eb47ed59b433... rebuilds byte-exact on CPython 3.12.10/11/12, not on 3.14.8)",
+  "mlos_receipt_interpreter": "CPython 3.14.8",
+  "domains": {
+    "english": {
+      "source": "WikiText-2 validation split (train) vs WikiText-2 test split (eval), HuggingFace cache",
+      "train_bytes": 262144,
+      "eval_bytes": 87381,
+      "split_sha256": "c7767b125fd4d942054a261bda43a18f5ec7f92330ae0987b1c5e63f08b6f384",
+      "bpe4096_bytes_per_tok": 3.012,
+      "rebuildable_on_audit_workstation": false,
+      "reason": "HF cache absent on audit workstation; digest is a lab-recorded value"
+    },
+    "python": {
+      "source": "CPython 3.12 stdlib modules, strictly file-disjoint: train ast/fractions/decimal/inspect/difflib vs eval json/argparse/unittest",
+      "train_bytes": 262144,
+      "eval_bytes": 87381,
+      "split_sha256": "eb47ed59b433f743048487d61734377947b64845ca29bffa247010d029ede340",
+      "bpe4096_bytes_per_tok": 3.294,
+      "rebuildable_on_audit_workstation": true,
+      "recipe": "Concatenate the named CPython 3.12 stdlib .py sources per split in sorted order, truncate train to 262144 B and eval to 87381 B; sha256 of the concatenated split stream must equal split_sha256 (verified byte-exact on CPython 3.12.10/3.12.11/3.12.12)."
+    },
+    "arabic": {
+      "source": "bayt-al-hikma markdown/JSON reports + 68 .lean files (i % 4 == 3 held out for eval); NOT the prereg's S92 Classical Arabic (out-of-band substitution, deviation D4)",
+      "train_bytes": 262144,
+      "eval_bytes": 87381,
+      "split_sha256": "6d5afa8819f4520f7e1e738554871d35c196ee5a88da17b9a6acd22ac008e9a5",
+      "bpe4096_bytes_per_tok": 2.238,
+      "rebuildable_on_audit_workstation": false,
+      "reason": "publish/bayt-al-hikma resolves nowhere in the 4 repos; digest is a lab-recorded value"
+    },
+    "abios_calculus": {
+      "source": "ABIOS/3 specs, schemas and SYM-2P JSONL agent traces (104 files: 78 train / 26 eval, i % 4 == 3 held out)",
+      "train_bytes": 262144,
+      "eval_bytes": 87381,
+      "split_sha256": "2773d7b08fba76f5e43b61a20b066b1fe38a8f8d03fbaa964d2cbf1dc1d6c835",
+      "bpe4096_bytes_per_tok": 3.076,
+      "rebuildable_on_audit_workstation": false,
+      "reason": "publish/abios-wire-lists-lossless-fix resolves nowhere in the 4 repos; digest is a lab-recorded value"
+    }
+  }
+}

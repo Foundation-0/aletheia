@@ -162,6 +162,52 @@ class TestTrackS108TokenizerLoopAuditR5(unittest.TestCase):
                 rc = audit.main(["--check", str(Path(td) / "missing.json")])
             self.assertEqual(rc, 2)
 
+    def test_10_swapped_receipt_fails_closed(self) -> None:
+        # H8c receipt re-signed into the h8a slot: only the bound_protocol_sha256 /
+        # bound_results_sha256 guards can catch it.
+        with tempfile.TemporaryDirectory() as td:
+            td_path = Path(td)
+            _copy_track_tree(td_path)
+            src = json.loads((td_path / "mlos_zone_b_h8c_receipt.json").read_text(encoding="utf-8"))
+            src["receipt_sha256"] = audit.canonical_sha256({k: v for k, v in src.items() if k != "receipt_sha256"})
+            (td_path / "mlos_zone_b_h8a_receipt.json").write_text(json.dumps(src, indent=2), encoding="utf-8")
+            with self.assertRaises(audit.S108AuditError):
+                audit.build_certificate(td_path)
+
+    def test_11_redated_receipt_fails_closed(self) -> None:
+        # Receipt re-dated (and re-signed) so the protocol created_utc falls outside the
+        # execution window: only the window guard can catch it.
+        with tempfile.TemporaryDirectory() as td:
+            td_path = Path(td)
+            _copy_track_tree(td_path)
+            rec_p = td_path / "mlos_zone_b_h8b_receipt.json"
+            rec = json.loads(rec_p.read_text(encoding="utf-8"))
+            rec["execution"]["started_utc"] = "2026-11-20T00:00:00Z"
+            rec["execution"]["ended_utc"] = "2026-11-20T01:00:00Z"
+            rec["receipt_sha256"] = audit.canonical_sha256({k: v for k, v in rec.items() if k != "receipt_sha256"})
+            rec_p.write_text(json.dumps(rec, indent=2), encoding="utf-8")
+            with self.assertRaises(audit.S108AuditError):
+                audit.build_certificate(td_path)
+
+    def test_12_recorded_verdict_flip_rebound_fails_closed(self) -> None:
+        # part2_verdict flipped to CONFIRMED, results re-signed AND the h8c receipt rebound to
+        # the new results file: only the computed-vs-recorded verdict guard can catch it.
+        with tempfile.TemporaryDirectory() as td:
+            td_path = Path(td)
+            _copy_track_tree(td_path)
+            res_p = td_path / "gpu_results_h8c" / "s108_gpu_full_results.json"
+            res = json.loads(res_p.read_text(encoding="utf-8"))
+            res["results"]["h8c"]["grading"]["part2_verdict"] = "CONFIRMED"
+            res["result_sha256"] = audit.canonical_sha256({k: v for k, v in res.items() if k != "result_sha256"})
+            res_p.write_text(json.dumps(res, separators=(",", ":")), encoding="utf-8")
+            rec_p = td_path / "mlos_zone_b_h8c_receipt.json"
+            rec = json.loads(rec_p.read_text(encoding="utf-8"))
+            rec["bound_results_sha256"] = audit.sha256_file(res_p)
+            rec["receipt_sha256"] = audit.canonical_sha256({k: v for k, v in rec.items() if k != "receipt_sha256"})
+            rec_p.write_text(json.dumps(rec, indent=2), encoding="utf-8")
+            with self.assertRaises(audit.S108AuditError):
+                audit.build_certificate(td_path)
+
 
 if __name__ == "__main__":
     unittest.main()

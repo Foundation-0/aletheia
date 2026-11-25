@@ -523,21 +523,32 @@ def audit_h8c(track_dir: Path) -> Dict[str, Any]:
     require_ok(abs(nm_exact - float(rec_p3_mean["frozen_judge_exact_acc"])) <= 2e-6, "H8c.P3: exact acc mean mismatch")
     require_ok(abs(nm_cf - float(rec_p3_mean["counterfactual_edit_acc"])) <= 2e-6, "H8c.P3: counterfactual acc mean mismatch")
 
-    abios_bits = float(p3_runs[0]["arms"]["abios_3"]["mean_wire_bits"])
-    json_bits = float(p3_runs[0]["arms"]["english_json"]["mean_wire_bits"])
-    bin_bits = float(p3_runs[0]["arms"]["direct_binary_oracle"]["mean_wire_bits"])
+    # Gate on ALL seeds (worst case), not seed 0 only.
+    abios_bits = min(float(r["arms"]["abios_3"]["mean_wire_bits"]) for r in p3_runs)
+    json_bits = min(float(r["arms"]["english_json"]["mean_wire_bits"]) for r in p3_runs)
+    bin_bits = min(float(r["arms"]["direct_binary_oracle"]["mean_wire_bits"]) for r in p3_runs)
     payload_bits = int(p3_runs[0]["arms"]["nullmodem_sphere_cell"]["payload_bits"])
-    total_bits = float(p3_runs[0]["arms"]["nullmodem_sphere_cell"]["total_wire_bits"])
+    total_bits = max(float(r["arms"]["nullmodem_sphere_cell"]["total_wire_bits"]) for r in p3_runs)
 
     # PREREG:90 + AMENDMENT:6: total wire bits (framing + hash) gate; FALSIFIED if ABIOS/3
     # matches or beats NullModem at equal bytes. No PARTIAL tier exists in the prereg. The
     # gauge-gap reduction the prereg requires was never measured. Payload-only bits are
     # recorded as exploratory below.
-    abios_acc = float(p3_runs[0]["arms"]["abios_3"]["mean_frozen_judge_exact_acc"]) if "mean_frozen_judge_exact_acc" in p3_runs[0]["arms"]["abios_3"] else None
+    # ABIOS/3 + English-JSON arms are scored by lossless text-equality (they have no frozen
+    # judge); use that accuracy in the gate (deviation register D10 discloses this).
+    abios_accs = []
+    for r in p3_runs:
+        arm = r["arms"]["abios_3"]
+        if "mean_frozen_judge_exact_acc" in arm:
+            abios_accs.append(float(arm["mean_frozen_judge_exact_acc"]))
+        elif "lossless_text_acc" in arm:
+            abios_accs.append(float(arm["lossless_text_acc"]))
+    abios_acc = max(abios_accs) if abios_accs else None
     gauge_gap = p3.get("gauge_gap_reduction_fraction")
     p3_verdict = (
         "CONFIRMED"
         if (total_bits < abios_bits and nm_exact >= 0.95 and nm_cf >= 0.95
+            and (abios_acc is None or nm_exact >= abios_acc)
             and gauge_gap is not None and float(gauge_gap) >= 0.5)
         else "FALSIFIED"
     )

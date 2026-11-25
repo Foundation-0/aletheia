@@ -1131,10 +1131,20 @@ def run_h8c_experiment(
         [r["mtp_bpb_tf"] for r in part2_out["markov_mtp8"]["runs"]],
         [r["mtp_bpb_tf"] for r in part2_out["local_ar"]["runs"]],
     )
+    # PREREG:89/79 gate (mirrors s108_tokenizer_loop_audit.py): CONFIRMED requires >=5% on
+    # PRIMARY multi-domain BPB vs parallel AND an equal-total-param BPE leg AND head param
+    # spread <= 0.5%. No PARTIAL tier; the teacher-forced leg stays recorded as exploratory.
+    p2_mk_vs_par_pr = _paired_stats(
+        [r["primary_bpb"] for r in part2_out["markov_mtp8"]["runs"]],
+        [r["primary_bpb"] for r in part2_out["parallel_mtp8"]["runs"]],
+    )
+    p2_params = [int(part2_out[h]["params"]["total_params"]) for h in ("local_ar", "markov_mtp8", "parallel_mtp8")]
+    p2_spread = (max(p2_params) - min(p2_params)) / float(min(p2_params))
     p2_verdict = (
         "CONFIRMED"
-        if (p2_mk_vs_par_tf["rel_pct"] <= -5.0 and p2_mk_vs_par_tf["z"] <= -2.0)
-        else ("PARTIAL" if p2_mk_vs_par_tf["mean_diff"] < 0.0 else "FALSIFIED")
+        if (p2_mk_vs_par_pr["rel_pct"] <= -5.0 and p2_mk_vs_par_pr["z"] <= -2.0
+            and part2_out.get("bpe_leg") is not None and p2_spread <= 0.005)
+        else "FALSIFIED"
     )
 
     p3_runs = [
@@ -1164,15 +1174,17 @@ def run_h8c_experiment(
         "english_json_wire_bits": p3_runs[0]["arms"]["english_json"]["mean_wire_bits"],
         "direct_binary_oracle_bits": p3_runs[0]["arms"]["direct_binary_oracle"]["mean_wire_bits"],
     }
-    # Honest Amendment-1 §6 wire-bit verdict: total_wire_bits includes 320-bit framing+SHA256!
+    # PREREG:90 + AMENDMENT1 §6 total-wire gate (mirrors the audit): total_wire_bits includes
+    # the 320-bit framing+SHA256. No PARTIAL tier; the payload-only leg stays exploratory.
+    # The prereg's required gauge-gap reduction was never measured -> gate fails closed.
+    nm_total_bits_all = max(float(r["arms"]["nullmodem_sphere_cell"]["total_wire_bits"]) for r in p3_runs)
+    abios_bits_all = min(float(r["arms"]["abios_3"]["mean_wire_bits"]) for r in p3_runs)
+    gauge_gap = p3_summary.get("gauge_gap_reduction_fraction")
     p3_verdict = (
         "CONFIRMED"
-        if (nm_total_bits < abios_bits and nm_exact_mean >= 0.95 and nm_cf_mean >= 0.95)
-        else (
-            "PARTIAL"
-            if (p3_runs[0]["arms"]["nullmodem_sphere_cell"]["payload_bits"] < abios_bits and nm_field_mean >= 0.95 and nm_cf_mean >= 0.95)
-            else "FALSIFIED"
-        )
+        if (nm_total_bits_all < abios_bits_all and nm_exact_mean >= 0.95 and nm_cf_mean >= 0.95
+            and gauge_gap is not None and float(gauge_gap) >= 0.5)
+        else "FALSIFIED"
     )
 
     return {
