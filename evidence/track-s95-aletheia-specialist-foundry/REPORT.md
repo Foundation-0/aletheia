@@ -1,9 +1,9 @@
 # Track S95 — Local Aletheia Specialist Foundry & Live RTX 3080 Beyond-LoRA Matched-Budget Showdown
 
 **Schema:** `aletheia.track_s95.specialist_foundry.v1`  
-**Certificate Envelope SHA-256:** `43ac437b64fb71c46972337249d6a7ee72dcfa33498bd5fb86b86f7f99befe2e`  
-**Certificate File SHA-256:** `b6cee3035ea86edeb4d33ad2cbf7cebcab0284b53b24e044b3cf9ee0f2f8d93d`  
-**Payload SHA-256:** `18fce09c589a915aa04e61c0cfec64600aa57dbf2f7781683d72604f5d5ad7c8`  
+**Certificate Envelope SHA-256:** `5b3de57787c55d5ae5e7a428a4871ba662f63686a602f945aa825f32e48b996b`  
+**Certificate File SHA-256:** `acfc5c01b95a030919a5c541f3bd2184e16fa56285de41f6ae78d4f4d0041052`  
+**Payload SHA-256:** `52085dabc282c94ae77d4d715fa32c64d3d9b26187d5b30fcbf2515b8d8c6afb`  
 **Live Hardware Receipt:** [mlos_zone_b_receipt.json](mlos_zone_b_receipt.json) (`d1ac6ab658a6f6c748b9f67bc73967d96ed5b9536dd44a870ac909a367e2bdad`; inner `receipt_sha256 = 095b08fa53087b6bb1b43e4d990b2ee2517803c8668f2e3f1149ca6edfe7e395`, `clean_hardware_run = true`, `exit_code = 0`, `anomalies = []`, `duration_ms = 13,582,504.472`)  
 **Lean 4.36.0 Companion:** [SpecialistFoundryCerts.lean](SpecialistFoundryCerts.lean) (`9f502c556636ed6584ad6d31d39e43339a249e49076396f20e7af4a078b16d36`) — **`16/16` universally quantified (`∀`) pure-`Init` theorems (`1 [] + 3 [propext] + 12 [propext, Quot.sound]`, `0` `Classical.choice`, `0` `sorryAx`, `0` warnings)**  
 **Law-4 Novelty Tier:** **`N1`** (`n0_prior_art_anchored = true`, `n1_exact_synthesis_verified = true`, **`n2_claims_count = 0`**)
@@ -34,9 +34,9 @@ Rather than assuming standard LoRA is optimal, we executed a **strictly matched-
 
 All training and evaluation datasets (`847` total rows, **`553,151` B `< 5 MiB`**, secret-scrubbed, zero absolute user-home path leaks) and all three merged `model.safetensors` winners (`988,097,824` B each) are stored strictly outside `expedition/` (`WEIGHTS = 0` inside the repository):
 
-| Dataset Split (`hf-releases/aletheia-specialists/datasets/`) | Disjointness Guarantee | Rows | Bytes | Verified SHA-256 |
+| Dataset Split (`ahrazzle/aletheia-specialists-s95-datasets@50f6b106`) | Disjointness Guarantee | Rows | Bytes | Verified SHA-256 |
 
-> **Provenance:** the `7` dataset files live in the external Hugging Face dataset repo `hf-releases/aletheia-specialists/datasets/` (not in this git repo); the `S83/S84/S89/S87/S54` names in the disjointness column are cross-repo references to `Foundation-0/cave-expedition` / PR-track theorem names, not files pinned here.
+> **Provenance:** the `7` dataset files live in the external Hugging Face dataset repo `ahrazzle/aletheia-specialists-s95-datasets@50f6b106` (not in this git repo); the `S83/S84/S89/S87/S54` names in the disjointness column are references to sibling-repo tracks (`Foundation-0/math0` studies / open PR tracks) and theorem names, not files pinned in this repo.
 | :--- | :--- | :---: | :---: | :--- |
 | `scribe_train.jsonl` | Tracks `S15..S74` (`0` overlap w/ eval) | `200` | `158,751` | `c56143cb097ca3d37b1720aecb46b22addc7f3d9bc8241a0fc6f159cdc95eb94` |
 | `scribe_eval.jsonl` | Unseen tracks `S75..S90` | `48` | `38,305` | `7c8cd498876fb71be9a42669418c851ec1df432e788f9515790862ffbd2b1551` |
@@ -155,10 +155,10 @@ Cross-pinned verbatim against `inkling2_mini_config.json` (`a7a349601f0984c4abf9
 | `mlos_zone_b_receipt.json` | `93` | `2,647` | `0o600` | `d1ac6ab658a6f6c748b9f67bc73967d96ed5b9536dd44a870ac909a367e2bdad` |
 | `rtx3080_s95_foundry_results.json` | `1` | `11,782` | `0o600` | `80592b79d6325340f333f1cbc058d78a38f04699d58eeeb3c12b0ac01eb5b0dd` |
 | `rtx3080_s95_foundry_train.py` | `1,621` | `76,545` | `0o644` | `bb3e80da88cce8a31baeb4a3f68b8cb9416972e04a1f00e92d4e3047d52c6bef` |
-| `s95_specialist_foundry_certificate.json` | `1` | `17,105` | `0o600` | `b6cee3035ea86edeb4d33ad2cbf7cebcab0284b53b24e044b3cf9ee0f2f8d93d` |
-| `s95_specialist_foundry_oracle.py` | `805` | `33,806` | `0o644` | `4089d61effcc4b4eb5d435378f5cee7af2d54467f2ae1d222403e8ab3ee869f6` |
-| `test_s95_specialist_foundry_r5.py` | `997` | `62,758` | `0o644` | `ae16381c6e3d422d7232d288ea02391e878b495fe7a8dc80c26fc5b8020c078e` |
-| `verify_s95_specialist_foundry.py` | `1,427` | `64,356` | `0o644` | `4aa626f219f0a5a83abdbf2b7f463d6c56aa2e0cb66105a7bfaf7287e524a9bb` |
+| `s95_specialist_foundry_certificate.json` | `1` | `17,220` | `0o600` | `acfc5c01b95a030919a5c541f3bd2184e16fa56285de41f6ae78d4f4d0041052` |
+| `s95_specialist_foundry_oracle.py` | `832` | `35,701` | `0o644` | `1d0f8677500dd397e58427daa148072757e764a3116214715feb0ae9531e48d4` |
+| `test_s95_specialist_foundry_r5.py` | `997` | `62,758` | `0o644` | `dbe64251c51cd52b5e93c9ddb9f8135dd4ba5aeaca161768ad70e3d66383295a` |
+| `verify_s95_specialist_foundry.py` | `1,436` | `65,255` | `0o644` | `9b561a61eebf32adf7d69dc2688d3e57e0cde4f5dd0ced3ff8201d01bc00d571` |
 
 ```bash
 # 1. Exact pure-Q certificate parity, Zone-B check & pinned live artifacts
