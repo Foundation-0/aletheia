@@ -1,0 +1,6 @@
+name = "BeyondLoraAndInklingLoop"
+version = "0.1.0"
+defaultTargets = ["BeyondLoraAndInklingLoop"]
+
+[[lean_lib]]
+name = "BeyondLoraAndInklingLoop"
