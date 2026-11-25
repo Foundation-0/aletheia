@@ -853,9 +853,34 @@ def _scan_lean4_decide_native(cleaned: str) -> list[tuple[int, int]]:
 
 def _lean4_match_enables_native(m_obj: re.Match[str]) -> bool:
     return any(grp is not None and not _is_lean4_native_rhs_false(grp) for grp in m_obj.groups())
-_LEAN4_IDENT_EXTRA = "_.'"
-_LEAN4_CHAR_PREV_IDENT = "_'»!?"
 _LEAN4_HEX_DIGITS = frozenset("0123456789abcdefABCDEF")
+# Exact Lean 4.36.0 `Lean.isIdFirst` (`Char.isAlpha || '_' || Lean.isLetterLike`) and
+# `Lean.isIdRest` (`isIdFirst || digits || Lean.isSubScriptAlnum || "'!?"`) character sets:
+# includes all 96 non-`isalnum()` `Lean.isLetterLike` symbols (`™`, `℘`, `϶`, `᾽`, `U+1D49D`),
+# excludes non-identifier `isalnum()` tokens (`λ`, `Π`, `Σ`), and separates digit-led numeric
+# literals (`1`, `0x1a`) from identifiers.
+_LEAN4_ID_FIRST_CHARS: frozenset[str] = frozenset(
+    chr(cp)
+    for lo, hi in (
+        (65, 90), (95, 95), (97, 122),
+        (192, 214), (216, 246), (248, 383),
+        (913, 927), (929, 930), (932, 937),
+        (945, 954), (956, 969),
+        (970, 1019), (7936, 8190),
+        (8448, 8527), (119964, 120223),
+    )
+    for cp in range(lo, hi + 1)
+)
+_LEAN4_ID_SUBSCRIPT_AND_DIGITS: frozenset[str] = frozenset(
+    chr(cp)
+    for lo, hi in ((48, 57), (7522, 7530), (8320, 8329), (8336, 8348), (11388, 11388))
+    for cp in range(lo, hi + 1)
+)
+_LEAN4_WORD_CONT_CHARS: frozenset[str] = _LEAN4_ID_FIRST_CHARS | _LEAN4_ID_SUBSCRIPT_AND_DIGITS
+_LEAN4_ID_REST_CHARS: frozenset[str] = _LEAN4_WORD_CONT_CHARS | frozenset("'!?")
+_LEAN4_PANIC_PREV_CHARS: frozenset[str] = _LEAN4_ID_REST_CHARS | frozenset(".")
+_LEAN4_DEC_NUM_CHARS: frozenset[str] = frozenset("0123456789_")
+_LEAN4_HEX_NUM_CHARS: frozenset[str] = _LEAN4_HEX_DIGITS | frozenset("_")
 _LEAN4_SIMPLE_GUILLEMET_INNER_RE = re.compile(r"\A[A-Za-z_][A-Za-z0-9_']*\Z")
 _LEAN4_INTERP_BANG_WORDS = frozenset(
     ("s", "f", "m", "v", "println", "reportIssue", "reportDbgIssue", "reportEMatchIssue")
@@ -865,21 +890,6 @@ _LEAN4_TRACE_BRACK_WORDS = frozenset(("trace", "trace_goal"))
 _LEAN4_SYNTAX_QUOTE_KEYWORDS = frozenset(
     ("notation", "prefix", "infix", "infixl", "infixr", "postfix")
 )
-
-
-def _is_lean4_ident_prev(source: str, pos: int) -> bool:
-    """True iff `source[pos]` continues a Lean 4 identifier (distinguishes `foo!r` from unary `!r`)."""
-    if pos < 0:
-        return False
-    ch = source[pos]
-    if ch.isalnum() or ch in _LEAN4_IDENT_EXTRA:
-        return True
-    if ch in "!?":
-        for k in range(pos - 1, -1, -1):
-            if source[k] not in "!?":
-                return source[k].isalnum() or source[k] in "_'"
-        return False
-    return False
 
 # Multiline sorry-injection / kernel-skip option check (`debug.skipKernelTC`, `debug.byAsSorry`, `debug.proofAsSorry`, `debug.terminalTacticsAsSorry`)
 _LEAN4_SKIP_KERNEL_TC_RE = re.compile(
@@ -937,7 +947,7 @@ def _iter_lean4_attr_blocks(cleaned: str) -> list[tuple[int, int, int]]:
 
 def _match_lean4_char_literal_end(source: str, i: int, n: int) -> int | None:
     """Return end index of a Lean 4 Char literal starting at `source[i] == "'"`, or None."""
-    if i + 2 < n and source[i + 1] != "\\" and source[i + 1] != "\n" and source[i + 2] == "'":
+    if i + 2 < n and source[i + 1] not in ("\\", "'") and source[i + 2] == "'":
         return i + 3
     if i + 3 < n and source[i + 1] == "\\":
         if source[i + 3] == "'" and source[i + 2] != "\n":
@@ -979,6 +989,7 @@ def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
     depth = 0
     in_str = False
     in_interp = False
+    in_ident = False
     pending_interp = False
     trace_brack = 0
     in_syntax_header = False
@@ -1046,17 +1057,20 @@ def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
                 i += 1
             continue
         if ch == "/" and nxt == "-":
+            in_ident = False
             depth = 1
             opened_at = i
             out.append("  ")
             i += 2
             continue
         if ch == "-" and nxt == "-":
+            in_ident = False
             while i < n and source[i] != "\n":
                 out.append(" ")
                 i += 1
             continue
         if ch.isspace():
+            in_ident = False
             out.append(ch)
             i += 1
             continue
@@ -1066,11 +1080,13 @@ def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
             trace_brack = 0
         if interp_stack:
             if ch == "{":
+                in_ident = False
                 interp_stack[-1][0] += 1
                 out.append(ch)
                 i += 1
                 continue
             if ch == "}":
+                in_ident = False
                 interp_stack[-1][0] -= 1
                 out.append(ch)
                 i += 1
@@ -1079,10 +1095,12 @@ def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
                     in_interp = True
                 continue
         if ch == "[" and trace_brack >= 1:
+            in_ident = False
             trace_brack += 1
             out.append(ch)
             i += 1
         elif ch == "]" and trace_brack >= 2:
+            in_ident = False
             trace_brack -= 1
             if trace_brack == 1:
                 trace_brack = 0
@@ -1090,6 +1108,7 @@ def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
             out.append(ch)
             i += 1
         elif ch == "=" and nxt == ">":
+            in_ident = False
             in_syntax_header = False
             out.append("=>")
             i += 2
@@ -1098,20 +1117,22 @@ def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
                 in_interp = True
                 pending_interp = False
             else:
-                if i >= 2 and source[i - 1] == "!" and _is_lean4_ident_prev(source, i - 2):
+                if in_ident and source[i - 1] == "!":
                     is_panic = (
                         i >= 6
                         and source[i - 6 : i] == "panic!"
-                        and not _is_lean4_ident_prev(source, i - 7)
+                        and (i == 6 or source[i - 7] not in _LEAN4_PANIC_PREV_CHARS)
                     )
                     if not is_panic:
                         lex_issues.append((i, "LEAN4_UNKNOWN_BANG_STRING"))
                 in_str = True
                 syntax_quote_reported = False
+            in_ident = False
             opened_at = i
             out.append(" ")
             i += 1
         elif ch == "«":
+            in_ident = False
             end_g = source.find("»", i + 1)
             if end_g == -1:
                 lex_issues.append((i, "LEAN4_UNTERMINATED_IDENT"))
@@ -1123,44 +1144,60 @@ def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
             else:
                 out.append(" " + "".join("\n" if c == "\n" else " " for c in inner) + " ")
             i = end_g + 1
-        elif ch == "'" and (i == 0 or not (source[i - 1].isalnum() or source[i - 1] in _LEAN4_CHAR_PREV_IDENT)):
-            # Lean 4 char literals ('"', '\n', '\x27', '\u0027') without disturbing identifier primes x'
+        elif ch == "'" and not in_ident:
+            # Lean 4 char literals ('"', '<LF>', '\n', '\x27', '\u0027') without disturbing identifier primes x'
             char_end = _match_lean4_char_literal_end(source, i, n)
             if char_end is not None:
-                out.append(" " * (char_end - i))
+                out.append(" \n " if source[i + 1] == "\n" else " " * (char_end - i))
                 i = char_end
             else:
                 out.append(ch)
                 i += 1
         else:
-            if ch == "r" and not _is_lean4_ident_prev(source, i - 1):
+            if "0" <= ch <= "9":
+                num_end = i + 1
+                if ch == "0" and nxt in "xXbBoO":
+                    num_end += 1
+                    num_chars = _LEAN4_HEX_NUM_CHARS
+                else:
+                    num_chars = _LEAN4_DEC_NUM_CHARS
+                while num_end < n and source[num_end] in num_chars:
+                    num_end += 1
+                out.append(source[i:num_end])
+                i = num_end
+                continue
+            ident_prev = in_ident or (i > 0 and source[i - 1] == ".")
+            if ch == "r" and not ident_prev:
                 j = i + 1
                 while j < n and source[j] == "#":
                     j += 1
                 if j < n and source[j] == '"':
+                    in_ident = False
                     raw_hashes = j - (i + 1)
                     opened_at = i
                     out.append(" " * (j - i + 1))
                     i = j + 1
                     continue
-            if (ch.isalpha() or ch == "_") and not _is_lean4_ident_prev(source, i - 1):
+            if ch.isascii() and ch.isalpha() and not ident_prev:
                 w_end = i + 1
-                while w_end < n and (source[w_end].isalnum() or source[w_end] == "_"):
+                while w_end < n and source[w_end] in _LEAN4_WORD_CONT_CHARS:
                     w_end += 1
                 word = source[i:w_end]
                 if word == "Macro" and source.startswith(".trace", w_end):
                     end_mt = w_end + 6
-                    if end_mt == n or not (source[end_mt].isalnum() or source[end_mt] in "_'!?"):
+                    if end_mt == n or source[end_mt] not in _LEAN4_ID_REST_CHARS:
                         if trace_brack == 0:
                             trace_brack = 1
+                        in_ident = True
                         out.append(source[i:end_mt])
                         i = end_mt
                         continue
                 next_ch = source[w_end] if w_end < n else ""
                 if next_ch == "!" and word in _LEAN4_INTERP_BANG_WORDS:
                     after_bang = source[w_end + 1] if w_end + 1 < n else ""
-                    if not (after_bang.isalnum() or after_bang in "_'!?"):
+                    if after_bang not in _LEAN4_ID_REST_CHARS:
                         pending_interp = True
+                        in_ident = True
                         out.append(source[i : w_end + 1])
                         i = w_end + 1
                         continue
@@ -1171,9 +1208,11 @@ def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
                         trace_brack = 1
                     elif word in _LEAN4_SYNTAX_QUOTE_KEYWORDS:
                         in_syntax_header = True
+                in_ident = True
                 out.append(word)
                 i = w_end
                 continue
+            in_ident = (ch in _LEAN4_ID_REST_CHARS) if in_ident else (ch in _LEAN4_ID_FIRST_CHARS)
             out.append(ch)
             i += 1
     unclosed_open = depth > 0 or in_str or in_interp or raw_hashes >= 0
