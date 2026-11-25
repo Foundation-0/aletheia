@@ -649,12 +649,18 @@ class Test06CLIAndPins(unittest.TestCase):
 
         rc, out, _ = _run_cli(["--verify-pins"])
         self.assertEqual(rc, 0)
-        self.assertRegex(out, r"PINS_(OK external=4|UNVERIFIABLE external=0 unverifiable=4)")
+        # Partial shipments must NOT pass: the only accepted verdicts are the exact
+        # all-shipped (PINS_OK external=4) or all-unverifiable (external=0 unverifiable=4);
+        # a split (e.g. external=2 unverifiable=2) matches neither pattern.
+        self.assertRegex(out, r"PINS_(OK external=4|UNVERIFIABLE external=0 unverifiable=4)\b")
+        self.assertNotRegex(out, r"PINS_UNVERIFIABLE external=[1-3] ")
         rc, out, _ = _run_cli(["--verify-pins", "--json"])
         self.assertEqual(rc, 0)
         parsed = json.loads(out)
         self.assertEqual(parsed["external"] + parsed.get("unverifiable", 0), 4)
-        self.assertEqual(parsed["status"], "PINS_OK" if parsed["external"] == 4 else "PINS_UNVERIFIABLE")
+        self.assertIn(parsed["status"], ("PINS_OK", "PINS_UNVERIFIABLE"))
+        self.assertEqual(parsed["status"] == "PINS_OK", parsed["external"] == 4)
+        self.assertEqual(parsed["status"] == "PINS_UNVERIFIABLE", parsed.get("unverifiable") == 4 and parsed["external"] == 0)
         # S102 MaleCNS cross-check: payload constants must equal the sha256-pinned
         # S102 certificate values (fail-closed, SEC_P1_DALE_S102).
         s102 = ver.s102_malecns_crosscheck()
@@ -695,6 +701,18 @@ class Test06CLIAndPins(unittest.TestCase):
 
 class Test07LiveLeanAndPoisonedEnvHijack(unittest.TestCase):
     def test_14_live_lean_and_cli_verify_lean(self) -> None:
+        # The CI-discovery audit entrypoint (s112_natural_systems_audit.py) delegates
+        # to the verifier CLI: exercise it as a real subprocess, not just in-process.
+        audit_path = TRACK_DIR / "s112_natural_systems_audit.py"
+        proc_a = subprocess.run([sys.executable, "-I", "-B", str(audit_path), "--check", str(CERT_PATH), "--json"],
+                                capture_output=True, text=True, timeout=120, check=False)
+        self.assertEqual(proc_a.returncode, 0, proc_a.stderr)
+        self.assertEqual(json.loads(proc_a.stdout)["status"], "OK")
+        proc_b = subprocess.run([sys.executable, "-I", "-B", str(audit_path), "--verify-pins", "--json"],
+                                capture_output=True, text=True, timeout=120, check=False)
+        self.assertEqual(proc_b.returncode, 0, proc_b.stderr)
+        self.assertIn(json.loads(proc_b.stdout)["status"], ("PINS_OK", "PINS_UNVERIFIABLE"))
+
         res = ver.verify_lean4_file_live(LEAN_PATH, check_sha=True)
         self.assertEqual(res["theorems_verified"], 34)
         self.assertEqual(res["lean_source_sha256"], oracle.LEAN_SOURCE_SHA256)

@@ -1,7 +1,7 @@
 -- Track S112 — Pure-Init Lean 4.36.0 Formalization of All 5 Natural-Systems Stage-B Portals
 -- Zero external imports, zero Mathlib, zero sorry, zero Classical.choice.
 -- Covers Portals 1 (Homeostasis/LIF), 2 (Turing), 3 (Beltrami/Helicity),
--- 4 (Murray/Physarum/Schur-Thomson/Braess), and 5 (Darboux/ADM Lapse/Hopf).
+-- 4 (Murray/Physarum/Schur-Thomson/Braess), and 5 (Darboux/One-Sided Lapse Trace/Hopf).
 
 namespace NaturalSystemsConservation
 
@@ -407,7 +407,8 @@ theorem p1_anisotropic_input_shatters_nullspace :
     Multiplicative scaling by 0 < num/den < 1 preserves positive sign yet crosses any
     nonzero safety margin tau whenever num * m < den * tau (witness: 3/4 * 5/2 = 15/8 < 2),
     while squared cosine (dot^2 / norm^2) and its threshold gate are identically invariant
-    for ALL λ != 0. -/
+    for ALL λ != 0. The fixed `decide` conjuncts (3*5 < 4*4, 0 < 3*5) are literal witnesses,
+    not quantified structural statements. -/
 theorem p1_mult_safety_margin_crossing_and_cos_repair (lam dotVal normSq cNum cDen : Int)
     (hlam : lam ≠ 0) :
     ((3 : Int) * 5 < 4 * 4 ∧ 0 < (3 : Int) * 5) ∧
@@ -1250,7 +1251,8 @@ theorem p4_physarum_gamma1_global_ratio_increase (D1 D2 : Int) (h1 : 0 < D1) (h2
     On L_1 = 1 < L_2 = 2 with gamma=2, for EVERY positive (D1, D2):
     1. Above the separatrix (D2 > 4*D1), the ratio D1'/D2' STRICTLY DECREASES (suboptimal lock-in),
     2. Below the separatrix (D2 < 4*D1), the ratio D1'/D2' STRICTLY INCREASES (optimal basin),
-    3. Exact unstable separatrix fixed point at (D1, D2) = (1/9, 4/9). -/
+    3. Exact unstable separatrix fixed point at (D1, D2) = (1/9, 4/9).
+    Conjunct 3 is a fixed literal fixed-point witness (`decide`), not a quantified statement. -/
 theorem p4_physarum_gamma2_separatrix_lockin (D1 D2 : Int)
     (h1 : 0 < D1) (h2 : 0 < D2) :
     let S := 2 * D1 + D2
@@ -1291,7 +1293,8 @@ theorem p4_physarum_gamma2_separatrix_lockin (D1 D2 : Int)
 /-- Theorem 26 (Portal 4 Obstruction P4-O2 — Rayleigh Monotonicity vs Braess Paradox):
     Exact rational cross-product witnesses separating Ohmic Wheatstone resistance reduction
     (4/3 < 43/32 < 3/2, improvement 3/2 - 43/32 = 5/32) from selfish Wardrop latency
-    degradation (3/2 -> 2, penalty +1/2). -/
+    degradation (3/2 -> 2, penalty +1/2). All five conjuncts are fixed literal witnesses
+    (`decide`), not quantified structural statements. -/
 theorem p4_rayleigh_vs_braess_separation :
     (4 * 32 < 43 * 3) ∧ (43 * 2 < 3 * 32) ∧ (3 * 16 - 43 = 5) ∧
     (3 < 2 * 2) ∧ (2 * 2 - 3 = 1) := by
@@ -1300,7 +1303,9 @@ theorem p4_rayleigh_vs_braess_separation :
 /-- Theorem 27 (Portal 4 Obstruction P4-O3 — Portal-B Density Chasm & Conductance Floor):
     For ALL vertex counts n0 >= 2001 (m_PB = 1000*n0 vs spanning tree m_tree = n0 - 1),
     the exact density ratio m_PB / m_tree satisfies 1000 < m_PB / m_tree <= 2001/2
-    (tight iff n0 = 2001, where 2*m_PB = 2001*m_tree), and floor D_min = 1/16 gives 32/33 < 1. -/
+    (tight iff n0 = 2001, where 2*m_PB = 2001*m_tree), and floor D_min = 1/16 gives 32/33 < 1.
+    The last two conjuncts are fixed literal witnesses (`decide`/`omega` on constants),
+    not quantified structural statements. -/
 theorem p4_physarum_tree_portal_b_density_chasm (n0 : Nat) (hn : 2001 ≤ n0) :
     (1000 * (n0 - 1) < 1000 * n0) ∧
     (2 * (1000 * n0) ≤ 2001 * (n0 - 1)) ∧
@@ -1309,7 +1314,7 @@ theorem p4_physarum_tree_portal_b_density_chasm (n0 : Nat) (hn : 2001 ≤ n0) :
   exact ⟨by omega, by omega, by decide, by omega⟩
 
 -- ============================================================================
--- PORTAL 5: Darboux Isospectrality, Dark Modes, ADM Lapse & Hopf Fiber
+-- PORTAL 5: Darboux Isospectrality, Dark Modes, One-Sided Lapse Trace & Hopf Fiber
 -- ============================================================================
 
 def darbouxL1 (m n : Nat) (A : Nat → Nat → Int) (c : Int) (i j : Nat) : Int :=

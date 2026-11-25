@@ -118,9 +118,9 @@ Every public theorem is checked by `#print axioms` under a scrubbed `env -i` Lea
 |---|---:|---:|---|
 | `lean-toolchain` | `1` | `25` | `582a63f8f9c5128067b688778c1051cf1464c3ca9d57b9325025c051c29b774a` |
 | `lakefile.toml` | `5` | `134` | `7cda47ebd1198c1dce3bf8f8884f530286d673bc4ee18ea9d2aa4a0aa4bc6ac7` |
-| `NaturalSystemsConservation.lean` | `1,729` | `94,542` | `0f2accb66c6beed16cde96b9b11fdbfbae7d27a5e23bb4070de4835abf65090b` |
-| `s112_natural_systems_oracle.py` | `854` | `33,983` | `57ca0ceca2e14c2bab1d37d4a7148984c9b7e912db3447dc1ef99c70669a2637` |
+| `NaturalSystemsConservation.lean` | `1734` | `95,006` | `7c35797cfc76d8faaf4fb799ffcffe53c8e5110b4e460e77e7711a349a8827b2` |
+| `s112_natural_systems_oracle.py` | `854` | `33,983` | `f07cf7facf17bd242d01521cb6d4c422c89350f087493fcc0fb8b26374e062d7` |
 | `verify_natural_systems_lean.py` | `801` | `35,746` | `a6aee11f0ae4a31eec1ff3d4ba1eea1916e25dd7cfce0ecbc0f13a46ad0a92bf` |
-| `test_natural_systems_lean_r5.py` | `813` | `44,214` | `1cd9c1738516804ee8dcb0704b74750ef45de0012815a49339bd06acef165ae4` |
+| `test_natural_systems_lean_r5.py` | `831` | `45,640` | `37502c1460f7a3a4e6bcd4c03f8fac054b9ef8c9aa78c469b92f3e7968a3c89b` |
 | `s112_natural_systems_audit.py` | `20` | `564` | `a92f9acdc14f8a4e0eb2c66d26cd07f6b459bf3f697ec9cdca3a84953b464818` |
-| `s112_natural_systems_certificate.json` | `1` | `7,421` | `93c550316c5b65bc43f196469fba20892d088a9777f80f10b6b0ebc6727b6217` |
+| `s112_natural_systems_certificate.json` | `1` | `7,421` | `d7e496cb2d3f9628bcd89bfcdcd3d71f79dd6c31b61a1f863a2acbfca9b4c7df` |
