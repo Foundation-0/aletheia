@@ -275,6 +275,33 @@ class TestTrackS108TokenizerLoopAuditR5(unittest.TestCase):
             with self.assertRaises(audit.S108AuditError):
                 audit.build_certificate(td_path)
 
+    def test_18_binding_guards_killed_individually(self) -> None:
+        # Swap the h8c receipt into the h8a slot, re-date the window to bracket the h8a
+        # protocol created_utc, and re-sign the receipt self-hash. Then forge exactly ONE
+        # binding field so that ONLY the other binding guard can catch the swap:
+        #  - forge bound_results_sha256  -> only bound_protocol_sha256 (:135) catches
+        #  - forge bound_protocol_sha256 -> only bound_results_sha256 (:138) catches
+        for forge in ("bound_results_sha256", "bound_protocol_sha256"):
+            with tempfile.TemporaryDirectory() as td:
+                td_path = Path(td)
+                _copy_track_tree(td_path)
+                proto_p = td_path / "gpu_results_h8a" / "s108_locked_protocol.json"
+                res_p = td_path / "gpu_results_h8a" / "s108_gpu_full_results.json"
+                proto = json.loads(proto_p.read_text(encoding="utf-8"))
+                created = str(proto["created_utc"])
+                src = json.loads((td_path / "mlos_zone_b_h8c_receipt.json").read_text(encoding="utf-8"))
+                src["execution"]["started_utc"] = "2026-11-25T00:00:00Z"
+                src["execution"]["ended_utc"] = "2026-11-26T00:00:00Z"
+                assert "2026-11-25T00:00:00Z" <= created <= "2026-11-26T00:00:00Z"
+                if forge == "bound_results_sha256":
+                    src["bound_results_sha256"] = audit.sha256_file(res_p)
+                else:
+                    src["bound_protocol_sha256"] = audit.sha256_file(proto_p)
+                src["receipt_sha256"] = audit.canonical_sha256({k: v for k, v in src.items() if k != "receipt_sha256"})
+                (td_path / "mlos_zone_b_h8a_receipt.json").write_text(json.dumps(src, indent=2), encoding="utf-8")
+                with self.assertRaises(audit.S108AuditError):
+                    audit.build_certificate(td_path)
+
 
 if __name__ == "__main__":
     unittest.main()
