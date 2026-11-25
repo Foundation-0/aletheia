@@ -12,9 +12,9 @@
 
 | File | Lines / Bytes | SHA-256 |
 |---|---:|---|
-| `s113_blind_anomaly_hunter.py` | `2,241` L / `107,003` B | `d66f95126802790546d8664846097e4499f6ae5333ea3fdde9604f12ec413282` |
-| `test_s113_blind_anomaly_hunter.py` | `154` L / `7,335` B | `1adae8853ec1d9cadd500f13682937cdcd47458aec5ab42389338da7822ec8c5` |
-| `s113_blind_anomalies_receipt.json` | `3,262` L / `107,458` B | `85e0c72f83576d17432f3f0abc6c12a691aa94fda4058e8039c187598cd8c724` |
+| `s113_blind_anomaly_hunter.py` | `2,241` L / `107,027` B | `3f096806b619e902ed39fd1a9f2153cb7f259018f998ec0d92ceef6460a6eaf1` | `d66f95126802790546d8664846097e4499f6ae5333ea3fdde9604f12ec413282` |
+| `test_s113_blind_anomaly_hunter.py` | `154` L / `7,335` B | `1adae8853ec1d9cadd500f13682937cdcd47458aec5ab42389338da7822ec8c5` | `1adae8853ec1d9cadd500f13682937cdcd47458aec5ab42389338da7822ec8c5` |
+| `s113_blind_anomalies_receipt.json` | `3,262` L / `107,458` B | `85e0c72f83576d17432f3f0abc6c12a691aa94fda4058e8039c187598cd8c724` | `85e0c72f83576d17432f3f0abc6c12a691aa94fda4058e8039c187598cd8c724` |
 
 Across all `7` phases (`9` manifest streams), **`174` split-half-replicated instances** survive the lens-family Holm gate `p_Holm < 0.005` (`A1`: `17`, `A2`: `45`, `A3`: `2`, `A4`: `48` 2D spatial waves, `A5`: `18`, `A6`: `22`, `A7`: `22`). The `19` A4 persistent-RTS-pixel (`13`) and synchronized-burst (`6`) rows previously counted as survivors carried **raw `p = 1/800` mislabelled as Holm**; lens-family Holm gives `0.01625` / `0.0075 ≥ 0.005`, so they are moved to `holm_rejected` (see receipt `holm_family_note`). These are **split-half-stable exploratory patterns within one session on one machine (N0)** — not independent replications and not claimed as non-textbook discoveries; several are explained by standard mechanisms (CMOS RTS/FPN sensor noise, fan blade-pass harmonics, firmware reporting latency). Holm families are per lens; no cross-family multiplicity correction is applied. σ values are parametric extrapolations (empirical p floor `1/800` at `N_confirm = 799`).
 
