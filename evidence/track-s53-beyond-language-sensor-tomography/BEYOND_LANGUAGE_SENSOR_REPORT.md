@@ -92,6 +92,8 @@ Using the exact 2019 SI Boltzmann constant $k_B = 1380649 \times 10^{-29}\text{ 
 
 ## 5. Phase 2 — Controlled 4-Regime Acoustic + RAPL + Thermal Hysteresis Tomography
 
+> **Coverage note:** the section-5 regime table and the lag-0 cross-correlations cited below (`r = +0.7789`, `r = +0.9456`) are **unverified probe output, not under certificate/verifier coverage**: they appear in no committed certificate and are not recomputed by `sensor_tomography_audit.py --check`. The blind `clP2` cluster groupings themselves are certificate-covered; only the printed correlation values and the regime-table numbers are probe-only.
+
 Under the authorized `60.07 s` controlled 4-regime protocol (`240` frames @ `4 Hz`, `48` dynamic channels), we directly separated stationary room-background noise from local electrical-mechanical-acoustic coupling:
 
 | Channel | `R0` Quiet (`0–15 s`) | `R1` L1 Feistel (`15–30 s`) | `R2` L3 Erasure (`30–45 s`) | `R3` Relaxation (`45–60 s`) | `R3 / R0` Ratio | Physical Role |
@@ -151,21 +153,25 @@ OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python3 -I -B test_sensor_tomography_r5
   - `--check phase2_controlled_certificate.json`: `20c9cefe662426c8d9caa5ea88b45131efe90ee099605ee072ee3b895ad87d4a` ×3
   - `test_sensor_tomography_r5.py`: **`9/9 OK`** across all 3 isolated modes (`-I -B`, `-I -O -B`, `-I -B -W error`), `PYTHONHASHSEED=42 -B`, and `umask 077` (`0` bare `assert`s, `0` AST floats / `float()` calls in `sensor_tomography_audit.py` & `test_sensor_tomography_r5.py`).
 - **Live Mutation, Whole-File AST `BoolOp`, & 4-Surface Zone-B Fuzzer (`sensor_tomography_audit.py`):**
-  - Official live `aletheia mutate --guards require_ok --workers 4 --timeout 180 --max-mutants 0`: **`200/200` killed (`100.0%`, `KILLED=200`, `TIMEOUT=0`, `survived=0`, `truncated=False`)**.
-  - Exhaustive whole-file DFS AST `BoolOp` (`OP_SWAP + SUBCOND_DEL`, `timeout=180`): **`72/72` killed (`100.0%`, `24` nodes, `69` non-timeout kills + `3` genuine infinite-loop timeouts on community-merge `L511`, `surv=[]`)**.
-  - 4-Surface v2.1 `zone_b_fuzzer`: **`82/82 PASS`** (`25/25` CLI + `19/19` `VCD_CERT` + `19/19` `VCD_RAW` + `19/19` `VCD_PAYLOAD`, `bypasses=0`, `crashes=0`).
+  - Official live `aletheia mutate --guards require_ok --timeout 180 --max-mutants 0` (the `--workers` flag does not exist at this CLI; mutation runs serially): **`200/200` killed (`100.0%`, `KILLED=200`, `TIMEOUT=0`, `survived=0`, `truncated=False`)** (one-off local run, not shipped; `200` mutant sites are discovered by the shipped CLI and the shipped R5 suite passes `9/9` against the unmutated verifier).
+  - Exhaustive whole-file DFS AST `BoolOp` (`OP_SWAP + SUBCOND_DEL`, `timeout=180`): **`72/72` killed (`100.0%`, `24` nodes, `69` non-timeout kills + `3` genuine infinite-loop timeouts on community-merge `L511`, `surv=[]`)** (one-off local run, script not shipped).
+  - 4-Surface v2.1 `zone_b_fuzzer`: **`82/82 PASS`** (`25/25` CLI + `19/19` `VCD_CERT` + `19/19` `VCD_RAW` + `19/19` `VCD_PAYLOAD`, `bypasses=0`, `crashes=0`) — **one-off local run; no `zone_b_fuzzer`/`VCD_*` script is shipped in this repo**, so these counts are not reproducible from the committed artifacts.
 - **Public Hygiene & Safety Scan:** Isolated `0o700` public-manifest `aletheia audit-check --strict-ancestors --safety-scan --scripts sensor_tomography_audit.py test_sensor_tomography_r5.py` **`PASS`** (`11` public files, `2/2` R4 parity, `0` findings, `0` leaks, `0` bare `assert`s, `0` CRLF, `PYC=0`; private `local_raw_av/` verified `0o700` dir / `0o600` `.wav`, excluded from public manifest).
+- **Meaning of "VERIFIED":** here "VERIFIED" means replay-consistency of the committed snapshot<->certificate pair plus the frozen manifest digests, not authenticity of the capture (the certificates pin plain SHA-256 digests with no signature).
+- **Auto-pair fallback restricted:** `--check <cert>` without `--raw` now auto-pairs only the three known certificate names in `_CERT_TO_DEFAULT_RAW`; any other existing certificate name fails closed with `UNKNOWN_CERT_NO_DEFAULT_RAW` (a missing certificate file still reports `FILE_NOT_FOUND`).
 
 ### Frozen Public File Manifest (Private `local_raw_av/` Excluded & Never Committed)
 | File | Lines | Bytes | Mode | SHA-256 |
 | :--- | ---: | ---: | :---: | :--- |
 | `sensor_tomography_probe.py` | `1,571` | `65,224` | `0o644` | `a30f6bea7a3b27c1bf98aa1d1a4bdb21f734e869b1eb8fc506aff9300b590002` |
 | `phase2_controlled_capture.py` | `534` | `21,068` | `0o644` | `b379124b7771611aedfad9f6a87258c3fcae44ab1102c0864a760e2645b0c319` |
-| `sensor_tomography_audit.py` | `1,213` | `54,969` | `0o644` | `fa894bad62e4bb0a10f798dac4ed54b8fdc7cf1da314749894b16e71330341c6` |
+| `sensor_tomography_audit.py` | `1,221` | `55,482` | `0o644` | `f1458ceceaf64361bfe1952841aea13f8f0224b2857d9b1eea6fc28c2a5e854f` |
 | `test_sensor_tomography_r5.py` | `1,027` | `61,373` | `0o644` | `ff8ba6333d5ce0ca8fbe7fa87a1d40c8170c2afcb31b14b0c5c37dcc0747a7ad` |
-| `pre_rapl_baseline_snapshot.json` | `1` | `56,524` | `0o600` | `510a9a76a876e7b359203514cc09190147ef21a30a774b5176cdc8a1e0cd9b71` |
-| `pre_rapl_baseline_certificate.json` | `1` | `18,065` | `0o600` | `ac191f235fec87357ee7a73987483ab5d1019721245cae1c1c6b2a7a1d44a8d4` |
-| `raw_sensor_snapshot.json` | `1` | `65,599` | `0o600` | `35704929e5579ea89f6a0289ac3fa044e4dcd07a7c82e022284359704ae62bf5` |
-| `sensor_tomography_certificate.json` | `1` | `21,873` | `0o600` | `b127d37b3f94a64bd8afbcb39f386d42e9f2ffcc6e542d86a8203909afdbdac7` |
-| `phase2_controlled_snapshot.json` | `1` | `97,968` | `0o600` | `130a7ab018ed5e3291903bf7c2f7027172caa880cf44f77c6f876ce5122422dc` |
-| `phase2_controlled_certificate.json` | `1` | `28,213` | `0o600` | `6379283a41723d96637c83a7217e099da477baddc9715ef68dcbb55913c47338` |
+| `pre_rapl_baseline_snapshot.json` | `1` | `56,524` | `0o600 (git: 100644)` | `510a9a76a876e7b359203514cc09190147ef21a30a774b5176cdc8a1e0cd9b71` |
+| `pre_rapl_baseline_certificate.json` | `1` | `18,065` | `0o600 (git: 100644)` | `ac191f235fec87357ee7a73987483ab5d1019721245cae1c1c6b2a7a1d44a8d4` |
+| `raw_sensor_snapshot.json` | `1` | `65,599` | `0o600 (git: 100644)` | `35704929e5579ea89f6a0289ac3fa044e4dcd07a7c82e022284359704ae62bf5` |
+| `sensor_tomography_certificate.json` | `1` | `21,873` | `0o600 (git: 100644)` | `b127d37b3f94a64bd8afbcb39f386d42e9f2ffcc6e542d86a8203909afdbdac7` |
+| `phase2_controlled_snapshot.json` | `1` | `97,968` | `0o600 (git: 100644)` | `130a7ab018ed5e3291903bf7c2f7027172caa880cf44f77c6f876ce5122422dc` |
+| `phase2_controlled_certificate.json` | `1` | `28,213` | `0o600 (git: 100644)` | `6379283a41723d96637c83a7217e099da477baddc9715ef68dcbb55913c47338` |
+
+Mode column note: `0o600` was the local working-tree mode on the capture host; git records all 11 files as `100644` (git cannot store `0600`).

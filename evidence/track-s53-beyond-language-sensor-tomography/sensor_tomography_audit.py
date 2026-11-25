@@ -1191,11 +1191,19 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             res = run_self_test()
             print(json.dumps(res, sort_keys=True, separators=(",", ":"), ensure_ascii=True))
             return 0
-        raw_p = (
-            args.raw
-            if args.raw is not None
-            else (args.check.parent / _CERT_TO_DEFAULT_RAW.get(args.check.name, "raw_sensor_snapshot.json"))
-        )
+        if args.raw is not None:
+            raw_p = args.raw
+        elif args.check.name in _CERT_TO_DEFAULT_RAW:
+            raw_p = args.check.parent / _CERT_TO_DEFAULT_RAW[args.check.name]
+        else:
+            # Auto-pair fallback restricted to known certificate names. A missing
+            # certificate file still fails below with FILE_NOT_FOUND via the normal
+            # read path; an existing but unknown certificate name fails closed here.
+            read_regular_bytes_safe(args.check, "certificate")
+            raise SensorAuditError(
+                "UNKNOWN_CERT_NO_DEFAULT_RAW",
+                "no --raw given and certificate name has no known default raw pairing",
+            )
         raw_bytes = read_regular_bytes_safe(raw_p, "raw_snapshot")
         cert_bytes = read_regular_bytes_safe(args.check, "certificate")
         raw_obj = parse_strict_json_bytes(raw_bytes, "raw_snapshot")
