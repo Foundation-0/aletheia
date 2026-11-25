@@ -73,7 +73,7 @@ def _apply_lens_family_holm(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         fams.setdefault(str(row.get("lens", "")), []).append(row)
     surviving: list[dict[str, Any]] = []
     for lens, members in fams.items():
-        pvals = [float(m.get("half2_p_surr", m.get("half2_p_shift", m.get("rep2_p", 1.0)))) for m in members]
+        pvals = [float(m.get("half2_p_surr", m.get("half2_p_shift", m.get("half2_p_iaaft", m.get("rep2_p", 1.0))))) for m in members]
         adj = holm_bonferroni(pvals)
         for m, a in zip(members, adj):
             m["half2_p_holm"] = round(a, 6)

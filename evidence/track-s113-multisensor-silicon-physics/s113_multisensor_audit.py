@@ -515,10 +515,12 @@ def _verify_prereg_verdict_rules(payload: dict[str, Any]) -> None:
         require_ok(vsum.get("H1") == v_h1, "VERDICT_SUMMARY_MISMATCH", "H1 verdict_summary mismatch")
         min_p = float(h1["min_holm_p"])
         # Verdict must be one of the preregistered outcome names (no free-text CONFIRMED*).
-        H1_VERDICTS = {"FALSIFIED", "CONFIRMED_H1_EMI", "CONFIRMED_H1_CHASSIS_PIEZO",
-                       "CONFIRMED_H1_VRM_AIRBORNE_PIEZO", "CONFIRMED_AIRBORNE_ACOUSTIC", "CONFIRMED_MIXED_FAST_COUPLING"}
+        # PREREG-S113:20-21 names exactly H1-EMI (<2 us, lag <0.25 ms), H1-PIEZO
+        # (chassis-borne, |dtau| in [5,80] us and lag < 1.0 ms) and an airborne fan
+        # path (100-500 us); anything else is not a preregistered outcome.
+        H1_VERDICTS = {"FALSIFIED", "CONFIRMED_H1_EMI", "CONFIRMED_H1_CHASSIS_PIEZO", "CONFIRMED_AIRBORNE_ACOUSTIC"}
         H1_TAU_BANDS = {"CONFIRMED_H1_EMI": (0.0, 2.0), "CONFIRMED_H1_CHASSIS_PIEZO": (5.0, 80.0),
-                        "CONFIRMED_H1_VRM_AIRBORNE_PIEZO": (80.0, 500.0), "CONFIRMED_AIRBORNE_ACOUSTIC": (100.0, 500.0)}
+                        "CONFIRMED_AIRBORNE_ACOUSTIC": (100.0, 500.0)}
         require_ok(v_h1 in H1_VERDICTS, "H1_VERDICT_NOT_ENUMERATED", f"H1 verdict {v_h1!r} not in preregistered outcome set")
         # The reported gate is the PREREGISTERED N=500 surrogate gate.
         require_ok(h1.get("n_surrogates") == 500 or "posthoc_n2000_exploratory" in h1,
@@ -704,6 +706,17 @@ def verify_blind_receipt_dict(receipt: dict[str, Any], prereg_md_path: Path | No
 
     recounted_total = 0
     recounted_lenses: dict[str, int] = {}
+    # Holm families are per (phase, lens); rejected rows form their own per-lens family.
+    fam_sizes: dict[tuple[str, str], int] = {}
+    adjusted_fams: set[tuple[str, str]] = set()
+    for ph in phases:
+        for row in by_phase.get(ph, []):
+            key = (ph, str(row.get("lens", "")))
+            fam_sizes[key] = fam_sizes.get(key, 0) + 1
+    rejected_all = receipt.get("holm_rejected", []) or []
+    for row in rejected_all:
+        key = ("REJECTED", str(row.get("lens", "")))
+        fam_sizes[key] = fam_sizes.get(key, 0) + 1
     for ph in phases:
         require_ok(ph in by_phase and isinstance(by_phase[ph], list), "BLIND_MISSING_PHASE", f"Missing phase list {ph}")
         for row in by_phase[ph]:
@@ -713,6 +726,12 @@ def verify_blind_receipt_dict(receipt: dict[str, Any], prereg_md_path: Path | No
             require_ok(is_exact_int(n_conf) and n_conf >= 200, "BLIND_LOW_SURROGATES", f"n_surrogates_confirm={n_conf} < 200")
             p_holm = float(row.get("half2_p_holm", row.get("rep2_p_holm", 1.0)))
             require_ok(0.0 < p_holm < 0.005, "BLIND_HOLM_THRESHOLD", f"Surviving row violates p_Holm < 0.005: {p_holm}")
+            # Track whether the family got a real Holm step (at least one member
+            # strictly adjusted; Holm never shrinks p, so adj >= raw always).
+            raw_p = float(row.get("half2_p_surr", row.get("half2_p_shift", row.get("half2_p_iaaft", row.get("rep2_p", 1.0)))))
+            require_ok(p_holm >= raw_p - 1e-12, "BLIND_HOLM_SHRINKS_P", f"half2_p_holm {p_holm} < raw {raw_p}")
+            if p_holm > raw_p + 1e-12:
+                adjusted_fams.add((ph, str(row.get("lens", ""))))
             # Verify exact empirical rank denominator n_conf + 1 (e.g., 799 + 1 = 800)
             scaled_rank = p_holm * float(n_conf + 1)
             nearest_int = round(scaled_rank)
@@ -726,6 +745,17 @@ def verify_blind_receipt_dict(receipt: dict[str, Any], prereg_md_path: Path | No
             recounted_lenses[lens] = recounted_lenses.get(lens, 0) + 1
             recounted_total += 1
 
+    # A multi-member lens family must show at least one strictly Holm-adjusted row;
+    # otherwise raw p was stored as p_holm for the whole family (the original bug).
+    for row in rejected_all:
+        lens0 = str(row.get("lens", ""))
+        raw_p = float(row.get("half2_p_surr", row.get("half2_p_shift", row.get("half2_p_iaaft", row.get("rep2_p", 1.0)))))
+        if float(row.get("half2_p_holm", 1.0)) > raw_p + 1e-12:
+            adjusted_fams.add(("REJECTED", lens0))
+    for key, size in fam_sizes.items():
+        if size > 1:
+            require_ok(key in adjusted_fams, "BLIND_RAW_P_AS_HOLM",
+                       f"lens family {key} ({size} members) has no Holm-adjusted row: raw p stored as p_holm")
     require_ok(receipt.get("total_surviving_anomalies") == recounted_total, "BLIND_TOTAL_MISMATCH", "total_surviving_anomalies mismatch")
     require_ok(counts_by_lens == recounted_lenses, "BLIND_LENS_COUNTS_MISMATCH", "counts_by_lens mismatch")
     # Rows rejected by the lens-family Holm correction must sit in holm_rejected with
