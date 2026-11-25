@@ -16,8 +16,7 @@ Provides:
   3. Exact pure-Q exposure prevalence, 4x4 co-occurrence, and exhaustive search over
      all 2^3 - 1 = 7 non-empty subsets of the 3 shim primitives for the minimal
      remediation hitting-set analysis across all 9 public `aska-physical`
-     engineering repositories (pinned at verified main HEAD SHAs and re-verifiable
-     against live read-only clones via `verify_live_repos_dir`).
+     engineering repositories (pinned at verified Nov 11–17 snapshot HEAD SHAs — a dated historical audit, not live `main`; re-verifiable against live read-only clones via `verify_live_repos_dir`).
 """
 from __future__ import annotations
 
@@ -362,7 +361,7 @@ PINNED_ASKA_REPOS: tuple[dict[str, Any], ...] = (
     },
 )
 
-# Real minimal repro snippets extracted from live main branches + Law-2b zero-exposure steelman
+# Real minimal repro snippets extracted from the pinned Nov 11–17 snapshot branches (historical; current main has since merged fixes) + Law-2b zero-exposure steelman
 MINIMAL_REPRO_CORPUS: tuple[dict[str, Any], ...] = (
     {
         "id": "repro_fibral_nan_max",
