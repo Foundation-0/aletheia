@@ -7,7 +7,7 @@ Supports:
   --write <cert.json>         Atomically write canonical 0o600 certificate JSON via dir_fd + fsync
   --check <cert.json>         Fail-closed Zone-B hardened verification of certificate JSON on disk
   --verify-lean <file.lean>   Full R12 static Lean 4 audit + live scrubbed Lean 4.36.0 --stdin axiom check
-  --verify-upstream <dir>     Verify all 10 pinned upstream expedition certificate SHA-256s
+  --verify-upstream <dir>     Re-hash in-repo pinned upstream certificate SHA-256s; list cross-repo pins with repo@ref:path (reports UPSTREAM_PARTIAL)
   --verify-inkling <dir>      Verify both pinned Inkling-2-Mini local spec SHA-256s
 
 Zero floats on trust paths, zero bare asserts, zero external dependencies, zero RNG calls.
@@ -1152,8 +1152,8 @@ def check_certificate_file(path: Path) -> dict[str, Any]:
 
 def verify_upstream_manifest(exp_root: Path) -> dict[str, Any]:
     """Verify upstream pins: in-repo pins are opened and re-hashed on disk; each cross-repo pin
-    (8 of 10) carries its exact repo@ref:path in UPSTREAM_PIN_SOURCES and is listed, not
-    re-hashed, unless its repo clone is supplied — so a partial run reports UPSTREAM_PARTIAL."""
+    (8 of 10) carries its exact repo@ref:path in UPSTREAM_PIN_SOURCES and is listed with its exact
+    repo@ref:path, not re-hashed (no clone-supply option exists), so a partial run reports UPSTREAM_PARTIAL."""
     _validate_path(exp_root)
     verified = 0
     cross_repo = []
@@ -1174,7 +1174,7 @@ def verify_upstream_manifest(exp_root: Path) -> dict[str, Any]:
         "tracks_verified": verified,
         "cross_repo_pins": cross_repo,
         "expected_tracks": len(UPSTREAM_CERT_MANIFEST),
-        "note": "cross-repo pins listed with repo@ref:path, not re-hashed (supply their clones to re-hash)" if cross_repo else "all pins re-hashed on disk",
+        "note": "cross-repo pins listed with repo@ref:path, not re-hashed (no clone-supply option exists)" if cross_repo else "all pins re-hashed on disk",
     }
 
 
@@ -1696,7 +1696,7 @@ def main(argv: list[str] | None = None) -> int:
     mode.add_argument("--write", type=Path, help="Atomically write canonical 0o600 certificate JSON")
     mode.add_argument("--check", type=Path, help="Verify canonical certificate JSON fail-closed")
     mode.add_argument("--verify-lean", type=Path, help="Run R12 static + live scrubbed Lean 4.36.0 --stdin verification")
-    mode.add_argument("--verify-upstream", type=Path, help="Verify all 10 pinned upstream certificate SHA-256s")
+    mode.add_argument("--verify-upstream", type=Path, help="Re-hash in-repo pinned upstream certificate SHA-256s; list cross-repo pins with repo@ref:path (UPSTREAM_PARTIAL)")
     mode.add_argument("--verify-inkling", type=Path, help="Verify both pinned Inkling-2-Mini local spec SHA-256s")
     parser.add_argument("--json", action="store_true", help="Emit JSON output")
     args = parser.parse_args(argv)

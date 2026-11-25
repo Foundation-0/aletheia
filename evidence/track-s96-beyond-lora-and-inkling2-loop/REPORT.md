@@ -13,7 +13,7 @@
 
 Before formulating exact algebraic alternatives to standard Low-Rank Adaptation (`LoRA`, Hu et al. 2021) or evaluating `thinkingmachines/Inkling-2-Mini` (`inkling2_loop`), we state standard low-rank and dense-unlooped adaptation on its strongest technical terms (**Law 2b**):
 
-- **Steelman of Standard LoRA / DoRA / PiSSA / ReFT:** Standard additive low-rank updates $\Delta W = B A$ ($B \in \mathbb{Q}^{m \times r}$, $A \in \mathbb{Q}^{r \times n}$) excel at zero-inference-overhead merging ($W' = W_0 + B A$), simple optimizer-state compression ($O(r(m+n))$), and strong empirical sample efficiency when the target task genuinely lives inside an $r$-dimensional linear subspace with weak cross-task interference — AND because low-rank updates concentrate mass onto $r$ large-amplitude singular directions, only `8.73%` (`873/10000`) of LoRA entries fall below the bf16 `< ½-ULP` (`1/256`) merge-annihilation floor, versus `81.40%` (`407/500`) for diffuse pure-Butterfly updates (`9.3242×` higher sub-ULP loss).
+- **Steelman of Standard LoRA / DoRA / PiSSA / ReFT:** Standard additive low-rank updates $\Delta W = B A$ ($B \in \mathbb{Q}^{m \times r}$, $A \in \mathbb{Q}^{r \times n}$) excel at zero-inference-overhead merging ($W' = W_0 + B A$), simple optimizer-state compression ($O(r(m+n))$), and strong empirical sample efficiency when the target task genuinely lives inside an $r$-dimensional linear subspace with weak cross-task interference — AND because low-rank updates concentrate mass onto $r$ large-amplitude singular directions, only `8.73%` (`873/10000`) of LoRA entries fall below the bf16 `< ½-ULP` (`1/256`) merge-annihilation floor, versus `81.40%` (`407/500`) for diffuse pure-Butterfly updates (`9.3242×` higher sub-ULP loss) — *external collab report figures (S95), not shipped or reproduced in this repo*.
 - **Why Exact Pure-$\mathbb{Z}/\mathbb{Q}$ Analysis Still Exposes Hard Structural Obstructions:** Regardless of optimizer tuning or initialization (`PiSSA`/`DoRA`), the algebraic structure of $\Delta W = B A$ enforces three exact, coordinate-independent laws:
   1. **Rank Starvation & $GL_r$ Gauge Redundancy** (`S78` exact quotient $d_{\mathrm{eff}} = r(m+n) - r^2 < P_{\mathrm{raw}}$),
   2. **Privileged Neuron-Basis Commutator Smearing** (`[H_4, D] \neq 0` whenever diagonal anisotropy $D$ varies across coordinates), and
@@ -150,9 +150,9 @@ All `7/8` frozen companion files in this directory (with this `REPORT.md` as the
 | `BeyondLoraAndInklingLoop.lean` | `476` | `25,591` | `0o644` | `c430ffbb2b0ac376a31c35327d05073875f51c47237813fc9d5ab54eeae26b2f` |
 | `lakefile.toml` | `6` | `146` | `0o644` | `bf65bf58add1e3fc68fde9d4d403160cfe188920754593c792900784ddb98756` |
 | `lean-toolchain` | `1` | `25` | `0o644` | `582a63f8f9c5128067b688778c1051cf1464c3ca9d57b9325025c051c29b774a` |
-| `s96_beyond_lora_inkling_certificate.json` | `1` | `11,179` | `0o600` | `2491f96992a6c4dbad7de801f4daf2fbc2ea2455466cc43b0bb51246399b5e91` |
-| `s96_beyond_lora_inkling_oracle.py` | `866` | `38,540` | `0o644` | `41de0e13017f431313f21f34f673954318141881f4e20d32b140024344e0cf53` |
-| `verify_s96_beyond_lora_inkling.py` | `1,754` | `73,047` | `0o644` | `32a6921a7039d00a047cce4378a8c9e6f840b3e14437ba75bb9eade048cf5d60` |
+| `s96_beyond_lora_inkling_certificate.json` | `1` | `11,179` | `0o644` | `2491f96992a6c4dbad7de801f4daf2fbc2ea2455466cc43b0bb51246399b5e91` |
+| `s96_beyond_lora_inkling_oracle.py` | `866` | `38,555` | `0o644` | `91b4589e40b99cc2b76a8655db198c33117811732207c1ec1c5476d45fe7109c` |
+| `verify_s96_beyond_lora_inkling.py` | `1,754` | `73,190` | `0o644` | `996784a3d65ee2d217aa40de96cf11b6821bad5ec74ca961a26a66bc013a957c` |
 | `test_s96_r5.py` | `1,727` | `120,496` | `0o644` | `1e0f6adc2b2425ebba3bb4c408131095267dced5debfad40c632940a5a5851b3` |
 
 ---
