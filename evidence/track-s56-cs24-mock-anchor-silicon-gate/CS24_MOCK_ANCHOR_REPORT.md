@@ -8,7 +8,7 @@
   - File / `--standalone --json` SHA-256: `da574cf8bd3a7e61bee62e72097b0d39766f8b65389496764a1dd6f9f1ff33db`
   - `payload_sha256`: `fd6a18b543b75a0905ec4a64f929144ca2715f773b23b4d6e69cfddbedb1f0d3`
   - `certificate_sha256`: `b2892fb03d4dab91b2fbb22aea0ef8995687006f936c4880d99d947972bae4e7`
-  - Zero-arg / `--check` stdout SHA-256: `d7c435200bf6c2f4e69e2c559773ed8aed7b56991af51a3e4a7ad94c06576461`
+  - Zero-arg / `--check` stdout SHA-256: `73c8b8866d27d3e62513a05dfe2190b931f36e19e3afde7a742456685d066370`
 
 ---
 
@@ -99,7 +99,7 @@ All verification checks ran strictly sequentially (`OPENBLAS_NUM_THREADS=1 OMP_N
 | Gate | Scope | Exact Result |
 |---|---|---|
 | **Unit & Adversarial Regression Suite** | `test_cs24_mock_anchor_r5.py` (`9` test methods, incl. exhaustive `24`-dict / `18`-list / `146`-leaf / container-to-scalar tamper sweep, Darwin alias tests, & Linux-guarded `renameat2`) | **`9/9` PASS** (`~0.45s`, `0` bare `assert`s, `0` AST floats/`float()`, `0` `.isdigit()`, `0` device-path writes) |
-| **R4 3-Mode Isolated + Hash-Seed Parity** | `-I -B`, `-I -O -B`, `-I -B -W error`, plus `PYTHONHASHSEED=42 -B` (non-isolated) | **`4/4` bit-identical** (`da574cf8bd3a7e61bee62e72097b0d39766f8b65389496764a1dd6f9f1ff33db`), `--check` `d7c43520…` ×4, unit suite `9/9 OK` ×4 (plus `umask 077` `OK`) |
+| **R4 3-Mode Isolated + Hash-Seed Parity** | `-I -B`, `-I -O -B`, `-I -B -W error`, plus `PYTHONHASHSEED=42 -B` (non-isolated) | **`4/4` bit-identical** (`da574cf8bd3a7e61bee62e72097b0d39766f8b65389496764a1dd6f9f1ff33db`), `--check` `73c8b886…` ×4, unit suite `9/9 OK` ×4 (plus `umask 077` `OK`) |
 | **Refusal-Site Mutation Suite (Exhaustive)** | `cs24_mock_anchor_oracle.py` + `cs24_mock_anchor_audit.py` | **`51/51` + `110/110` = `161/161` (`100.0%`, `survived=0`, `truncated=False`)** |
 | **Exhaustive `SWAP + SUBCOND_DEL` AST `BoolOp`** | `cs24_mock_anchor_oracle.py` + `cs24_mock_anchor_audit.py` | **`33/33` + `30/30` = `63/63` (`100.0%`, `survivors=[]`)** — one-off local run, not shipped |
 | **4-Surface Adversarial Zone-B Fuzzing** | CLI (`25`) + `full_replay=True` (`19`) + `full_replay=False` (`19`) + direct `secondary_audit_payload` (`19`) | **`82/82` (`100.0%`, `bypasses=0`, `crashes=0`)** — one-off local run, not shipped |
