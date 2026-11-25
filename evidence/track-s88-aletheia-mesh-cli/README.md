@@ -9,7 +9,8 @@ Self-contained Aletheia evidence bundle providing an exact pure-$\mathbb{Z}/\mat
 
 ## Honest Scope & Novelty Classification (`N1`)
 
-- **Novelty Classification:** **`N1`** (`oracle_class: exact`). Anchored against the frozen sibling `Track S83` $K_8$ epistemic mesh (`evidence/track-s83-all-to-all-epistemic-mesh/`) with exact pure-$\mathbb{Z}/\mathbb{Q}$ replay and `16/16` pure-`Init` Lean `4.36.0` theorems.
+- **Novelty Classification:** **`N1`** (`oracle_class: exact`). Anchored against the frozen sibling `Track S83` $K_8$ epistemic mesh (`evidence/track-s83-all-to-all-epistemic-mesh/`) with exact pure-$\mathbb{Z}/\mathbb{Q}$ replay and `16/16` pure-`Init` Lean `4.36.0` theorems (`14` universal algebraic/scalar/Boolean laws + `2` closed ground `decide` witnesses `Thms 4–5`, with `Thms 14(b), 15(b)` as integer numeric anchors and `Thm 16` as scalar firewall identities).
+- **CLI Verification Split:** `--check` verifies Zone-B canonical JSON, full pure-$\mathbb{Z}/\mathbb{Q}$ replay, and the static R12 Lean gate (safe on Lean-less runners); `--verify-lean AletheiaMeshEngine.lean --json` executes live `Lean 4.36.0` kernel elaboration (given a trusted `lean` executable on `PATH` or `ALETHEIA_LEAN_BIN`).
 
 ## Files
 
