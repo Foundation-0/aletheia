@@ -570,10 +570,8 @@ def audit_terracore(track_dir: Path, h9a_v2: Dict[str, Any]) -> Dict[str, Any]:
         )
         else "FALSIFIED"
     )
-    require_ok(
-        (h9a_verdict, h9b_verdict, h9c_verdict, h9d_verdict) == ("CONFIRMED", "FALSIFIED", "FALSIFIED", "FALSIFIED"),
-        f"Unexpected verdict tuple: {(h9a_verdict, h9b_verdict, h9c_verdict, h9d_verdict)}",
-    )
+    # Verdicts above are computed from the gate booleans; no require_ok on an expected
+    # tuple (standing rule: never lock a verdict to a literal pattern).
 
     # 26 neural models per seed (1 Stage-1 Core+Audit + 1 Arm D-mono + 6 yields x 4 plates) x 3 seeds = 78
     models_trained = 26 * len(EXPECTED_SEED_KEYS)
