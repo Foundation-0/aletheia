@@ -121,6 +121,76 @@ class TestTrackS107HypersphereAuditR5(unittest.TestCase):
                 audit.build_certificate(Path(td))
             self.assertEqual(audit.main(["--check", str(Path(td) / "missing.json")]), 2)
 
+    def test_09_receipt_binding_attacks_and_computed_verdicts(self) -> None:
+        def _copy_track(td: Path) -> Path:
+            for fname in (
+                "h7a_gpu_results.json", "h7b_gpu_results.json", "h7c_gpu_results.json",
+                "mlos_zone_b_h7a.json", "mlos_zone_b_h7b.json", "mlos_zone_b_h7c.json",
+                "s107_cpu_preflight_receipt.json",
+            ):
+                shutil.copy2(_THIS_DIR / fname, td / fname)
+            return td
+
+        # Positive: shipped receipts verify with recomputed self-hash + results binding.
+        cert = audit.build_certificate(_THIS_DIR)
+        self.assertEqual(cert["payload"]["scorecard"]["literal_prereg_verdicts"],
+                         {"H7a": "FALSIFIED", "H7c": "CONFIRMED", "H7b": "FALSIFIED"})
+        self.assertEqual(cert["payload"]["scorecard"]["H7c"], "PARTIAL")
+        self.assertEqual(cert["payload"]["scorecard"]["H7b"], "PARTIAL")
+
+        # Attack 1: zeroed receipt_sha256 -> MLOS_RECEIPT_SHA_MISMATCH.
+        with tempfile.TemporaryDirectory() as td:
+            d = _copy_track(Path(td))
+            rp = d / "mlos_zone_b_h7a.json"
+            m = json.loads(rp.read_text(encoding="utf-8"))
+            m["receipt_sha256"] = "0" * 64
+            rp.write_text(json.dumps(m, indent=2, sort_keys=True), encoding="utf-8")
+            with self.assertRaises(audit.S107AuditError) as cm:
+                audit.build_certificate(d)
+            self.assertIn("MLOS_RECEIPT_SHA_MISMATCH", str(cm.exception))
+
+        # Attack 2: unsigned telemetry edit (self-hash not recomputed) -> mismatch.
+        with tempfile.TemporaryDirectory() as td:
+            d = _copy_track(Path(td))
+            rp = d / "mlos_zone_b_h7b.json"
+            m = json.loads(rp.read_text(encoding="utf-8"))
+            m["start_gpu_telemetry"]["pkg_w_mean"] = 999.0
+            rp.write_text(json.dumps(m, indent=2, sort_keys=True), encoding="utf-8")
+            with self.assertRaises(audit.S107AuditError) as cm:
+                audit.build_certificate(d)
+            self.assertIn("MLOS_RECEIPT_SHA_MISMATCH", str(cm.exception))
+
+        # Attack 3: H7a receipt copied over the H7c receipt -> binding failure.
+        with tempfile.TemporaryDirectory() as td:
+            d = _copy_track(Path(td))
+            shutil.copy2(d / "mlos_zone_b_h7a.json", d / "mlos_zone_b_h7c.json")
+            with self.assertRaises(audit.S107AuditError) as cm:
+                audit.build_certificate(d)
+            self.assertIn("MLOS_NOT_BOUND_TO_RESULTS", str(cm.exception))
+
+        # Verdicts are computed from gate booleans: flipping one gate input changes the
+        # literal verdict instead of raising a hardcoded-pattern error.
+        with tempfile.TemporaryDirectory() as td:
+            d = _copy_track(Path(td))
+            rp = d / "h7c_gpu_results.json"
+            r = json.loads(rp.read_text(encoding="utf-8"))
+            # make criterion 1 fail: worsen CliffordTorus-HopfLoop R3 BPB vs FlatLoop-Std
+            for run in r["runs"]:
+                if run["arm_name"] == "CliffordTorus-HopfLoop":
+                    run["val"]["bpb"] = run["val"]["bpb"] * 1.05
+            rp.write_text(json.dumps(r, indent=2, sort_keys=True), encoding="utf-8")
+            # rebind the h7c receipt to the edited results file (else binding fires first)
+            import hashlib as _hl
+            mrec_p = d / "mlos_zone_b_h7c.json"
+            mrec = json.loads(mrec_p.read_text(encoding="utf-8"))
+            mrec["bound_results_sha256"] = _hl.sha256(rp.read_bytes()).hexdigest()
+            body = {k: v for k, v in mrec.items() if k != "receipt_sha256"}
+            mrec["receipt_sha256"] = _hl.sha256(json.dumps(body, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+            mrec_p.write_text(json.dumps(mrec, indent=2, sort_keys=True), encoding="utf-8")
+            cert2 = audit.build_certificate(d)
+            self.assertEqual(cert2["payload"]["h7c"]["literal_prereg_verdict"], "FALSIFIED")
+            self.assertNotEqual(cert2["payload"]["h7c"]["verdict"], "PARTIAL")
+
 
 if __name__ == "__main__":
     unittest.main()

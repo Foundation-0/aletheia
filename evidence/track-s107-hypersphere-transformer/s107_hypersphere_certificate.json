@@ -1,5 +1,5 @@
 {
-  "certificate_sha256": "979bcd3b7ca2210961c2526f5949bc2f605eb10d795b63387cd69ab7c86c2932",
+  "certificate_sha256": "a431e42a21adce1ebfc337fc57ced8a5b2b19706b150e83a60aa0ffdeebabbe8",
   "payload": {
     "cpu_preflight": {
       "gates_passed": 9,
@@ -133,14 +133,17 @@
         "train_num_bytes": 2568794,
         "train_sha256": "43a81400291ee8fe50f3d88b226b9577e8d7284e7bc1b235498578a418b3aa6b"
       },
+      "literal_prereg_verdict": "FALSIFIED",
       "max_flop_diff_pct": 0.0,
       "max_non_emb_param_diff_pct": 0.1631,
       "mlos": {
         "anomalies_count": 0,
+        "bound_results_sha256": "561572d9ace9df3cf76c1ba6e2a52b62809c6c9df2698fdd18e7904c5f4bede6",
         "clean_hardware_run": true,
         "determinism_zone": "B",
         "file": "mlos_zone_b_h7a.json",
-        "sha256": "f246750c415f2a30672f745928a2f3f84a56f4599d9b71f46f57ddf6d677948e"
+        "receipt_sha256_verified": true,
+        "sha256": "e3b632b2e8e590a17acb4a331ab1aa5ec29e0347b746e143d1489f47a86b5786"
       },
       "results_sha256": "561572d9ace9df3cf76c1ba6e2a52b62809c6c9df2698fdd18e7904c5f4bede6",
       "runs_count": 30,
@@ -158,18 +161,25 @@
         "train_num_bytes": 2590339,
         "train_sha256": "ea2f47fad9c28635bee8834989d9fd7958c2889d65334945b990067be81d3d70"
       },
+      "extrapolation_t2048_gate": true,
+      "graded_reason": "length-extrapolation axis wins strongly, but T=512 in-distribution BPB regresses vs RoPE (prereg CONFIRMED requires no standard-BPB regression) -> literal FALSIFIED, graded PARTIAL",
+      "literal_prereg_verdict": "FALSIFIED",
       "max_flop_diff_pct": 0.8739,
       "max_non_emb_param_diff_pct": 0.1628,
       "mlos": {
         "anomalies_count": 0,
+        "bound_results_sha256": "0775dd1c4bf14311f84714f1681a0944fb9775fefe1d2e3c80c5d78f54e606d5",
         "clean_hardware_run": true,
         "determinism_zone": "B",
         "file": "mlos_zone_b_h7b.json",
-        "sha256": "a9aeecbf9b4e71dea5f188a236ec8974021d56099c259bb9519df94dfbeaa556"
+        "receipt_sha256_verified": true,
+        "sha256": "0c35f414a1a7e3bc844fd5d737e78991f2213cf87b75104aff90d434c099d602"
       },
+      "no_t512_regression": false,
       "probes_count": 30,
       "results_sha256": "0775dd1c4bf14311f84714f1681a0944fb9775fefe1d2e3c80c5d78f54e606d5",
       "runs_count": 15,
+      "s3_tracking_gate": false,
       "su2_over_rope_wall_clock_ratio": 3.9125,
       "su2_vs_liere_t2048_bpb": {
         "mean_diff": -0.14232,
@@ -182,6 +192,12 @@
         "paired_se": 0.01338,
         "rel_diff_pct": -8.132,
         "z_score": -18.1687
+      },
+      "su2_vs_randortho_t512_bpb": {
+        "mean_diff": 0.02634,
+        "paired_se": 0.016888,
+        "rel_diff_pct": 0.9654,
+        "z_score": 1.5597
       },
       "su2_vs_rope_s3_id_acc": {
         "mean_diff": -0.002088,
@@ -207,6 +223,7 @@
         "rel_diff_pct": -15.3779,
         "z_score": -12.2997
       },
+      "t512_gate": false,
       "verdict": "PARTIAL"
     },
     "h7c": {
@@ -223,6 +240,7 @@
         "train_sha256": "ea2f47fad9c28635bee8834989d9fd7958c2889d65334945b990067be81d3d70"
       },
       "criterion1_raw_fires": true,
+      "graded_reason": "prereg OR-gate criterion 1 fires (literal CONFIRMED), but post-hoc adversarial control SphereLoop-RandRotClock (not preregistered) is not beaten -> PARTIAL",
       "hopf_vs_flat_m1h1_4b": {
         "mean_diff": -0.513133,
         "paired_se": 0.049568,
@@ -259,16 +277,21 @@
         "rel_diff_pct": -12.5305,
         "z_score": -14.4421
       },
+      "literal_prereg_verdict": "CONFIRMED",
+      "m1_quantized_drift_pass": false,
       "max_looped_vs_16L_flop_diff_pct": 1.3273,
       "max_looped_vs_8L_param_diff_pct": 0.2023,
       "mlos": {
         "anomalies_count": 0,
+        "bound_results_sha256": "81f00fd481a5c146b02568d1da3124cb0c60f77fe2b2f545940200c505a38bd9",
         "clean_hardware_run": true,
         "determinism_zone": "B",
         "file": "mlos_zone_b_h7c.json",
-        "sha256": "7ec656018d8458a530fa211aa32e83f9ec5b6928caa384192775d03f2bf7968b"
+        "receipt_sha256_verified": true,
+        "sha256": "b8c0070e632098095fad25ffcf4e0bdafd6e78ae9859dd0645e8598036d4afca"
       },
       "probes_count": 18,
+      "r6_extrapolation_pass": false,
       "results_sha256": "81f00fd481a5c146b02568d1da3124cb0c60f77fe2b2f545940200c505a38bd9",
       "runs_count": 18,
       "verdict": "PARTIAL"
@@ -279,12 +302,17 @@
       "H7a": "FALSIFIED",
       "H7b": "PARTIAL",
       "H7c": "PARTIAL",
+      "literal_prereg_verdicts": {
+        "H7a": "FALSIFIED",
+        "H7b": "FALSIFIED",
+        "H7c": "CONFIRMED"
+      },
       "n2_claims": 0,
       "weights_saved": 0
     },
     "total_live_gpu_runs": 111,
     "track_id": "track-s107-hypersphere-transformer"
   },
-  "payload_sha256": "5374f05df30b3ca7db025a2274e80800f92e0934375bf49fae2290f8525687f1",
+  "payload_sha256": "c164bb894f72a8b53918a10be087d5f121122dd0626ac9c62d42d577b1961f97",
   "schema_version": "aletheia.track_s107.hypersphere_transformer.certificate.v1"
 }

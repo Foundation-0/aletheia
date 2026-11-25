@@ -4,9 +4,11 @@
 Zero external dependencies (no torch, no numpy): runs under stock /usr/bin/python3 -I -B/-O/-W error.
 Recomputes directly from raw per-seed JSON records:
   - Exact SHA-256 bindings of h7{a,b,c}_gpu_results.json, mlos_zone_b_h7{a,b,c}.json, and preflight receipt
-  - Clean hardware Zone-B provenance (clean_hardware_run=True, anomalies=[]) across all 3 tracks
+  - Clean hardware Zone-B provenance: receipt_sha256 RECOMPUTED (canonical JSON minus self field) and each
+    receipt BOUND to its results file via bound_results_sha256 across all 3 tracks
   - Exact CS-08 parameter/FLOP parity across all 21 arms (10 H7a, 6 H7c, 5 H7b)
-  - Exact paired-seed statistics (mean, SE, relative %, paired z) and literal locked-gate verdicts
+  - Exact paired-seed statistics (mean, SE, relative %, paired z); verdicts COMPUTED from gate booleans
+    (literal prereg verdict + graded verdict with post-hoc reason), never hardcoded strings
   - Exact H7b eager wall-clock ratio (3.9125x) and H7a/H7b/H7c corpus digest separation
   - Fail-closed --check <cert.json> using hmac.compare_digest on payload_sha256 & certificate_sha256
 Zero bare asserts; strict fail-closed S107AuditError on all malformed inputs.
@@ -106,14 +108,32 @@ def _index_runs(res: Dict[str, Any]) -> Tuple[List[int], Dict[str, Dict[int, Dic
     return [int(s) for s in seeds], by_arm
 
 
-def verify_mlos_receipt(path: Path) -> Dict[str, Any]:
+def verify_mlos_receipt(path: Path, results_path: Optional[Path] = None) -> Dict[str, Any]:
     rec = load_json_strict(path)
     require_ok(rec.get("clean_hardware_run") is True, f"{path.name}: clean_hardware_run is not True")
     require_ok(rec.get("anomalies") == [], f"{path.name}: hardware anomalies present")
     require_ok(rec.get("determinism_zone") == "B", f"{path.name}: expected Zone B")
+    # Recompute the receipt self-signature: sha256 of canonical JSON minus the self field.
+    # A zeroed receipt_sha256 or any unsigned telemetry edit fails here.
+    body = {k: v for k, v in rec.items() if k != "receipt_sha256"}
+    recomputed = canonical_sha256(body)
+    require_ok(
+        hmac.compare_digest(recomputed, str(rec.get("receipt_sha256", ""))),
+        f"{path.name}: MLOS_RECEIPT_SHA_MISMATCH (receipt_sha256 not recomputed/unsigned edit)",
+    )
+    # Bind the receipt to the results file it describes: bound_results_sha256 must equal
+    # the on-disk results sha256 (an H7a receipt copied over the H7c receipt fails here).
+    if results_path is not None:
+        bound = rec.get("bound_results_sha256")
+        require_ok(
+            isinstance(bound, str) and hmac.compare_digest(bound, sha256_file(results_path)),
+            f"{path.name}: MLOS_NOT_BOUND_TO_RESULTS (bound_results_sha256 != {results_path.name} sha256)",
+        )
     return {
         "file": path.name,
         "sha256": sha256_file(path),
+        "receipt_sha256_verified": True,
+        "bound_results_sha256": rec.get("bound_results_sha256"),
         "clean_hardware_run": True,
         "anomalies_count": 0,
         "determinism_zone": "B",
@@ -123,7 +143,7 @@ def verify_mlos_receipt(path: Path) -> Dict[str, Any]:
 def audit_h7a(track_dir: Path) -> Dict[str, Any]:
     res_path = track_dir / "h7a_gpu_results.json"
     res = load_json_strict(res_path)
-    mlos = verify_mlos_receipt(track_dir / "mlos_zone_b_h7a.json")
+    mlos = verify_mlos_receipt(track_dir / "mlos_zone_b_h7a.json", res_path)
     seeds, by_arm = _index_runs(res)
     require_ok(len(res["runs"]) == 30 and len(by_arm) == 10, "H7a expected 10 arms x 3 seeds = 30 runs")
 
@@ -167,7 +187,6 @@ def audit_h7a(track_dir: Path) -> Dict[str, Any]:
             }
 
     verdict = "CONFIRMED" if any_pass else "FALSIFIED"
-    require_ok(verdict == "FALSIFIED", "H7a literal verdict mismatch")
     return {
         "results_sha256": sha256_file(res_path),
         "mlos": mlos,
@@ -177,13 +196,14 @@ def audit_h7a(track_dir: Path) -> Dict[str, Any]:
         "max_flop_diff_pct": round(max_f_pct, 4),
         "comparisons": comparisons,
         "verdict": verdict,
+        "literal_prereg_verdict": verdict,
     }
 
 
 def audit_h7c(track_dir: Path) -> Dict[str, Any]:
     res_path = track_dir / "h7c_gpu_results.json"
     res = load_json_strict(res_path)
-    mlos = verify_mlos_receipt(track_dir / "mlos_zone_b_h7c.json")
+    mlos = verify_mlos_receipt(track_dir / "mlos_zone_b_h7c.json", res_path)
     seeds, by_arm = _index_runs(res)
     require_ok(len(res["runs"]) == 18 and len(res["probes"]) == 18 and len(by_arm) == 6, "H7c expected 18 LM + 18 bracket runs")
 
@@ -218,7 +238,19 @@ def audit_h7c(track_dir: Path) -> Dict[str, Any]:
     beats_randrot = hopf_vs_rand["mean_diff"] < 0.0 and hopf_vs_rand["z_score"] <= -2.0
     r6_pass = r6_vs_flat["rel_diff_pct"] <= -10.0
     m1_pass = m1_4b_vs_flat["rel_diff_pct"] <= -20.0
-    require_ok(crit1_raw_fires and (not beats_randrot) and (not r6_pass) and (not m1_pass), "H7c expected conservative PARTIAL pattern")
+    # Verdicts are COMPUTED from the gate booleans, never hardcoded:
+    # literal prereg verdict = prereg OR-gate (any of the 3 CONFIRMED axes), else FALSIFIED.
+    literal_prereg_verdict = "CONFIRMED" if (crit1_raw_fires or r6_pass or m1_pass) else "FALSIFIED"
+    # Graded verdict carries the post-hoc reason: the preregistered OR-gate fired (literal
+    # CONFIRMED), but the adversarial control SphereLoop-RandRotClock (NOT in the prereg or
+    # Amendment 1) is not beaten, so the graded verdict is downgraded to PARTIAL.
+    if literal_prereg_verdict == "CONFIRMED" and not beats_randrot:
+        graded_verdict = "PARTIAL"
+        graded_reason = ("prereg OR-gate criterion 1 fires (literal CONFIRMED), but post-hoc adversarial "
+                         "control SphereLoop-RandRotClock (not preregistered) is not beaten -> PARTIAL")
+    else:
+        graded_verdict = literal_prereg_verdict
+        graded_reason = "graded verdict equals the literal prereg verdict"
 
     return {
         "results_sha256": sha256_file(res_path),
@@ -236,14 +268,18 @@ def audit_h7c(track_dir: Path) -> Dict[str, Any]:
         "hopf_vs_flat_m1h1_4b": m1_4b_vs_flat,
         "criterion1_raw_fires": crit1_raw_fires,
         "beats_randrot_adversarial_control": beats_randrot,
-        "verdict": "PARTIAL",
+        "r6_extrapolation_pass": r6_pass,
+        "m1_quantized_drift_pass": m1_pass,
+        "verdict": graded_verdict,
+        "literal_prereg_verdict": literal_prereg_verdict,
+        "graded_reason": graded_reason,
     }
 
 
 def audit_h7b(track_dir: Path) -> Dict[str, Any]:
     res_path = track_dir / "h7b_gpu_results.json"
     res = load_json_strict(res_path)
-    mlos = verify_mlos_receipt(track_dir / "mlos_zone_b_h7b.json")
+    mlos = verify_mlos_receipt(track_dir / "mlos_zone_b_h7b.json", res_path)
     seeds, by_arm = _index_runs(res)
     require_ok(len(res["runs"]) == 15 and len(res["probes"]) == 30 and len(by_arm) == 5, "H7b expected 15 LM + 30 S3/A5 probe runs")
 
@@ -288,12 +324,29 @@ def audit_h7b(track_dir: Path) -> Dict[str, Any]:
     rope_t = sum(by_arm["RoPE-2D-nGPT"][s]["elapsed_sec"] for s in seeds) / float(len(seeds))
     wall_ratio = round(su2_t / rope_t, 4)
 
+    t512_vs_rand = paired_stats(
+        [by_arm["SU2-Holonomy-Scan-nGPT"][s]["val"]["bpb"] for s in seeds], [by_arm["Block4-RandOrtho-nGPT"][s]["val"]["bpb"] for s in seeds]
+    )
     extrap_t2048_strong = (
         t2048_vs_rope["rel_diff_pct"] <= -5.0 and t2048_vs_rope["z_score"] <= -2.0
         and t2048_vs_rand["rel_diff_pct"] <= -5.0 and t2048_vs_rand["z_score"] <= -2.0
     )
+    t512_gate = (
+        t512_vs_rope["rel_diff_pct"] <= -1.5 and t512_vs_rope["z_score"] <= -2.0
+        and t512_vs_rand["rel_diff_pct"] <= -1.5 and t512_vs_rand["z_score"] <= -2.0
+    )
+    s3_gate = s3_vs_rope["mean_diff"] >= 15.0 and s3_vs_rope["z_score"] >= 2.0
     no_t512_regression = t512_vs_rope["mean_diff"] <= 0.0
-    require_ok(extrap_t2048_strong and (not no_t512_regression), "H7b expected PARTIAL (strong T2048, slight T512 trail)")
+    # Literal prereg verdict (prereg defines only CONFIRMED / FALSIFIED): CONFIRMED requires a
+    # winning axis WITH no standard-BPB regression; otherwise FALSIFIED. Computed, not hardcoded.
+    literal_prereg_verdict = "CONFIRMED" if ((t512_gate or extrap_t2048_strong or s3_gate) and no_t512_regression) else "FALSIFIED"
+    if literal_prereg_verdict == "FALSIFIED" and (extrap_t2048_strong or s3_gate) and not no_t512_regression:
+        graded_verdict = "PARTIAL"
+        graded_reason = ("length-extrapolation axis wins strongly, but T=512 in-distribution BPB regresses "
+                         "vs RoPE (prereg CONFIRMED requires no standard-BPB regression) -> literal FALSIFIED, graded PARTIAL")
+    else:
+        graded_verdict = literal_prereg_verdict
+        graded_reason = "graded verdict equals the literal prereg verdict"
 
     return {
         "results_sha256": sha256_file(res_path),
@@ -309,8 +362,15 @@ def audit_h7b(track_dir: Path) -> Dict[str, Any]:
         "su2_vs_liere_t2048_bpb": t2048_vs_liere,
         "su2_vs_std_t2048_bpb": t2048_vs_std,
         "su2_vs_rope_s3_id_acc": s3_vs_rope,
+        "su2_vs_randortho_t512_bpb": t512_vs_rand,
         "su2_over_rope_wall_clock_ratio": wall_ratio,
-        "verdict": "PARTIAL",
+        "t512_gate": t512_gate,
+        "extrapolation_t2048_gate": extrap_t2048_strong,
+        "s3_tracking_gate": s3_gate,
+        "no_t512_regression": no_t512_regression,
+        "verdict": graded_verdict,
+        "literal_prereg_verdict": literal_prereg_verdict,
+        "graded_reason": graded_reason,
     }
 
 
@@ -348,6 +408,11 @@ def build_certificate(track_dir: Path) -> Dict[str, Any]:
             "H7a": h7a["verdict"],
             "H7c": h7c["verdict"],
             "H7b": h7b["verdict"],
+            "literal_prereg_verdicts": {
+                "H7a": h7a["literal_prereg_verdict"],
+                "H7c": h7c["literal_prereg_verdict"],
+                "H7b": h7b["literal_prereg_verdict"],
+            },
             "n2_claims": 0,
             "weights_saved": 0,
         },

@@ -1,6 +1,9 @@
 # `PREREG-S107` + `AMENDMENT1` (`EXP-Q08a..c`) — Live RTX 3080 Evaluation Report
 
 - **Protocol Sources:** `notes/sphere_pi_forces_2026_11_25/PREREG_S107_NATIVE_HYPERSPHERE_TRANSFORMER.md` (`6e197152...`) + `PREREG_S107_S108_AMENDMENT1_COUNCIL_HARDENING.md` (`5a9ddf08...`)
+- **Prereg lock-time disclosure:** `PREREG_S107_HYPERSPHERE_TRANSFORMER.md:4` and `PREREG_S107_S108_AMENDMENT1.md:3,9` claim a pre-GPU lock, but the earliest copy of either file anywhere is this PR's own commit (after the GPU windows), and the cited source path above is not present in any repo; **the lock time cannot be verified from the repo** and no run artifact records the prereg hash. This is recorded as a deviation, not hidden.
+- **Deviations from the prereg:** (1) H7c clock law implemented as `φ_r = 2πr/11` (`gpu_harnesses/s107_models.py`) where the prereg states `2πr/R`; (2) the classical-Arabic S92 eval domain from the prereg was dropped; (3) the extra `SphereLoop-RandRotClock` arm is in neither the prereg nor Amendment 1 (it is the post-hoc adversarial control that downgrades H7c's graded verdict to PARTIAL).
+- **Corpus reproducibility:** the multi-domain corpus is globbed at run time from a live local directory (`gpu_harnesses/s107_train_eval.py` `load_multidomain_offline_bundle`: `track-s*/*.py` ≤120 kB and `track-s*/*.json` ≤80 kB split 80/20 by filename sha256, plus WikiText-2 parquet files); only aggregate digests are recorded, **so the exact file set cannot be reconstructed from this repo**. The per-domain sha256 digests in each results JSON are the verifiable anchor.
 - **Hardware & Provenance:** NVIDIA GeForce RTX 3080 Laptop GPU (`8 GiB` VRAM), serialized under `flock` + `mlos gpu-lease --mode train` + `mlos stamp-run --zone B --require-gpu`, `HF_HUB_OFFLINE=1`, `WEIGHTS=0` (zero weight checkpoints saved). All `3/3` `mlos` Zone-B receipts report `clean_hardware_run = true`, `anomalies = []`.
 - **Offline Multi-Domain Corpus Digests (`100%` Intra-Track `CS-08` Parity):**
   - **`H7a`:** Disjoint `2,568,794` B train (`43a81400291ee8fe50f3d88b226b9577e8d7284e7bc1b235498578a418b3aa6b`) vs strictly held-out `1,690,185` B eval (`ee88d7b3f67b5676563372b8dc8ce154e94dc7e2198247cf4f7d8515e1fba57b`: `wikitext2_test` `1,290,546` B + disjoint `python_code` `273,445` B + disjoint `json_traces` `126,194` B).
@@ -10,11 +13,11 @@
 
 ---
 
-## 1. Master Literal-Gate Scorecard (`111/111` Live RTX 3080 Runs, `n2_claims = 0`)
+## 1. Master Graded Verdict Scorecard (`111/111` Live RTX 3080 Runs, `n2_claims = 0`) — verdicts computed from gate booleans; literal prereg verdicts: H7a FALSIFIED, H7c CONFIRMED (prereg OR-gate), H7b FALSIFIED (no-regression clause)
 
-| Track | Scope & Runs | Literal Locked Verdict | Headline Quantitative Outcome (`3` Seeds `[42, 137, 2026]`) |
+| Track | Scope & Runs | Graded Verdict (literal prereg verdict) | Headline Quantitative Outcome (`3` Seeds `[42, 137, 2026]`) |
 | :--- | :--- | :---: | :--- |
-| **`H7a`** (`EXP-Q08a`) | `10` arms × `3` seeds (`30` LM runs, `2,194s`) | **`FALSIFIED`** | `0/4` `BPB_PASS`, `0/4` `KL_PASS`. Neither `S3-Polar` nor `S3-Equatorial` beats BOTH `Cyl` AND matched `S3-Permuted` nulls at `>= 1.5%` BPB (`z <= -2`) or `>= 15%` 3-bit PTQ KL. `S3-Equatorial-Std` significantly **worsens** BPB (`+3.40% z=+2.61` vs `Cyl-Std`). |
+| **`H7a`** (`EXP-Q08a`) | `10` arms × `3` seeds (`30` LM runs, `2,194s`) | **`FALSIFIED`** | `0/4` `BPB_PASS`, `0/4` `KL_PASS`. Neither `S3-Polar` nor `S3-Equatorial` beats BOTH `Cyl` AND matched `S3-Permuted` nulls at `>= 1.5%` BPB (`z <= -2`) or `>= 15%` 3-bit PTQ KL. `S3-Equatorial-Std` **worsens** BPB (`+3.40%`, paired t(df=2) z=+2.61, two-sided p=0.12 — not significant). |
 | **`H7c`** (`EXP-Q08c`) | `6` arms × `3` seeds (`18` LM + `18` bracket runs, `1,371s`) | **`PARTIAL`** *(conservative)* | Original `PREREG-S107:81` `R=3` BPB gate **FIRES STRONGLY** (`-5.29% z=-4.65` vs `FlatLoop-Std`, `-9.44% z=-42.46` vs `SphereLoop-NoClock`, `-12.53% z=-14.44` vs `Unlooped-16L`), **BUT** graded conservatively `PARTIAL` (not `CONFIRMED`) because `COLLAB-CLAUDE H6` `SphereLoop-RandRotClock` (Haar $O(d)$ per pass) matches/beats it (`2.6378` vs `2.6621`, `M1-H1` `2.20` vs `3.07`) proving **orthogonal per-pass symmetry breaking** rather than Hopf-specific superiority (Hopf's sole edge is `O(d)` `+0.0156%` FLOPs vs `O(d^2)` `+1.33%`), AND `R_test=6` & `M1-H1` are **`FALSIFIED`** (antipodal phase flip $\phi_5 = 10\pi/11 \approx \pi$). |
 | **`H7b`** (`EXP-Q08b`) | `5` arms × `3` seeds (`15` LM + `30` $S_3$/$A_5$ runs, `2,522s`) | **`PARTIAL`** | **Strong `4×` zero-shot `T=2048` length-extrapolation win:** `SU2-Holonomy-Scan-nGPT` (`2.7462 BPB`) beats `RoPE-2D-nGPT` by **`-7.37% (z=-13.32)`**, `Block4-RandOrtho` by **`-8.13% (z=-18.17)`**, `RoPE-2D-Std` by **`-15.38% (z=-12.30)`**, and `LieRE-4D` (`N0`) by **`-4.93% (z=-3.91)`**. Fails strict no-regression at `T=512` (`+1.22% z=+1.28`), `T=1024` (`-0.03%`), and `400`-step $S_3$/$A_5$ tracking (`~22.0%` / `4.23%` across all arms), at **`3.913×`** eager PyTorch wall-clock (`276.55s` vs `70.68s`). |
 
@@ -49,6 +52,8 @@ Pilot LR calibration locked `lr_std = lr_ngpt = 2.5e-3` (`2+4×3+2 = 16` eff. la
 | Arm | `P_nonemb` | Val BPB (`R=3`, `64`w) | `R_test` BPB (`16`w: `R3/R4/R6/R8`) | Bracket Acc (`R3/R4/R6/R8`) | `M1-H1` `Δ3/Δ1` (`4b / 3b`, $\rho$) |
 | :--- | ---: | :---: | :---: | :---: | :---: |
 | `Unlooped-16L` | `12,656,896` | `3.0435 ± 0.0185` | — | `80.38%` | — |
+
+> Caveat: `Unlooped-16L` looks undertrained at `600` steps (it scores worst of all arms); it is an upper-bound anchor, not a trained baseline.
 | `Unlooped-8L` | `6,328,576` | `2.9548 ± 0.0299` | — | `76.53%` | — |
 | `FlatLoop-Std` | `6,328,577` | `2.8109 ± 0.0254` | `3.26 / 3.27 / 3.35 / 3.43` | `76.1 / 76.3 / 76.0 / 75.8%` | `3.58 / 3.57` ($\rho=1.26$) |
 | `SphereLoop-NoClock` | `6,341,378` | `2.9397 ± 0.0040` | `3.42 / 3.49 / 3.97 / 4.65` | `84.6 / 79.7 / 66.7 / 57.8%` | `2.92 / 2.88` ($\rho=0.96$) |
@@ -75,13 +80,13 @@ Pilot LR calibration locked `lr_std = 1.2e-3`, `lr_ngpt = 2.5e-3` (`L=12, d=320,
 | **`SU2-Holonomy-Scan-nGPT`** | **`14,898,817`** | **`2.7547 ± 0.0395`** | **`3.2614`** | **`2.7462`** | **`0.01728`** | **`22.01% / 18.06%`** | **`4.23% / 2.47%`** |
 
 **Paired `SU2-Holonomy-Scan-nGPT` Comparisons:**
-- **`T = 2048` (`4×` Extrapolation — Strong Signal):** `-7.37% (z=-13.32)` vs `RoPE-2D-nGPT`, `-8.13% (z=-18.17)` vs `Block4-RandOrtho-nGPT`, `-15.38% (z=-12.30)` vs `RoPE-2D-Std`, and `-4.93% (z=-3.91)` vs `LieRE-4D-Abelian-nGPT`. Because data-dependent unit-quaternion path transport $U(s)^{-1} U(t)$ stays on compact $SU(2)$ without linearly growing out-of-distribution phase angles $t \theta_k$, `SU2` eliminates `4×` context blowup (`2.7462` vs `T=512` `2.7547`).
+- **`T = 2048` (`4×` Extrapolation — Strong Signal):** `-7.37% (z=-13.32)` vs `RoPE-2D-nGPT`, `-8.13% (z=-18.17)` vs `Block4-RandOrtho-nGPT`, `-15.38% (z=-12.30)` vs `RoPE-2D-Std`, and `-4.93% (z=-3.91)` vs `LieRE-4D-Abelian-nGPT`. Because data-dependent unit-quaternion path transport $U(s)^{-1} U(t)$ stays on compact $SU(2)$ without linearly growing out-of-distribution phase angles $t \theta_k$, `SU2` wins the paired `T=2048` arm-vs-arm comparison; absolute `T=2048` vs `T=512` BPB are not comparable (different byte slices), so no 'eliminates 4× blowup' claim is made.
 - **Honest Failure / Caveat Axes:** Fails strict no-regression at `T=512` (`+1.22% z=+1.28` vs `RoPE-2D-nGPT`), ties at `T=1024` (`-0.03%`), shows `0` gain on `400`-step $S_3$/$A_5$ group tracking (all `5` arms near chance, showing QK-only non-Abelian transport alone does not unlock finite-group composition without value-path readout or longer curriculum), raises `3`-bit PTQ KL (`0.0173` vs `0.0122`), and runs **`3.913×` slower** (`276.55s` vs `70.68s`/run) in unfused eager PyTorch.
 
 ---
 
 ## 5. Artifact Provenance (Zero Weights, Clean Zone-B Receipts)
 
-- `h7a_gpu_results.json`: `561572d9ace9df3cf76c1ba6e2a52b62809c6c9df2698fdd18e7904c5f4bede6` · `mlos_zone_b_h7a.json`: `f246750c415f2a30672f745928a2f3f84a56f4599d9b71f46f57ddf6d677948e`
-- `h7c_gpu_results.json`: `81f00fd481a5c146b02568d1da3124cb0c60f77fe2b2f545940200c505a38bd9` · `mlos_zone_b_h7c.json`: `7ec656018d8458a530fa211aa32e83f9ec5b6928caa384192775d03f2bf7968b`
-- `h7b_gpu_results.json`: `0775dd1c4bf14311f84714f1681a0944fb9775fefe1d2e3c80c5d78f54e606d5` · `mlos_zone_b_h7b.json`: `a9aeecbf9b4e71dea5f188a236ec8974021d56099c259bb9519df94dfbeaa556`
+- `h7a_gpu_results.json`: `561572d9ace9df3cf76c1ba6e2a52b62809c6c9df2698fdd18e7904c5f4bede6` · `mlos_zone_b_h7a.json`: `e3b632b2e8e590a17acb4a331ab1aa5ec29e0347b746e143d1489f47a86b5786`
+- `h7c_gpu_results.json`: `81f00fd481a5c146b02568d1da3124cb0c60f77fe2b2f545940200c505a38bd9` · `mlos_zone_b_h7c.json`: `b8c0070e632098095fad25ffcf4e0bdafd6e78ae9859dd0645e8598036d4afca`
+- `h7b_gpu_results.json`: `0775dd1c4bf14311f84714f1681a0944fb9775fefe1d2e3c80c5d78f54e606d5` · `mlos_zone_b_h7b.json`: `0c35f414a1a7e3bc844fd5d737e78991f2213cf87b75104aff90d434c099d602`
