@@ -168,7 +168,7 @@ python3 -I -B verify_s96_beyond_lora_inkling.py --check s96_beyond_lora_inkling_
 python3 -I -B verify_s96_beyond_lora_inkling.py --verify-lean BeyondLoraAndInklingLoop.lean --json
 
 # 3. Pinned upstream corpus (10 tracks: 2/10 re-hashed on disk in-repo (S80, S83); 8/10 cross-repo
-#    SHA pins in Foundation-0/cave-expedition (S42, S59, S73, S76, S78, S79, S82, S87)) & Inkling-2-Mini specs
+#    SHA pins: S80/S83 on disk here; others in Foundation-0/math0@main or external historical pins resolving nowhere readable) & Inkling-2-Mini specs
 python3 -I -B verify_s96_beyond_lora_inkling.py --verify-upstream .. --json
 python3 -I -B verify_s96_beyond_lora_inkling.py --verify-inkling <INKLING_SPEC_DIR> --json
 

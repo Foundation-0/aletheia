@@ -1152,7 +1152,7 @@ def check_certificate_file(path: Path) -> dict[str, Any]:
 
 def verify_upstream_manifest(exp_root: Path) -> dict[str, Any]:
     """Verify upstream pins: in-repo pins are opened and re-hashed on disk; cross-repo pins
-    (8 of 10) name Foundation-0/cave-expedition and are SHA-pinned strings (files not in this repo)."""
+    (8 of 10) are external pins: some resolve in Foundation-0/math0@main, the rest in no readable repo."""
     _validate_path(exp_root)
     verified = 0
     cross_repo = []

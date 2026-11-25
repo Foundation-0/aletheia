@@ -61,12 +61,14 @@ INKLING_SPEC_MANIFEST: tuple[tuple[str, str], ...] = (
     ("inkling2_mini_README.md", "ab4fbc79a26f57a4160eae83ff33f7ec5442f4a6cae21478fdda36b4a0c13592"),
 )
 
-# Upstream certificate pins: only S80 and S83 resolve to files in this repo; the other 8
-# (S42, S59, S73, S76, S78, S79, S82, S87) are cross-repo pins in Foundation-0/cave-expedition.
+# Upstream certificate pins: only S80 and S83 resolve to files in this repo. Of the other 8
+# (S42, S59, S73, S76, S78, S79, S82, S87), several resolve in Foundation-0/math0@main
+# (studies/track-sNN-…/); the rest are absent from aletheia, cave-expedition, and
+# math0@f9970082 — external historical SHA-256 pins resolving in no readable repo.
 CROSS_REPO_UPSTREAM: frozenset[str] = frozenset({
     "S42", "S59", "S73", "S76", "S78", "S79", "S82", "S87",
 })
-CROSS_REPO_SOURCE = "Foundation-0/cave-expedition"
+CROSS_REPO_SOURCE = "external-historical-pin (math0@main for some; aletheia/cave-expedition/math0@f9970082 checked)"
 
 UPSTREAM_CERT_MANIFEST: tuple[tuple[str, str, str], ...] = (
     (
