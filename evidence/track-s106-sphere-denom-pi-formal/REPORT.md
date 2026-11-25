@@ -105,6 +105,8 @@ Zero imports, zero Mathlib, zero `sorry`, zero warnings, `rc = 0` under scrubbed
 | 32 | `hopf_fiber_norm_sq_scaling` | `∀ a b c d u v : Int`, rotating `(a,b)` & `(c,d)` by `(u,v)` scales $S^3$ norm-squared by `u^2 + v^2` |
 | 33–34 | `hopf_map_u1_fiber_{scaling,invariance}` | Rotating both complex coords by `(u,v)` scales `(hopfX, hopfY, hopfZ)` by `u^2 + v^2` (`= D^2` when `u^2 + v^2 = D^2`) |
 
+*Note:* Theorems 26 (`thin_shell_chebyshev_monotone`, a direct monotone Chebyshev bound) and 30 (`coxeter_weyl_e8_b8_index`, fixed-`d` integer arithmetic) are near-trivial and are still counted among the `34/34`; excluding them leaves 32 substantive theorems.
+
 ---
 
 ## 7. Verification Receipts
