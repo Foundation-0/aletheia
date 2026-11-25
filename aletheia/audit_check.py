@@ -697,11 +697,20 @@ _LEAN4_HARD_LINE_RULES: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"\bLean\.ofReduceNat\b|\bofReduceNat\b"), "LEAN4_OF_REDUCE_NAT"),
     (re.compile(r"\bLean\.trustCompiler\b|\btrustCompiler\b"), "LEAN4_TRUST_COMPILER"),
     (
-        re.compile(r"\b(?:dbgTrace|dbgTraceVal|dbgTraceIfShared|dbgSleep|dbgStackTrace)\b"),
+        re.compile(
+            r"\b(?:dbgTrace|dbgTraceVal|dbgTraceIfShared|dbgSleep|dbgStackTrace|"
+            r"panicCore|panicWithPosWithDecl)\b"
+            r"|(?<!\.)\b(?:dbg_trace|dbg_sleep|dbg_stack_trace)(?![\w'.!?])"
+            r"|(?<!\.)\b(?:panic|unreachable)!(?![\w'!?])"
+        ),
         "LEAN4_DBG_FFI_ESCAPE",
     ),
     (
-        re.compile(r"(?<!\.)\b(?:macro|macro_rules|elab|elab_rules|syntax)\b|\binterpolatedStr\b"),
+        re.compile(
+            r"(?<!\.)\b(?:macro|macro_rules|elab|elab_rules|syntax|declare_syntax_cat|"
+            r"notation|infix|infixl|infixr|prefix|postfix)(?![\w'.!?])"
+            r"|\binterpolatedStr\b"
+        ),
         "LEAN4_META_SYNTAX_ESCAPE",
     ),
 )
@@ -709,6 +718,11 @@ _LEAN4_HARD_LINE_RULES: tuple[tuple[re.Pattern[str], str], ...] = (
 # Declaration-scoped `partial` across single or multiple lines (zero FP on dot-projections like `SmoothShell.partial`)
 _LEAN4_PARTIAL_DECL_RE = re.compile(
     r"(?<!\.)\bpartial\s+(?:def|instance|abbrev)\b", flags=re.DOTALL
+)
+
+# Declaration-scoped `opaque` across single or multiple lines (zero FP on `.opaque` projections / `def opaque : ...`)
+_LEAN4_OPAQUE_DECL_RE = re.compile(
+    r"(?<!\.)\bopaque\s+[A-Za-z_][A-Za-z0-9_.']*", flags=re.DOTALL
 )
 
 # Lean 4.15+ `decide` native-evaluation trust escapes: `+native`, `(native := <non-false>)`,
@@ -873,14 +887,14 @@ _LEAN4_SKIP_KERNEL_TC_RE = re.compile(
     flags=re.DOTALL,
 )
 
-# Output-spoofing / early-exit / module-initializer commands (`#eval`, `#eval!`, `#reduce`, non-`axioms` `#print`, `#exit`, `run_cmd`, `run_meta`, `initialize`, `builtin_initialize`)
+# Output-spoofing / early-exit / module-initializer commands (`#eval`, `#eval!`, `#reduce`, `#guard_msgs`, non-`axioms` `#print`, `#exit`, `run_cmd`, `run_meta`, `initialize`, `builtin_initialize`)
 _LEAN4_PRINT_AXIOMS_KW_BLOCK = (
     "def|theorem|lemma|axiom|inductive|structure|class|instance|opaque|abbrev|example|"
     "namespace|section|end|open|variable|universe|import|set_option|attribute|"
     "local|scoped|private|protected|noncomputable|partial|unsafe|meta|where|by|in|let|have"
 )
 _LEAN4_EVAL_SPOOF_RE = re.compile(
-    r"#(?:eval!?(?![\w'!?])|reduce(?![\w'!?])|exit(?![\w'!?])|"
+    r"#(?:eval!?(?![\w'!?])|reduce(?![\w'!?])|exit(?![\w'!?])|guard_msgs(?![\w'!?])|"
     r"print(?![\w'!?])(?!\s+axioms[ \t]+(?!(?:"
     + _LEAN4_PRINT_AXIOMS_KW_BLOCK
     + r")(?![\w'!?]))[A-Za-z_]))"
@@ -895,7 +909,11 @@ _LEAN4_IMPORT_FULL_RE = re.compile(
 
 # Unsound attribute trust escapes (`@[...]` and post-declaration `attribute [...]`) vs `@[csimp]`/`attribute [csimp]`
 _LEAN4_ATTR_OPEN_RE = re.compile(r"(?:@|(?<!\.)\battribute\s*)\[", flags=re.DOTALL)
-_LEAN4_HARD_ATTR_KW_RE = re.compile(r"\b(extern|implemented_by|export|init|builtin_init)\b")
+_LEAN4_HARD_ATTR_KW_RE = re.compile(
+    r"\b(extern|implemented_by|export|init|builtin_init|"
+    r"term_elab|command_elab|tactic|macro|macro_rules|"
+    r"builtin_term_elab|builtin_command_elab|builtin_tactic|builtin_macro|builtin_macro_rules)\b"
+)
 _LEAN4_CSIMP_ATTR_KW_RE = re.compile(r"\b(csimp)\b")
 
 
@@ -1230,14 +1248,17 @@ def audit_lean4_source(
             )
 
     # Full-buffer Lean 4.22 module-aware import scan (handles multiline `public\n import Foo`)
+    imp_line, imp_pos = 1, 0
     for m_imp in _LEAN4_IMPORT_FULL_RE.finditer(cleaned):
         mod = m_imp.group(1)
-        lineno = cleaned[: m_imp.start(1)].count("\n") + 1
+        pos_m = m_imp.start(1)
+        imp_line += cleaned.count("\n", imp_pos, pos_m)
+        imp_pos = pos_m
         imports.append(mod)
         for pref in forbidden_import_prefixes:
             if mod == pref or mod.startswith(pref + "."):
                 findings.append(
-                    {"line": lineno, "code": "LEAN4_FORBIDDEN_CHALLENGE_IMPORT", "excerpt": mod}
+                    {"line": imp_line, "code": "LEAN4_FORBIDDEN_CHALLENGE_IMPORT", "excerpt": mod}
                 )
         if not allow_non_init_imports:
             root_pkg = mod.split(".")[0]
@@ -1245,12 +1266,23 @@ def audit_lean4_source(
                 mod == p or mod.startswith(p + ".") for p in allow_project_imports
             )
             if root_pkg not in ("Init", "Std") and not is_allowed_proj:
-                findings.append({"line": lineno, "code": "LEAN4_NON_INIT_IMPORT", "excerpt": mod})
+                findings.append({"line": imp_line, "code": "LEAN4_NON_INIT_IMPORT", "excerpt": mod})
 
     # Multiline declaration-scoped `partial` check (`partial\n def ...`, zero FP on `.partial`)
+    part_line, part_pos = 1, 0
     for m_part in _LEAN4_PARTIAL_DECL_RE.finditer(cleaned):
-        lineno = cleaned[: m_part.start()].count("\n") + 1
-        findings.append({"line": lineno, "code": "LEAN4_PARTIAL", "excerpt": " ".join(m_part.group(0).split())[:100]})
+        pos_m = m_part.start()
+        part_line += cleaned.count("\n", part_pos, pos_m)
+        part_pos = pos_m
+        findings.append({"line": part_line, "code": "LEAN4_PARTIAL", "excerpt": " ".join(m_part.group(0).split())[:100]})
+
+    # Multiline declaration-scoped `opaque` check (`opaque\n foo ...`, zero FP on `.opaque` / `def opaque : ...`)
+    opaq_line, opaq_pos = 1, 0
+    for m_opaq in _LEAN4_OPAQUE_DECL_RE.finditer(cleaned):
+        pos_m = m_opaq.start()
+        opaq_line += cleaned.count("\n", opaq_pos, pos_m)
+        opaq_pos = pos_m
+        findings.append({"line": opaq_line, "code": "LEAN4_OPAQUE", "excerpt": " ".join(m_opaq.group(0).split())[:100]})
 
     # Lean 4.15+ `decide +native`, `(native := <non-false>)`, `(config := { native := <non-false> })`, & bound DecideConfig
     decide_spans = _scan_lean4_decide_native(cleaned)
@@ -1266,38 +1298,48 @@ def audit_lean4_source(
                 "excerpt": " ".join(cleaned[ds : min(de, ds + 200)].split())[:100],
             }
         )
+    dc_line, dc_pos = 1, 0
     for m_dc in _LEAN4_DECIDE_CONFIG_BIND_RE.finditer(cleaned):
         if any(m_dc.start() in range(ds, de) for ds, de in decide_spans):
             continue
         if not _lean4_match_enables_native(m_dc):
             continue
-        lineno = cleaned[: m_dc.start()].count("\n") + 1
+        pos_m = m_dc.start()
+        dc_line += cleaned.count("\n", dc_pos, pos_m)
+        dc_pos = pos_m
         findings.append(
-            {"line": lineno, "code": "LEAN4_DECIDE_NATIVE", "excerpt": " ".join(m_dc.group(0).split())[:100]}
+            {"line": dc_line, "code": "LEAN4_DECIDE_NATIVE", "excerpt": " ".join(m_dc.group(0).split())[:100]}
         )
 
     # Multiline debug.{skipKernelTC, byAsSorry, proofAsSorry, terminalTacticsAsSorry} check
+    sk_line, sk_pos = 1, 0
     for m_sk in _LEAN4_SKIP_KERNEL_TC_RE.finditer(cleaned):
-        lineno = cleaned[: m_sk.start()].count("\n") + 1
+        pos_m = m_sk.start()
+        sk_line += cleaned.count("\n", sk_pos, pos_m)
+        sk_pos = pos_m
         findings.append(
-            {"line": lineno, "code": "LEAN4_SKIP_KERNEL_TC", "excerpt": " ".join(m_sk.group(0).split())[:100]}
+            {"line": sk_line, "code": "LEAN4_SKIP_KERNEL_TC", "excerpt": " ".join(m_sk.group(0).split())[:100]}
         )
 
-    # Output-spoofing / early-exit commands (#eval, #eval!, #reduce, non-axioms #print, #exit)
+    # Output-spoofing / early-exit commands (#eval, #eval!, #reduce, #guard_msgs, non-axioms #print, #exit)
+    ev_line, ev_pos = 1, 0
     for m_ev in _LEAN4_EVAL_SPOOF_RE.finditer(cleaned):
-        lineno = cleaned[: m_ev.start()].count("\n") + 1
-        findings.append({"line": lineno, "code": "LEAN4_EVAL_SPOOF", "excerpt": m_ev.group(0)})
+        pos_m = m_ev.start()
+        ev_line += cleaned.count("\n", ev_pos, pos_m)
+        ev_pos = pos_m
+        findings.append({"line": ev_line, "code": "LEAN4_EVAL_SPOOF", "excerpt": m_ev.group(0)})
 
     # Multiline attribute trust-escape and csimp notice check: `@[...]` and post-declaration `attribute [...]`
+    attr_line, attr_pos = 1, 0
     for attr_start, b_lo, b_hi in _iter_lean4_attr_blocks(cleaned):
+        attr_line += cleaned.count("\n", attr_pos, attr_start)
+        attr_pos = attr_start
         m_attr = _LEAN4_HARD_ATTR_KW_RE.search(cleaned, b_lo, b_hi)
         if m_attr is not None:
-            lineno = cleaned[:attr_start].count("\n") + 1
-            findings.append({"line": lineno, "code": "LEAN4_ATTR_TRUST_ESCAPE", "excerpt": m_attr.group(1)})
+            findings.append({"line": attr_line, "code": "LEAN4_ATTR_TRUST_ESCAPE", "excerpt": m_attr.group(1)})
         m_cs = _LEAN4_CSIMP_ATTR_KW_RE.search(cleaned, b_lo, b_hi)
         if m_cs is not None:
-            lineno = cleaned[:attr_start].count("\n") + 1
-            notices.append({"line": lineno, "code": "LEAN4_CSIMP_REWRITE_NOTICE", "excerpt": m_cs.group(1)})
+            notices.append({"line": attr_line, "code": "LEAN4_CSIMP_REWRITE_NOTICE", "excerpt": m_cs.group(1)})
 
     return {"clean": len(findings) == 0, "findings": findings, "notices": notices, "imports": imports}
 

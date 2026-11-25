@@ -201,9 +201,7 @@ class TestLean4AndAuditRootHardening(unittest.TestCase):
             ("def native : Bool := true\ntheorem t : 1 + 1 = 2 := by decide (config := { native })\n", 2),
             ("theorem t : 1 + 1 = 2 := by decide (config := { c0 with kernel := true })\n", 1),
             ("theorem t : 1 + 1 = 2 := by decide (config := { ({} : Lean.Parser.Tactic.DecideConfig) with native := true })\n", 1),
-            # Custom infix operators starting with `:` or `,` and type-ascribed bound DecideConfig
-            ('infixr:65 " :+ " => fun (_ _ : Bool) => true\ntheorem t : 1 + 1 = 2 := by decide (config := { native := false :+ false })\n', 2),
-            ('infixr:65 " ,+ " => fun (_ _ : Bool) => true\ntheorem t : 1 + 1 = 2 := by decide (config := { native := false ,+ false })\n', 2),
+            # Type-ascribed bound DecideConfig
             ("def c : DecideConfig := { native := (true : Bool) }\n", 1),
             # Malformed / asymmetric brace & empty config forms fail closed cleanly
             ("theorem t : 1 + 1 = 2 := by decide (config := )\n", 1),
@@ -217,6 +215,18 @@ class TestLean4AndAuditRootHardening(unittest.TestCase):
             _req(
                 [(f["code"], f["line"]) for f in res["findings"]] == [("LEAN4_DECIDE_NATIVE", exp_line)],
                 f"unexpected findings for {bad_src!r}: {res['findings']}",
+            )
+
+        # Custom infix operators starting with `:` or `,` trigger BOTH R12 meta/syntax (line 1) & decide native (line 2)
+        for infix_bad in (
+            'infixr:65 " :+ " => fun (_ _ : Bool) => true\ntheorem t : 1 + 1 = 2 := by decide (config := { native := false :+ false })\n',
+            'infixr:65 " ,+ " => fun (_ _ : Bool) => true\ntheorem t : 1 + 1 = 2 := by decide (config := { native := false ,+ false })\n',
+        ):
+            res_ib = audit_lean4_source(infix_bad)
+            _req(
+                [(f["code"], f["line"]) for f in res_ib["findings"]]
+                == [("LEAN4_META_SYNTAX_ESCAPE", 1), ("LEAN4_DECIDE_NATIVE", 2)],
+                f"unexpected infix+decide findings: {res_ib['findings']}",
             )
 
         # Bound DecideConfig before or after a separate `decide +native` reports both lines
@@ -336,7 +346,7 @@ class TestLean4AndAuditRootHardening(unittest.TestCase):
             ),
             (
                 'def a : Nat := panic!"{"\ntheorem t : False := sorry\ndef b := "}"\n',
-                [("LEAN4_SORRY", 2)],
+                [("LEAN4_DBG_FFI_ESCAPE", 1), ("LEAN4_SORRY", 2)],
             ),
             (
                 'def a := foos!"{"\ntheorem t : False := sorry\ndef b := "}"\n',
@@ -375,9 +385,6 @@ class TestLean4AndAuditRootHardening(unittest.TestCase):
             'def nested := s!"a {if true then "sorry" else "ok"} b"\n',
             'def raw_interp := r#"s!"{sorry}""#\n',
             'def brace_in_comment := s!"a { -- }\n  1 } b"\n',
-            'def a : Nat := panic!"bad {sorry} state"\n',
-            'def a : Nat := panic!"abc\ntheorem t : True := by sorry\n"\n',
-            'panic!"ok"\n',
             'def a := s "hello {sorry}"\n',
             'def a := s!x\n',
             'def x! (s : String) := s\ndef a := x! "bad {sorry} state"\n',
@@ -488,21 +495,21 @@ class TestLean4AndAuditRootHardening(unittest.TestCase):
             _req(audit_lean4_source(ok_char)["clean"], f"false positive on clean char literal {ok_char!r}")
 
         # 2. Post-declaration `attribute [...]` trust escapes & csimp notices + O(n) balanced-bracket scanning
-        for label, bad_attr, exp_line, exp_excerpt in (
-            ("post_attr_extern", 'opaque foo : Nat\nattribute [extern "c_foo"] foo\n', 2, "extern"),
-            ("post_attr_impl", "def f_impl : Nat := 1\ndef f_spec : Nat := 0\nattribute [implemented_by f_impl] f_spec\n", 3, "implemented_by"),
-            ("post_attr_multiline", 'opaque foo : Nat\nattribute\n  [extern "c_foo"]\n  foo\n', 2, "extern"),
-            ("post_attr_inline_extern", 'opaque foo : Nat\nattribute [inline, extern "c_foo[0]"] foo\n', 2, "extern"),
-            ("local_attr_extern", 'local attribute [extern "c_foo"] foo\n', 1, "extern"),
-            ("scoped_attr_impl", "scoped attribute [implemented_by f_impl] f_spec\n", 1, "implemented_by"),
-            ("guillemet_attr_extern", 'attribute [«extern» "c_foo"] foo\n', 1, "extern"),
-            ("nested_brack_attr_extern", 'attribute [my_attr [0], extern "c_foo"] foo\n', 1, "extern"),
-            ("stray_rbrack_then_at_extern", '] @[extern "c_foo"] opaque f : Nat\n', 1, "extern"),
+        for label, bad_attr, exp_findings in (
+            ("post_attr_extern", 'opaque foo : Nat\nattribute [extern "c_foo"] foo\n', [("LEAN4_OPAQUE", 1, "opaque foo"), ("LEAN4_ATTR_TRUST_ESCAPE", 2, "extern")]),
+            ("post_attr_impl", "def f_impl : Nat := 1\ndef f_spec : Nat := 0\nattribute [implemented_by f_impl] f_spec\n", [("LEAN4_ATTR_TRUST_ESCAPE", 3, "implemented_by")]),
+            ("post_attr_multiline", 'opaque foo : Nat\nattribute\n  [extern "c_foo"]\n  foo\n', [("LEAN4_OPAQUE", 1, "opaque foo"), ("LEAN4_ATTR_TRUST_ESCAPE", 2, "extern")]),
+            ("post_attr_inline_extern", 'opaque foo : Nat\nattribute [inline, extern "c_foo[0]"] foo\n', [("LEAN4_OPAQUE", 1, "opaque foo"), ("LEAN4_ATTR_TRUST_ESCAPE", 2, "extern")]),
+            ("local_attr_extern", 'local attribute [extern "c_foo"] foo\n', [("LEAN4_ATTR_TRUST_ESCAPE", 1, "extern")]),
+            ("scoped_attr_impl", "scoped attribute [implemented_by f_impl] f_spec\n", [("LEAN4_ATTR_TRUST_ESCAPE", 1, "implemented_by")]),
+            ("guillemet_attr_extern", 'attribute [«extern» "c_foo"] foo\n', [("LEAN4_ATTR_TRUST_ESCAPE", 1, "extern")]),
+            ("nested_brack_attr_extern", 'attribute [my_attr [0], extern "c_foo"] foo\n', [("LEAN4_ATTR_TRUST_ESCAPE", 1, "extern")]),
+            ("stray_rbrack_then_at_extern", '] @[extern "c_foo"] opaque f : Nat\n', [("LEAN4_OPAQUE", 1, "opaque f"), ("LEAN4_ATTR_TRUST_ESCAPE", 1, "extern")]),
         ):
             res_a = audit_lean4_source(bad_attr)
             _req(
                 [(f["code"], f["line"], f["excerpt"]) for f in res_a["findings"]]
-                == [("LEAN4_ATTR_TRUST_ESCAPE", exp_line, exp_excerpt)],
+                == exp_findings,
                 f"wrong attr findings for {label}: {res_a['findings']}",
             )
 
@@ -741,10 +748,10 @@ class TestLean4AndAuditRootHardening(unittest.TestCase):
             ("unicode_ident_bang_glued", 'def f := α!"abc\ntheorem t : True := by sorry\n"\n', [("LEAN4_UNKNOWN_BANG_STRING", 1)]),
             ("double_bang_ident_glued", 'def f := foo!!"abc\ntheorem t : True := by sorry\n"\n', [("LEAN4_UNKNOWN_BANG_STRING", 1)]),
             ("double_bang_s_glued", 'def f := s!!"{sorry}"\n', [("LEAN4_UNKNOWN_BANG_STRING", 1)]),
-            ("dbg_trace_interp_sorry", 'def f : Nat := dbg_trace "hi {(by sorry : String)}"; 0\n', [("LEAN4_SORRY", 1)]),
-            ("dbg_trace_nospace_sorry", 'def f : Nat := dbg_trace"hi {(by sorry : String)}"; 0\n', [("LEAN4_SORRY", 1)]),
-            ("dbg_trace_multiline_sorry", 'def f : Nat := dbg_trace\n  "hi {(by sorry : String)}"; 0\n', [("LEAN4_SORRY", 2)]),
-            ("dbg_trace_comment_sorry", 'def f : Nat := dbg_trace /- c -/ "hi {(by sorry : String)}"; 0\n', [("LEAN4_SORRY", 1)]),
+            ("dbg_trace_interp_sorry", 'def f : Nat := dbg_trace "hi {(by sorry : String)}"; 0\n', [("LEAN4_SORRY", 1), ("LEAN4_DBG_FFI_ESCAPE", 1)]),
+            ("dbg_trace_nospace_sorry", 'def f : Nat := dbg_trace"hi {(by sorry : String)}"; 0\n', [("LEAN4_SORRY", 1), ("LEAN4_DBG_FFI_ESCAPE", 1)]),
+            ("dbg_trace_multiline_sorry", 'def f : Nat := dbg_trace\n  "hi {(by sorry : String)}"; 0\n', [("LEAN4_DBG_FFI_ESCAPE", 1), ("LEAN4_SORRY", 2)]),
+            ("dbg_trace_comment_sorry", 'def f : Nat := dbg_trace /- c -/ "hi {(by sorry : String)}"; 0\n', [("LEAN4_SORRY", 1), ("LEAN4_DBG_FFI_ESCAPE", 1)]),
             ("throwError_interp_sorry", 'def f := throwError "hi {(by sorry : String)}"\n', [("LEAN4_SORRY", 1)]),
             ("println_interp_sorry", 'def f : IO Unit := println! "hi {(by sorry : String)}"\n', [("LEAN4_SORRY", 1)]),
             ("println_nospace_sorry", 'def f : IO Unit := println!"hi {(by sorry : String)}"\n', [("LEAN4_SORRY", 1)]),
@@ -767,14 +774,14 @@ class TestLean4AndAuditRootHardening(unittest.TestCase):
             ("custom_elab", 'elab "ok" : term => pure ()\n', [("LEAN4_META_SYNTAX_ESCAPE", 1)]),
             ("custom_elab_rules", 'elab_rules : term | `(ok) => pure ()\n', [("LEAN4_META_SYNTAX_ESCAPE", 1)]),
             ("qualified_interpolatedStr", 'def f := Lean.Parser.Term.interpolatedStr\n', [("LEAN4_META_SYNTAX_ESCAPE", 1)]),
-            ("notation_quote_token_sorry", 'notation "foo!\\"" => 0\ndef f := foo!"\ntheorem fake : False := by sorry\ndef g := foo!"\n', [("LEAN4_SYNTAX_QUOTE_TOKEN", 1), ("LEAN4_UNKNOWN_BANG_STRING", 2)]),
-            ("notation_bar_quote_token", 'notation "bar\\"" => 1\ndef f := bar"\ntheorem fake : False := by sorry\ndef g := bar"\n', [("LEAN4_SYNTAX_QUOTE_TOKEN", 1)]),
-            ("notation_double_escaped_quote_once", 'notation "a\\"b\\"" => 0\n', [("LEAN4_SYNTAX_QUOTE_TOKEN", 1)]),
-            ("prefix_quote_token", 'prefix:max "foo!\\"" => id\n', [("LEAN4_SYNTAX_QUOTE_TOKEN", 1)]),
-            ("infix_quote_token", 'infix:65 " +\\" " => Nat.add\n', [("LEAN4_SYNTAX_QUOTE_TOKEN", 1)]),
-            ("infixl_quote_token", 'infixl:65 " +\\" " => Nat.add\n', [("LEAN4_SYNTAX_QUOTE_TOKEN", 1)]),
-            ("infixr_quote_token", 'infixr:65 " +\\" " => Nat.add\n', [("LEAN4_SYNTAX_QUOTE_TOKEN", 1)]),
-            ("postfix_quote_token", 'postfix:max "foo!\\"" => id\n', [("LEAN4_SYNTAX_QUOTE_TOKEN", 1)]),
+            ("notation_quote_token_sorry", 'notation "foo!\\"" => 0\ndef f := foo!"\ntheorem fake : False := by sorry\ndef g := foo!"\n', [("LEAN4_SYNTAX_QUOTE_TOKEN", 1), ("LEAN4_UNKNOWN_BANG_STRING", 2), ("LEAN4_META_SYNTAX_ESCAPE", 1)]),
+            ("notation_bar_quote_token", 'notation "bar\\"" => 1\ndef f := bar"\ntheorem fake : False := by sorry\ndef g := bar"\n', [("LEAN4_SYNTAX_QUOTE_TOKEN", 1), ("LEAN4_META_SYNTAX_ESCAPE", 1)]),
+            ("notation_double_escaped_quote_once", 'notation "a\\"b\\"" => 0\n', [("LEAN4_SYNTAX_QUOTE_TOKEN", 1), ("LEAN4_META_SYNTAX_ESCAPE", 1)]),
+            ("prefix_quote_token", 'prefix:max "foo!\\"" => id\n', [("LEAN4_SYNTAX_QUOTE_TOKEN", 1), ("LEAN4_META_SYNTAX_ESCAPE", 1)]),
+            ("infix_quote_token", 'infix:65 " +\\" " => Nat.add\n', [("LEAN4_SYNTAX_QUOTE_TOKEN", 1), ("LEAN4_META_SYNTAX_ESCAPE", 1)]),
+            ("infixl_quote_token", 'infixl:65 " +\\" " => Nat.add\n', [("LEAN4_SYNTAX_QUOTE_TOKEN", 1), ("LEAN4_META_SYNTAX_ESCAPE", 1)]),
+            ("infixr_quote_token", 'infixr:65 " +\\" " => Nat.add\n', [("LEAN4_SYNTAX_QUOTE_TOKEN", 1), ("LEAN4_META_SYNTAX_ESCAPE", 1)]),
+            ("postfix_quote_token", 'postfix:max "foo!\\"" => id\n', [("LEAN4_SYNTAX_QUOTE_TOKEN", 1), ("LEAN4_META_SYNTAX_ESCAPE", 1)]),
         ):
             res_r10 = audit_lean4_source(bad_src)
             _req(not res_r10["clean"], f"{label} bypassed audit_lean4_source: {res_r10}")
@@ -783,10 +790,8 @@ class TestLean4AndAuditRootHardening(unittest.TestCase):
                 f"wrong R10 findings for {label}: got {res_r10['findings']}, want {exp_findings}",
             )
 
-        # Clean R10 non-FP controls (exact boundaries for panic!, dbg_trace, println!, Macro.trace, trace, notation =>, meta identifiers)
+        # Clean R10 non-FP controls (exact boundaries for panic!, dbg_trace.*/', println!, Macro.trace, trace, prefix.*/notation', meta identifiers)
         for ok_r10 in (
-            'def f : Nat := dbg_trace ("hi {sorry}"); 0\n',
-            'def f : Nat := dbg_trace "hi sorry"; 0\n',
             'def f := dbg_trace.foo "{sorry}"\n',
             "def f := dbg_trace' \"{sorry}\"\n",
             'def my_dbg_trace (s : String) := s\ndef f := my_dbg_trace "hi {sorry}"\n',
@@ -809,9 +814,6 @@ class TestLean4AndAuditRootHardening(unittest.TestCase):
             'def f := trace r"ok" [0] "{sorry}"\n',
             'def f := s!"{ trace { a := 1 }; [1] "{sorry}" }"\n',
             'def f := !!"abc\ntheorem t : True := by sorry\n"\n',
-            'notation "a\\n" => 0\n',
-            'notation "my_q" => "\\""\ndef s := my_q\n',
-            'infixl:65 " ⊕ " => Nat.add\ndef s := "a \\" b"\n',
             'def f := prefix.x "\\""\n',
             'def f := notation\' "\\""\n',
             'def x := 1 -- eof_comment_no_nl',
@@ -827,7 +829,7 @@ class TestLean4AndAuditRootHardening(unittest.TestCase):
             ('foo!"a" ' * 5000 + "\n", False),
             ('notation ' + '"\\"" ' * 3000 + '=> 0\n', False),
             ('Macro.trace ' * 5000 + "\n", True),
-            ('dbg_trace ' * 5000 + "\n", True),
+            ('dbg_trace ' * 5000 + "\n", False),
         ):
             t0 = time.monotonic()
             res_rr10 = audit_lean4_source(r10_redos)
@@ -851,7 +853,7 @@ class TestLean4AndAuditRootHardening(unittest.TestCase):
             ("r11_attr_export", "def f (n : Nat) : Nat := n\nattribute [export my_c_sym] f\n", [("LEAN4_ATTR_TRUST_ESCAPE", 2)]),
             ("r11_guil_attr_export", "def f (n : Nat) : Nat := n\nattribute [«export» my_c_sym] f\n", [("LEAN4_ATTR_TRUST_ESCAPE", 2)]),
             ("r11_at_init", '@[init] def myInit : IO Unit := IO.println "SPOOF"\n', [("LEAN4_ATTR_TRUST_ESCAPE", 1)]),
-            ("r11_at_init_of", "def myInit : IO Nat := pure 0\n@[init myInit] opaque x : Nat\n", [("LEAN4_ATTR_TRUST_ESCAPE", 2)]),
+            ("r11_at_init_of", "def myInit : IO Nat := pure 0\n@[init myInit] opaque x : Nat\n", [("LEAN4_OPAQUE", 2), ("LEAN4_ATTR_TRUST_ESCAPE", 2)]),
             ("r11_attr_init", 'def myInit : IO Unit := IO.println "SPOOF"\nattribute [init] myInit\n', [("LEAN4_ATTR_TRUST_ESCAPE", 2)]),
             ("r11_at_builtin_init", '@[builtin_init] def myInit : IO Unit := IO.println "SPOOF"\n', [("LEAN4_ATTR_TRUST_ESCAPE", 1)]),
             ("r11_attr_builtin_init", 'def myInit : IO Unit := IO.println "SPOOF"\nattribute [builtin_init] myInit\n', [("LEAN4_ATTR_TRUST_ESCAPE", 2)]),
@@ -893,6 +895,95 @@ class TestLean4AndAuditRootHardening(unittest.TestCase):
             elapsed_ms = (time.monotonic() - t0) * 1000.0
             _req(res_rr11["clean"] is exp_clean, f"unexpected R11 ReDoS result: clean={res_rr11['clean']}")
             _req(elapsed_ms < 200.0, f"R11 ReDoS regression: {elapsed_ms:.1f} ms")
+
+        # 8. R12 closures: snake_case `dbg_trace`/`dbg_sleep`/`dbg_stack_trace`, `#guard_msgs`,
+        # declaration-scoped `opaque`, `declare_syntax_cat`/`notation`/`infix*`/`prefix`/`postfix`,
+        # and `@[term_elab|command_elab|tactic|macro|macro_rules|builtin_*]` attributes
+        for label, bad_src, exp_findings in (
+            ("r12_dbg_trace_by", 'theorem t : True := by dbg_trace "x"; trivial\n', [("LEAN4_DBG_FFI_ESCAPE", 1)]),
+            ("r12_dbg_trace_def", 'def f : Nat := dbg_trace "hi"; 0\n', [("LEAN4_DBG_FFI_ESCAPE", 1)]),
+            ("r12_dbg_trace_parens", 'def f : Nat := dbg_trace ("hi {sorry}"); 0\n', [("LEAN4_DBG_FFI_ESCAPE", 1)]),
+            ("r12_dbg_trace_expr", "def f (n : Nat) : Nat := dbg_trace (toString n); n\n", [("LEAN4_DBG_FFI_ESCAPE", 1)]),
+            ("r12_dbg_sleep", "def f : Nat := dbg_sleep 0; 0\n", [("LEAN4_DBG_FFI_ESCAPE", 1)]),
+            ("r12_dbg_stack_trace", "def f : Nat := dbg_stack_trace; 0\n", [("LEAN4_DBG_FFI_ESCAPE", 1)]),
+            ("r12_panic_bang_expr", "def f : Nat := panic! (String.ofList [])\n", [("LEAN4_DBG_FFI_ESCAPE", 1)]),
+            ("r12_panic_bang_str_no_interp_sorry", 'def a : Nat := panic!"bad {sorry} state"\n', [("LEAN4_DBG_FFI_ESCAPE", 1)]),
+            ("r12_panic_bang_multiline_no_sorry", 'def a : Nat := panic!"abc\ntheorem t : True := by sorry\n"\n', [("LEAN4_DBG_FFI_ESCAPE", 1)]),
+            ("r12_panic_core", "def f : Nat := panicCore 0 (String.ofList [])\n", [("LEAN4_DBG_FFI_ESCAPE", 1)]),
+            ("r12_panic_with_pos_decl", "def f : Nat := panicWithPosWithDecl (String.ofList []) (String.ofList []) 0 0 (String.ofList [])\n", [("LEAN4_DBG_FFI_ESCAPE", 1)]),
+            ("r12_unreachable_bang", "def f : Nat := unreachable!\n", [("LEAN4_DBG_FFI_ESCAPE", 1)]),
+            ("r12_guard_msgs_drop", "#guard_msgs (drop warning) in theorem t : True := trivial\n", [("LEAN4_EVAL_SPOOF", 1)]),
+            ("r12_guard_msgs_axioms", "theorem t : True := trivial\n#guard_msgs (drop info) in #print axioms t\n", [("LEAN4_EVAL_SPOOF", 2)]),
+            ("r12_guard_msgs_plain", "#guard_msgs in theorem t : True := trivial\n", [("LEAN4_EVAL_SPOOF", 1)]),
+            ("r12_guard_msgs_glued", "theorem t : True := trivial#guard_msgs in #print axioms t\n", [("LEAN4_EVAL_SPOOF", 1)]),
+            ("r12_opaque_decl", "opaque trusted : Nat → Bool := fun _ => true\n", [("LEAN4_OPAQUE", 1)]),
+            ("r12_opaque_multiline", "opaque\n  trusted : Nat := 0\n", [("LEAN4_OPAQUE", 1)]),
+            ("r12_opaque_noncomputable", "noncomputable opaque trusted : Nat := 0\n", [("LEAN4_OPAQUE", 1)]),
+            ("r12_opaque_guillemet", "«opaque» trusted : Nat := 0\n", [("LEAN4_OPAQUE", 1)]),
+            ("r12_declare_syntax_cat", "declare_syntax_cat mycat\n", [("LEAN4_META_SYNTAX_ESCAPE", 1)]),
+            ("r12_notation_shadow", 'notation "MY_OK" => True\ntheorem t : MY_OK := trivial\n', [("LEAN4_META_SYNTAX_ESCAPE", 1)]),
+            ("r12_notation_rhs_quote", 'notation "my_q" => "\\""\ndef s := my_q\n', [("LEAN4_META_SYNTAX_ESCAPE", 1)]),
+            ("r12_notation_nl", 'notation "a\\n" => 0\n', [("LEAN4_META_SYNTAX_ESCAPE", 1)]),
+            ("r12_infix_shadow", 'infix:65 " ⊖ " => Nat.sub\n', [("LEAN4_META_SYNTAX_ESCAPE", 1)]),
+            ("r12_infixl_shadow", 'infixl:65 " +++ " => Nat.add\n', [("LEAN4_META_SYNTAX_ESCAPE", 1)]),
+            ("r12_infixr_shadow", 'infixr:65 " ⊗ " => Nat.mul\n', [("LEAN4_META_SYNTAX_ESCAPE", 1)]),
+            ("r12_prefix_shadow", 'prefix:max "‼" => Nat.succ\n', [("LEAN4_META_SYNTAX_ESCAPE", 1)]),
+            ("r12_postfix_shadow", 'postfix:max "‼" => Nat.succ\n', [("LEAN4_META_SYNTAX_ESCAPE", 1)]),
+            ("r12_attr_term_elab", "@[term_elab mySym] def myTE : Nat := 0\n", [("LEAN4_ATTR_TRUST_ESCAPE", 1)]),
+            ("r12_attr_command_elab", "@[command_elab mySym] def myCE : Nat := 0\n", [("LEAN4_ATTR_TRUST_ESCAPE", 1)]),
+            ("r12_attr_tactic", "@[tactic mySym] def myTac : Nat := 0\n", [("LEAN4_ATTR_TRUST_ESCAPE", 1)]),
+            ("r12_attr_macro", "@[macro mySym] def myMac : Nat := 0\n", [("LEAN4_META_SYNTAX_ESCAPE", 1), ("LEAN4_ATTR_TRUST_ESCAPE", 1)]),
+            ("r12_attr_macro_rules", "attribute [macro_rules] myMac\n", [("LEAN4_META_SYNTAX_ESCAPE", 1), ("LEAN4_ATTR_TRUST_ESCAPE", 1)]),
+            ("r12_post_attr_term_elab", "def myTE : Nat := 0\nattribute [term_elab mySym] myTE\n", [("LEAN4_ATTR_TRUST_ESCAPE", 2)]),
+            ("r12_attr_builtin_term_elab", "@[builtin_term_elab mySym] def myBTE : Nat := 0\n", [("LEAN4_ATTR_TRUST_ESCAPE", 1)]),
+            ("r12_attr_builtin_tactic", "@[builtin_tactic mySym] def myBT : Nat := 0\n", [("LEAN4_ATTR_TRUST_ESCAPE", 1)]),
+        ):
+            res_r12 = audit_lean4_source(bad_src)
+            _req(not res_r12["clean"], f"{label} bypassed audit_lean4_source: {res_r12}")
+            _req(
+                [(f["code"], f["line"]) for f in res_r12["findings"]] == exp_findings,
+                f"wrong R12 findings for {label}: got {res_r12['findings']}, want {exp_findings}",
+            )
+
+        # Clean R12 non-FP controls (.opaque projections, def opaque : ..., guard_msgs ident, 10 standard controls)
+        for ok_r12 in (
+            "structure S where\n  opaque_flag : Bool\ndef g (s : S) : Bool := s.opaque_flag\n",
+            "structure S where\n  «opaque» : Bool\ndef g (s : S) : Bool := s.«opaque»\n",
+            "def opaque : Nat := 0\n",
+            "def f (s : S) := s.opaque\n",
+            "def guard_msgs : Nat := 0\n",
+            "def «#guard_msgs» : Nat := 0\n",
+            "def f := Foo.dbg_trace + dbg_trace.foo + my_dbg_trace\n",
+            "def f := Foo.notation + Foo.infixl + Foo.prefix + Foo.postfix + Foo.declare_syntax_cat\n",
+            "example : True := trivial\n",
+            "theorem t : 2 + 2 = 4 := rfl\n",
+            "theorem t : (3 : Nat) = 3 := by decide\n",
+            "example (p q : Prop) : p → q → p := fun h _ => h\n",
+            "example : [1, 2, 3].length = 3 := by simp\n",
+            "theorem t : ∀ n : Nat, n + 0 = n := fun _ => Nat.add_zero _\n",
+            "example (b : Bool) : b = true ∨ b = false := by cases b <;> simp\n",
+            "@[simp] theorem one_add_one : (1 : Nat) + 1 = 2 := rfl\n",
+            "example : ∃ n : Nat, n = 0 := ⟨0, rfl⟩\n",
+            "@[inline] def f (x : Nat) : Nat := id x\n",
+            "@[macro_inline] def g (x : Nat) : Nat := x\n",
+            '-- dbg_trace #guard_msgs opaque foo declare_syntax_cat notation @[term_elab]\ndef s := "dbg_trace #guard_msgs opaque foo notation @[tactic]"\n',
+        ):
+            res_ok12 = audit_lean4_source(ok_r12)
+            _req(res_ok12["clean"], f"false positive on clean R12 control {ok_r12!r}: {res_ok12['findings']}")
+
+        # Anti-ReDoS linear-time guard for R12 (including 3000+ repeated findings via monotonic line cursors)
+        for r12_redos, exp_clean in (
+            ("#guard_msgs " * 3000 + "\n", False),
+            ("opaque f : Nat\n" * 2000, False),
+            ("@[term_elab x] " * 3000 + "\n", False),
+            ("declare_syntax_cat c\n" * 2000, False),
+            ("def g (s : S) := s.opaque\n" * 2000, True),
+        ):
+            t0 = time.monotonic()
+            res_rr12 = audit_lean4_source(r12_redos)
+            elapsed_ms = (time.monotonic() - t0) * 1000.0
+            _req(res_rr12["clean"] is exp_clean, f"unexpected R12 ReDoS result: clean={res_rr12['clean']}")
+            _req(elapsed_ms < 250.0, f"R12 ReDoS regression: {elapsed_ms:.1f} ms")
 
     def test_02d_live_lean4_compiler_witnesses(self) -> None:
         """When a live `lean` binary is on PATH, verify each new escape & clean control actually compiles (rc == 0)."""
@@ -995,9 +1086,8 @@ class TestLean4AndAuditRootHardening(unittest.TestCase):
                     ("r10_infixl_quote_token", 'infixl:65 " +\\" " => Nat.add\ndef f := 1 +" 2\ntheorem fake : False := by sorry\ndef g := 1 +" 2\n', False, False),
                     ("r10_postfix_quote_token", 'postfix:max "foo!\\"" => id\ndef f := 0foo!"\ntheorem fake : False := by sorry\ndef g := 0foo!"\n', False, False),
                     ("r10_clean_spaced_foo_bang_multiline", 'def foo! (s : String) : String := s\ndef f := foo! "abc\ntheorem t : True := by sorry\n"\n', True, False),
-                    ("r10_clean_panic_multiline", 'def f : Nat := panic!"abc\ntheorem t : True := by sorry\n"\n', True, False),
-                    ("r10_clean_dbg_trace_and_println_parens", 'def f1 : Nat := dbg_trace ("hi {sorry}"); 0\ndef f2 : IO Unit := println! ("hi {sorry}")\n', True, False),
-                    ("r10_clean_notation_rhs_quote_and_macro_inline", 'notation "my_q" => "\\""\n@[macro_inline] def s : String := my_q\n', True, False),
+                    ("r10_clean_println_parens", 'def f2 : IO Unit := println! ("hi {sorry}")\n', True, False),
+                    ("r10_clean_macro_inline", "@[macro_inline] def s : Nat := 1\n", True, False),
                     # R11 live Lean 4.36.0 compiler witnesses
                     ("r11_dbgTrace", "def f : Nat := dbgTrace (String.ofList []) (fun _ => 0)\n", False, False),
                     ("r11_dbgTraceVal", "def f : Nat := dbgTraceVal 0\n", False, False),
@@ -1017,11 +1107,35 @@ class TestLean4AndAuditRootHardening(unittest.TestCase):
                     ("r11_decide_revert_false_config_native", "def native : Bool := true\ntheorem t : 1 + 1 = 2 := by decide (revert := false) (config := { native })\n", False, False),
                     ("r11_clean_namespace_export", "export Nat (succ)\ntheorem t : succ 0 = 1 := rfl\n", True, False),
                     ("r11_clean_attr_simp_init", "def init : Nat := 0\nattribute [simp] init\n", True, False),
+                    # R12 live Lean 4.36.0 compiler witnesses
+                    ("r12_dbg_trace_by", 'theorem t : True := by dbg_trace "x"; trivial\n', False, False),
+                    ("r12_dbg_trace_parens", 'def f : Nat := dbg_trace ("hi {sorry}"); 0\n', False, False),
+                    ("r12_dbg_trace_expr", "def f (n : Nat) : Nat := dbg_trace (toString n); n\n", False, False),
+                    ("r12_panic_bang_expr", "def f : Nat := panic! (String.ofList [])\n", False, False),
+                    ("r12_panic_bang_multiline", 'def f : Nat := panic!"abc\ntheorem t : True := by sorry\n"\n', False, False),
+                    ("r12_panic_with_pos_decl", "def f : Nat := panicWithPosWithDecl (String.ofList []) (String.ofList []) 0 0 (String.ofList [])\n", False, False),
+                    ("r12_unreachable_bang", "def f : Nat := unreachable!\n", False, False),
+                    ("r12_guard_msgs_drop", "#guard_msgs (drop warning) in theorem t : True := trivial\n", False, False),
+                    ("r12_guard_msgs_axioms", "theorem t : True := trivial\n#guard_msgs (drop info) in #print axioms t\n", False, False),
+                    ("r12_opaque_decl", "opaque trusted : Nat → Bool := fun _ => true\n", False, False),
+                    ("r12_opaque_multiline", "opaque\n  trusted : Nat := 0\n", False, False),
+                    ("r12_declare_syntax_cat", "declare_syntax_cat r12cat\n", False, False),
+                    ("r12_notation_shadow", 'notation "R12_OK" => True\ntheorem t : R12_OK := trivial\n', False, False),
+                    ("r12_infixl_shadow", 'infixl:65 " +++ " => Nat.add\ntheorem t : 1 +++ 2 = 3 := rfl\n', False, False),
+                    ("r12_infixr_shadow", 'infixr:65 " ⊗ " => Nat.mul\ntheorem t : 2 ⊗ 3 = 6 := rfl\n', False, False),
+                    ("r12_prefix_shadow", 'prefix:max "‼" => Nat.succ\ntheorem t : ‼0 = 1 := rfl\n', False, False),
+                    ("r12_postfix_shadow", 'postfix:max "‼" => Nat.succ\ntheorem t : 0‼ = 1 := rfl\n', False, False),
+                    ("r12_attr_term_elab", "import Lean\nopen Lean Elab Term in\n@[term_elab Lean.Parser.Term.paren] def myTE : TermElab := fun _ _ => throwUnsupportedSyntax\n", False, True),
+                    ("r12_attr_command_elab", "import Lean\nopen Lean Elab Command in\n@[command_elab Lean.Parser.Command.check] def myCE : CommandElab := fun _ => throwUnsupportedSyntax\n", False, True),
+                    ("r12_attr_tactic", "import Lean\nopen Lean Elab Tactic in\n@[tactic Lean.Parser.Tactic.skip] def myTac : Tactic := fun _ => throwUnsupportedSyntax\n", False, True),
+                    ("r12_attr_macro", "import Lean\nopen Lean in\n@[macro Lean.Parser.Term.paren] def myMac : Macro := fun _ => Macro.throwUnsupported\n", False, True),
+                    ("r12_clean_dot_opaque", "structure S where\n  «opaque» : Bool\ndef g (s : S) : Bool := s.«opaque»\n", True, False),
+                    ("r12_clean_simp_and_inline", "@[simp] theorem one_add_one : (1 : Nat) + 1 = 2 := rfl\n@[inline] def f (x : Nat) : Nat := id x\n", True, False),
                 )
         for label, src, expect_clean, allow_non_init in probes:
             res = audit_lean4_source(src, allow_non_init_imports=allow_non_init)
             _req(res["clean"] is expect_clean, f"audit mismatch on live {label}: {res}")
-        solo_tokens = ("#exit", "import ", "syntax ", "macro ", "notation ", "prefix:", "infix", "postfix:")
+        solo_tokens = ("#exit", "import ", "syntax ", "declare_syntax_cat ", "macro ", "notation ", "prefix:", "infix", "postfix:")
         batched: list[tuple[int, str, str]] = []
         solo: list[tuple[int, str, str]] = []
         for idx, (label, src, _, allow_non_init) in enumerate(probes):
