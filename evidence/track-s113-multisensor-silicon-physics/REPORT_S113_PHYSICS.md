@@ -6,10 +6,10 @@ All seven live capture datasets (`IDLE`, `A`, `B`, `C`, `D`, `E1`, `E2`) were ac
 
 - **Pure-Stdlib Pure-$\mathbb{Q}$ CI Verifier:** `s113_multisensor_audit.py` (`0` external dependencies)
 - **Full-Waveform Analyzer & Pure-$\mathbb{Q}$ Certifier:** `s113_analyze_and_certify.py`
-- **Adversarial & Positive R5 Suites:** `test_s113_multisensor_audit_r5.py` (pure stdlib) & `test_s113_r5.py` (`7/7 OK` across `-I -B`, `-I -O -B`, `-I -B -W error`)
+- **Adversarial & Positive R5 Suites:** `test_s113_multisensor_audit_r5.py` (pure stdlib) & `test_s113_r5.py` (requires numpy/scipy; `test_02`'s synthetic-EMI positive control is seed-fragile — at seed 11, N=1500 it yields `min_holm_p = 0.00598802 ≥ 0.005`, so that assertion fails there; the suite is not part of the pure-stdlib CI)
 - **Certificate (`0o644` in git / 100644):** `s113_multisensor_certificate.json`
-  - `payload_sha256`: `c9b1950b4a7f7f639c81f121299607a616719d1121fbd3f009839145a7fedfc7`
-  - `certificate_sha256`: `90398e173f82e9719d9104908df466a2817d51caf4d1ca83d1000d510ca89c6c`
+  - `payload_sha256`: `8026f75cb1df391c37c931917d4d8abc31405d731306d42e8d8c8edbd25ef523`
+  - `certificate_sha256`: `37bda8721a8b12028941ca14e0df8b6ca79ae7ee2da7521d5bc773bd9cd2f7e7`
 
 | Hypothesis / Confirmatory Probe | Preregistered Gate (`N = 500` Surrogates, Holm across 6 frequencies) | Measured Quantitative Result | Literal Verdict |
 |---|---|---|---|

@@ -21,7 +21,7 @@ Verifies:
 4. Literal preregistered verdict gate consistency across S113-H1..H5, E1b, E1c, E2b
    (zero goalpost shifting).
 5. Anti-CS-09 split-half + N_confirm=799 + step-down Holm-Bonferroni (< 0.005)
-   integrity across all 193 surviving anomalies in s113_blind_anomalies_receipt.json.
+   integrity across all surviving anomalies in s113_blind_anomalies_receipt.json (Holm recomputed pooled per lens across phases; true survivor count reported by the audit).
 """
 from __future__ import annotations
 
@@ -525,6 +525,35 @@ def _verify_prereg_verdict_rules(payload: dict[str, Any]) -> None:
         # The reported gate is the PREREGISTERED N=500 surrogate gate.
         require_ok(h1.get("n_surrogates") == 500 or "posthoc_n2000_exploratory" in h1,
                    "H1_N_NOT_PREREG", "H1 module must carry the preregistered N=500 gate (N=2000 only as posthoc_exploratory)")
+        # Recompute the preregistered N=500 Holm-Bonferroni across the prime carriers
+        # from the shipped raw N=500 p-values; min_holm_p and every p_holm_n500 must
+        # equal the recomputed values (no hand-edited gate fields).
+        carriers = h1.get("prime_carriers")
+        require_ok(isinstance(carriers, dict) and len(carriers) >= 1, "H1_NO_CARRIERS", "H1 prime_carriers missing")
+        raw500: dict[str, float] = {}
+        for ck, cv in carriers.items():
+            require_ok(isinstance(cv, dict) and isinstance(cv.get("p_raw_n500"), (int, float)) and not isinstance(cv.get("p_raw_n500"), bool),
+                       "H1_MISSING_P_RAW_N500", f"carrier {ck} lacks numeric p_raw_n500")
+            if cv.get("present") is True:
+                raw500[ck] = float(cv["p_raw_n500"])
+        order = sorted(raw500.items(), key=lambda kv: (kv[1], kv[0]))
+        m = len(order)
+        adj500: dict[str, float] = {}
+        running = 0.0
+        for rank, (ck, pr) in enumerate(order):
+            running = min(1.0, max(running, pr * (m - rank)))
+            adj500[ck] = running
+        recomputed_min = min(adj500.values()) if adj500 else 1.0
+        require_ok(abs(min_p - recomputed_min) <= 5e-9, "H1_MIN_HOLM_NOT_RECOMPUTED",
+                   f"min_holm_p={min_p} != recomputed N=500 Holm min {recomputed_min}")
+        for ck, cv in carriers.items():
+            if ck in adj500:
+                stored_n500 = cv.get("p_holm_n500")
+                require_ok(stored_n500 is not None and abs(float(stored_n500) - round(adj500[ck], 8)) <= 5e-9,
+                           "H1_P_HOLM_N500_MISMATCH", f"carrier {ck}: p_holm_n500={stored_n500} != recomputed {round(adj500[ck], 8)}")
+        # The null gate is the preregistered Holm gate ONLY — no prbs OR-clause.
+        require_ok(h1.get("passes_null_gate") is (recomputed_min < 0.005), "H1_NULL_GATE_OR_CLAUSE",
+                   f"passes_null_gate={h1.get('passes_null_gate')} but recomputed N=500 min_holm_p={recomputed_min}")
         if v_h1.startswith("CONFIRMED"):
             require_ok(min_p < 0.005 and h1.get("passes_null_gate") is True, "H1_GATE_SPOOF", "H1 confirmed despite failing p_Holm < 0.005")
             require_ok(float(h1.get("prbs7_p", 1.0)) < 0.005, "H1_LAG_NOT_MEASURED",
@@ -704,34 +733,68 @@ def verify_blind_receipt_dict(receipt: dict[str, Any], prereg_md_path: Path | No
     require_ok(isinstance(phases, list) and len(phases) >= 1, "BLIND_EMPTY_PHASES", "phases_analyzed empty")
     require_ok(isinstance(by_phase, dict) and isinstance(counts_by_lens, dict), "BLIND_BAD_STRUCT", "Missing anomalies_by_phase or counts_by_lens")
 
-    recounted_total = 0
-    recounted_lenses: dict[str, int] = {}
-    # Holm families are per (phase, lens); rejected rows form their own per-lens family.
-    fam_sizes: dict[tuple[str, str], int] = {}
-    adjusted_fams: set[tuple[str, str]] = set()
-    for ph in phases:
-        for row in by_phase.get(ph, []):
-            key = (ph, str(row.get("lens", "")))
-            fam_sizes[key] = fam_sizes.get(key, 0) + 1
+    def _raw_p(row: dict[str, Any]) -> float:
+        for k in ("half2_p_surr", "half2_p_shift", "half2_p_iaaft", "rep2_p"):
+            if row.get(k) is not None:
+                return float(row[k])
+        return 1.0
+
+    def _holm_bonferroni(p_values: list[float]) -> list[float]:
+        """Exact step-down Holm-Bonferroni adjusted p-values (monotone, capped at 1)."""
+        order = sorted(range(len(p_values)), key=lambda i: (p_values[i], i))
+        m = len(p_values)
+        adj = [0.0] * m
+        running = 0.0
+        for rank, i in enumerate(order):
+            running = min(1.0, max(running, p_values[i] * (m - rank)))
+            adj[i] = running
+        return adj
+
+    # The preregistered amendment states the Holm family is each LENS pooled over ALL
+    # phases; survivors and rejected rows together form the candidate set. The audit
+    # RECOMPUTES Holm from the shipped raw p fields and requires the stored
+    # half2_p_holm of every row to equal the recomputed adjusted p — a survivor set
+    # to its raw p (or all survivors set to raw p) fails BLIND_HOLM_NOT_RECOMPUTED.
     rejected_all = receipt.get("holm_rejected", []) or []
-    for row in rejected_all:
-        key = ("REJECTED", str(row.get("lens", "")))
-        fam_sizes[key] = fam_sizes.get(key, 0) + 1
+    require_ok(isinstance(rejected_all, list), "BLIND_BAD_REJECTED", "holm_rejected must be a list")
+    candidates: list[tuple[str, dict[str, Any]]] = []
     for ph in phases:
         require_ok(ph in by_phase and isinstance(by_phase[ph], list), "BLIND_MISSING_PHASE", f"Missing phase list {ph}")
         for row in by_phase[ph]:
             require_ok(isinstance(row, dict), "BLIND_BAD_ROW", "Anomaly row must be a dict")
+            candidates.append((str(row.get("lens", "")), row))
+    for row in rejected_all:
+        require_ok(isinstance(row, dict), "BLIND_BAD_REJECTED_ROW", "holm_rejected row must be a dict")
+        candidates.append((str(row.get("lens", "")), row))
+
+    fam_members: dict[str, list[tuple[int, dict[str, Any]]]] = {}
+    row_idx: dict[int, int] = {}
+    for idx, (lens, row) in enumerate(candidates):
+        require_ok(len(lens) > 0, "BLIND_EMPTY_LENS", "Missing lens identifier")
+        fam_members.setdefault(lens, []).append((idx, row))
+        row_idx[id(row)] = idx
+    recomputed: dict[int, float] = {}
+    for lens, members in fam_members.items():
+        raw = [_raw_p(row) for _, row in members]
+        adj = _holm_bonferroni(raw)
+        for (idx, row), a in zip(members, adj):
+            recomputed[idx] = a
+            stored = row.get("half2_p_holm", row.get("rep2_p_holm"))
+            require_ok(stored is not None and abs(float(stored) - a) <= 1e-9,
+                       "BLIND_HOLM_NOT_RECOMPUTED",
+                       f"lens {lens}: stored half2_p_holm={stored} != recomputed Holm {a} (raw p={_raw_p(row)})")
+
+    recounted_total = 0
+    recounted_lenses: dict[str, int] = {}
+    for ph in phases:
+        for row in by_phase[ph]:
             require_ok(row.get("replicated_anomaly") is True, "BLIND_UNREPLICATED_ROW", "Non-replicated row in surviving receipt")
             n_conf = row.get("n_surrogates_confirm")
             require_ok(is_exact_int(n_conf) and n_conf >= 200, "BLIND_LOW_SURROGATES", f"n_surrogates_confirm={n_conf} < 200")
-            p_holm = float(row.get("half2_p_holm", row.get("rep2_p_holm", 1.0)))
-            require_ok(0.0 < p_holm < 0.005, "BLIND_HOLM_THRESHOLD", f"Surviving row violates p_Holm < 0.005: {p_holm}")
-            # Track whether the family got a real Holm step (at least one member
-            # strictly adjusted; Holm never shrinks p, so adj >= raw always).
-            raw_p = float(row.get("half2_p_surr", row.get("half2_p_shift", row.get("half2_p_iaaft", row.get("rep2_p", 1.0)))))
+            p_holm = recomputed[row_idx[id(row)]]
+            require_ok(0.0 < p_holm < 0.005, "BLIND_HOLM_THRESHOLD", f"Surviving row violates recomputed p_Holm < 0.005: {p_holm}")
+            raw_p = _raw_p(row)
             require_ok(p_holm >= raw_p - 1e-12, "BLIND_HOLM_SHRINKS_P", f"half2_p_holm {p_holm} < raw {raw_p}")
-            if p_holm > raw_p + 1e-12:
-                adjusted_fams.add((ph, str(row.get("lens", ""))))
             # Verify exact empirical rank denominator n_conf + 1 (e.g., 799 + 1 = 800)
             scaled_rank = p_holm * float(n_conf + 1)
             nearest_int = round(scaled_rank)
@@ -741,34 +804,18 @@ def verify_blind_receipt_dict(receipt: dict[str, Any], prereg_md_path: Path | No
                 f"p_Holm={p_holm} incompatible with empirical denominator {n_conf + 1}",
             )
             lens = str(row.get("lens", ""))
-            require_ok(len(lens) > 0, "BLIND_EMPTY_LENS", "Missing lens identifier")
             recounted_lenses[lens] = recounted_lenses.get(lens, 0) + 1
             recounted_total += 1
 
-    # A multi-member lens family must show at least one strictly Holm-adjusted row;
-    # otherwise raw p was stored as p_holm for the whole family (the original bug).
-    for row in rejected_all:
-        lens0 = str(row.get("lens", ""))
-        raw_p = float(row.get("half2_p_surr", row.get("half2_p_shift", row.get("half2_p_iaaft", row.get("rep2_p", 1.0)))))
-        if float(row.get("half2_p_holm", 1.0)) > raw_p + 1e-12:
-            adjusted_fams.add(("REJECTED", lens0))
-    for key, size in fam_sizes.items():
-        if size > 1:
-            require_ok(key in adjusted_fams, "BLIND_RAW_P_AS_HOLM",
-                       f"lens family {key} ({size} members) has no Holm-adjusted row: raw p stored as p_holm")
     require_ok(receipt.get("total_surviving_anomalies") == recounted_total, "BLIND_TOTAL_MISMATCH", "total_surviving_anomalies mismatch")
     require_ok(counts_by_lens == recounted_lenses, "BLIND_LENS_COUNTS_MISMATCH", "counts_by_lens mismatch")
-    # Rows rejected by the lens-family Holm correction must sit in holm_rejected with
-    # replicated_anomaly=false and p_holm >= 0.005 (raw p may NOT be labelled Holm).
-    rejected = receipt.get("holm_rejected", [])
-    require_ok(isinstance(rejected, list), "BLIND_BAD_REJECTED", "holm_rejected must be a list")
-    for row in rejected:
-        require_ok(isinstance(row, dict) and row.get("replicated_anomaly") is False, "BLIND_REJECTED_FLAG", "holm_rejected row must have replicated_anomaly=false")
-        p_holm = float(row.get("half2_p_holm", 1.0))
+    # Rows rejected by the pooled lens-family Holm correction must sit in holm_rejected
+    # with replicated_anomaly=false and recomputed p_holm >= 0.005.
+    for row in rejected_all:
+        require_ok(row.get("replicated_anomaly") is False, "BLIND_REJECTED_FLAG", "holm_rejected row must have replicated_anomaly=false")
+        p_holm = recomputed[row_idx[id(row)]]
         require_ok(p_holm >= 0.005, "BLIND_REJECTED_PASSES", f"holm_rejected row actually passes the gate: {p_holm}")
-        require_ok(p_holm != float(row.get("half2_p_surr", row.get("half2_p_shift", 1.0))) or row.get("holm_family_size", 1) == 1,
-                   "BLIND_RAW_P_AS_HOLM", "raw surrogate p stored as half2_p_holm in a multi-member family")
-    return {"ok": True, "total_surviving_anomalies": recounted_total, "holm_rejected": len(rejected), "phases": len(phases)}
+    return {"ok": True, "total_surviving_anomalies": recounted_total, "holm_rejected": len(rejected_all), "phases": len(phases)}
 
 
 def main(argv: list[str] | tuple[str, ...] | None = None) -> int:

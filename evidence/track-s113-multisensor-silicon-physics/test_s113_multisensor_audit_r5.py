@@ -66,24 +66,24 @@ class TestS113MultisensorAuditR5(unittest.TestCase):
         res = audit.verify_certificate_dict(cert)
         _ensure(res["ok"] is True, "Live certificate failed verification")
         _ensure(
-            res["payload_sha256"] == "c9b1950b4a7f7f639c81f121299607a616719d1121fbd3f009839145a7fedfc7",
+            res["payload_sha256"] == "8026f75cb1df391c37c931917d4d8abc31405d731306d42e8d8c8edbd25ef523",
             f"Unexpected payload_sha256: {res['payload_sha256']}",
         )
         _ensure(
-            res["certificate_sha256"] == "90398e173f82e9719d9104908df466a2817d51caf4d1ca83d1000d510ca89c6c",
+            res["certificate_sha256"] == "37bda8721a8b12028941ca14e0df8b6ca79ae7ee2da7521d5bc773bd9cd2f7e7",
             f"Unexpected certificate_sha256: {res['certificate_sha256']}",
         )
 
         blind = audit.load_strict_json_file(blind_path)
         bres = audit.verify_blind_receipt_dict(blind, prereg_path if prereg_path.is_file() else None)
-        _ensure(bres["ok"] is True and bres["total_surviving_anomalies"] == 174 and bres.get("holm_rejected") == 19, f"Unexpected blind result: {bres}")
+        _ensure(bres["ok"] is True and bres["total_surviving_anomalies"] == 2 and bres.get("holm_rejected") == 191, f"Unexpected blind result: {bres}")
 
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
             rc = audit.main(["--check", str(cert_path), "--json"])
         _ensure(rc == 0, f"CLI --check exited {rc}")
         parsed = json.loads(buf.getvalue())
-        _ensure(parsed["ok"] is True and parsed["blind_surviving_anomalies"] == 174, f"CLI output mismatch: {parsed}")
+        _ensure(parsed["ok"] is True and parsed["blind_surviving_anomalies"] == 2, f"CLI output mismatch: {parsed}")
 
     def test_02_pure_q_schur_krein_haynsworth_dark_mode_and_k4_hodge1(self) -> None:
         # 1) Indefinite 3x3 matrix with zero diagonal requiring 2x2 off-diagonal Bunch-Kaufman pivot -> (1, 1, 1)
@@ -206,20 +206,59 @@ class TestS113MultisensorAuditR5(unittest.TestCase):
         base_b = audit.load_strict_json_file(_HERE / "s113_blind_anomalies_receipt.json")
 
         b_low_n = json.loads(audit.canonical_json(base_b))
-        b_low_n["anomalies_by_phase"]["IDLE"][0]["n_surrogates_confirm"] = 199
+        b_low_n["anomalies_by_phase"]["A"][0]["n_surrogates_confirm"] = 199
         _expect_audit_error(lambda: audit.verify_blind_receipt_dict(b_low_n), "BLIND_LOW_SURROGATES")
 
+        # stored half2_p_holm != recomputed pooled-per-lens Holm -> BLIND_HOLM_NOT_RECOMPUTED
         b_bad_p = json.loads(audit.canonical_json(base_b))
-        b_bad_p["anomalies_by_phase"]["IDLE"][0]["half2_p_holm"] = 0.005
-        _expect_audit_error(lambda: audit.verify_blind_receipt_dict(b_bad_p), "BLIND_HOLM_THRESHOLD")
+        b_bad_p["anomalies_by_phase"]["A"][0]["half2_p_holm"] = 0.005
+        _expect_audit_error(lambda: audit.verify_blind_receipt_dict(b_bad_p), "BLIND_HOLM_NOT_RECOMPUTED")
 
         b_nonint = json.loads(audit.canonical_json(base_b))
-        b_nonint["anomalies_by_phase"]["IDLE"][0]["half2_p_holm"] = 0.0019
-        _expect_audit_error(lambda: audit.verify_blind_receipt_dict(b_nonint), "BLIND_NONINTEGER_EMPIRICAL_RANK")
+        b_nonint["anomalies_by_phase"]["A"][0]["half2_p_holm"] = 0.0019
+        _expect_audit_error(lambda: audit.verify_blind_receipt_dict(b_nonint), "BLIND_HOLM_NOT_RECOMPUTED")
 
         b_cnt = json.loads(audit.canonical_json(base_b))
         b_cnt["total_surviving_anomalies"] = 192
         _expect_audit_error(lambda: audit.verify_blind_receipt_dict(b_cnt), "BLIND_TOTAL_MISMATCH")
+
+    def test_09_holm_recompute_attacks_and_h1_n500_gate(self) -> None:
+        base_b = audit.load_strict_json_file(_HERE / "s113_blind_anomalies_receipt.json")
+
+        # Attack 1: ONE survivor set to its raw p (raw stored as Holm) must fail.
+        b_one = json.loads(audit.canonical_json(base_b))
+        row = b_one["anomalies_by_phase"]["A"][0]
+        raw = row.get("half2_p_surr", row.get("half2_p_shift", row.get("half2_p_iaaft", row.get("rep2_p"))))
+        row["half2_p_holm"] = raw
+        _expect_audit_error(lambda: audit.verify_blind_receipt_dict(b_one), "BLIND_HOLM_NOT_RECOMPUTED")
+
+        # Attack 2: ALL survivors set to raw p must fail.
+        b_all = json.loads(audit.canonical_json(base_b))
+        for ph, lst in b_all["anomalies_by_phase"].items():
+            for row in lst:
+                raw = row.get("half2_p_surr", row.get("half2_p_shift", row.get("half2_p_iaaft", row.get("rep2_p"))))
+                row["half2_p_holm"] = raw
+        _expect_audit_error(lambda: audit.verify_blind_receipt_dict(b_all), "BLIND_HOLM_NOT_RECOMPUTED")
+
+        # Positive: the shipped receipt passes with recomputed pooled-per-lens Holm.
+        ok = audit.verify_blind_receipt_dict(json.loads(audit.canonical_json(base_b)))
+        _ensure(ok["total_surviving_anomalies"] == base_b["total_surviving_anomalies"], f"count {ok}")
+
+        # H1: hand-edited min_holm_p (re-signed) must fail the recompute.
+        base_c = audit.load_strict_json_file(_HERE / "s113_multisensor_certificate.json")
+        c_min = json.loads(audit.canonical_json(base_c))
+        c_min["payload"]["modules"]["H1"]["min_holm_p"] = 0.001
+        _expect_audit_error(lambda: audit.verify_certificate_dict(_resign_cert(c_min)), "H1_MIN_HOLM_NOT_RECOMPUTED")
+
+        # H1: passes_null_gate=True under FALSIFIED (prbs OR-clause) must fail.
+        c_or = json.loads(audit.canonical_json(base_c))
+        c_or["payload"]["modules"]["H1"]["passes_null_gate"] = True
+        _expect_audit_error(lambda: audit.verify_certificate_dict(_resign_cert(c_or)), "H1_NULL_GATE_OR_CLAUSE")
+
+        # H1: missing p_holm_n500 on a carrier must fail.
+        c_n500 = json.loads(audit.canonical_json(base_c))
+        del c_n500["payload"]["modules"]["H1"]["prime_carriers"]["1009Hz"]["p_holm_n500"]
+        _expect_audit_error(lambda: audit.verify_certificate_dict(_resign_cert(c_n500)), "H1_P_HOLM_N500_MISMATCH")
 
     def test_07_privacy_leak_refusal_and_bundle_hygiene(self) -> None:
         base = audit.load_strict_json_file(_HERE / "s113_multisensor_certificate.json")
