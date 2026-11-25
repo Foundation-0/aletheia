@@ -10,6 +10,7 @@ from __future__ import annotations
 import ast
 import copy
 import ctypes
+import errno
 from fractions import Fraction
 import io
 import json
@@ -887,16 +888,125 @@ class TestSilqCS21CompilerR5(unittest.TestCase):
         lean_path = _THIS_DIR / oracle.LEAN_SOURCE_FILENAME
         lean_bin = shutil.which("lean")
         if lean_bin is None:
-            cand = Path.home() / ".local" / "bin" / "lean"
-            if cand.is_file():
-                lean_bin = str(cand)
-        if lean_bin is not None:
-            proc = subprocess.run([lean_bin, str(lean_path)], capture_output=True, text=True, timeout=60, check=False)
-            self.assertEqual(proc.returncode, 0, proc.stderr)
-            for forbidden in ("sorryAx", "ofReduceBool", "trustCompiler"):
-                self.assertNotIn(forbidden, proc.stdout)
-            for thm in oracle.LEAN_THEOREM_NAMES:
-                self.assertIn(thm, proc.stdout)
+            for cand in (Path.home() / ".local" / "bin" / "lean", Path.home() / ".elan" / "bin" / "lean"):
+                if cand.is_file():
+                    lean_bin = str(cand)
+                    break
+        # The kernel check must never be vacuously skipped: a missing lean binary is a failure.
+        self.assertIsNotNone(lean_bin, "lean binary not found on PATH, ~/.local/bin or ~/.elan/bin; kernel check must not be skipped")
+        ver = subprocess.run([lean_bin, "--version"], capture_output=True, text=True, timeout=60, check=False)
+        self.assertEqual(ver.returncode, 0, ver.stderr)
+        self.assertTrue(
+            ver.stdout.startswith("Lean (version 4.36.0"),
+            f"expected Lean 4.36.0 toolchain, got: {ver.stdout!r}",
+        )
+        proc = subprocess.run([lean_bin, str(lean_path)], capture_output=True, text=True, timeout=60, check=False)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        for forbidden in ("sorryAx", "ofReduceBool", "trustCompiler"):
+            self.assertNotIn(forbidden, proc.stdout)
+        for thm in oracle.LEAN_THEOREM_NAMES:
+            self.assertIn(thm, proc.stdout)
+
+    # ------------------------------------------------------------------
+    # 10. Fail-Closed OSError Handlers (mutation coverage of the hardened
+    #     I/O error paths: mocked EACCES/EIO on open/read/write/replace)
+    # ------------------------------------------------------------------
+    def test_10_fail_closed_oserror_handlers(self) -> None:
+        eacces = OSError(errno.EACCES, "mocked EACCES")
+        eio = OSError(errno.EIO, "mocked EIO")
+        real_open = os.open
+
+        # (a) root open inside _check_pwd_no_symlinks (audit line ~260): with an
+        # absolute PWD matching ".", the first os.open("/") must fail closed.
+        with mock.patch.dict(os.environ, {"PWD": os.getcwd()}):
+            def open_root_only(path, flags, *a, **kw):
+                if path == "/" and not kw.get("dir_fd"):
+                    raise eacces
+                return real_open(path, flags, *a, **kw)
+
+            with mock.patch("os.open", side_effect=open_root_only):
+                self._expect_err(
+                    "CWD_UNAVAILABLE",
+                    audit.write_regular_bytes_safe,
+                    Path("s54_rel_probe.tmp"),
+                    b"x",
+                    "probe",
+                )
+
+        # (b) root open inside _open_dir_chain (audit line ~300): non-absolute PWD
+        # short-circuits _check_pwd_no_symlinks, so the ancestor walk's os.open("/")
+        # is the first root open and must fail closed.
+        with mock.patch.dict(os.environ, {"PWD": "relative"}):
+            with mock.patch("os.open", side_effect=lambda p, f, *a, **kw: (_ for _ in ()).throw(eacces) if p == "/" and not kw.get("dir_fd") else real_open(p, f, *a, **kw)):
+                self._expect_err(
+                    "FILE_WRITE_ERROR",
+                    audit.write_regular_bytes_safe,
+                    Path("s54_rel_probe.tmp"),
+                    b"x",
+                    "probe",
+                )
+
+        with tempfile.TemporaryDirectory() as td:
+            tgt = Path(td) / "out.bin"
+
+            # (c) read failure inside read_regular_bytes_capped (audit line ~370).
+            src = Path(td) / "in.bin"
+            src.write_bytes(b"hello\n")
+            with mock.patch("os.read", side_effect=eio):
+                self._expect_err("FILE_READ_ERROR", audit.read_regular_bytes_capped, src, "probe", 1024)
+
+            # (d) lstat failure on the leaf (audit line ~389).
+            with mock.patch("os.lstat", side_effect=eacces):
+                self._expect_err("FILE_WRITE_ERROR", audit.write_regular_bytes_safe, tgt, b"x", "probe")
+
+            # (e) temp-file creation failure (audit line ~415): every O_CREAT|O_EXCL
+            # probe fails with EACCES, so the first attempt must fail closed with
+            # "create temp failed" (not "exhausted temp file slots").
+            def open_no_create(path, flags, *a, **kw):
+                if flags & os.O_CREAT:
+                    raise eacces
+                return real_open(path, flags, *a, **kw)
+
+            with mock.patch("os.open", side_effect=open_no_create):
+                with self.assertRaises(oracle.SilqCS21Error) as ctx:
+                    audit.write_regular_bytes_safe(tgt, b"x", "probe")
+                self.assertEqual(ctx.exception.code, "FILE_WRITE_ERROR")
+                self.assertIn("create temp failed", str(ctx.exception))
+
+            # (f) write/fsync failure (audit line ~432).
+            with mock.patch("os.write", side_effect=eio):
+                self._expect_err("FILE_WRITE_ERROR", audit.write_regular_bytes_safe, tgt, b"x", "probe")
+
+            # (g) atomic replace failure (audit line ~443).
+            with mock.patch("os.replace", side_effect=eacces):
+                self._expect_err("FILE_WRITE_ERROR", audit.write_regular_bytes_safe, tgt, b"x", "probe")
+            self.assertFalse(tgt.exists())
+
+            # (h) mkdir failure on a missing parent (audit line ~314).
+            nested = Path(td) / "newdir" / "out.bin"
+            with mock.patch("os.mkdir", side_effect=eacces):
+                with self.assertRaises(oracle.SilqCS21Error) as ctx:
+                    audit.write_regular_bytes_safe(nested, b"x", "probe")
+                self.assertEqual(ctx.exception.code, "FILE_WRITE_ERROR")
+                self.assertIn("mkdir failed", str(ctx.exception))
+
+            # (i) reopen failure after successful mkdir (audit line ~320).
+            state = {"n": 0}
+
+            def open_flaky_dir(path, flags, *a, **kw):
+                if path == "newdir" and not (flags & os.O_CREAT):
+                    state["n"] += 1
+                    if state["n"] == 1:
+                        raise FileNotFoundError(errno.ENOENT, "mocked ENOENT")
+                    raise eacces
+                return real_open(path, flags, *a, **kw)
+
+            with mock.patch("os.open", side_effect=open_flaky_dir):
+                with self.assertRaises(oracle.SilqCS21Error) as ctx:
+                    audit.write_regular_bytes_safe(nested, b"x", "probe")
+                self.assertEqual(ctx.exception.code, "FILE_WRITE_ERROR")
+                self.assertIn("cannot open created dir", str(ctx.exception))
+            self.assertFalse(nested.exists())
 
 
 if __name__ == "__main__":
