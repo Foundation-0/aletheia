@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import errno
 from fractions import Fraction
+import hashlib
 import hmac
 import json
 import os
@@ -77,7 +78,7 @@ _PINNED_KEYS = frozenset({
     "dequant_eval_parity_max_diff_piconats",
     "upstream_cert_pins",
 })
-_UPSTREAM_PIN_KEYS = frozenset({"track", "file", "sha256"})
+_UPSTREAM_PIN_KEYS = frozenset({"track", "file", "sha256", "source_repo"})
 _P1_KEYS = frozenset({
     "vocab_size",
     "hidden_size",
@@ -353,6 +354,8 @@ _EMPIRICAL_ANCHOR_PATHS: tuple[tuple[tuple[str, ...], str], ...] = (
     (("part2_sovereign_stack", "vram_and_training_ablations", "full_4way_3bpw_csr0p50_lora_r64_cce_det_run1", "peak_reserved_bytes"), "full_r64_peak_res_bytes"),
     (("part2_sovereign_stack", "vram_and_training_ablations", "full_4way_3bpw_csr0p50_lora_r64_cce_det_run1", "step_losses_nanonats"), "full_r64_step_losses_nano"),
     (("part2_sovereign_stack", "vram_and_training_ablations", "full_4way_3bpw_csr0p50_lora_r64_cce_det_run1", "final_trainable_sha256"), "full_r64_final_trainable_sha256"),
+    (("part2_sovereign_stack", "vram_and_training_ablations", "full_4way_3bpw_csr0p50_lora_r64_cce_det_run2", "step_losses_nanonats"), "full_r64_step_losses_nano_run2"),
+    (("part2_sovereign_stack", "vram_and_training_ablations", "full_4way_3bpw_csr0p50_lora_r64_cce_det_run2", "final_trainable_sha256"), "full_r64_final_trainable_sha256_run2"),
     (("part2_sovereign_stack", "vram_and_training_ablations", "full_4way_3bpw_csr0p50_lora_r128_cce_det", "peak_alloc_bytes"), "full_r128_peak_alloc_bytes"),
     (("part3_mellin_glu_carry_spotcheck", "total_slice_weights"), "mellin_slice_weights"),
     (("part3_mellin_glu_carry_spotcheck", "grafted_mellin_rungs"), "mellin_rungs"),
@@ -778,17 +781,26 @@ def secondary_audit_payload(payload: Any) -> dict[str, Any]:
     oracle.require_exact_int(pa["dequant_eval_parity_max_diff_piconats"], "pa.parity", lo=0, hi=0)
     ups = pa["upstream_cert_pins"]
     oracle.require_ok(type(ups) is list and len(ups) == 6, "PIN_MISMATCH", "upstream_cert_pins")
-    expected_ups = {r["track"]: (r["file"], r["sha256"]) for r in oracle.UPSTREAM_CERT_PINS}
+    expected_ups = {r["track"]: (r["file"], r["sha256"], r["source_repo"]) for r in oracle.UPSTREAM_CERT_PINS}
     seen_tracks: set[str] = set()
+    repo_evidence = Path(__file__).resolve().parent.parent.parent / "evidence"
     for row in ups:
         rd = _require_exact_dict(row, _UPSTREAM_PIN_KEYS, "upstream_pin")
         trk = oracle.require_exact_str(rd["track"], "up.track")
         fpath = oracle.require_exact_str(rd["file"], "up.file")
         fsha = oracle.require_hex64(rd["sha256"], "up.sha256")
+        srepo = oracle.require_exact_str(rd["source_repo"], "up.source_repo")
         oracle.require_ok(trk in expected_ups, "PIN_MISMATCH", f"unknown upstream track {trk}")
-        exp_file, exp_sha = expected_ups[trk]
+        exp_file, exp_sha, exp_repo = expected_ups[trk]
         oracle.require_ok(fpath == exp_file, "PIN_MISMATCH", f"upstream file {trk}")
         oracle.require_ok(hmac.compare_digest(fsha, exp_sha), "PIN_MISMATCH", f"upstream sha {trk}")
+        oracle.require_ok(srepo == exp_repo, "PIN_MISMATCH", f"upstream source_repo {trk}")
+        if exp_repo == "Foundation-0/aletheia":
+            # In-repo pins must resolve to a real file whose bytes hash to the pin.
+            pin_file = repo_evidence / fpath
+            oracle.require_ok(pin_file.is_file(), "UPSTREAM_PIN_FILE_MISSING", f"{trk}: {fpath} not in repo")
+            actual_sha = hashlib.sha256(read_regular_bytes_capped(pin_file, f"upstream {trk}", max_bytes=1024 * 1024)).hexdigest()
+            oracle.require_ok(hmac.compare_digest(actual_sha, fsha), "UPSTREAM_PIN_SHA_MISMATCH", f"upstream {trk} file sha")
         seen_tracks.add(trk)
     oracle.require_ok(len(seen_tracks) == 6, "PIN_MISMATCH", "duplicate upstream tracks")
 
@@ -877,6 +889,12 @@ def secondary_audit_payload(payload: Any) -> dict[str, Any]:
     oracle.require_ok(all(losses[i] > losses[i + 1] for i in range(4)), "PILLAR2_DESCENT", "loss must strictly decrease")
     oracle.require_ok(oracle.require_bool(p2["full_r64_loss_strictly_decreasing"], "p2.dec") is True, "PILLAR2_DESCENT", "dec flag")
     oracle.require_ok(oracle.require_bool(p2["full_r64_bit_identical_repeatability"], "p2.rep") is True, "PILLAR2_REP", "rep flag")
+    oracle.require_ok(
+        tuple(losses) == tuple(oracle.PINNED_LIVE_ANCHORS["full_r64_step_losses_nano_run2"])
+        and p2["full_r64_final_trainable_sha256"] == oracle.PINNED_LIVE_ANCHORS["full_r64_final_trainable_sha256_run2"],
+        "PILLAR2_REP",
+        "run1 must equal run2 (losses + sha) for the flag to hold",
+    )
     oracle.require_hex64(p2["full_r64_final_trainable_sha256"], "p2.sha")
     no79_loss = oracle.require_exact_int(p2["no_s79_r64_step0_loss_nano"], "p2.no79_l", lo=1)
     oracle.require_ok(losses[0] < no79_loss, "PILLAR2_CSR_STEP0", "CSR must improve step-0 loss")

@@ -792,7 +792,7 @@ class Test04SecondaryAuditTampersAndCLI(unittest.TestCase):
             self.assertTrue(verifier.verify_certificate_dict(base, full_replay=False)["valid"])
             self._assert_err("FULL_REPLAY_MISMATCH", verifier.verify_certificate_dict, base, full_replay=True, track_dir=td_fr1)
 
-        # Exhaustive every-leaf re-signed tamper battery across SEC, FR0, and FR1 (203/203 leaves, 0 bypasses!)
+        # Exhaustive every-leaf re-signed tamper battery across SEC, FR0, and FR1 (209/209 leaves, 0 bypasses!)
         leaves: list[tuple[tuple[Any, ...], Any]] = []
 
         def _collect_leaves(node: Any, path: tuple[Any, ...]) -> None:
@@ -806,7 +806,7 @@ class Test04SecondaryAuditTampersAndCLI(unittest.TestCase):
                 leaves.append((path, node))
 
         _collect_leaves(base["payload"], ())
-        self.assertEqual(len(leaves), 203)
+        self.assertEqual(len(leaves), 209)
         base_bytes = oracle.canonical_json_bytes(base)
         for path, val in leaves:
             c_mut = copy.deepcopy(base)

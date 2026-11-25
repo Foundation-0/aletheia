@@ -57,31 +57,37 @@ UPSTREAM_CERT_PINS: tuple[Mapping[str, str], ...] = (
         "track": "S73",
         "file": "track-s73-lowbit-and-sharednorm-quad-snake/rtx3080_s73_certificate.json",
         "sha256": "33dfb4153fe974e9ef13120190c14ada6dda63ffbee6caa46047d274f32d36cf",
+        "source_repo": "Foundation-0/cave-expedition",
     }),
     MappingProxyType({
         "track": "S77",
         "file": "track-s77-mellin-glu-wsp-quantization-tomography/s77_mellin_wsp_certificate.json",
         "sha256": "d1b9121c435331053b7ab28b915a2062ae7c93b4197d203c63dba42cce5dd74d",
+        "source_repo": "Foundation-0/aletheia",
     }),
     MappingProxyType({
         "track": "S78",
         "file": "track-s78-engram-lora-capacity-siliquant-mdl/s78_engram_lora_siliquant_certificate.json",
         "sha256": "3b8341ef5f588f970accb9a9d28f0b683af9747be045e69196e6c19d3fa58378",
+        "source_repo": "Foundation-0/cave-expedition",
     }),
     MappingProxyType({
         "track": "S79",
         "file": "track-s79-2dsd-multipole-dense-sparse-laws/s79_2dsd_multipole_certificate.json",
         "sha256": "9c30539e6d585141a9b1a5111935ca86de0f740e80749a622547a18242465ad8",
+        "source_repo": "Foundation-0/cave-expedition",
     }),
     MappingProxyType({
         "track": "S80",
         "file": "track-s80-rocket-songe-unsloth-optimizations/s80_certificate.json",
         "sha256": "95681a29ca577c4e3040f8ba63f8516b1cbb2bf1ebfdcda06277f21bb2aa2cb7",
+        "source_repo": "Foundation-0/aletheia",
     }),
     MappingProxyType({
         "track": "S83",
         "file": "track-s83-all-to-all-epistemic-mesh/s83_epistemic_mesh_certificate.json",
         "sha256": "74d269c5c1c35665fc835df796e6f94cdbd118ca4ce580a20310c5c969deabdb",
+        "source_repo": "Foundation-0/aletheia",
     }),
 )
 
@@ -200,6 +206,8 @@ PINNED_LIVE_ANCHORS: Mapping[str, Any] = MappingProxyType({
     "full_r64_trainable_params": 119734272,
     "full_r64_step_losses_nano": (2071853638, 1789988279, 1527536511, 1289076447, 1052227855),
     "full_r64_final_trainable_sha256": "22953dcb721d0d4f7e540595ada68b814c49e4bd5f23f78d63af01d39ead87f5",
+    "full_r64_step_losses_nano_run2": (2071853638, 1789988279, 1527536511, 1289076447, 1052227855),
+    "full_r64_final_trainable_sha256_run2": "22953dcb721d0d4f7e540595ada68b814c49e4bd5f23f78d63af01d39ead87f5",
     "full_r128_peak_alloc_bytes": 6914886656,
     "full_r128_peak_res_bytes": 7430209536,
     "full_r128_trainable_params": 239468544,
@@ -389,8 +397,14 @@ def _compute_pillar1_t3_blowup() -> dict[str, Any]:
 def _compute_pillar2_borromean_stack() -> dict[str, Any]:
     a = PINNED_LIVE_ANCHORS
     losses = a["full_r64_step_losses_nano"]
+    losses_run2 = a["full_r64_step_losses_nano_run2"]
     loss_drop_q = _pct_drop_q(losses[0], losses[-1])
     strictly_decreasing = all(losses[i] > losses[i + 1] for i in range(len(losses) - 1))
+    # Bit-identical repeatability is DERIVED from run1 vs run2 data, never hardcoded.
+    bit_identical_repeatability = (
+        tuple(losses) == tuple(losses_run2)
+        and a["full_r64_final_trainable_sha256"] == a["full_r64_final_trainable_sha256_run2"]
+    )
     r16_headroom = VRAM_BUDGET_BYTES - a["full_r16_peak_alloc_bytes"]
     r64_headroom = VRAM_BUDGET_BYTES - a["full_r64_peak_alloc_bytes"]
     r128_headroom = VRAM_BUDGET_BYTES - a["full_r128_peak_alloc_bytes"]
@@ -421,7 +435,7 @@ def _compute_pillar2_borromean_stack() -> dict[str, Any]:
         "full_r64_loss_strictly_decreasing": strictly_decreasing,
         "full_r64_5step_loss_drop_pct_q": q_str(loss_drop_q),
         "full_r64_5step_loss_drop_pct_dec2": dec_from_q(loss_drop_q, 2),
-        "full_r64_bit_identical_repeatability": True,
+        "full_r64_bit_identical_repeatability": bit_identical_repeatability,
         "full_r64_final_trainable_sha256": a["full_r64_final_trainable_sha256"],
         "full_r128_peak_alloc_bytes": a["full_r128_peak_alloc_bytes"],
         "full_r128_peak_alloc_mib_dec2": dec_from_q(Fraction(a["full_r128_peak_alloc_bytes"], MIB_BYTES), 2),
