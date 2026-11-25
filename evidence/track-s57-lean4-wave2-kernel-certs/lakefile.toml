@@ -1,0 +1,11 @@
+name = "Wave2KernelCerts"
+version = "0.1.0"
+defaultTargets = ["Wave2KernelCerts"]
+
+[[lean_lib]]
+name = "Wave2KernelCerts"
+roots = [
+  "Wave2KernelCerts.Theorem1_BallF64CauchySchwarz",
+  "Wave2KernelCerts.Theorem2_ZeroDWStateTransport",
+  "Wave2KernelCerts.Theorem3_SchurMetrologyObstruction",
+]
