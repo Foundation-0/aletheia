@@ -13,12 +13,13 @@ We formulate, machine-verify in pure-`Init` `Lean 4.36.0` (`19` theorems, zero `
 | **`P_S71_1b`** (`8`-core Write-Write Repulsion `8 B -> 64 B`) | Latency `>= 3.000×`, `pJ/op >= 3.000×` | **`16.973×`** latency collapse (`10.672 -> 0.629 ns/op`), **`13.441×`** `pJ/op` drop | **`CONFIRMED`** |
 | **`P_S71_1c`** (`8`-core `128 MiB` Read-Shared Fusion Pull) | `64 B / 8 B >= 1.300×`; `65536 B / 8 B >= 2.000×` | **`2.681×`** lat / **`1.994×`** `pJ/op` (`64 B / 8 B`); **`3.111×`** lat / **`2.408×`** `pJ/op` (`65536 B / 8 B`) | **`CONFIRMED`** |
 
-> Scope note: the preregistration scopes claims to the recorded `i9-11900H` host. On an independent Xeon (AVX-512 VNNI) re-run, the write-write false-sharing cliff reproduced, but the `P_S71_1c` read-shared "fusion pull" direction did not (8 B was slowest, not fastest), so `P_S71_1c` is Tiger-Lake-specific, not universal across x86.
 | **`P_S71_1d`** (Opposite-Sign Horizon Flip + `P_pkg_dark >= 0`) | `(w64 - w8)*(r64 - r8) < 0` on all 3 axes; `34/34` `pkg_dark >= 0` | Strict negative product on `ns/op`, `tsc/op`, and `pkg pJ/op`; `34/34` rows `pkg_uj >= core_uj + uncore_uj` | **`CONFIRMED`** |
 | **`P_S71_2a`** (`AVX-512` `A_16_BlockH4` Bit-Exactness) | `0` syndrome errors, `0` `int64` mismatches (`22.54M` wts) | `a16_syndrome_errors = 0`, `avx512_int64_mismatches = 0`, `multicore_int64_mismatches = 0` | **`CONFIRMED`** |
 | **`P_S71_2b`** (`AVX-512` GEMV Repulsive Wall Break `8 B -> 64 B`) | Speedup `>= 1.500×` + lower `mJ/Gw` | **`4.561×`** throughput (`21.038 -> 95.965 Gw/s`), **`3.230×`** lower `mJ/Gw` (`3113.77 -> 964.14 mJ/Gw`) | **`CONFIRMED`** |
 | **`P_S71_2c`** (Dual-Force Optimal `AVX-512` Unlock) | vs `8 B`: `>= 3×` speed & energy; vs `4096 B` disp `x`: `>= 1.05×` speed + lower `mJ/Gw` | **`146.892 Gw/s` (`721.84 mJ/Gw`)**: **`6.982×`** speed & **`4.314×`** energy vs `8 B` (**CONFIRMED**); vs `4096 B` disp `x`: **`1.083×`** energy (**`-7.69%` `mJ/Gw` CONFIRMED**), **`1.008×`** speed (**`< 1.05×` NUANCED**) | **`PARTIAL / HONEST NUANCE`** |
 | **`P_S71_3`** (Pure-`Init` `Lean 4.36.0` Formalization) | `>= 12` thms, `0` warnings, axioms subset `{propext, Quot.sound}` | **`19/19` theorems**, `0` warnings, `0` `Classical.choice`, `0` `sorryAx`, `lean` + `lake build` + `audit-check --lean-audit PASS` | **`CONFIRMED`** |
+
+> Scope note: the preregistration scopes claims to the recorded `i9-11900H` host. On an independent Xeon (AVX-512 VNNI) re-run, the write-write false-sharing cliff reproduced, but the `P_S71_1c` read-shared "fusion pull" direction did not (8 B was slowest, not fastest), so `P_S71_1c` is Tiger-Lake-specific, not universal across x86.
 
 ---
 
@@ -98,7 +99,7 @@ We transpose the competing-potential barrier directly onto a native `AVX-512` VN
 
 ---
 
-## 4. Pillar 3 (`P_S71_3`): Pure-`Init` `Lean 4.36.0` Formalization (`20` Theorems, Zero Warnings)
+## 4. Pillar 3 (`P_S71_3`): Pure-`Init` `Lean 4.36.0` Formalization (`19` Theorems, Zero Warnings)
 
 `ProximityBarrierSilicon.lean` compiles cleanly under both direct `lean` and `lake build` (`leanprover/lean4:v4.36.0`, `0` warnings, `0` external imports, `0` `Classical.choice`, `0` `sorryAx`):
 
@@ -122,8 +123,7 @@ We transpose the competing-potential barrier directly onto a native `AVX-512` VN
 | `16` | `qwen3b_down_proj_exact_geometry` | `[]` | `2048 × 11008 = 22,544,384`, `11008 % 64 = 0`, `4.5 bpw = 12,681,216 B` |
 | `17` | `rapl_dark_power_conservation` | `[propext, Quot.sound]` | Exact integer conservation `pkg = core + uncore + (pkg - core - uncore)` |
 | `18` | `abba_palindromic_linear_drift_cancel` | `[propext, Quot.sound]` | Palindromic `(A1 + A2) - (B1 + B2)` cancels linear thermal drift `d` identically |
-| `19` | `rational_gt_iff_cross_mul` | `[]` | Exact zero-float rational comparison via positive cross-multiplication |
-| `20` | `witness_opposite_sign_horizon_flip` | `[propext, Quot.sound]` | `wOut < wIn ∧ rIn < rOut → (wOut - wIn) * (rOut - rIn) < 0` |
+| `19` | `witness_opposite_sign_horizon_flip` | `[propext, Quot.sound]` | `wOut < wIn ∧ rIn < rOut → (wOut - wIn) * (rOut - rIn) < 0` |
 
 ---
 
@@ -149,9 +149,9 @@ We transpose the competing-potential barrier directly onto a native `AVX-512` VN
 | `ProximityBarrierSilicon.lean` | `372` | `17,245` | `0o644` | `870c915e53903220a2b98a5a4857839f8673960f8161550c21f30200e43386e8` |
 | `s71_proximity_bench.c` | `863` | `34,346` | `0o644` | `91299eabe27ec33696eb18d5c64d920968790a5337e84d6bf372a1e91fd832c9` |
 | `s71_run_live.py` | `168` | `6,001` | `0o644` | `894ad7be0560628df5cf660c6ee9b6816d4dfce37b12d51654a31a20293d9255` |
-| `s71_empirical_results.json` | `474` | `11,531` | `0o644` | `5f48a53c013d851bf807fff7e837e92e21c9b7654f17b54d68506f2405bc4c87` |
+| `s71_empirical_results.json` | `479` | `12,010` | `0o644` | `7e9ae73dc229427c3b97d0c627670c1363a1f2ba50b32fa6ea8685962d134aa7` |
 | `mlos_zone_b_receipt.json` | `93` | `2,645` | `0o644` (`0o600` on `--write`) | `f726207c40ae5112a6816c55d9f61327a008562c0c98ec43908d82ba565b6ef3` |
-| `s71_proximity_oracle.py` | `448` | `19,403` | `0o644` | `af2e1075e5c94aa6a0acc7d9a2244a88b56f89b8512749e56e51b88bf884d1c9` |
+| `s71_proximity_oracle.py` | `460` | `19,901` | `0o644` | `5c2a63b5cabff8d83bce3bb2228c92080eec0c43fa276577290a4cf6d47a91a6` |
 | `s71_proximity_audit.py` | `1,033` | `43,711` | `0o644` | `547ec0374f15e8b046c8365f026fd81caa7194d4443e9f9d11d1773452eca58a` |
-| `s71_proximity_certificate.json` | `1` | `2,982` | `0o644` (`0o600` on `--write`) | `a6b4092a07628f1abb55345b7f5368162711c812f912d1c77a156ac9ff9a4cf1` |
-| `test_s71_proximity_r5.py` | `1,025` | `62,425` | `0o644` | `24447fccfe8a56cf5cb6152c18d3ba36aaeccf963ce53761406b235009406701` |
+| `s71_proximity_certificate.json` | `1` | `2,982` | `0o644` (`0o600` on `--write`) | `4a26aac70e79eb8ede80f62f90c06a5e6683c19fc8ce885ad51c4af39be158bd` |
+| `test_s71_proximity_r5.py` | `1,076` | `66,123` | `0o644` | `6b496a6dd5f6143065edbd6d617781741aeda838fb220685078bacdd9610ad29` |

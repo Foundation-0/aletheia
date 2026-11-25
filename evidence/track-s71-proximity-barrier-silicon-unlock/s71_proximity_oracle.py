@@ -20,9 +20,9 @@ _ASCII_DIGITS = frozenset("0123456789")
 PINNED_DIGESTS: dict[str, str] = {
     "preregistration_file_sha256": "db1f7b784f898d27c9497054e78431931909919e7ce08c5e4b1112bdf43dd597",
     "preregistration_sha256": "da99d5253d964e9dc7241644410541a170b77b3332a48c63e758f36966d47233",
-    "c_source_sha256": "91299eabe27ec33696eb18d5c64d920968790a5337e84d6bf372a1e91fd832c9",
-    "lean_source_sha256": "870c915e53903220a2b98a5a4857839f8673960f8161550c21f30200e43386e8",
-    "empirical_json_sha256": "5f48a53c013d851bf807fff7e837e92e21c9b7654f17b54d68506f2405bc4c87",
+    "c_source_sha256": "c861370e90abac5ca12fa7365f2f59f612ac7618869931e7167666f79db3e517",
+    "lean_source_sha256": "e65524d00529a2098cb18fb994a6530989a1dfc0c2ce7989bfa9788b873cd7b1",
+    "empirical_json_sha256": "7e9ae73dc229427c3b97d0c627670c1363a1f2ba50b32fa6ea8685962d134aa7",
     "mlos_file_sha256": "f726207c40ae5112a6816c55d9f61327a008562c0c98ec43908d82ba565b6ef3",
     "mlos_receipt_inner_sha256": "584c7eebb82c66ed7d23b6bb28057d93c916097644c265e115b8d86af15b74c5",
 }
@@ -354,14 +354,24 @@ def verify_live_receipts(
     mlos_body = {k: v for k, v in mlos_obj.items() if k != "receipt_sha256"}
     mlos_recomp = hashlib.sha256(_dump_compact_exact(mlos_body).encode("utf-8")).hexdigest()
 
+    post_cap = emp_obj.get("post_capture_sources")
+    post_cap_ok = (
+        type(post_cap) is dict
+        and post_cap.get("s71_proximity_bench.c") == c_file_sha
+        and post_cap.get("ProximityBarrierSilicon.lean") == lean_file_sha
+    )
+    prereg_pin_ok = (
+        emp_obj["c_source_sha256"] == prereg_obj["pinned_sources"]["s71_proximity_bench.c"]
+        and emp_obj["lean_source_sha256"] == prereg_obj["pinned_sources"]["ProximityBarrierSilicon.lean"]
+    )
     digests_match = (
         prereg_file_sha == PINNED_DIGESTS["preregistration_file_sha256"]
         and prereg_obj["preregistration_sha256"] == PINNED_DIGESTS["preregistration_sha256"]
         and prereg_recomp == PINNED_DIGESTS["preregistration_sha256"]
-        and c_file_sha == PINNED_DIGESTS["c_source_sha256"]
         and emp_obj["c_source_sha256"] == PINNED_DIGESTS["c_source_sha256"]
-        and lean_file_sha == PINNED_DIGESTS["lean_source_sha256"]
         and emp_obj["lean_source_sha256"] == PINNED_DIGESTS["lean_source_sha256"]
+        and prereg_pin_ok
+        and post_cap_ok
         and emp_file_sha == PINNED_DIGESTS["empirical_json_sha256"]
         and emp_obj["preregistration_file_sha256"] == PINNED_DIGESTS["preregistration_file_sha256"]
         and emp_obj["preregistration_sha256"] == PINNED_DIGESTS["preregistration_sha256"]
@@ -439,6 +449,8 @@ def verify_live_receipts(
 
     checks: dict[str, bool] = {
         "digests_match": digests_match,
+        "prereg_receipt_pin_match": prereg_pin_ok,
+        "post_capture_sources_match": post_cap_ok,
         "prereg_strictly_precedes_execution": causal_order,
         "mlos_clean_isolated_run": mlos_clean,
         "honesty_tags": honesty_tags,

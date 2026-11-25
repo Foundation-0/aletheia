@@ -503,7 +503,15 @@ class TestS71Lean4R8AndAuditHardening(unittest.TestCase):
         fake_ok_stdout = "\n".join(f"'T.t{k}' does not depend on any axioms" for k in range(12)) + "\n"
         fake_cp_ok = subprocess.CompletedProcess(["lean"], 0, stdout=fake_ok_stdout, stderr="")
         elan_expected = os.fspath(Path.home() / ".elan" / "bin" / "lean")
-        with mock.patch("shutil.which", return_value=None), mock.patch("subprocess.run", return_value=fake_cp_ok) as m_run:
+        _real_exists = Path.exists
+
+        def _exists_elan(self: Path, *a: Any, **k: Any) -> bool:
+            # Force the elan fallback branch regardless of CI's Lean layout (no ~/.elan in CI).
+            if os.fspath(self).endswith(os.path.join(".elan", "bin", "lean")):
+                return True
+            return _real_exists(self, *a, **k)
+
+        with mock.patch("shutil.which", return_value=None), mock.patch("subprocess.run", return_value=fake_cp_ok) as m_run, mock.patch.object(Path, "exists", _exists_elan):
             res_fb = audit.verify_lean4_file(lean_path, lean_bin="lean")
             self.assertTrue(res_fb["valid"])
             self.assertEqual(m_run.call_args[0][0][0], elan_expected)
@@ -983,6 +991,49 @@ class TestS71Lean4R8AndAuditHardening(unittest.TestCase):
             rc_d, _ob_d, eb_d = _run_cli(["--check", str(cli_out)])
             self.assertEqual(rc_d, 2)
             self.assertIn("BIJECTION_MISMATCH", eb_d.decode("utf-8"))
+            shutil.copyfile(STUDY_DIR / "s71_empirical_results.json", td_p / "s71_empirical_results.json")
+            # Label-row drift (gemv_dual_opt label) must fail --check closed
+            emp_lab = json.loads((STUDY_DIR / "s71_empirical_results.json").read_text(encoding="utf-8"))
+            for _row in emp_lab["measurements"]["avx512_a16_blockh4_dual_force"]:
+                if _row.get("label") == "dual_force_aligned_reg_read_shared":
+                    _row["tsc"] += 1
+            (td_p / "s71_empirical_results.json").write_text(json.dumps(emp_lab), encoding="utf-8")
+            rc_l, _ob_l, eb_l = _run_cli(["--check", str(cli_out)])
+            self.assertEqual(rc_l, 2)
+            self.assertIn("BIJECTION_MISMATCH", eb_l.decode("utf-8"))
+            shutil.copyfile(STUDY_DIR / "s71_empirical_results.json", td_p / "s71_empirical_results.json")
+            # Second label row (gemv_disp_4096b) drift must fail too
+            emp_lab2 = json.loads((STUDY_DIR / "s71_empirical_results.json").read_text(encoding="utf-8"))
+            for _row in emp_lab2["measurements"]["avx512_a16_blockh4_dual_force"]:
+                if _row.get("label") == "aligned_reg_dispersed_read_4096B":
+                    _row["pkg_uj"] += 1
+            (td_p / "s71_empirical_results.json").write_text(json.dumps(emp_lab2), encoding="utf-8")
+            rc_l2, _ob_l2, eb_l2 = _run_cli(["--check", str(cli_out)])
+            self.assertEqual(rc_l2, 2)
+            self.assertIn("BIJECTION_MISMATCH", eb_l2.decode("utf-8"))
+            shutil.copyfile(STUDY_DIR / "s71_empirical_results.json", td_p / "s71_empirical_results.json")
+            # Scalar drift (a16_syndrome_errors) must fail closed
+            emp_sc = json.loads((STUDY_DIR / "s71_empirical_results.json").read_text(encoding="utf-8"))
+            emp_sc["measurements"]["a16_syndrome_errors"] = 1
+            (td_p / "s71_empirical_results.json").write_text(json.dumps(emp_sc), encoding="utf-8")
+            rc_s, _ob_s, eb_s = _run_cli(["--check", str(cli_out)])
+            self.assertEqual(rc_s, 2)
+            self.assertIn("BIJECTION_MISMATCH", eb_s.decode("utf-8"))
+            shutil.copyfile(STUDY_DIR / "s71_empirical_results.json", td_p / "s71_empirical_results.json")
+            # Duplicated stride row must fail (bijection must be unique)
+            emp_dup = json.loads((STUDY_DIR / "s71_empirical_results.json").read_text(encoding="utf-8"))
+            _grp = emp_dup["measurements"]["write_write_2core"]
+            emp_dup["measurements"]["write_write_2core"] = _grp + [dict(_grp[0])]
+            (td_p / "s71_empirical_results.json").write_text(json.dumps(emp_dup), encoding="utf-8")
+            rc_p, _ob_p, eb_p = _run_cli(["--check", str(cli_out)])
+            self.assertEqual(rc_p, 2)
+            self.assertIn("BIJECTION_MISMATCH", eb_p.decode("utf-8"))
+            shutil.copyfile(STUDY_DIR / "s71_empirical_results.json", td_p / "s71_empirical_results.json")
+            # Malformed JSON must fail closed with BIJECTION_PARSE_ERROR
+            (td_p / "s71_empirical_results.json").write_text("{not json", encoding="utf-8")
+            rc_m, _ob_m, eb_m = _run_cli(["--check", str(cli_out)])
+            self.assertEqual(rc_m, 2)
+            self.assertIn("BIJECTION_PARSE_ERROR", eb_m.decode("utf-8"))
             shutil.copyfile(STUDY_DIR / "s71_empirical_results.json", td_p / "s71_empirical_results.json")
             rc, ob, _ = _run_cli(["--verify-receipts", str(STUDY_DIR)])
             self.assertEqual(rc, 0)
