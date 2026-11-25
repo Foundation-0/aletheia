@@ -4,7 +4,7 @@
 
 **Honest Scope & Novelty (`N1`, `n2_claims = 0`):**
 - Skew-symmetric Cayley rotations, Birkhoff doubly-stochastic matrices, Darcy convex averaging, Bingham soft-thresholding, Householder reflections, and gated rollback state machines are classical prior art (`N0` individually).
-- **Exact Scope Boundary (Zero Overclaim):** Every theorem in `GeosphereWeftConservation.lean` and every witness in `s110_geosphere_weft_oracle.py` certifies **per-factor exact finite-dimensional algebraic invariants and explicit Law-5 obstructions over $\mathbb{Z}$ / $\mathbb{Q}$ and pure-`Init` `Lean 4.36.0`**. This track does **NOT** claim unconstrained coupled multi-shell conservation in FP16/BF16 or 3-bpw quantized neural training; on the contrary, it formally proves the exact mathematical obstructions (`B1`, $O(n)\cap B_n \subseteq \mathrm{Perm}(n)$, `M1`, `B5`, `S50`, and `S111` `C_row` cancellation) that force the amended `sm_86` operator designs before any GPU training runs.
+- **Exact Scope Boundary (Zero Overclaim):** Every theorem in `GeosphereWeftConservation.lean` and every witness in `s110_geosphere_weft_oracle.py` certifies **per-factor exact finite-dimensional algebraic invariants and explicit Law-5 obstructions over $\mathbb{Z}$ / $\mathbb{Q}$ and pure-`Init` `Lean 4.36.0`**. This track does **NOT** claim unconstrained coupled multi-shell conservation in FP16/BF16 or 3-bpw quantized neural training; on the contrary, it formally proves the exact mathematical obstructions (`B1` — entrywise {0, D} rigidity only: Theorem 11 carries no orthogonality hypothesis and no column sums, so $O(n)\cap B_n \subseteq \mathrm{Perm}(n)$ is NOT what is proved — plus `M1`, `B5`, `S50`, and `S111` `C_row` cancellation) that force the amended `sm_86` operator designs before any GPU training runs.
 
 ---
 
@@ -101,7 +101,7 @@ All gates ran post-last-edit (CPU-only, `0` GPU touch, `PYTHONDONTWRITEBYTECODE=
 | `GeosphereWeftConservation.lean` | `1,651` | `79,093` | `0o644` | `1c0ed76de3eb6fe55e5f3e618a2ea12433ce4ffe4efe158af0a769bac5733fa8` |
 | `lakefile.toml` | `5` | `131` | `0o644` | `ef07fba51abddc218a7e345d7032744615ff0e21af4bcabb9d0de01013dd02d4` |
 | `lean-toolchain` | `1` | `25` | `0o644` | `582a63f8f9c5128067b688778c1051cf1464c3ca9d57b9325025c051c29b774a` |
-| `s110_geosphere_weft_oracle.py` | `848` | `34,696` | `0o644` | `72c6dd3b8d7a09c79af83bef731e05db5f366f21ff3ed06bd529dde00627b2aa` |
+| `s110_geosphere_weft_oracle.py` | `848` | `34,697` | `0o644` | `404d1635c574290d6e677d6b928f6594130e487656aab21c1eb13d77139e9cca` |
 | `verify_s110_geosphere_weft_conservation.py` | `686` | `30,046` | `0o644` | `9f02983dd14b7df0f80d96d464272255d5e64ebb0a44acef39d23699e5baab6c` |
 | `test_s110_geosphere_weft_r5.py` | `809` | `42,020` | `0o644` | `22819ab3c504511caa8f051b3a25c231acb8af00e05704875b29be8c57f98a04` |
 | `s110_geosphere_weft_certificate.json` | `1` | `8,608` | `0o600` | `bcbf0121475b572eeb0dab01365b15d56bf4b90b17e717201b85ba5022b5a9fd` |
