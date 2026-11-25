@@ -139,10 +139,10 @@ Compiled live via `lean --stdin` (`rc = 0`, `0` stderr bytes, `0` warnings) and 
 ## 7. Aletheia R1–R5 & R10+ Verification Gate Summary
 
 - **3-Mode R4 Parity (`-I -B`, `-I -O -B`, `-I -B -W error`) + `PYTHONHASHSEED=42` + `umask 077` + CI `chmod 644` / RO-Dir Sim + No-Lean `env -i PATH=/usr/bin:/bin` `0`-Skip Parity:** `test_s84_higher_order_k16_r5.py` `8/8 OK` across all modes (`0` skips); live `--check --lean --json` `PASS` (`18/18` theorems live-verified); the `--expedition-root` pin check is cross-repo (3/16 pinned files present in this repo by SHA, the rest verified where the upstream expedition trees are present; fails closed `INVALID_PARENT_DIR:2` otherwise).
-- **Direct 4-Surface `S19c` v2.1 `zone_b_fuzzer` (Zero Wrappers):** **`82/82 PASS`** (`CLI 25/25`, `FR1 19/19`, `FR0 [full_replay=False] 19/19`, `SEC [secondary_audit_payload] 19/19`; `byp=0, cr=0`).
-- **Live `aletheia-fast-mutate` (`--guards require_ok --workers 4 --timeout 180 --max-mutants 0`):** **`234/234 KILLED = 100.0%`** (`verify_s84_higher_order_k16.py 219/219`, `s84_higher_order_k16_oracle.py 15/15`; `survived=0, timeout=0, truncated=False, null_mutant=passed ×2`).
-- **Null-Checked Whole-File DFS AST `BoolOp` (`OP_SWAP + SUBCOND_DEL`):** **`36/36 KILLED = 100.0%`** (`verify_s84_higher_order_k16.py 22/22`, `s84_higher_order_k16_oracle.py 14/14`; `survived=0, timeout=0`).
-- **Dual `aletheia audit-check --lean-audit --strict-ancestors --safety-scan --scripts verify_s84_higher_order_k16.py test_s84_higher_order_k16_r5.py`:** **`PASS ×2`** (`0` findings, `0` notices, `0` bare asserts, `0` AST floats, `0` leaks, `0` CRLF, `PYC=0, LAKE=0, ELF=0`).
+- **Direct 4-Surface `S19c` v2.1 `zone_b_fuzzer` (Zero Wrappers):** **`82/82 PASS`** (`CLI 25/25`, `FR1 19/19`, `FR0 [full_replay=False] 19/19`, `SEC [secondary_audit_payload] 19/19`; `byp=0, cr=0`) — one-off local run, fuzzer script not shipped in this repo.
+- **Live stock `aletheia mutate --guards require_ok --max-mutants 0 --timeout 180` (no `--workers` flag exists on the stock CLI):** **`234/234 KILLED = 100.0%`** (`verify_s84_higher_order_k16.py 219/219`, `s84_higher_order_k16_oracle.py 15/15`; `survived=0, timeout=0, truncated=False, null_mutant=passed ×2`).
+- **Null-Checked Whole-File DFS AST `BoolOp` (`OP_SWAP + SUBCOND_DEL`):** **`36/36 KILLED = 100.0%`** (`verify_s84_higher_order_k16.py 22/22`, `s84_higher_order_k16_oracle.py 14/14`; `survived=0, timeout=0`) — one-off local run, BoolOp harness not shipped in this repo.
+- **Dual `aletheia audit-check <track> --lean-audit --strict-ancestors --safety-scan --scripts ...` (scoped to the track directory):** **`PASS ×2`** (`0` findings, `0` notices, `0` bare asserts, `0` AST floats, `0` leaks, `0` CRLF, `PYC=0, LAKE=0, ELF=0`).
 
 ---
 
