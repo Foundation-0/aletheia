@@ -338,8 +338,8 @@ def build_pillar2_oceanic_and_darcy() -> dict[str, Any]:
     mass_out = sum(y_ocean)
 
     # 2. Law-5 Obstruction B1: causal lower-triangular doubly-stochastic collapses to I_n.
-    # Solved by backward column-row elimination on the n = 4 system (entries in [0,1],
-    # row sums = col sums = 1) — NOT a literal: each entry is derived from the constraints.
+    # Solved by backward column-row elimination of the n = 4 constraint system (entries in
+    # [0,1], row sums = col sums = 1); the unique solution is I_n, derived entry by entry.
     causal_n = 4
     causal_entries: list[list[Fraction]] = [
         [Fraction(0) if j > i else Fraction(-1) for j in range(causal_n)] for i in range(causal_n)
