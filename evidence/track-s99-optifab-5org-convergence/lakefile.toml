@@ -1,0 +1,6 @@
+name = "OptiFabFiveOrgConvergence"
+version = "0.1.0"
+defaultTargets = ["OptiFabFiveOrgConvergence"]
+
+[[lean_lib]]
+name = "OptiFabFiveOrgConvergence"
