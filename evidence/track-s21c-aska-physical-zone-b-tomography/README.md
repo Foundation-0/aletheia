@@ -7,7 +7,7 @@ Self-contained zero-float ($\mathbb{Z}/\mathbb{Q}$) static AST tomography and li
 3. **`F3_ZONEB_CERT_DICT_EQ` (`9/9` repos, `11` sites):** Parsed-dict equality accepting `ZB06` (`bool`/`int` coercion), `ZB07` (duplicate JSON keys), `ZB08` (`.0` float coercion), `ZB10` (CRLF), and `ZB14` (symlinked certificates).
 4. **`F4_ZONEB_UNGUARDED_JSON_IO` (`9/9` repos, `17` sites):** Unguarded JSON parsing crashing with raw Python tracebacks on `ZB03` (oversized integers), `ZB15` (directories), and `ZB16` (invalid UTF-8 / truncated JSON).
 
-Across all `9 × 4 = 36` repo-family cells, **`34/36` (`17/18`)** are exposed and only `2/36` (`1/18`) are clean. Exhaustive search over all $2^3 - 1 = 7$ subsets of three pure-stdlib primitives (`require_no_assert`, `strict_finite_clamp`, `verify_canonical_cert_bytes`) certifies a unique minimal hitting set of size `3` closing `34/34` (`100.0%`) exposures (`0/36` residual), verified live on the `7`-snippet `MINIMAL_REPRO_CORPUS`.
+Across all `9 × 4 = 36` repo-family cells at the pinned Nov 11–17 snapshot, **`34/36` (`17/18`)** were exposed and only `2/36` (`1/18`) were clean; on live `main` after the Nov 22–24 remediation commits the residual is **`9/36` (upper bound)** — this track is a dated historical audit, not a live-main claim. Exhaustive search over all $2^3 - 1 = 7$ subsets of three pure-stdlib primitives (`require_no_assert`, `strict_finite_clamp`, `verify_canonical_cert_bytes`) certifies a unique minimal hitting set of size `3` closing `34/34` (`100.0%`) exposures (`0/36` residual), verified live on the `7`-snippet `MINIMAL_REPRO_CORPUS`.
 
 ## Quick Verification
 

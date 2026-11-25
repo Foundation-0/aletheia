@@ -15,9 +15,9 @@ Every public engineering repository in `aska-physical` ships a standalone verifi
 3. **`F3_ZONEB_CERT_DICT_EQ`:** Parsed-dict equality (`json.loads(...) != cert`, `read_json(...) != cert`, `saved != cert`, `fresh != saved`), which silently accepts `ZB06` (`true`/`false` replaced by `1`/`0`), `ZB07` (duplicate JSON keys), `ZB08` (`int` replaced by `.0` float), `ZB10` (CRLF/non-canonical JSON), and `ZB14` (symlinked certificate files).
 4. **`F4_ZONEB_UNGUARDED_JSON_IO`:** Unguarded `json.loads` / `json.load` calls lacking fail-closed `(OSError, UnicodeDecodeError, ValueError)` handling, crashing with raw Python tracebacks on `ZB03` (5,000-digit integer `ValueError`), `ZB15` (directory `IsADirectoryError`), and `ZB16` (invalid UTF-8 `UnicodeDecodeError`, truncated JSON `JSONDecodeError`).
 
-### Exact Cross-Org Exposure Table (All `9` Public `aska-physical` Engineering Repos on Live `main`)
+### Exact Cross-Org Exposure Table — DATED HISTORICAL AUDIT of the pinned Nov 11–17 snapshot (NOT live `main`; see remediation column)
 
-| Repository (`isPrivate=false`) | Live `main` HEAD | Checker File(s) & SHA-256 (prefix) | `F1` Asserts | `F2` `max/min` (`const-1st`) | `F3` Dict Eq | `F4` Unguarded JSON | Live Verification Surface |
+| Repository (`isPrivate=false`) | Pinned HEAD (Nov 11–17) | Checker File(s) & SHA-256 (prefix) | `F1` Asserts | `F2` `max/min` (`const-1st`) | `F3` Dict Eq | `F4` Unguarded JSON | Live Verification Surface |
 |---|---|---|---:|---:|---:|---:|---|
 | `fibral-rigidity` | `06520520dff2` | `verify.py` (`750182ff...`) | `28` | `4` (`0`) | `1` | `3` | AST + live non-SymPy `NaN` repro |
 | `cfrp-truss` | `3c11631e223b` | `verify.py` (`77d0df43...`) | `7` | `36` (`14`) | `1` | `1` | AST + live non-SymPy `NaN` repro |
@@ -28,9 +28,11 @@ Every public engineering repository in `aska-physical` ships a standalone verifi
 | `impedence-analyzers` | `ed0a5e10e87e` | `verify.py` (`c1bd1f45...`) | `9` | `7` (`4`) | `1` | `1` | Live subprocess Zone-B (`4` bypasses, `4` crashes) + `NaN` `TypeError` |
 | `venturi-collars` | `d53f85a35d17` | `verify.py` (`4d3ef709...`) | `5` | `1` (`1`) | `1` | `1` | Live subprocess Zone-B (`5` bypasses incl. `ZB08`, `4` crashes) + `-O` `NaN` repro |
 | `optifab` | `74d68ea15ab7` | `verify.py` (`e1a898de...`) | `20` | `14` (`1`) | `2` | `3` | AST + live non-SymPy `NaN` repro (`ball_in_box` & `plant_radius`) |
-| **Total (`9` repos)** | — | **`10` Python files + `9` certs** | **`86`** (`8/9`) | **`76`** (`29` const-1st, `8/9`) | **`11`** (`9/9`) | **`17`** (`9/9`) | **`34/36 = 17/18`** exposure cells (`94.44%`) |
+| **Total (`9` repos)** | — | **`10` Python files + `9` certs** | **`86`** (`8/9`) | **`76`** (`29` const-1st, `8/9`) | **`11`** (`9/9`) | **`17`** (`9/9`) | **`34/36 = 17/18`** exposure cells at the pinned snapshot (`94.44%`) |
 
-- **Exact Pure-$\mathbb{Q}$ Prevalence & Density:** `F1 = 8/9`, `F2 = 8/9` (`7/9` const-first), `F3 = 1` (`9/9`), `F4 = 1` (`9/9`). Across `9 x 4 = 36` repo-family cells, **`34/36` (`17/18`)** are exposed and only **`2/36` (`1/18`)** are clean: `(cfrp-strengthening, F1)` and `(cfrp-masts, F2)`. Every single repo (`9/9`) exhibits `>= 3` families, and **`7/9`** exhibit all `4/4`.
+> **Remediation status (reviewed 2026-11-25):** between Nov 22–24 CT, all `9` repos merged fixes for these exact families on their live `main` — e.g. funi-floors `dac97fc`, cfrp-masts `ba3221c`, cfrp-strengthening `e4f3ed5`, venturi-collars `5891060`, fibral-rigidity `f56ae83`, cfrp-truss `1f0b662`, impedence-analyzers `e3e1073`, optifab PR #16, funi-frame `d3e3cb6`. Re-scanning current `main` with this PR's own scanner definitions gives **9/36 exposed (upper bound; F2 counts any builtin max/min)** — F1 0/9, F2 3/9, F3 3/9, F4 3/9. The table above is therefore a dated historical audit of the pinned snapshot, not a live-main claim.
+
+- **Exact Pure-$\mathbb{Q}$ Prevalence & Density (at the pinned snapshot):** `F1 = 8/9`, `F2 = 8/9` (`7/9` const-first), `F3 = 1` (`9/9`), `F4 = 1` (`9/9`). Across `9 x 4 = 36` repo-family cells, **`34/36` (`17/18`)** were exposed and only **`2/36` (`1/18`)** were clean at the pinned heads: `(cfrp-strengthening, F1)` and `(cfrp-masts, F2)`. On live `main` today the residual is `9/36` (upper bound) after the Nov 22–24 remediation commits listed above. Every single repo (`9/9`) exhibited `>= 3` families, and **`7/9`** exhibited all `4/4` at the pinned snapshot.
 
 ### Explicit Scope Boundary (Law-4 Honesty)
 - `5/9` repos (`fibral-rigidity`, `cfrp-truss`, `funi-floors`, `funi-frame`, `optifab`) import `sympy` at top level (`sympy` is absent on this clean-room audit host). On those `5`, AST tomography, SHA-256 verification, and non-SymPy function-level live `NaN` reproductions were run directly; on the `4/9` stdlib/NumPy-only repos (`cfrp-masts`, `cfrp-strengthening`, `impedence-analyzers`, `venturi-collars`), full end-to-end subprocess Zone-B fuzzing was additionally executed (`18/18` live bypasses and `16/16` raw traceback crashes confirmed).
@@ -38,7 +40,7 @@ Every public engineering repository in `aska-physical` ships a standalone verifi
 
 ---
 
-## 2. Minimal Live-Reproduced Defect Witnesses
+## 2. Minimal Defect Witnesses (reproduced live at the PINNED heads; all fixed on current `main` — historical witnesses, not live ones: W1 now raises `ValueError fc_MPa must be finite`, W2 `ValueError u0 must be finite`, W3 `CheckFailure U_duct_m_s must be finite`, with and without `-O`)
 
 1. **`aska-physical/funi-floors` (`verify.py:178`) — `NaN` Concrete Strength Passes the Binding Campus Margin:**
    - Calling `evaluate_punching_shear_collar(fc_MPa=float("nan"))` evaluates `min(35.0, fc_MPa) == 35.0`, returning `phi_Vn_active_collar_kN = 2756.4`, `utilization_active_collar = 0.8009`, and **`active_collar_passes = True`** (the exact binding margin governing `optifab`'s `R* = 0.1989` plant radius!).
@@ -61,7 +63,7 @@ Every public engineering repository in `aska-physical` ships a standalone verifi
 
 ## 3. Law-2b Transformational Steelman — 3-Primitive Zero-Exposure Micro-Shim
 
-Exhaustive search over all $2^3 - 1 = 7$ non-empty subsets of three stdlib primitives proves a unique minimal hitting set of size **`3`** closing **`34/34` (`100.0%`)** org-wide exposures (`0/36` residual):
+Exhaustive search over all $2^3 - 1 = 7$ non-empty subsets of three stdlib primitives yields a unique minimal hitting set of size **`3`** closing **`34/34` (`100.0%`)** org-wide exposures at the pinned snapshot (`0/36` residual). *Scope note:* the "uniqueness" is by construction — the three `SHIM_PRIMITIVES` cover disjoint family sets (`{F1}`, `{F2}`, `{F3, F4}`) and all four families are active, so only the full set can cover them; and the "`34/34` closed" figure is checked on the shim snippet in `MINIMAL_REPRO_CORPUS`, not on any upstream repo. It is a coverage statement about the shim, not an independent proof over repo code:
 
 1. `require_no_assert` (`if not ok: raise RuntimeError(msg)`) -> closes **`F1`** (`8/34 = 4/17` of exposed cells, `86` sites).
 2. `strict_finite_clamp` (`require(math.isfinite(x))` before clamp/aggregation) -> closes **`F2`** (`8/34 = 4/17` of exposed cells, `76` sites).
@@ -77,10 +79,10 @@ Running `scan_python_source_exact` live on the `law2b_hardened_micro_shim` refer
 - **Isolated `-I` & Hash-Seed Parity (`-I -B`, `-I -O -B`, `-I -B -W error`, `PYTHONHASHSEED=42 -I -B`):**
   - `aska_zoneb_tomography_audit.py --standalone --json` matches `aska_zoneb_tomography_certificate.json` byte-for-byte across all `4` runs (`payload_sha256: 6bdea899a68832fc36e8651872c228c6225cae10eb300149f59dd030fcbf8aa0`, `certificate_sha256: 85aed4f7f901f430a39ef36b0acd9ae63710af8b1e3bbdd55fd7c4dbfc79bc4f`).
   - `--check aska_zoneb_tomography_certificate.json`: `valid: true` × 4; `test_aska_zoneb_tomography_r5.py`: **`5/5 OK`** × 4.
-- **Live `aletheia v2.0.0 mutate --max-mutants 0 --work-root . --add-cwd` (`-I -O -B -W error`):**
-  - `aska_zoneb_tomography_oracle.py`: **`32/32` (`100.0%`, `survived=0`, `truncated=False`) KILLED**.
-  - `aska_zoneb_tomography_audit.py`: **`30/30` (`100.0%`, `survived=0`, `truncated=False`) KILLED**.
-  - **Combined:** **`62/62` (`100.0%`) KILLED**.
+- **Live `aletheia mutate --guards require_ok --max-mutants 0 --work-root . --add-cwd` (`-I -O -B -W error`, track test as test-cmd; re-run at review time on main `214cff65`):**
+  - `aska_zoneb_tomography_oracle.py`: **`36/36` (`100.0%`, `survived=0`, `truncated=False`, null mutant PASS) KILLED**.
+  - `aska_zoneb_tomography_audit.py`: **`42/42` (`100.0%`, `survived=0`, `truncated=False`, null mutant PASS) KILLED**.
+  - **Combined:** **`78/78` (`100.0%`) KILLED**.
 - **Exhaustive AST `BoolOp` (`and` <-> `or`) Sweep (`-I -O -B -W error`):**
   - `aska_zoneb_tomography_oracle.py`: **`21/21` (`100.0%`, `survived=[]`) KILLED**.
   - `aska_zoneb_tomography_audit.py`: **`7/7` (`100.0%`, `survived=[]`) KILLED**.

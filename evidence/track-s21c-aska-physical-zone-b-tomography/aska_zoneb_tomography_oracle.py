@@ -13,8 +13,9 @@ Provides:
          crashing with raw tracebacks on ZB03/ZB15/ZB16
   2. Live AST execution over real minimal repro snippets extracted from public
      `aska-physical` main branches plus a Law-2b zero-exposure micro-shim steelman.
-  3. Exact pure-Q exposure prevalence, 4x4 co-occurrence, and exhaustive 15-subset
-     minimal remediation hitting-set analysis across all 9 public `aska-physical`
+  3. Exact pure-Q exposure prevalence, 4x4 co-occurrence, and exhaustive search over
+     all 2^3 - 1 = 7 non-empty subsets of the 3 shim primitives for the minimal
+     remediation hitting-set analysis across all 9 public `aska-physical`
      engineering repositories (pinned at verified main HEAD SHAs and re-verifiable
      against live read-only clones via `verify_live_repos_dir`).
 """
