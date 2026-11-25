@@ -1,5 +1,6 @@
 {
   "anomalies": [],
+  "bound_file_sha256": "0acb1c3e4fd7d7e6675a636e61dd31d102c4ec4b0d5e7f229217875253db0a9b",
   "clean_hardware_run": true,
   "determinism_pins": {
     "CUBLAS_WORKSPACE_CONFIG": ":4096:8",
@@ -58,7 +59,7 @@
   },
   "profile_id": "ux582hs-rtx3080-8gb",
   "profile_sha256": "566c9192d38682a0ec4d652a63a3510aaefb9dc20ef91ae9bdc6d4abbbf5cbe2",
-  "receipt_sha256": "9397f679ee7c05def8cfd97fec16e25d7987fcd5ee59cdee4437a9da8edf4bfb",
+  "receipt_sha256": "e7002c8deca39a9edd6ee70ce48f62ab60b2fc26434bfe262f7b4315f7d31898",
   "schema": "mlos-run-receipt/v0.1",
   "start_gpu_telemetry": {
     "clocks_event_reasons": {

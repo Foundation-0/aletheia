@@ -93,6 +93,85 @@ class TestS106Phase3R5(unittest.TestCase):
             (d / "mlos_zone_b_h6_receipt.json").write_text(json.dumps(rec) + "\n", encoding="utf-8")
             self._expect(d, "DIRTY_RECEIPT")
 
+    def test_06_receipt_forgery_links_and_remaining_guards(self) -> None:
+        def _resign_receipt(obj: dict) -> bytes:
+            body = {k: val for k, val in obj.items() if k != "receipt_sha256"}
+            obj["receipt_sha256"] = hashlib.sha256(json.dumps(body, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+            return (json.dumps(obj, indent=2, sort_keys=True) + "\n").encode("utf-8")
+
+        with tempfile.TemporaryDirectory(prefix="s106_p3_t6_") as td:
+            d = self._copy(td)
+
+            # Zeroed receipt sha -> RECEIPT_SHA_MISMATCH
+            rec = json.loads((d / "mlos_zone_b_h6_receipt.json").read_text(encoding="utf-8"))
+            rec["receipt_sha256"] = "0" * 64
+            (d / "mlos_zone_b_h6_receipt.json").write_text(json.dumps(rec) + "\n", encoding="utf-8")
+            self._expect(d, "RECEIPT_SHA_MISMATCH")
+
+            # Re-signed but forged telemetry -> RECEIPT_SHA_MISMATCH (self-sign no longer matches)
+            rec = json.loads((_HERE / "mlos_zone_b_h6_receipt.json").read_text(encoding="utf-8"))
+            rec["end_gpu_telemetry"]["temperature_gpu_c"] = 99
+            (d / "mlos_zone_b_h6_receipt.json").write_text(json.dumps(rec) + "\n", encoding="utf-8")
+            self._expect(d, "RECEIPT_SHA_MISMATCH")
+
+            # Re-signed with wrong bound -> RECEIPT_BOUND_LINK_MISMATCH
+            rec = json.loads((_HERE / "mlos_zone_b_h6_receipt.json").read_text(encoding="utf-8"))
+            rec["bound_file_sha256"] = "1" * 64
+            (d / "mlos_zone_b_h6_receipt.json").write_bytes(_resign_receipt(rec))
+            self._expect(d, "RECEIPT_BOUND_LINK_MISMATCH")
+            shutil.copy2(_HERE / "mlos_zone_b_h6_receipt.json", d / "mlos_zone_b_h6_receipt.json")
+
+            # Protocol-file link tamper -> PROTOCOL_LINK_MISMATCH
+            obj = json.loads((d / "s106_h6_results.json").read_text(encoding="utf-8"))
+            obj["protocol_file_sha256"] = "4" * 64
+            (d / "s106_h6_results.json").write_bytes(_resign(obj))
+            self._expect(d, "PROTOCOL_LINK_MISMATCH")
+            shutil.copy2(_HERE / "s106_h6_results.json", d / "s106_h6_results.json")
+
+            # Protocol lock outside the receipt window -> PROTOCOL_OUTSIDE_RECEIPT_WINDOW
+            proto = json.loads((d / "h6_locked_protocol.json").read_text(encoding="utf-8"))
+            proto["locked_utc"] = "2000-01-01T00:00:00Z"
+            (d / "h6_locked_protocol.json").write_text(json.dumps(proto, sort_keys=True, separators=(",", ":")) + "\n", encoding="utf-8")
+            obj = json.loads((d / "s106_h6_results.json").read_text(encoding="utf-8"))
+            obj["protocol_locked_utc"] = "2000-01-01T00:00:00Z"
+            obj["protocol_file_sha256"] = hashlib.sha256((d / "h6_locked_protocol.json").read_bytes()).hexdigest()
+            (d / "s106_h6_results.json").write_bytes(_resign(obj))
+            # Re-bind the receipt to the tampered results file so the window check is reached
+            rec = json.loads((d / "mlos_zone_b_h6_receipt.json").read_text(encoding="utf-8"))
+            rec["bound_file_sha256"] = hashlib.sha256((d / "s106_h6_results.json").read_bytes()).hexdigest()
+            (d / "mlos_zone_b_h6_receipt.json").write_bytes(_resign_receipt(rec))
+            self._expect(d, "PROTOCOL_OUTSIDE_RECEIPT_WINDOW")
+            shutil.copy2(_HERE / "h6_locked_protocol.json", d / "h6_locked_protocol.json")
+            shutil.copy2(_HERE / "s106_h6_results.json", d / "s106_h6_results.json")
+            shutil.copy2(_HERE / "mlos_zone_b_h6_receipt.json", d / "mlos_zone_b_h6_receipt.json")
+
+            # Prereg constant mismatch (monkeypatched) -> PREREG_MISMATCH
+            orig = v3.PREREG_SHA256
+            try:
+                v3.PREREG_SHA256 = "5" * 64
+                self._expect(d, "PREREG_MISMATCH")
+            finally:
+                v3.PREREG_SHA256 = orig
+
+            # H6c arm-count / n_params pins
+            obj = json.loads((d / "s106_h6_results.json").read_text(encoding="utf-8"))
+            for r in obj["h6c_runs"]:
+                r["n_params"] = 12345
+            (d / "s106_h6_results.json").write_bytes(_resign(obj))
+            self._expect(d, "H6C_N_PARAMS_MISMATCH")
+            shutil.copy2(_HERE / "s106_h6_results.json", d / "s106_h6_results.json")
+
+            # Global integrity tamper
+            obj = json.loads((d / "s106_h6_results.json").read_text(encoding="utf-8"))
+            obj["global_integrity"]["total_syndrome_errors"] = 1
+            (d / "s106_h6_results.json").write_bytes(_resign(obj))
+            self._expect(d, "GLOBAL_INTEGRITY_MISMATCH")
+            shutil.copy2(_HERE / "s106_h6_results.json", d / "s106_h6_results.json")
+
+            # Clean copy still passes
+            res = v3.verify_phase3_dir(d)
+            self.assertTrue(res["ok"])
+
     def test_05_hygiene(self) -> None:
         bad = ("/" + "home/", "~" + "/", "/" + "dev/" + "null", "4" + "-mode")
         for p in sorted(_HERE.iterdir()):

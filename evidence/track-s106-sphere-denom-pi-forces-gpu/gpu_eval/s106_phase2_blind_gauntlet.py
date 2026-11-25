@@ -301,7 +301,7 @@ def _benchmark_pack_decode_throughput(device: torch.device) -> dict[str, Any]:
     # 2. GPU LUT-indexed EQ(S^3) decode (256x4 = 1KB L1-resident table)
     cb_eq_gpu = ops.build_eq_s3_leopardi().to(device)
 
-    # 3. GPU hampack-style A_16 [16,11,4] bit-unpack + parity-check decode (11 info bits -> 16 parity bits + 16 2-bit quotients)
+    # 3. GPU REFERENCE RE-IMPLEMENTATION of hampack-style A_16 [16,11,4] bit-unpack + parity-check decode (11 info bits -> 16 parity bits + 16 2-bit quotients) — NOT siliquant's kernel
     # Matching siliquant#77 hampack.py: unpack 11-bit Hamming codeword -> compute 5 parity bits -> reconstruct 16 ints
     info_gpu = torch.tensor(rng.integers(0, 2048, size=n_a16, dtype=np.int32), device=device)
     quot_gpu = torch.tensor(rng.integers(-2, 3, size=(n_a16, 16), dtype=np.int8), device=device)

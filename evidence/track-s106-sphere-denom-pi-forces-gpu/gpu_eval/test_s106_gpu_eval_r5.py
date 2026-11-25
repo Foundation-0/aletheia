@@ -138,6 +138,77 @@ class TestS106GpuEvalR5(unittest.TestCase):
                 verifier.verify_gpu_eval_dir(d)
             self.assertEqual(ctx3.exception.code, "HARDWARE_ANOMALIES")
 
+    def test_06_receipt_forgery_prereg_status_and_link_guards(self) -> None:
+        # Live run must loudly report the unshipped prereg (never silently skip).
+        res = verifier.verify_gpu_eval_dir(_THIS_DIR)
+        self.assertEqual(res["prereg_status"], "UNVERIFIABLE_NOT_SHIPPED")
+        with tempfile.TemporaryDirectory(prefix="s106_gpu_t6_") as td:
+            d = self._make_copy(td)
+
+            def expect(code: str) -> None:
+                with self.assertRaises(verifier.S106GpuVerifyError) as ctx:
+                    verifier.verify_gpu_eval_dir(d)
+                self.assertEqual(ctx.exception.code, code)
+
+            # Forged receipt telemetry without re-signing -> RECEIPT_SHA_MISMATCH
+            rec = json.loads((d / "mlos_zone_b_gauntlet_receipt.json").read_text(encoding="utf-8"))
+            rec["end_gpu_telemetry"]["temperature_gpu_c"] = 99
+            (d / "mlos_zone_b_gauntlet_receipt.json").write_text(json.dumps(rec) + "\n", encoding="utf-8")
+            expect("RECEIPT_SHA_MISMATCH")
+
+            # Zeroed receipt_sha256 -> RECEIPT_SHA_MISMATCH
+            rec = json.loads((_THIS_DIR / "mlos_zone_b_gauntlet_receipt.json").read_text(encoding="utf-8"))
+            rec["receipt_sha256"] = "0" * 64
+            (d / "mlos_zone_b_gauntlet_receipt.json").write_text(json.dumps(rec) + "\n", encoding="utf-8")
+            expect("RECEIPT_SHA_MISMATCH")
+
+            # Re-signed but wrong bound_file_sha256 -> RECEIPT_BOUND_LINK_MISMATCH
+            rec = json.loads((_THIS_DIR / "mlos_zone_b_gauntlet_receipt.json").read_text(encoding="utf-8"))
+            rec["bound_file_sha256"] = "1" * 64
+            body = {k: v for k, v in rec.items() if k != "receipt_sha256"}
+            rec["receipt_sha256"] = hashlib.sha256(json.dumps(body, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+            (d / "mlos_zone_b_gauntlet_receipt.json").write_text(json.dumps(rec, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+            expect("RECEIPT_BOUND_LINK_MISMATCH")
+            shutil.copy2(_THIS_DIR / "mlos_zone_b_gauntlet_receipt.json", d / "mlos_zone_b_gauntlet_receipt.json")
+
+            # Tampered pilot inner hash -> PILOT_SHA_MISMATCH
+            pil = json.loads((d / "s106_frozen_pilot_params.json").read_text(encoding="utf-8"))
+            pil["pilot_params_sha256"] = "0" * 64
+            (d / "s106_frozen_pilot_params.json").write_bytes((json.dumps(pil, sort_keys=True, separators=(",", ":")) + "\n").encode())
+            expect("PILOT_SHA_MISMATCH")
+            shutil.copy2(_THIS_DIR / "s106_frozen_pilot_params.json", d / "s106_frozen_pilot_params.json")
+
+            # Tampered gauntlet->pilot link -> PILOT_LINK_SHA_MISMATCH
+            g = json.loads((d / "s106_blind_gauntlet_results.json").read_text(encoding="utf-8"))
+            g["pilot_params_file_sha256"] = "2" * 64
+            (d / "s106_blind_gauntlet_results.json").write_bytes(_resign_gauntlet(g))
+            expect("PILOT_LINK_SHA_MISMATCH")
+            shutil.copy2(_THIS_DIR / "s106_blind_gauntlet_results.json", d / "s106_blind_gauntlet_results.json")
+
+            # Tampered prereg constant in pilot -> PILOT_PREREG_MISMATCH
+            pil = json.loads((d / "s106_frozen_pilot_params.json").read_text(encoding="utf-8"))
+            pil["preregistration_sha256"] = "3" * 64
+            (d / "s106_frozen_pilot_params.json").write_bytes(_resign_pilot(pil))
+            expect("PILOT_PREREG_MISMATCH")
+            shutil.copy2(_THIS_DIR / "s106_frozen_pilot_params.json", d / "s106_frozen_pilot_params.json")
+
+            # oob / non-block / CS-08 ceiling guards
+            for field, code in (("oob_groups", "OOB_GROUPS_NONZERO"), ("non_block_diffs", "NON_BLOCK_DIFF_NONZERO")):
+                g = json.loads((_THIS_DIR / "s106_blind_gauntlet_results.json").read_text(encoding="utf-8"))
+                g["models"]["Qwen/Qwen2.5-1.5B"]["arms"]["sp_E8_lin_3b"][field] = 1
+                (d / "s106_blind_gauntlet_results.json").write_bytes(_resign_gauntlet(g))
+                expect(code)
+            g = json.loads((_THIS_DIR / "s106_blind_gauntlet_results.json").read_text(encoding="utf-8"))
+            g["models"]["Qwen/Qwen2.5-1.5B"]["arms"]["sp_A16_lin_3b"]["exact_bpw"] = 3.5
+            (d / "s106_blind_gauntlet_results.json").write_bytes(_resign_gauntlet(g))
+            expect("CS08_BPW_EXCEEDED")
+            shutil.copy2(_THIS_DIR / "s106_blind_gauntlet_results.json", d / "s106_blind_gauntlet_results.json")
+
+            # Clean copy passes with the loud prereg status
+            res = verifier.verify_gpu_eval_dir(d)
+            self.assertTrue(res["ok"])
+            self.assertEqual(res["prereg_status"], "UNVERIFIABLE_NOT_SHIPPED")
+
     def test_05_hygiene_no_leaks_crlf_or_weights(self) -> None:
         bad_tokens = (
             "/" + "home/",

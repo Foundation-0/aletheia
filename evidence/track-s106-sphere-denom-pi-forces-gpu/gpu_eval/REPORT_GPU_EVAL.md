@@ -1,6 +1,6 @@
 # Track S106 GPU Evaluation Report: `PREREG-SPHERE-PI-FORCES-V1` (Phase 1B Pilot Lock + Phase 2 Blind Held-Out RTX 3080 Gauntlet)
 
-- **Parent Preregistration SHA-256:** `ac3e62116bc4841320d2c713787c23568beed1ae738bf9b284b7f0c2a118d72a` (`PREREG_SPHERE_PI_FORCES_V1.md`, permanently locked before execution)
+- **Parent Preregistration SHA-256:** `ac3e62116bc4841320d2c713787c23568beed1ae738bf9b284b7f0c2a118d72a` (`PREREG_SPHERE_PI_FORCES_V1.md` — file NOT shipped in any reachable repo, so the "locked before execution" claim is UNVERIFIABLE; verifier reports `prereg_status=UNVERIFIABLE_NOT_SHIPPED` and cross-checks the SHA constant against both shipped JSONs)
 - **Epistemic Class:** `[anchor]` (live bare-metal NVIDIA GeForce RTX 3080 Laptop `8 GiB` measurements serialized via `flock` + `mlos gpu-lease --mode train` + `mlos stamp-run --zone B`, `HF_HUB_OFFLINE=1`, `WEIGHTS=0`, `0` GitHub pushes)
 - **Strict Anti-Snooping Proof:** Phase 1B pilot parameters locked strictly on synthetic $N(0,1)$ + `Qwen/Qwen2.5-0.5B` at `2026-11-25T11:04:41Z` (`held_out_models_touched=[]`), strictly prior to Phase 2 blind gauntlet execution (`2026-11-25T12:23:51Z` -> `2026-11-25T13:26:25Z`, `clean_hardware_run=true`, `anomalies=[]`, `56°C -> 66°C`, `thermal_throttled=false`, `compute_vram_mib: 0 -> 0`).
 - **Global Bit-Level & Algebraic Integrity (`117/117` blind full-model arms across `4.40B` block weights):** `total_syndrome_errors=0`, `total_oob_groups=0`, `total_non_block_diffs=0`, `100%` `CS-08` exact bitrate accounting (all FP16 row/col scales, global RMS, and codebook bytes included in `exact_bpw`).
@@ -15,9 +15,9 @@
 | Hypothesis | Runner Grader | **Strict Locked Kill-Gate Verdict** | Exact Blind Held-Out Evidence (`SmolLM2-360M` / `Qwen2.5-1.5B` / `Qwen2.5-3B`) |
 | :--- | :---: | :---: | :--- |
 | **`H1`** | `FALSIFIED` | **`FALSIFIED`** | Best static `SphereMap` lattice arm loses to `siliquant` per-128 `A_16` at `3.0 bpw` on `3/3` models (WikiKL `1.014`/`0.567`/`15.735` vs `0.437`/`0.311`/`0.518`) despite higher static weight SNR on `2/3` (`16.498`/`16.457` vs `16.434 dB`). `H1-P2` Spearman $\rho$ (`-0.435`/`+0.332`/`-0.164`) never reaches `0.60`. |
-| **`H2a`** | `PARTIAL` | **`FALSIFIED`** | Kill gate fires: at `2.0 bpw` `EQ(S^3)` loses end-to-end KL to `Cart-LM + SphereMap` on `3/3` models. Sub-claims that DID hold (logged, not upgraded): `+2.206/+2.204/+2.195 dB` SNR over Numerator-$\pi$ grid; `+0.027/+0.028/+0.031 dB` over 20-iter trained k-means with `0` codebook bytes; GPU decode `1.355×` vs `A_16` hampack (`2.529` vs `1.866 Gw/s`). |
+| **`H2a`** | `PARTIAL` | **`FALSIFIED`** | Kill gate fires: at `2.0 bpw` `EQ(S^3)` loses end-to-end KL to `Cart-LM + SphereMap` on `3/3` models. Sub-claims that DID hold (logged, not upgraded): `+2.206/+2.204/+2.195 dB` SNR over Numerator-$\pi$ grid at `2.5 bpw`; `+0.027/+0.028/+0.031 dB` over 20-iter trained k-means with `0` codebook bytes; GPU decode `1.355×` vs a **reference re-implementation** of `A_16` hampack bit-unpacking, not siliquant's kernel (`2.529` vs `1.866 Gw/s`). |
 | **`H3a`** | `PARTIAL` | **`PARTIAL`** | `Power-0.7` + 0-bit shell LUT: typical-layer SNR `+0.247/+0.248/+0.247 dB` (`3/3` ≥ `+0.15`), KL ≥ `3%` @ ≥ `2 SE` on `2/3` (`SmolLM2` `E_8`: `-19.4%` Wiki / `-31.9%` Py; `Qwen1.5B` `E_8`: `-8.2%`/`-13.5%`, `A_16`: `-14.8%`/`-10.8%`); heavy-layer gate missed (`+0.27/+0.37/+0.35 dB` < `+0.40`). Best of the SphereMap **lattice** arms on `3/3`, BUT plain `SphereMap + Cart-LM 3b` (`3.0141 bpw`, `+0.014 bpw` over) beats it on `2/3` models (avg KL `0.673`/`0.379` vs `1.164`/`0.464`; Qwen3B `18.78` vs `16.18`). |
-| **`H3b`** | `PARTIAL` | **`FALSIFIED`** | Kill gate fires: no significant KL improvement on `Qwen1.5B` (`-4.5%`/`-2.9%` degradations) or `Qwen3B` (`A_16` `+0.07%`, `E_8` degraded). Only `SmolLM2` `A_16` improves (`-12.1%`/`-13.3%`). |
+| **`H3b`** | `PARTIAL` | **`FALSIFIED`** | Kill gate fires: no significant KL improvement on `Qwen1.5B` (`-4.5%`/`-2.9%` degradations) or `Qwen3B` (`A_16` `+0.07%`, `E_8` degraded). Only `SmolLM2` `A_16` improves (`-11.96%` Wiki / `-13.03%` Py per `s106_blind_gauntlet_results.json`). |
 | **`H3c`** | `PARTIAL` | **`FALSIFIED`** | Kill gate fires: Yukawa trails k-means in KL on `SmolLM2` and `Qwen1.5B`. Sub-claim that held: SNR `≥ +0.075 dB` over BOTH gravity-only and Coulomb on `3/3`; KL win on `Qwen3B` only (`-17.0%`/`-22.4%`). |
 | **`H4`** | `FALSIFIED` | **`FALSIFIED`** | Conjunction `h4_sp_A16_128_hodge_3b` is beaten by `sp_E8_pow07_3b` and by per-128 `A_16` on `3/3` models. |
 
@@ -26,6 +26,8 @@
 ---
 
 ## 2. Root-Cause Physical Diagnosis of `Qwen/Qwen2.5-3B` Static `SphereMap` Catastrophe
+
+*Numbers in this section are console observations not serialized in the shipped JSONs (only the aggregate `kurtosis_summary` is); the per-matrix `rt_err`/`dc`/`dr` values below are reproducible from the shipped weights-free diagnostics but are report-only.*
 
 On `Qwen/Qwen2.5-3B`, every static `SphereMap` arm exploded to `WikiKL = 15.6..21.4` (`PPL > 5×10^7`) even at `4.5 bpw`, whereas `p128_A16_3b` remained clean (`WikiKL = 0.518`, `PPL = 16.27`) and **Adversarial Null Shuffle (`null_shuffle_sp_A16_3b`) cut KL nearly `4×` (`19.08 -> 4.94`)**! Exact layerwise round-trip inspection (`rt_err = 3.57e-13`, confirming zero FP16 bug!) isolated the exact culprit to a single layer:
 - **`model.layers.1.mlp.gate_proj.weight`:** raw kurtosis `25.9 -> 3.06`, `dr ∈ [8.57e-5, 9.94e-2]` (`1,160×` row spread), and **`dc ∈ [1.19e-2, 4.43e+1]` (`3,722×` column spread, `dc_max = 44.3`!)**.
@@ -164,13 +166,12 @@ On `Qwen/Qwen2.5-3B`, every static `SphereMap` arm exploded to `WikiKL = 15.6..2
 
 | File | Lines | Bytes | Mode | SHA-256 (Full 64-Hex) | Role |
 | :--- | ---: | ---: | :---: | :--- | :--- |
-| `mlos_zone_b_gauntlet_receipt.json` | `91` | `2,627` | `0o600` | `d645834d0d8c596d3490968453a144cb14899971ac3e59905c0e834bfffa2638` | mlos Zone B gauntlet receipt (`clean_hardware_run=true`, `receipt=5ac3015a...`) |
-| `mlos_zone_b_pilot_receipt.json` | `91` | `2,630` | `0o600` | `b5e57872f3fe1b5e0523aec4603171c8ef1716b7b77394976dc6671711dd5137` | mlos Zone B pilot receipt (`clean_hardware_run=true`, `receipt=701c3957...`) |
-| `s106_blind_gauntlet_results.json` | `1` | `85,198` | `0o600` | `ec49d4a76008e1ab968d68d7923e6e9ec7ddd2e18ae8b29917f43adc310a742b` | Canonical Phase 2 results receipt (`117/117` arms, `result_sha256=dab0b4fd...`) |
-| `s106_frozen_pilot_params.json` | `1` | `44,105` | `0o600` | `b075337a70367408f23f4be5188b1f0c2c73e2ce61dd11b6d94637857bb836ef` | Immutable Phase 1B locked constants (inner `pilot_params_sha256=26a40bee...`) |
-| `s106_phase1b_pilot_lock.py` | `523` | `22,329` | `0o644` | `137c6a72be373df3348d95d2c7b46746246ba2a377ff1278196cfcd03198065e` | Phase 1B parameter-lock runner (strictly synthetic Gaussian + Qwen/Qwen2.5-0.5B) |
-| `s106_phase2_blind_gauntlet.py` | `1202` | `54,421` | `0o644` | `f066f28b632e83a0e01612e947443c03be560953a0e10d3453371908c2c00921` | Phase 2 blind zero-tuning held-out RTX 3080 evaluator (`3` models × `39` arms) |
-| `s106_quant_ops.py` | `816` | `33,725` | `0o644` | `9eebf4843f294f7dd279d45668ab58cb4759807362f1c726e5af9a1e74848144` | Exact-bpw GPU/CPU operator library (SphereMap, E8, A16, A16^8, Power-0.7, Hodge, EQ(S^3), EQ(S^7), Yukawa/Coulomb) |
-| `test_s106_gpu_eval_r5.py` | `161` | `7,341` | `0o644` | `17f24dc4afb19a5edf63e8382a98bf8ba8ee7c910f093cc620e557889a72aaf3` | Pure-stdlib R5 adversarial + hygiene test suite (5/5 tests, 0 bare asserts) |
-| `verify_s106_gpu_eval.py` | `473` | `22,415` | `0o644` | `af45d8785ab3c68719a2959c92611d0f36f92e4cc8188eeeb06ca2be4d6acd2c` | Pure-stdlib integrity, anti-snooping, CS-08, and independent verdict re-derivation verifier |
-| `REPORT_GPU_EVAL.md` | — | — | `0o644` | *(self; exact lines/bytes/SHA-256 recorded externally)* | Track S106 Phase 1B + Phase 2 empirical report |
+| `mlos_zone_b_gauntlet_receipt.json` | `92` | `2,718` | `0o644` (git 100644) | `e23145d05c4228932f50ac90a6211659db8f98dbbe0bf2eeeb8f31b2eba05c1c` | mlos Zone B gauntlet receipt (`clean_hardware_run=true`, re-signed with `bound_file_sha256`, `receipt=e8b001de...`) |
+| `mlos_zone_b_pilot_receipt.json` | `92` | `2,721` | `0o644` (git 100644) | `3403698ea134f04ff3bed51affd5ae98f3c493a9da5227a60df11d8156d8d53e` | mlos Zone B pilot receipt (`clean_hardware_run=true`, re-signed with `bound_file_sha256`, `receipt=f815393f...`) |
+| `s106_blind_gauntlet_results.json` | `1` | `85,198` | `0o644` (git 100644) | `ec49d4a76008e1ab968d68d7923e6e9ec7ddd2e18ae8b29917f43adc310a742b` | Canonical Phase 2 results receipt (`117/117` arms, `result_sha256=dab0b4fd...`) |
+| `s106_frozen_pilot_params.json` | `1` | `44,105` | `0o644` (git 100644) | `b075337a70367408f23f4be5188b1f0c2c73e2ce61dd11b6d94637857bb836ef` | Immutable Phase 1B locked constants (inner `pilot_params_sha256=26a40bee...`) |
+| `s106_phase1b_pilot_lock.py` | `523` | `22,329` | `0o644` (git 100644) | `137c6a72be373df3348d95d2c7b46746246ba2a377ff1278196cfcd03198065e` | Phase 1B parameter-lock runner (strictly synthetic Gaussian + Qwen/Qwen2.5-0.5B) |
+| `s106_phase2_blind_gauntlet.py` | `1,202` | `54,421` | `0o644` (git 100644) | `f066f28b632e83a0e01612e947443c03be560953a0e10d3453371908c2c00921` | Phase 2 blind zero-tuning held-out RTX 3080 evaluator (`3` models × `39` arms) |
+| `s106_quant_ops.py` | `816` | `33,725` | `0o644` (git 100644) | `9eebf4843f294f7dd279d45668ab58cb4759807362f1c726e5af9a1e74848144` | Exact-bpw GPU/CPU operator library (SphereMap, E8, A16, A16^8, Power-0.7, Hodge, EQ(S^3), EQ(S^7), Yukawa/Coulomb) |
+| `test_s106_gpu_eval_r5.py` | `232` | `12,032` | `0o644` (git 100644) | `9bf14438a53c652bb0c3a122e6ccc033f86516e8639cb4be665a1a52aebf7020` | Pure-stdlib R5 adversarial + hygiene test suite (6/6 tests, 0 bare asserts) |
+| `verify_s106_gpu_eval.py` | `491` | `23,881` | `0o644` (git 100644) | `e52babd09766386305213f3e53d5bc5c24913d3ef0f055938dd6e8ec66979655` | Pure-stdlib integrity, anti-snooping, CS-08, receipt re-sign + bound-link, and independent verdict re-derivation verifier |

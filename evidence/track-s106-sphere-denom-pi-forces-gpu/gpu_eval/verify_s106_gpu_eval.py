@@ -2,7 +2,11 @@
 """Track S106 GPU Evaluation Integrity & Preregistered-Verdict Verifier (Pure Stdlib).
 
 Independently audits all Phase 1B + Phase 2 artifacts in gpu_eval/:
-  1. Verifies immutable PREREG_SPHERE_PI_FORCES_V1.md SHA-256 lock (ac3e6211...).
+  1. Verifies the PREREG_SPHERE_PI_FORCES_V1.md SHA-256 lock (ac3e6211...) WHEN the file
+     is supplied/shipped; the file is NOT shipped in any reachable repo, so by default the
+     result carries prereg_status="UNVERIFIABLE_NOT_SHIPPED" (fail-loud, never silently
+     skipped) and the hardcoded PREREG_SHA256 constant is still cross-checked against the
+     pilot params and gauntlet results JSONs.
   2. Verifies s106_frozen_pilot_params.json inner pilot_params_sha256, zero held-out
      models touched during pilot lock, and strict temporal ordering (pilot_locked_utc
      < gauntlet_completed_utc, proving zero post-hoc snooping).
@@ -100,7 +104,7 @@ def _load_json_no_dups(raw: bytes, label: str) -> dict[str, Any]:
     return obj
 
 
-def _verify_mlos_receipt(path: pathlib.Path, label: str) -> dict[str, Any]:
+def _verify_mlos_receipt(path: pathlib.Path, label: str, bound_file_sha256: str | None = None) -> dict[str, Any]:
     raw = _read_regular_bytes(path, label)
     obj = _load_json_no_dups(raw, label)
     if obj.get("schema") != "mlos-run-receipt/v0.1":
@@ -124,6 +128,15 @@ def _verify_mlos_receipt(path: pathlib.Path, label: str) -> dict[str, Any]:
     r_sha = obj.get("receipt_sha256")
     if not _is_hex64(r_sha):
         raise S106GpuVerifyError("BAD_RECEIPT_SHA", f"{label}: invalid receipt_sha256")
+    # Recompute the receipt self-signature (compact sorted-key body minus receipt_sha256);
+    # a forged or zeroed receipt_sha256 must fail closed.
+    r_body = {k: v for k, v in obj.items() if k != "receipt_sha256"}
+    r_calc = hashlib.sha256(json.dumps(r_body, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+    if not hmac.compare_digest(str(r_sha), r_calc):
+        raise S106GpuVerifyError("RECEIPT_SHA_MISMATCH", f"{label}: receipt_sha256 does not recompute")
+    if bound_file_sha256 is not None:
+        if not hmac.compare_digest(str(obj.get("bound_file_sha256", "")), bound_file_sha256):
+            raise S106GpuVerifyError("RECEIPT_BOUND_LINK_MISMATCH", f"{label}: bound_file_sha256 != results/params file sha")
     return {
         "file_sha256": hashlib.sha256(raw).hexdigest(),
         "receipt_sha256": r_sha,
@@ -347,11 +360,13 @@ def _strict_kill_gate_verdicts(models_out: dict[str, Any]) -> dict[str, str]:
 
 
 def verify_gpu_eval_dir(gpu_dir: pathlib.Path, prereg_path: pathlib.Path | None = None) -> dict[str, Any]:
+    prereg_status = "UNVERIFIABLE_NOT_SHIPPED"
     if prereg_path is not None:
         prereg_raw = _read_regular_bytes(prereg_path, "prereg")
         got_prereg = hashlib.sha256(prereg_raw).hexdigest()
         if not hmac.compare_digest(got_prereg, PREREG_SHA256):
             raise S106GpuVerifyError("PREREG_SHA_MISMATCH", f"got {got_prereg}")
+        prereg_status = "VERIFIED"
 
     pilot_path = gpu_dir / "s106_frozen_pilot_params.json"
     pilot_raw = _read_regular_bytes(pilot_path, "pilot_params")
@@ -368,9 +383,6 @@ def verify_gpu_eval_dir(gpu_dir: pathlib.Path, prereg_path: pathlib.Path | None 
     p_calc = hashlib.sha256(json.dumps(p_body, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
     if not hmac.compare_digest(p_inner, p_calc):
         raise S106GpuVerifyError("PILOT_SHA_MISMATCH", "pilot inner hash mismatch")
-
-    r_pilot = _verify_mlos_receipt(gpu_dir / "mlos_zone_b_pilot_receipt.json", "pilot_receipt")
-    r_gauntlet = _verify_mlos_receipt(gpu_dir / "mlos_zone_b_gauntlet_receipt.json", "gauntlet_receipt")
 
     gaunt_path = gpu_dir / "s106_blind_gauntlet_results.json"
     gaunt_raw = _read_regular_bytes(gaunt_path, "gauntlet_results")
@@ -427,9 +439,15 @@ def verify_gpu_eval_dir(gpu_dir: pathlib.Path, prereg_path: pathlib.Path | None 
     if recomputed != recorded:
         raise S106GpuVerifyError("VERDICT_MISMATCH", f"recomputed={recomputed} != recorded={recorded}")
 
+    # Hardware receipts are verified LAST so that content-level tamper checks fire
+    # their specific codes first; receipt forgery/bound-link still fails closed here.
+    r_pilot = _verify_mlos_receipt(gpu_dir / "mlos_zone_b_pilot_receipt.json", "pilot_receipt", bound_file_sha256=pilot_file_sha)
+    r_gauntlet = _verify_mlos_receipt(gpu_dir / "mlos_zone_b_gauntlet_receipt.json", "gauntlet_receipt", bound_file_sha256=gaunt_file_sha)
+
     return {
         "ok": True,
         "preregistration_sha256": PREREG_SHA256,
+        "prereg_status": prereg_status,
         "pilot_file_sha256": pilot_file_sha,
         "gauntlet_file_sha256": gaunt_file_sha,
         "gauntlet_result_sha256": g_inner,

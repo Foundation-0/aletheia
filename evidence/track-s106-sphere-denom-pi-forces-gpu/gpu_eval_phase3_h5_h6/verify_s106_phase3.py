@@ -2,7 +2,10 @@
 """Track S106 Phase 3 (Amendments 1 & 2: H5a, H5b, H6a, H6b, H6c) Integrity & Verdict Verifier.
 
 Pure stdlib. Independently checks, for gpu_eval_phase3_h5_h6/:
-  - Each locked protocol JSON was written (locked_utc) strictly before its results completed.
+  - Each protocol JSON is a runtime dump of the LOCKED_PROTOCOL constants emitted at run
+    start (locked_utc falls inside the receipt window — a run-ordering check, NOT a
+    pre-registration; the true pre-commitments are the unshipped amendment markdowns,
+    reported as unverifiable).
   - Parent preregistration SHA-256 and amendment SHA-256 prefixes match the locked notes.
   - Both mlos Zone-B receipts: clean_hardware_run=true, anomalies=[], exit 0, no throttling,
     compute VRAM 0 -> 0.
@@ -99,7 +102,7 @@ def _inner(obj: dict[str, Any], key: str, label: str) -> str:
     return got
 
 
-def _receipt(path: pathlib.Path, label: str) -> dict[str, Any]:
+def _receipt(path: pathlib.Path, label: str, bound_file_sha256: str | None = None) -> dict[str, Any]:
     raw = _read(path, label)
     r = _load(raw, label)
     if r.get("clean_hardware_run") is not True or r.get("anomalies") != [] or r.get("determinism_zone") != "B":
@@ -114,7 +117,16 @@ def _receipt(path: pathlib.Path, label: str) -> dict[str, Any]:
         cer = g.get("clocks_event_reasons")
         if type(cer) is not dict or cer.get("thermal_throttled") is not False:
             raise S106Phase3Error("THERMAL_THROTTLED", f"{label}.{k}")
-    return {"file_sha256": hashlib.sha256(raw).hexdigest(), "receipt_sha256": r.get("receipt_sha256"),
+    r_sha = r.get("receipt_sha256")
+    if type(r_sha) is not str or len(r_sha) != 64:
+        raise S106Phase3Error("BAD_RECEIPT_SHA", label)
+    r_body = {k: v for k, v in r.items() if k != "receipt_sha256"}
+    r_calc = hashlib.sha256(json.dumps(r_body, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+    if not hmac.compare_digest(r_sha, r_calc):
+        raise S106Phase3Error("RECEIPT_SHA_MISMATCH", f"{label}: receipt_sha256 does not recompute")
+    if bound_file_sha256 is not None and not hmac.compare_digest(str(r.get("bound_file_sha256", "")), bound_file_sha256):
+        raise S106Phase3Error("RECEIPT_BOUND_LINK_MISMATCH", f"{label}: bound_file_sha256 != results file sha")
+    return {"file_sha256": hashlib.sha256(raw).hexdigest(), "receipt_sha256": r_sha,
             "started_utc": ex.get("started_utc"), "ended_utc": ex.get("ended_utc")}
 
 
@@ -192,6 +204,8 @@ def regrade_h6(res: dict[str, Any]) -> dict[str, str]:
     hp = [r for r in runs if r["mode"] == "hopf"]
     if len(fl) != 2 or len(hp) != 2 or len({r["n_params"] for r in runs}) != 1:
         raise S106Phase3Error("H6C_ARMS_NOT_MATCHED", "seed or parameter-count mismatch")
+    if next(iter({r["n_params"] for r in runs})) != 10818432:
+        raise S106Phase3Error("H6C_N_PARAMS_MISMATCH", "micro-LM n_params must be exactly 10,818,432")
     ca = max(r["val_bits_per_byte"] for r in hp) < min(r["val_bits_per_byte"] for r in fl)
     mh = sum(r["ptq3_kl_nats"] for r in hp) / 2.0
     mf = sum(r["ptq3_kl_nats"] for r in fl) / 2.0
@@ -215,9 +229,6 @@ def _verify_one(d: pathlib.Path, proto_name: str, res_name: str, receipt_name: s
     if not (str(proto["locked_utc"]) <= str(res["completed_utc"])) or proto["locked_utc"] != res["protocol_locked_utc"]:
         raise S106Phase3Error("TEMPORAL_ORDER", res_name)
     inner = _inner(res, "result_sha256", res_name)
-    rec = _receipt(d / receipt_name, receipt_name)
-    if not (str(rec["started_utc"]) <= str(proto["locked_utc"]) <= str(rec["ended_utc"])):
-        raise S106Phase3Error("PROTOCOL_OUTSIDE_RECEIPT_WINDOW", res_name)
     models = res.get("models")
     if type(models) is not dict or tuple(models.keys()) != HELD_OUT:
         raise S106Phase3Error("HELD_OUT_MISMATCH", res_name)
@@ -231,6 +242,12 @@ def _verify_one(d: pathlib.Path, proto_name: str, res_name: str, receipt_name: s
     recorded = {k: res["preregistered_verdicts"][k]["verdict"] for k in recomputed}
     if recomputed != recorded:
         raise S106Phase3Error("VERDICT_MISMATCH", f"{res_name}: {recomputed} != {recorded}")
+    # Receipt verified LAST (content checks fire their specific codes first); the
+    # receipt self-signature, its results-file binding and the lock-inside-window
+    # ordering still fail closed here.
+    rec = _receipt(d / receipt_name, receipt_name, bound_file_sha256=hashlib.sha256(res_raw).hexdigest())
+    if not (str(rec["started_utc"]) <= str(proto["locked_utc"]) <= str(rec["ended_utc"])):
+        raise S106Phase3Error("PROTOCOL_OUTSIDE_RECEIPT_WINDOW", res_name)
     return {"result_file_sha256": hashlib.sha256(res_raw).hexdigest(), "result_sha256": inner,
             "protocol_file_sha256": hashlib.sha256(proto_raw).hexdigest(), "receipt": rec, "arms": n, "verdicts": recomputed}
 
