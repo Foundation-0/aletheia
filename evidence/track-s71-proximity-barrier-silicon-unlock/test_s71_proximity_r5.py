@@ -293,7 +293,7 @@ class TestS71Lean4R8AndAuditHardening(unittest.TestCase):
         lean_path = STUDY_DIR / "ProximityBarrierSilicon.lean"
         res = audit.verify_lean4_file(lean_path)
         self.assertTrue(res["valid"])
-        self.assertEqual(res["theorems_verified"], 20)
+        self.assertEqual(res["theorems_verified"], 19)
 
         # Clean edge cases: comments, nested comments, strings, raw strings, interp strings, chars, guillemets, brackets
         clean_samples = (
@@ -969,9 +969,21 @@ class TestS71Lean4R8AndAuditHardening(unittest.TestCase):
             rc, ob, _ = _run_cli(["--write", str(cli_out)])
             self.assertEqual(rc, 0)
             self.assertTrue(json.loads(ob.decode("utf-8"))["written"])
+            # --check now also requires the sibling empirical JSON for the frozen-token bijection
+            shutil.copyfile(STUDY_DIR / "s71_empirical_results.json", td_p / "s71_empirical_results.json")
             rc, ob, _ = _run_cli(["--check", str(cli_out)])
             self.assertEqual(rc, 0)
             self.assertTrue(json.loads(ob.decode("utf-8"))["valid"])
+            self.assertTrue(json.loads(ob.decode("utf-8"))["frozen_tokens_bijection"]["frozen_tokens_bijection_ok"])
+            self.assertEqual(json.loads(ob.decode("utf-8"))["frozen_tokens_bijection"]["entries_checked"], 14)
+            # Drift between frozen tokens and the empirical JSON must fail --check closed
+            emp_drift = json.loads((STUDY_DIR / "s71_empirical_results.json").read_text(encoding="utf-8"))
+            emp_drift["measurements"]["write_write_2core"][0]["ns"] += 1
+            (td_p / "s71_empirical_results.json").write_text(json.dumps(emp_drift), encoding="utf-8")
+            rc_d, _ob_d, eb_d = _run_cli(["--check", str(cli_out)])
+            self.assertEqual(rc_d, 2)
+            self.assertIn("BIJECTION_MISMATCH", eb_d.decode("utf-8"))
+            shutil.copyfile(STUDY_DIR / "s71_empirical_results.json", td_p / "s71_empirical_results.json")
             rc, ob, _ = _run_cli(["--verify-receipts", str(STUDY_DIR)])
             self.assertEqual(rc, 0)
             self.assertTrue(json.loads(ob.decode("utf-8"))["all_verified"])

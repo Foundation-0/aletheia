@@ -294,7 +294,7 @@ theorem block_h4_int8_lossless_bound (a0 a1 a2 a3 : Int)
     (-28 ≤ a0 - a1 + a2 - a3 ∧ a0 - a1 + a2 - a3 ≤ 28) ∧
     (-28 ≤ a0 + a1 - a2 - a3 ∧ a0 + a1 - a2 - a3 ≤ 28) ∧
     (-28 ≤ a0 - a1 - a2 + a3 ∧ a0 - a1 - a2 + a3 ≤ 28) ∧
-    (-128 ≤ (-28 : Int) ∧ (28 : Int) ≤ 127) := by
+    (-128 ≤ (a0 + a1 + a2 + a3) + 32 ∧ (a0 + a1 + a2 + a3) + 32 ≤ 127) := by
   refine ⟨⟨by omega, by omega⟩, ⟨by omega, by omega⟩, ⟨by omega, by omega⟩, ⟨by omega, by omega⟩, ⟨by omega, by omega⟩⟩
 
 /-- Exact VNNI unsigned-shift positivity (`u + 32 in [4, 60] subset [0, 255]`) for `vpdpbusd`. -/
@@ -334,13 +334,6 @@ theorem abba_palindromic_linear_drift_cancel (a0 b0 d : Int) :
 
 /-! ## Section 4: Exact Rational Witness Validators (Zero Floats) -/
 
-/-- Rational ratio validator: proves `num1 / den1 > num2 / den2` for positive denominators
-    via exact cross-multiplication `num1 * den2 > num2 * den1`. -/
-theorem rational_gt_iff_cross_mul (n1 d1 n2 d2 : Nat) (h1 : 0 < d1) (h2 : 0 < d2)
-    (hcross : n2 * d1 < n1 * d2) :
-    n2 * d1 < n1 * d2 ∧ 0 < d1 * d2 := by
-  exact ⟨hcross, Nat.mul_pos h1 h2⟩
-
 /-- Exact opposite-sign empirical witness schema: verifies simultaneously that
     write-write cost drops when crossing 64B (`w_in > w_out`) AND read-shared cost
     rises when leaving 64B (`r_in < r_out`), yielding strictly opposite signed deltas. -/
@@ -376,5 +369,4 @@ end ProximityBarrierSilicon
 #print axioms ProximityBarrierSilicon.qwen3b_down_proj_exact_geometry
 #print axioms ProximityBarrierSilicon.rapl_dark_power_conservation
 #print axioms ProximityBarrierSilicon.abba_palindromic_linear_drift_cancel
-#print axioms ProximityBarrierSilicon.rational_gt_iff_cross_mul
 #print axioms ProximityBarrierSilicon.witness_opposite_sign_horizon_flip

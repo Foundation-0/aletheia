@@ -2,21 +2,23 @@
 
 ## 1. Executive Summary & Pre-Registered Scientific Verdict
 
-We formulate, machine-verify in pure-`Init` `Lean 4.36.0` (`20` theorems, zero `Classical.choice`, zero `sorryAx`, zero warnings), and test directly on live `Intel Core i9-11900H` silicon (`8` physical cores `0..7` pinned, calibrated `intel-rapl` package/core/uncore/dark domains, palindromic `ABBA` ordering, RTX 3080 verified `GpuIdle` at `0%` utilization / `2 MiB` VRAM under serialized `mlos gpu-lease` + `flock` + `mlos stamp-run`) the **Competing-Potential Proximity Barrier** (short-range repulsion wall versus short-range mutual pull across a physical spatial horizon) and transpose it into a real **`2048×11008` (`22,544,384`-weight) multicore `AVX-512` VNNI `A_16` (`C_[16,11,4]`) + `BlockH4` quantized matvec**.
+We formulate, machine-verify in pure-`Init` `Lean 4.36.0` (`19` theorems, zero `Classical.choice`, zero `sorryAx`, zero warnings), and test directly on live `Intel Core i9-11900H` silicon (`8` physical cores `0..7` pinned, calibrated `intel-rapl` package/core/uncore/dark domains, palindromic `ABBA` ordering, RTX 3080 verified `GpuIdle` at `0%` utilization / `2 MiB` VRAM under serialized `mlos gpu-lease` + `flock` + `mlos stamp-run`) the **Competing-Potential Proximity Barrier** (short-range repulsion wall versus short-range mutual pull across a physical spatial horizon) and transpose it into a real **`2048×11008` (`22,544,384`-weight) multicore `AVX-512` VNNI `A_16` (`C_[16,11,4]`) + `BlockH4` quantized matvec**.
 
-- **Pre-Registration Causal Lock:** `s71_preregistration.json` locked at **`2026-11-24T18:30:24Z`** (`0o600`, inner SHA-256 `da99d5253d964e9dc7241644410541a170b77b3332a48c63e758f36966d47233`) strictly **`+213 s` before** hardware capture started at **`2026-11-24T18:33:57Z`** (ended `2026-11-24T18:34:08Z`, `exit_code = 0`, `clean_hardware_run = true`, `anomalies = []`, `0` desktop GPU processes, inner `receipt_sha256 = 584c7eebb82c66ed7d23b6bb28057d93c916097644c265e115b8d86af15b74c5`).
-- **Canonical Verification Certificate:** `s71_proximity_certificate.json` (`0o600`, inner `certificate_sha256 = b604bc3f2f9d82a4f43183a4684fb1e2cb8f3ed6b73e6b150d7447a2a8b31309`, file SHA-256 `7774fedfd575f48451aae0722cdbaf8015673585786dc43dc8e35402580efe6d`).
+- **Pre-Registration Causal Lock:** `s71_preregistration.json` locked at **`2026-11-24T18:30:24Z`** (written `0o600`; `0644` in git, since git cannot store `0o600`; inner SHA-256 `da99d5253d964e9dc7241644410541a170b77b3332a48c63e758f36966d47233`) strictly **`+213 s` before** hardware capture started at **`2026-11-24T18:33:57Z`** (ended `2026-11-24T18:34:08Z`, `exit_code = 0`, `clean_hardware_run = true`, `anomalies = []`, `0` desktop GPU processes, inner `receipt_sha256 = 584c7eebb82c66ed7d23b6bb28057d93c916097644c265e115b8d86af15b74c5`).
+- **Canonical Verification Certificate:** `s71_proximity_certificate.json` (written `0o600` by `--write`; `0644` in git, since git cannot store `0o600`; inner `certificate_sha256 = 92d197f75a4d6b132fd773780d5ce4dd6c8cfbb5f17096d55762e38781021663`, file SHA-256 `a6b4092a07628f1abb55345b7f5368162711c812f912d1c77a156ac9ff9a4cf1`).
 
 | Pre-Registered Pillar | Exact Rational Threshold | Live Silicon Measurement (`i9-11900H`, Palindromic `ABBA`) | Honest Verdict |
 |:---|:---|:---|:---|
 | **`P_S71_1a`** (`2`-core Write-Write Repulsion `8 B -> 64 B`) | Latency `>= 2.000×`, `pJ/op >= 2.000×` | **`4.300×`** latency collapse (`9.093 -> 2.114 ns/op`), **`3.117×`** `pJ/op` drop | **`CONFIRMED`** |
 | **`P_S71_1b`** (`8`-core Write-Write Repulsion `8 B -> 64 B`) | Latency `>= 3.000×`, `pJ/op >= 3.000×` | **`16.973×`** latency collapse (`10.672 -> 0.629 ns/op`), **`13.441×`** `pJ/op` drop | **`CONFIRMED`** |
 | **`P_S71_1c`** (`8`-core `128 MiB` Read-Shared Fusion Pull) | `64 B / 8 B >= 1.300×`; `65536 B / 8 B >= 2.000×` | **`2.681×`** lat / **`1.994×`** `pJ/op` (`64 B / 8 B`); **`3.111×`** lat / **`2.408×`** `pJ/op` (`65536 B / 8 B`) | **`CONFIRMED`** |
+
+> Scope note: the preregistration scopes claims to the recorded `i9-11900H` host. On an independent Xeon (AVX-512 VNNI) re-run, the write-write false-sharing cliff reproduced, but the `P_S71_1c` read-shared "fusion pull" direction did not (8 B was slowest, not fastest), so `P_S71_1c` is Tiger-Lake-specific, not universal across x86.
 | **`P_S71_1d`** (Opposite-Sign Horizon Flip + `P_pkg_dark >= 0`) | `(w64 - w8)*(r64 - r8) < 0` on all 3 axes; `34/34` `pkg_dark >= 0` | Strict negative product on `ns/op`, `tsc/op`, and `pkg pJ/op`; `34/34` rows `pkg_uj >= core_uj + uncore_uj` | **`CONFIRMED`** |
 | **`P_S71_2a`** (`AVX-512` `A_16_BlockH4` Bit-Exactness) | `0` syndrome errors, `0` `int64` mismatches (`22.54M` wts) | `a16_syndrome_errors = 0`, `avx512_int64_mismatches = 0`, `multicore_int64_mismatches = 0` | **`CONFIRMED`** |
 | **`P_S71_2b`** (`AVX-512` GEMV Repulsive Wall Break `8 B -> 64 B`) | Speedup `>= 1.500×` + lower `mJ/Gw` | **`4.561×`** throughput (`21.038 -> 95.965 Gw/s`), **`3.230×`** lower `mJ/Gw` (`3113.77 -> 964.14 mJ/Gw`) | **`CONFIRMED`** |
 | **`P_S71_2c`** (Dual-Force Optimal `AVX-512` Unlock) | vs `8 B`: `>= 3×` speed & energy; vs `4096 B` disp `x`: `>= 1.05×` speed + lower `mJ/Gw` | **`146.892 Gw/s` (`721.84 mJ/Gw`)**: **`6.982×`** speed & **`4.314×`** energy vs `8 B` (**CONFIRMED**); vs `4096 B` disp `x`: **`1.083×`** energy (**`-7.69%` `mJ/Gw` CONFIRMED**), **`1.008×`** speed (**`< 1.05×` NUANCED**) | **`PARTIAL / HONEST NUANCE`** |
-| **`P_S71_3`** (Pure-`Init` `Lean 4.36.0` Formalization) | `>= 12` thms, `0` warnings, axioms subset `{propext, Quot.sound}` | **`20/20` theorems**, `0` warnings, `0` `Classical.choice`, `0` `sorryAx`, `lean` + `lake build` + `audit-check --lean-audit PASS` | **`CONFIRMED`** |
+| **`P_S71_3`** (Pure-`Init` `Lean 4.36.0` Formalization) | `>= 12` thms, `0` warnings, axioms subset `{propext, Quot.sound}` | **`19/19` theorems**, `0` warnings, `0` `Classical.choice`, `0` `sorryAx`, `lean` + `lake build` + `audit-check --lean-audit PASS` | **`CONFIRMED`** |
 
 ---
 
@@ -132,8 +134,8 @@ We transpose the competing-potential barrier directly onto a native `AVX-512` VN
   gcc -O3 -march=native -mavx512f -mavx512bw -mavx512vl -mavx512vnni       -pthread -Wall -Wextra -Werror s71_proximity_bench.c -o /tmp/s71_proximity_bench
   /tmp/s71_proximity_bench --self-test
   ```
-- **Pure-`Init` Lean 4.36.0 Verification:** `lean ProximityBarrierSilicon.lean` & `lake build` (`0` warnings, `20/20` theorems verified, strict axiom allowlist `[]` / `[propext]` / `[propext, Quot.sound]`).
-- **Self-Verification Receipts:** R4 3-mode `-I` parity (`-I -B`, `-I -O -B`, `-I -B -W error`) + `umask 077` + simulated `chmod 644 *.json` CI checkout (`PASS`), `82/82` 4-surface v2.1 fuzzer (`CLI 25/25 + FR1 19/19 + FR0 19/19 + SEC 19/19`, `byp=0, cr=0`), `101/101` (`100.0%`) live `aletheia-fast-mutate` (`oracle 5/5 + audit 96/96`, `survived=0, timeout=0`), `280/280` (`100.0%`) baseline-checked whole-file DFS AST `BoolOp` (`oracle 116/116 + audit 164/164`, `survived=[], timeout=0`), and dual `audit-check --lean-audit --strict-ancestors --safety-scan --scripts` (`PASS`, `PYC=0, ELF=0, .lake=0`).
+- **Pure-`Init` Lean 4.36.0 Verification:** `lean ProximityBarrierSilicon.lean` & `lake build` (`0` warnings, `19/19` theorems verified, strict axiom allowlist `[]` / `[propext]` / `[propext, Quot.sound]`). Note: the `19/19` count includes elementary entries (e.g. `rapl_dark_power_conservation` is pure `omega` bookkeeping), so it is a count, not `19` deep results; the tautological `rational_gt_iff_cross_mul` (which merely restated its hypothesis) was removed per review, and `block_h4_int8_lossless_bound`'s vacuous fifth conjunct was replaced with the actual VNNI int8 accumulator-range claim `-128 <= u0 + 32 <= 127`.
+- **Self-Verification Receipts:** R4 3-mode `-I` parity (`-I -B`, `-I -O -B`, `-I -B -W error`) + `umask 077` + simulated `chmod 644 *.json` CI checkout (`PASS`), one-off local runs, scripts not shipped: `82/82` 4-surface v2.1 fuzzer (`CLI 25/25 + FR1 19/19 + FR0 19/19 + SEC 19/19`, `byp=0, cr=0`), `101/101` (`100.0%`) live `aletheia-fast-mutate` (`oracle 5/5 + audit 96/96`, `survived=0, timeout=0`), `280/280` (`100.0%`) baseline-checked whole-file DFS AST `BoolOp` (`oracle 116/116 + audit 164/164`, `survived=[], timeout=0`); shipped and CI-run instead: the R5 tamper matrix in `test_s71_proximity_r5.py` and `audit-check evidence/track-s71-proximity-barrier-silicon-unlock --lean-audit --strict-ancestors --safety-scan --scripts` scoped to this track directory (`PASS`, `PYC=0, ELF=0, .lake=0`); a repo-wide `--safety-scan` run reports `48` pre-existing base findings outside this track (CI's `audit-check` does not pass `--safety-scan`).
 
 ---
 
@@ -141,15 +143,15 @@ We transpose the competing-potential barrier directly onto a native `AVX-512` VN
 
 | File | Lines | Bytes | Mode | SHA-256 |
 |:---|---:|---:|:---|:---|
-| `s71_preregistration.json` | `1` | `3,090` | `0o600` | `db1f7b784f898d27c9497054e78431931909919e7ce08c5e4b1112bdf43dd597` |
+| `s71_preregistration.json` | `1` | `3,090` | `0o644` (`0o600` on `--write`) | `db1f7b784f898d27c9497054e78431931909919e7ce08c5e4b1112bdf43dd597` |
 | `lean-toolchain` | `1` | `25` | `0o644` | `582a63f8f9c5128067b688778c1051cf1464c3ca9d57b9325025c051c29b774a` |
 | `lakefile.toml` | `5` | `127` | `0o644` | `c68146fb69e20719c3f7c6c1d92ca77e53e4a74cc5168abb567f5e17391b426d` |
-| `ProximityBarrierSilicon.lean` | `380` | `17,642` | `0o644` | `e65524d00529a2098cb18fb994a6530989a1dfc0c2ce7989bfa9788b873cd7b1` |
-| `s71_proximity_bench.c` | `854` | `33,964` | `0o644` | `c861370e90abac5ca12fa7365f2f59f612ac7618869931e7167666f79db3e517` |
+| `ProximityBarrierSilicon.lean` | `372` | `17,245` | `0o644` | `870c915e53903220a2b98a5a4857839f8673960f8161550c21f30200e43386e8` |
+| `s71_proximity_bench.c` | `863` | `34,346` | `0o644` | `91299eabe27ec33696eb18d5c64d920968790a5337e84d6bf372a1e91fd832c9` |
 | `s71_run_live.py` | `168` | `6,001` | `0o644` | `894ad7be0560628df5cf660c6ee9b6816d4dfce37b12d51654a31a20293d9255` |
-| `s71_empirical_results.json` | `474` | `11,531` | `0o644` | `8966a45711c821fc6d820ff30f1a2db314543340fc9a12a9f8773448be5d932f` |
-| `mlos_zone_b_receipt.json` | `93` | `2,645` | `0o600` | `f726207c40ae5112a6816c55d9f61327a008562c0c98ec43908d82ba565b6ef3` |
-| `s71_proximity_oracle.py` | `448` | `19,403` | `0o644` | `10de915ea774340e9a3c13ddc60277d82673cf8374accbcc6a19140552be0b4c` |
-| `s71_proximity_audit.py` | `936` | `39,135` | `0o644` | `fb5b11a1e04d6b224d5d2a905fdf4a40bdf018f72e894dd721d35ce9fca946eb` |
-| `s71_proximity_certificate.json` | `1` | `2,982` | `0o600` | `7774fedfd575f48451aae0722cdbaf8015673585786dc43dc8e35402580efe6d` |
-| `test_s71_proximity_r5.py` | `1013` | `61,337` | `0o644` | `9e95d5fe57cf8b16fa6336a4695292a8afd3c0831a3b2096cfb27643f6eef60c` |
+| `s71_empirical_results.json` | `474` | `11,531` | `0o644` | `5f48a53c013d851bf807fff7e837e92e21c9b7654f17b54d68506f2405bc4c87` |
+| `mlos_zone_b_receipt.json` | `93` | `2,645` | `0o644` (`0o600` on `--write`) | `f726207c40ae5112a6816c55d9f61327a008562c0c98ec43908d82ba565b6ef3` |
+| `s71_proximity_oracle.py` | `448` | `19,403` | `0o644` | `af2e1075e5c94aa6a0acc7d9a2244a88b56f89b8512749e56e51b88bf884d1c9` |
+| `s71_proximity_audit.py` | `1,033` | `43,711` | `0o644` | `547ec0374f15e8b046c8365f026fd81caa7194d4443e9f9d11d1773452eca58a` |
+| `s71_proximity_certificate.json` | `1` | `2,982` | `0o644` (`0o600` on `--write`) | `a6b4092a07628f1abb55345b7f5368162711c812f912d1c77a156ac9ff9a4cf1` |
+| `test_s71_proximity_r5.py` | `1,025` | `62,425` | `0o644` | `24447fccfe8a56cf5cb6152c18d3ba36aaeccf963ce53761406b235009406701` |

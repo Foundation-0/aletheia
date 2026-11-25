@@ -76,7 +76,6 @@ static RaplSnap rapl_snapshot(void) {
     s.uncore_uj = read_u64_file("/sys/class/powercap/intel-rapl:0:1/energy_uj");
     s.psys_uj = read_u64_file("/sys/class/powercap/intel-rapl:1/energy_uj");
     s.max_range_uj = read_u64_file("/sys/class/powercap/intel-rapl:0/max_energy_range_uj");
-    if (s.max_range_uj == 0ULL) s.max_range_uj = 262143328850ULL;
     return s;
 }
 
@@ -746,6 +745,16 @@ int main(int argc, char **argv) {
         fprintf(stderr, "Parity check failed: syn=%llu mism=%llu\n",
                 (unsigned long long)syn_errs, (unsigned long long)bit_mismatches);
         return 4;
+    }
+
+    /* Fail closed on RAPL-less hosts: a missing powercap sysfs reads as 0 and must NOT
+       produce a plausible-looking all-zero energy receipt from --run-live. */
+    if (run_live) {
+        RaplSnap rapl_probe = rapl_snapshot();
+        if (rapl_probe.max_range_uj == 0ULL) {
+            fprintf(stderr, "RAPL_UNAVAILABLE: intel-rapl max_energy_range_uj is 0/absent; refusing --run-live energy rows\n");
+            return 5;
+        }
     }
 
     /* Allocate Pillar 1 buffers + dispersed x_i8 buffer */

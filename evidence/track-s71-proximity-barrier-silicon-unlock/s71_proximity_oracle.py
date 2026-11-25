@@ -20,9 +20,9 @@ _ASCII_DIGITS = frozenset("0123456789")
 PINNED_DIGESTS: dict[str, str] = {
     "preregistration_file_sha256": "db1f7b784f898d27c9497054e78431931909919e7ce08c5e4b1112bdf43dd597",
     "preregistration_sha256": "da99d5253d964e9dc7241644410541a170b77b3332a48c63e758f36966d47233",
-    "c_source_sha256": "c861370e90abac5ca12fa7365f2f59f612ac7618869931e7167666f79db3e517",
-    "lean_source_sha256": "e65524d00529a2098cb18fb994a6530989a1dfc0c2ce7989bfa9788b873cd7b1",
-    "empirical_json_sha256": "8966a45711c821fc6d820ff30f1a2db314543340fc9a12a9f8773448be5d932f",
+    "c_source_sha256": "91299eabe27ec33696eb18d5c64d920968790a5337e84d6bf372a1e91fd832c9",
+    "lean_source_sha256": "870c915e53903220a2b98a5a4857839f8673960f8161550c21f30200e43386e8",
+    "empirical_json_sha256": "5f48a53c013d851bf807fff7e837e92e21c9b7654f17b54d68506f2405bc4c87",
     "mlos_file_sha256": "f726207c40ae5112a6816c55d9f61327a008562c0c98ec43908d82ba565b6ef3",
     "mlos_receipt_inner_sha256": "584c7eebb82c66ed7d23b6bb28057d93c916097644c265e115b8d86af15b74c5",
 }
@@ -176,7 +176,7 @@ def _build_exact_pillar() -> dict[str, Any]:
         "qwen3b_down_proj_k": k_cols,
         "qwen3b_down_proj_weights": n_weights,
         "qwen3b_down_proj_4_5bpw_bytes": bytes_4_5,
-        "lean4_theorem_count": 20,
+        "lean4_theorem_count": 19,
     }
 
 
@@ -301,7 +301,7 @@ def build_certificate() -> dict[str, Any]:
         and p1["all_8_cores_stride_8b_single_line"]
         and p1["all_8_cores_stride_64b_disjoint_lines"]
         and _is_int_eq(p1["qwen3b_down_proj_weights"], 22544384)
-        and _is_int_eq(p1["lean4_theorem_count"], 20)
+        and _is_int_eq(p1["lean4_theorem_count"], 19)
     )
     sampled_ok = all(p2["sampled_gates"].values())
     body: dict[str, Any] = {

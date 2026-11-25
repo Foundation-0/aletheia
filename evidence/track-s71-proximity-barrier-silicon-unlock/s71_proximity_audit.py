@@ -887,6 +887,101 @@ def verify_receipts_directory(root_dir: Path) -> dict[str, Any]:
     return res
 
 
+_TOKEN_ROW_SOURCES: list[tuple[str, str, int]] = [
+    ("ww2_8b", "write_write_2core", 8),
+    ("ww2_64b", "write_write_2core", 64),
+    ("ww8_8b", "write_write_8core", 8),
+    ("ww8_64b", "write_write_8core", 64),
+    ("rd8_8b", "read_shared_8core", 8),
+    ("rd8_64b", "read_shared_8core", 64),
+    ("rd8_65536b", "read_shared_8core", 65536),
+    ("gemv_8b", "avx512_a16_blockh4_stride_sweep", 8),
+    ("gemv_64b", "avx512_a16_blockh4_stride_sweep", 64),
+]
+_TOKEN_LABEL_SOURCES: list[tuple[str, str, str]] = [
+    ("gemv_dual_opt", "avx512_a16_blockh4_dual_force", "dual_force_aligned_reg_read_shared"),
+    ("gemv_disp_4096b", "avx512_a16_blockh4_dual_force", "aligned_reg_dispersed_read_4096B"),
+]
+_TOKEN_SCALARS: list[str] = ["a16_syndrome_errors", "avx512_int64_mismatches", "multicore_int64_mismatches"]
+_TOKEN_FIELDS: tuple[str, ...] = ("total_ops", "ns", "tsc", "pkg_uj", "core_uj", "uncore_uj")
+
+
+def verify_frozen_tokens_bijection(cert_dir: Path) -> dict[str, Any]:
+    """Exact bijection between oracle.FROZEN_S71_TOKENS and the shipped s71_empirical_results.json rows.
+
+    Every frozen token must equal exactly one empirical row (matched uniquely by stride or label),
+    so a silent drift in either direction is caught by the CI-invoked `--check` command.
+    """
+    _validate_path(cert_dir)
+    emp_raw = read_regular_file_bytes(cert_dir / "s71_empirical_results.json", max_bytes=MAX_RECEIPT_BYTES)
+    try:
+        emp_obj = json.loads(
+            emp_raw.decode("utf-8"),
+            parse_float=_parse_receipt_decimal,
+            parse_int=_parse_strict_int,
+            parse_constant=_reject_const_token,
+            object_pairs_hook=_no_duplicate_keys_hook,
+        )
+    except AuditError:
+        raise
+    except (UnicodeDecodeError, json.JSONDecodeError, ValueError, RecursionError) as exc:
+        raise AuditError("BIJECTION_PARSE_ERROR", f"malformed empirical JSON: {exc}") from exc
+    if type(emp_obj) is not dict or type(emp_obj.get("measurements")) is not dict:
+        raise AuditError("BIJECTION_SCHEMA_ERROR", "empirical JSON must have a measurements object")
+    meas = emp_obj["measurements"]
+    tokens = oracle.FROZEN_S71_TOKENS
+    checked = 0
+
+    def _rows_of(group: Any) -> list[Any]:
+        rows = meas.get(group)
+        if type(rows) is not list:
+            raise AuditError("BIJECTION_SCHEMA_ERROR", f"measurements.{group} missing or not a list")
+        return rows
+
+    for key, group, stride in _TOKEN_ROW_SOURCES:
+        matches = [r for r in _rows_of(group) if type(r) is dict and r.get("stride_bytes") == stride]
+        if len(matches) != 1:
+            raise AuditError(
+                "BIJECTION_MISMATCH",
+                f"token {key}: expected exactly 1 row at stride {stride} in {group}, found {len(matches)}",
+            )
+        tok = tokens.get(key)
+        if type(tok) is not dict:
+            raise AuditError("BIJECTION_MISMATCH", f"frozen token {key} missing or not a dict")
+        for field in _TOKEN_FIELDS:
+            if tok.get(field) != matches[0].get(field):
+                raise AuditError(
+                    "BIJECTION_MISMATCH",
+                    f"token {key}.{field}: frozen {tok.get(field)!r} != json {matches[0].get(field)!r}",
+                )
+        checked += 1
+    for key, group, label in _TOKEN_LABEL_SOURCES:
+        matches = [r for r in _rows_of(group) if type(r) is dict and r.get("label") == label]
+        if len(matches) != 1:
+            raise AuditError(
+                "BIJECTION_MISMATCH",
+                f"token {key}: expected exactly 1 row with label {label!r} in {group}, found {len(matches)}",
+            )
+        tok = tokens.get(key)
+        if type(tok) is not dict:
+            raise AuditError("BIJECTION_MISMATCH", f"frozen token {key} missing or not a dict")
+        for field in _TOKEN_FIELDS:
+            if tok.get(field) != matches[0].get(field):
+                raise AuditError(
+                    "BIJECTION_MISMATCH",
+                    f"token {key}.{field}: frozen {tok.get(field)!r} != json {matches[0].get(field)!r}",
+                )
+        checked += 1
+    for key in _TOKEN_SCALARS:
+        if tokens.get(key) != meas.get(key):
+            raise AuditError(
+                "BIJECTION_MISMATCH",
+                f"token {key}: frozen {tokens.get(key)!r} != json {meas.get(key)!r}",
+            )
+        checked += 1
+    return {"frozen_tokens_bijection_ok": True, "entries_checked": checked}
+
+
 def _require_cli_path(raw_arg: str) -> Path:
     if not raw_arg or raw_arg.startswith("-"):
         raise AuditError("INVALID_CLI_PATH", "path argument must not be empty or flag-like")
@@ -905,7 +1000,9 @@ def main(argv: list[str] | None = None) -> int:
             sys.stdout.buffer.write(oracle.canonical_json_bytes(cert))
             return 0
         if len(args) == 2 and args[0] == "--check":
-            res = verify_certificate_file(_require_cli_path(args[1]), full_replay=True)
+            cert_path = _require_cli_path(args[1])
+            res = verify_certificate_file(cert_path, full_replay=True)
+            res["frozen_tokens_bijection"] = verify_frozen_tokens_bijection(cert_path.parent)
             sys.stdout.buffer.write(oracle.canonical_json_bytes(res))
             return 0
         if len(args) == 2 and args[0] == "--write":

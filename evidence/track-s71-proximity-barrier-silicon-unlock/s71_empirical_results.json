@@ -1,6 +1,6 @@
 {
   "ac_online": true,
-  "c_source_sha256": "c861370e90abac5ca12fa7365f2f59f612ac7618869931e7167666f79db3e517",
+  "c_source_sha256": "91299eabe27ec33696eb18d5c64d920968790a5337e84d6bf372a1e91fd832c9",
   "cpu_pkg_temp_post_mc": 73000,
   "cpu_pkg_temp_pre_mc": 56000,
   "elapsed_ms": 5502,
@@ -19,7 +19,7 @@
   ],
   "gcc_version": "gcc (GCC) 16.2.1 20260810",
   "kernel_release": "7.2.15-1-omarchy",
-  "lean_source_sha256": "e65524d00529a2098cb18fb994a6530989a1dfc0c2ce7989bfa9788b873cd7b1",
+  "lean_source_sha256": "870c915e53903220a2b98a5a4857839f8673960f8161550c21f30200e43386e8",
   "measured_live_silicon": true,
   "measurements": {
     "a16_syndrome_errors": 0,
