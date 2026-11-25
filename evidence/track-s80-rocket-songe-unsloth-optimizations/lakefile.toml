@@ -1,0 +1,7 @@
+name = "RocketSongeUnslothLaws"
+version = "0.1.0"
+defaultTargets = ["RocketSongeUnslothLaws"]
+
+[[lean_lib]]
+name = "RocketSongeUnslothLaws"
+roots = ["RocketSongeUnslothLaws"]
