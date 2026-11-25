@@ -70,12 +70,12 @@ CROSS_REPO_UPSTREAM: frozenset[str] = frozenset({
     "S42", "S59", "S73", "S76", "S78", "S79", "S82", "S87",
 })
 UPSTREAM_PIN_SOURCES: dict[str, str] = {
-    "S42": "Foundation-0/siliquant@main:studies/expedition-fisher-kintsugi-memt/fisher_kintsugi_memt_certificate.json",
-    "S59": "Foundation-0/siliquant@main:studies/exact-e8-vs-a16-hadamard-law/e8_vs_a16_hadamard_certificate.json",
-    "S73": "Foundation-0/siliquant@PR#103-3065627d:studies/rtx3080-s73-lowbit-and-sharednorm-quad-snake/rtx3080_s73_certificate.json",
+    "S42": "Moissanite-Labs/siliquant@main:studies/expedition-fisher-kintsugi-memt/fisher_kintsugi_memt_certificate.json",
+    "S59": "Moissanite-Labs/siliquant@main:studies/exact-e8-vs-a16-hadamard-law/e8_vs_a16_hadamard_certificate.json",
+    "S73": "Moissanite-Labs/siliquant@PR#103-3065627d:studies/rtx3080-s73-lowbit-and-sharednorm-quad-snake/rtx3080_s73_certificate.json",
     "S76": "Foundation-0/math0@main:studies/s76-circular-pc-loop-schur-holonomy/s76_circular_pc_certificate.json",
-    "S78": "Foundation-0/siliquant@main:studies/s78-engram-lora-capacity-siliquant-mdl/s78_engram_lora_siliquant_certificate.json",
-    "S79": "Foundation-0/siliquant@PR#101-3e06f18c:studies/s79-2dsd-multipole-dense-sparse-laws/s79_2dsd_multipole_certificate.json",
+    "S78": "Moissanite-Labs/siliquant@main:studies/s78-engram-lora-capacity-siliquant-mdl/s78_engram_lora_siliquant_certificate.json",
+    "S79": "Moissanite-Labs/siliquant@PR#101-3e06f18c:studies/s79-2dsd-multipole-dense-sparse-laws/s79_2dsd_multipole_certificate.json",
     "S82": "Foundation-0/math0@main:studies/s82-vpvnp-cross-field-propagation/s82_vpvnp_propagation_certificate.json",
     "S87": "Foundation-0/math0@PR#43-c336d381:studies/s87-universal-higher-order-atlas/s87_higher_order_atlas_certificate.json",
 }

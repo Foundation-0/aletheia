@@ -168,7 +168,7 @@ python3 -I -B verify_s96_beyond_lora_inkling.py --check s96_beyond_lora_inkling_
 python3 -I -B verify_s96_beyond_lora_inkling.py --verify-lean BeyondLoraAndInklingLoop.lean --json
 
 # 3. Pinned upstream corpus (10 tracks: 2/10 re-hashed on disk in-repo (S80, S83); 8/10 cross-repo
-#    SHA pins, each with an exact repo@ref:path in UPSTREAM_PIN_SOURCES — siliquant@main (S42, S59, S78),
+#    SHA pins, each with an exact repo@ref:path in UPSTREAM_PIN_SOURCES — Moissanite-Labs/siliquant@main (S42, S59, S78),
 #    math0@main (S76, S82), or UNMERGED branches siliquant PR#103 / PR#101 / math0 PR#43 (S73, S79, S87)) & Inkling-2-Mini specs
 python3 -I -B verify_s96_beyond_lora_inkling.py --verify-upstream .. --json
 python3 -I -B verify_s96_beyond_lora_inkling.py --verify-inkling <INKLING_SPEC_DIR> --json
