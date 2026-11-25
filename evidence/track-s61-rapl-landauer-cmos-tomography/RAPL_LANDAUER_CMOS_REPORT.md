@@ -6,9 +6,9 @@
 - **Novelty Classification:** **`N1`** (balanced palindromic `ABBA` 7-regime `50 ms` multi-domain `intel-rapl` microkernel benchmark bridging reversible vs. irreversible bit-erasure microkernels to exact SI-2019 Landauer ratios, live identification of an uncalibrated `intel-rapl:1` (`psys`) vendor scaling obstruction resolved by square-root-free exact Stage-A gauge-invariant Schur tomography, and a fail-closed pure-$\mathbb{Z}/\mathbb{Q}$ certificate auditor; classical Landauer principle, CMOS dynamic switching $C V^2 f$, Intel RAPL MSR architecture, and Schur complement linear algebra explicitly quarantined as **`N0`**)
 - **Hardware Privacy & Safety Locks (`measured_live_silicon: true`):**
   - `audio_capture_accessed: false`, `camera_accessed: false`, `display_modified: false`
-  - Exclusive hardware provenance receipt `mlos_zone_b_receipt.json` (`0o600`, `clean_hardware_run: true`, `anomalies: []`, `receipt_sha256: 7316b897e26cf4e766714d455829d43c6e10dae180267e4c2db77acc49b689ba`)
+  - Exclusive hardware provenance receipt `mlos_zone_b_receipt.json` (capture-host mode `0o600`; `100644` in git, `clean_hardware_run: true`, `anomalies: []`, `receipt_sha256: 7316b897e26cf4e766714d455829d43c6e10dae180267e4c2db77acc49b689ba`)
   - Pre- & post-capture dGPU quiescence verified: `0%` GPU util, `2 MiB` VRAM, `55 C` before and after capture (`gpu_idle_verified: true`)
-- **Pinned Certificate Digests (`rapl_landauer_certificate.json`, `0o600`, LF-only, `11,447` B):**
+- **Pinned Certificate Digests (`rapl_landauer_certificate.json`, capture-host mode `0o600`, `100644` in git, LF-only, `11,447` B):**
   - File / `--standalone --json` SHA-256: `6de0a116cf30eba53f32b210290aa83e389a8eaa72efcba6ffb014dcbb3c1856`
   - `payload_sha256`: `2d9cc98d6f272d942fb8109f97d5db9cc3aaae47f758b37d086c4d36c1926b5b`
   - `certificate_sha256`: `9bdc01ff6385d409701b8425ee63c417f52e22f0696fa04ad82ec716c7d8a422`
@@ -33,7 +33,7 @@ Every claim in this report belongs to one of three non-overlapping epistemic tie
      - **Gross `core`:** **`[2,485,453,654,040, 2,485,453,654,041]`** (**`2.485 x 10^12 x`** above $k_B T \ln 2$)
      - **Gross `package-0`:** **`[2,659,999,305,832, 2,659,999,305,833]`** (**`2.660 x 10^12 x`** above $k_B T \ln 2$)
      - **Net `core` above idle (`R2 - R0 = +9.068 W`):** **`[345,639,005,231, 345,639,005,232]`** (**`3.456 x 10^11 x`** above $k_B T \ln 2$)
-   - **Direct `qfree` vs. `mfree` Switching Dominance:** `R3_BIJECTIVE_FEISTEL_HIGH_H` (`qfree`, **`0`** erased bits, `127.25` toggles/step) burns **`65.648 W`** (`core`) — **`+1.453 W` above `R1_BIJECTIVE_FEISTEL_LOW_H`** (`p = 1/100`) AND **`+0.440 W` MORE than `R2_ERASE_DESTRUCTIVE_LOW_H`** (`65.208 W`, `42.295B` erased bits) at matched clock (`3474.9` vs. `3475.5 MHz`) and matched throughput (`3.848` vs. `3.782 Gops/s`)! Macroscopic `362 K` CMOS dissipation is governed by capacitive switching activity and pipeline transport, twelve orders of magnitude above Landauer's thermodynamic floor.
+   - **Direct `qfree` vs. `mfree` Switching Dominance (descriptive; significance ensemble-dependent, see note):** `R3_BIJECTIVE_FEISTEL_HIGH_H` (`qfree`, **`0`** erased bits, `127.25` toggles/step) burns **`65.648 W`** (`core`) — **`+1.453 W` above `R1_BIJECTIVE_FEISTEL_LOW_H`** (`p = 1/100` on the committed within-pair permutation grid) AND **`+0.440 W` MORE than `R2_ERASE_DESTRUCTIVE_LOW_H`** (`65.208 W`, `42.295B` erased bits) at matched clock (`3474.9` vs. `3475.5 MHz`) and matched throughput (`3.848` vs. `3.782 Gops/s`)! Macroscopic `362 K` CMOS dissipation is governed by capacitive switching activity and pipeline transport, twelve orders of magnitude above Landauer's thermodynamic floor. Permutation-ensemble note: the `p = 1/100` comes from the committed `M = 99` within-pair permutation grid; a within-pair sample-shuffle null gives `p ~ 0.0001`, a full 700-sample shuffle `p ~ 0.05`, and a block-level permutation over the `7` regime blocks (the physically appropriate unit here: the `700` samples are `50 ms` apart and thermally correlated, and the host was PL1-saturated at `70 W`) gives `p ~ 0.21` for the `+0.440 W` `R3`-vs-`R2` core contrast, i.e. not significant under the block-level null. The descriptive contrast itself (`+0.440287 W` at matched clock) is exact from the committed snapshot; only the significance statement is ensemble-dependent.
 2. **`H2` — Memory-Hierarchy Transport & In-Package Dark-Mode `⧅` Isolation (`CONFIRMED` + Honest `psys` Vendor-Scale Obstruction):**
    - **Real Hardware `psys` Scale Obstruction Caught:** On ASUS `UX582HS` TigerLake-H, raw `intel-rapl:1` (`psys`, `constraint_0_power_limit_uw = 0`) reports `4.192–4.704 W < package-0 (60.288–69.907 W)` (`psys_vendor_scale_obstruction_detected = True`), so naive unit-dependent subtraction `P_psys - P_pkg` fails (`-56.1` to `-65.3 W`).
    - **All Three Non-Core Memory/Platform Rails Hit Strict #1 Maximum on `R6_DRAM_STREAM_L3_MISS` (`256 MiB > 24 MiB` L3):**
@@ -63,7 +63,7 @@ Every claim in this report belongs to one of three non-overlapping epistemic tie
 | `R5_AVX512_VNNI_L1` (`512b INT8 vpdpbusd`) | `69.907` | `65.667` | `0.592` | `3.648` | `4.599` | `69.907` | `363.100` | `3368.8` | **`1,600,961,526,002`** | **`41.0170`** |
 | `R6_DRAM_STREAM_L3_MISS` (`256 MiB` chase) | `69.827` | `64.588` | **`0.780`** | **`4.458`** | **`4.704`** | `69.866` | `363.550` | `3566.3` | `58,565,605` | `1102835.1113` |
 
-### Exact Pure-$\mathbb{Q}$ Pairwise Regime Contrasts & Permutation Tests (`M = 99` Permutations)
+### Exact Pure-$\mathbb{Q}$ Pairwise Regime Contrasts & Permutation Tests (`M = 99` within-pair permutations; see ensemble note below the table)
 
 | Physical Contrast | Exact Difference ($\mathbb{Q}$) | Decimal | Permutation $p$ ($\mathbb{Q}$) | Interpretation |
 |---|---:|---:|---:|---|
@@ -77,6 +77,8 @@ Every claim in this report belongs to one of three non-overlapping epistemic tie
 | `R6 - R1` (`uncore` W) | `397707/1000000` | **`+0.398 W`** | **`3/100`** | `2.04x` uncore power elevation under `256 MiB` L3-miss traffic |
 | `R6 - R1` (`psys` W) | `179589/1000000` | **`+0.180 W`** | **`1/100`** | Platform rail response (despite uncalibrated vendor scale factor) |
 
+Permutation-ensemble note: the `p` column is the committed `M = 99` within-pair permutation grid (e.g. `1/100` for `R3 - R1`). Under other null ensembles the significance changes: a within-pair sample shuffle gives a much smaller `p` (`~ 0.0001`), a full 700-sample shuffle `~ 0.05`, while a regime-block permutation over the `7` blocks (the physically appropriate unit: samples `50 ms` apart, thermally correlated, host PL1-saturated at `70 W`) gives a much larger one (`~ 0.21` for the `+0.440 W` `R3`-vs-`R2` core contrast, i.e. not significant at block level). The exact decimal contrasts themselves are descriptive facts of the committed snapshot; readers should calibrate significance by the permutation ensemble, not by the `1/100` grid alone.
+
 ---
 
 ## 4. Verification Receipts & Complete 9-File Manifest
@@ -84,7 +86,7 @@ Every claim in this report belongs to one of three non-overlapping epistemic tie
 All verification checks ran cleanly with zero compiled binaries (`ELF = 0`), zero `__pycache__` / `.pyc` files (`PYC = 0`), zero bare `assert`s, zero AST floats/`float()`, zero `.isdigit()`, zero device-path writes (scratch `os.mkfifo` only), zero CRLF, and zero personal path leaks:
 
 - **R4 3-Mode Isolated + Hash-Seed Parity (`-I -B`, `-I -O -B`, `-I -B -W error`, plus `PYTHONHASHSEED=42 -B`) + `umask 077`:**
-  - `rapl_landauer_audit.py --standalone --json`: bit-identical across all `4` modes (`6de0a116cf30eba53f32b210290aa83e389a8eaa72efcba6ffb014dcbb3c1856`, matching committed `0o600` `rapl_landauer_certificate.json`).
+  - `rapl_landauer_audit.py --standalone --json`: bit-identical across all `4` modes (`6de0a116cf30eba53f32b210290aa83e389a8eaa72efcba6ffb014dcbb3c1856`, matching committed `rapl_landauer_certificate.json`; capture-host mode `0o600`, `100644` in git).
   - `rapl_landauer_audit.py --check rapl_landauer_certificate.json --json`: bit-identical (`ed9a504cb4ba0c78877a50d088eca1f0a4e39cd268e59bd93f277093ead94afb`, `valid: true`, `full_replay: true`) across all `4` modes.
   - `test_rapl_landauer_r5.py`: **`8/8 OK`** across all `4` modes plus hardened `umask 077` (`OK`).
 - **R2 Adversarial Closure (`S61-VER-01..03`, `5/5` Frozen Silicon Artifacts Bit-Identical):**
@@ -99,7 +101,7 @@ All verification checks ran cleanly with zero compiled binaries (`ELF = 0`), zer
   - `rapl_landauer_oracle.py`: **`18/18 + 44/44 = 62 / 62` (`100.0%`, `surv=[]`)**
   - `rapl_landauer_audit.py`: **`32/32 + 84/84 = 116 / 116` (`100.0%`, `surv=[]`)**
   - Combined: **`50/50 + 128/128 = 178 / 178` (`100.0%`, `0` survivors)**
-- **`aletheia audit-check . --strict-ancestors --safety-scan --scripts rapl_landauer_audit.py test_rapl_landauer_r5.py`:** **`PASS`** (`9` files, `2/2` R4 scripts passed, `0` findings, `0` leaks, `0` CRLF, `0` bare `assert`s).
+- **`aletheia audit-check evidence/track-s61-rapl-landauer-cmos-tomography --strict-ancestors --safety-scan --scripts rapl_landauer_audit.py test_rapl_landauer_r5.py`:** **`PASS`** scoped to the track directory (`9` files, `2/2` R4 scripts passed, `0` findings, `0` leaks, `0` CRLF, `0` bare `assert`s). Run repo-wide, `--safety-scan` reports `48` findings, all pre-existing on main outside this track; CI's `audit-check` leg does not pass `--safety-scan`.
 
 ### Complete File Manifest
 
@@ -109,9 +111,11 @@ All verification checks ran cleanly with zero compiled binaries (`ELF = 0`), zer
 |---|---:|---:|---:|---|
 | `rapl_landauer_microkernels.c` | `728` | `28,823` | `0o644` | `18c67b8fb8018f1dcd70433d74fcb74026a43793b32afcb4637a4596e86462be` |
 | `rapl_landauer_capture.py` | `181` | `6,560` | `0o644` | `e32cbed6f68a2f4a5025d8a9a6e4808278af0f3df24c52035b4ff7e2e3adeb37` |
-| `rapl_landauer_snapshot.json` | `1` | `108,783` | `0o600` | `e8d56a8c393cdd47f44f5c54f79f8c5feb8f13ad8fc61285819a3c54d5e2049f` |
-| `mlos_zone_b_receipt.json` | `93` | `2,646` | `0o600` | `b5f5ae7d77053177ac2f0a8d35a8763f896d71dda196f7f566b8b0219ef11ec1` |
+| `rapl_landauer_snapshot.json` | `1` | `108,783` | `0o600 (git: 100644)` | `e8d56a8c393cdd47f44f5c54f79f8c5feb8f13ad8fc61285819a3c54d5e2049f` |
+| `mlos_zone_b_receipt.json` | `93` | `2,646` | `0o600 (git: 100644)` | `b5f5ae7d77053177ac2f0a8d35a8763f896d71dda196f7f566b8b0219ef11ec1` |
 | `rapl_landauer_oracle.py` | `1,127` | `49,433` | `0o644` | `a64998f00dc3e748ff9e88db661b5726037da6c451878958e9abb40dbfd67c8c` |
 | `rapl_landauer_audit.py` | `1,116` | `53,943` | `0o644` | `7a7451d216448551784a35ea0a143495ed1bd62b913ff0728f1c5f48c41061f6` |
-| `rapl_landauer_certificate.json` | `1` | `11,447` | `0o600` | `6de0a116cf30eba53f32b210290aa83e389a8eaa72efcba6ffb014dcbb3c1856` |
+| `rapl_landauer_certificate.json` | `1` | `11,447` | `0o600 (git: 100644)` | `6de0a116cf30eba53f32b210290aa83e389a8eaa72efcba6ffb014dcbb3c1856` |
 | `test_rapl_landauer_r5.py` | `1,321` | `74,999` | `0o644` | `4c922ee3c1735a7118705837e1767cc30dbd199719445ee1a0115179a365911d` |
+
+Mode column note: `0o600` was the on-disk mode on the capture host; git records all nine files as `100644` (git cannot store `0600`).
