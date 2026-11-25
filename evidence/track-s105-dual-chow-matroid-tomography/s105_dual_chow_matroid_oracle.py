@@ -23,7 +23,7 @@ LEAN_MODULE = "DualChowMatroidTomography"
 LEAN_SOURCE_NAME = "DualChowMatroidTomography.lean"
 CERT_FILE_NAME = "s105_dual_chow_matroid_certificate.json"
 
-PINNED_LEAN_SOURCE_SHA256 = "71f98cb504814ee8baddb33d94e75172e4278b8f2f32dbe128e9937f95b5f2b4"
+PINNED_LEAN_SOURCE_SHA256 = "d81ac54a587f6b6b62afb7d7881aabaa4093be52fb5f7be676685ad2d2404f36"
 PINNED_LEAN_TOOLCHAIN_SHA256 = "582a63f8f9c5128067b688778c1051cf1464c3ca9d57b9325025c051c29b774a"
 PINNED_LAKEFILE_SHA256 = "88b02bd23fb6d2831ac9e80a3a5336d807d125e0d4f0ade2b5f37cbc56be3dd6"
 
@@ -775,7 +775,10 @@ def brute_force_a2_matroid_check() -> dict[str, Any]:
             p4 = p1 ^ p2 ^ p3
             if p4 in blk:
                 absorbed_planes_a0.add(frozenset((p1, p2, p3, p4)))
-    w4_direct = (11160 - 4096) + 4096 + (8 * 10416 - 4096 * 14) + 2016 * comb(8, 2) + 64 * comb(8, 3) + comb(8, 4)
+    # Hand-derived hyperplane count for the A_2 family (closed form over the
+    # explicit blocks, NOT re-enumerated from all_blocks); checked below against
+    # the independent symbolic Gaussian-binomial formula.
+    w4_hand = (11160 - 4096) + 4096 + (8 * 10416 - 4096 * 14) + 2016 * comb(8, 2) + 64 * comb(8, 3) + comb(8, 4)
     w4_formula = ag_gabidulin_alpha(Ring(2), 4, (4,))
     return {
         "ground_set_size": 72,
@@ -787,8 +790,8 @@ def brute_force_a2_matroid_check() -> dict[str, Any]:
         "family0_max_intersection_rank_le_2": max_int <= 2,
         "family0_distinct_absorbed_planes": len(absorbed_planes_a0),
         "family0_zero_double_counted_planes": len(absorbed_planes_a0) == 512 * 14,
-        "w4_direct": w4_direct,
-        "w4_matches_formula": w4_direct == w4_formula,
+        "w4_hand_derived_count": w4_hand,
+        "w4_matches_formula": w4_hand == w4_formula,
     }
 
 
@@ -941,7 +944,7 @@ def build_pillar2_sharp_rank_and_r4_frontier(towers: dict[int, dict[str, dict[An
     )
     return {
         "sharp_min_rank_for_Hstar": 5,
-        "rank_le_4_Hstar_always_real_rooted": True,
+        "rank_le_4_Hstar_always_real_rooted": "cited known result (rank <= 4 real-rootedness of H*, per solved-conjectures#597); NOT recomputed in this oracle",
         "rank4_Fstar_status": "OPEN_NOT_FALSIFIED",
         "rank4_gabidulin_symbolic_Fstar_disc_deg": len(disc_f4) - 1,
         "rank4_gabidulin_Fstar_disc_shift2_all_pos": all(c > 0 for c in sh_f4),
@@ -973,15 +976,20 @@ def build_pillar3_phase_transition(towers: dict[int, dict[str, dict[Any, list[in
             "H_ord_g0": ps["H_ord"][0],
             "H_star_g0_digits": len(str(ps["H_star"][0])),
         })
+    berg_fail = next((r for r in rows if r["bergman_h_real_roots"] < 4), None)
+    dual_fail = next((r for r in rows if r["H_star_real_roots"] < 4), None)
+    berg_q = berg_fail["q"] if berg_fail else None
+    dual_q = dual_fail["q"] if dual_fail else None
+    separation = all(r["H_ord_real_roots"] == 4 for r in rows) and dual_fail is not None
     return {
         "tested_prime_powers": list(qs),
         "rows": rows,
-        "bergman_first_fail_q": 8,
-        "bergman_first_fail_ground_set": (8 ** 8 - 1) // 7 + 8 ** 4,
-        "dual_chow_first_fail_q": 17,
-        "dual_chow_first_fail_ground_set": (17 ** 8 - 1) // 16 + 17 ** 4,
+        "bergman_first_fail_q": berg_q,
+        "bergman_first_fail_ground_set": ((berg_q ** 8 - 1) // (berg_q - 1) + berg_q ** 4) if berg_q else None,
+        "dual_chow_first_fail_q": dual_q,
+        "dual_chow_first_fail_ground_set": ((dual_q ** 8 - 1) // (dual_q - 1) + dual_q ** 4) if dual_q else None,
         "ordinary_chow_all_4of4_real_rooted": all(r["H_ord_real_roots"] == 4 for r in rows),
-        "primal_vs_dual_separation_verified": True,
+        "primal_vs_dual_separation_verified": separation,
     }
 
 
@@ -1037,12 +1045,20 @@ def build_pillar4_higher_rank_and_obstructions(towers: dict[int, dict[str, dict[
     rem_pg = padd(r_sym.gauss(8, 3), pscale(-1, pmul(r_sym.power(12), r_sym.gauss(4, 3))))
     rem_ag = padd(r_sym.gauss(6, 2), pscale(-1, pmul(r_sym.power(6), r_sym.gauss(3, 2))))
 
+    r6_fail = next((r for r in r6_rows if r["gamma_quad_disc_neg"]), None)
+    r7_fail = next((r for r in r7_rows if r["cubic_gamma_disc_neg"]), None)
+    r7_flag = bool(
+        r7_fail is not None
+        and r7_fail["H_star_real_roots"] < 6
+        and r7_fail["newton_1_holds"]
+        and r7_fail["newton_2_holds"]
+    )
     return {
-        "rank6_threshold_q": 11,
+        "rank6_threshold_q": r6_fail["q"] if r6_fail else None,
         "rank6_rows": r6_rows,
-        "rank7_threshold_q": 7,
+        "rank7_threshold_q": r7_fail["q"] if r7_fail else None,
         "rank7_rows": r7_rows,
-        "rank7_q7_fails_cubic_disc_before_newton": True,
+        "rank7_q7_fails_cubic_disc_before_newton": r7_flag,
         "mrd_duality_obstruction": {
             "matrix_space": "M_{4x4}(F_q)",
             "gabidulin_dim": 12,

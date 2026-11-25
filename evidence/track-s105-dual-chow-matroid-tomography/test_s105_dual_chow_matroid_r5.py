@@ -242,10 +242,17 @@ class Test03ExactReplays(unittest.TestCase):
                       "def31_matches_pr569_chowWeight", "def31_matches_pr569_augWeight", "def24_matches_fy_H_ord"):
                 self.assertIs(row[k], True)
         p3 = PAYLOAD["pillar3_phase_transition"]
+        rows3 = p3["rows"]
+        self.assertEqual(p3["bergman_first_fail_q"], next(r["q"] for r in rows3 if r["bergman_h_real_roots"] < 4))
+        self.assertEqual(p3["dual_chow_first_fail_q"], next(r["q"] for r in rows3 if r["H_star_real_roots"] < 4))
+        self.assertIs(p3["primal_vs_dual_separation_verified"], all(r["H_ord_real_roots"] == 4 for r in rows3) and any(r["H_star_real_roots"] < 4 for r in rows3))
         self.assertEqual(p3["bergman_first_fail_ground_set"], 2400841)
         self.assertIs(p3["ordinary_chow_all_4of4_real_rooted"], True)
         p4 = PAYLOAD["pillar4_higher_rank_and_obstructions"]
         self.assertEqual((p4["rank6_threshold_q"], p4["rank7_threshold_q"]), (11, 7))
+        self.assertEqual(p4["rank6_threshold_q"], next(r["q"] for r in p4["rank6_rows"] if r["gamma_quad_disc_neg"]))
+        self.assertEqual(p4["rank7_threshold_q"], next(r["q"] for r in p4["rank7_rows"] if r["cubic_gamma_disc_neg"]))
+        self.assertIs(p4["rank7_q7_fails_cubic_disc_before_newton"], True)
         r7_q7 = [r for r in p4["rank7_rows"] if r["q"] == 7][0]
         self.assertTrue(r7_q7["cubic_gamma_disc_neg"] and r7_q7["newton_1_holds"] and r7_q7["newton_2_holds"])
         for w in p4["mrd_duality_obstruction"]["witnesses"]:
@@ -550,8 +557,12 @@ SEMANTIC_TAMPERS: tuple[tuple[tuple, object, str], ...] = (
     (("pillar3_phase_transition", "bergman_first_fail_q"), 9, "SEC_BERGMAN_Q8"),
     (("pillar3_phase_transition", "bergman_first_fail_ground_set"), 2400840, "SEC_M8_SIZE"),
     (("pillar3_phase_transition", "ordinary_chow_all_4of4_real_rooted"), False, "SEC_H_ORD"),
+    (("pillar3_phase_transition", "dual_chow_first_fail_q"), 16, "SEC_DUAL_Q17"),
+    (("pillar3_phase_transition", "dual_chow_first_fail_ground_set"), 436068360, "SEC_M17_SIZE"),
+    (("pillar3_phase_transition", "primal_vs_dual_separation_verified"), False, "SEC_SEP"),
     (("pillar4_higher_rank_and_obstructions", "rank6_threshold_q"), 13, "SEC_R6_Q11"),
     (("pillar4_higher_rank_and_obstructions", "rank7_threshold_q"), 8, "SEC_R7_Q7"),
+    (("pillar4_higher_rank_and_obstructions", "rank7_q7_fails_cubic_disc_before_newton"), False, "SEC_R7_DISC_BEFORE_NEWTON"),
     (("pillar4_higher_rank_and_obstructions", "mrd_duality_obstruction", "dual_min_rank"), 3, "SEC_MRD_DUAL"),
     (("pillar5_affine_gabidulin_and_bcel_frontier", "affine_gabidulin_rank5", "a17_ground_set_size"), 24142481, "SEC_A17_SIZE"),
     (("pillar5_affine_gabidulin_and_bcel_frontier", "affine_gabidulin_rank5", "size_reduction_factor_q"), "18", "SEC_RED_RATIO"),

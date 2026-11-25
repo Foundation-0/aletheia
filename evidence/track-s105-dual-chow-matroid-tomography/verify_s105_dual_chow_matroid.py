@@ -443,12 +443,30 @@ def _independent_semantics(p: dict[str, Any]) -> None:
     require_ok(p2["sharp_min_rank_for_Hstar"] == 5, "SEC_MIN_RANK", "sharp min rank is 5")
     require_ok(p2["rank4_gabidulin_Fstar_disc_shift2_all_pos"] is True, "SEC_R4_FSTAR", "rank4 F* disc")
     p3 = p["pillar3_phase_transition"]
-    require_ok(p3["bergman_first_fail_q"] == 8, "SEC_BERGMAN_Q8", "Bergman first fail q=8")
-    require_ok(p3["bergman_first_fail_ground_set"] == (8 ** 8 - 1) // 7 + 8 ** 4, "SEC_M8_SIZE", "|E(M_8)| mismatch")
+    rows3 = p3["rows"]
+    berg_q = next(r["q"] for r in rows3 if r["bergman_h_real_roots"] < 4)
+    dual_q = next(r["q"] for r in rows3 if r["H_star_real_roots"] < 4)
+    require_ok(p3["bergman_first_fail_q"] == berg_q, "SEC_BERGMAN_Q8", "Bergman first fail must equal first row with <4 real roots")
+    require_ok(p3["bergman_first_fail_ground_set"] == (berg_q ** 8 - 1) // (berg_q - 1) + berg_q ** 4, "SEC_M8_SIZE", "|E(M_berg)| derived from rows")
+    require_ok(p3["dual_chow_first_fail_q"] == dual_q, "SEC_DUAL_Q17", "dual Chow first fail must equal first row with H*<4")
+    require_ok(p3["dual_chow_first_fail_ground_set"] == (dual_q ** 8 - 1) // (dual_q - 1) + dual_q ** 4, "SEC_M17_SIZE", "|E(M_dual)| derived from rows")
+    require_ok(
+        p3["primal_vs_dual_separation_verified"] is (all(r["H_ord_real_roots"] == 4 for r in rows3) and any(r["H_star_real_roots"] < 4 for r in rows3)),
+        "SEC_SEP",
+        "separation flag must be derived from rows",
+    )
     require_ok(p3["ordinary_chow_all_4of4_real_rooted"] is True, "SEC_H_ORD", "ordinary Chow stays 4/4")
     p4 = p["pillar4_higher_rank_and_obstructions"]
-    require_ok(p4["rank6_threshold_q"] == 11, "SEC_R6_Q11", "rank 6 threshold q=11")
-    require_ok(p4["rank7_threshold_q"] == 7, "SEC_R7_Q7", "rank 7 threshold q=7")
+    r6_q = next(r["q"] for r in p4["rank6_rows"] if r["gamma_quad_disc_neg"])
+    r7_q = next(r["q"] for r in p4["rank7_rows"] if r["cubic_gamma_disc_neg"])
+    r7_row = next(r for r in p4["rank7_rows"] if r["q"] == r7_q)
+    require_ok(p4["rank6_threshold_q"] == r6_q, "SEC_R6_Q11", "rank 6 threshold derived from rank6_rows")
+    require_ok(p4["rank7_threshold_q"] == r7_q, "SEC_R7_Q7", "rank 7 threshold derived from rank7_rows")
+    require_ok(
+        p4["rank7_q7_fails_cubic_disc_before_newton"] is (r7_row["cubic_gamma_disc_neg"] and r7_row["newton_1_holds"] and r7_row["newton_2_holds"]),
+        "SEC_R7_DISC_BEFORE_NEWTON",
+        "rank-7 flag derived from rank7_rows",
+    )
     require_ok(p4["mrd_duality_obstruction"]["dual_min_rank"] == 4, "SEC_MRD_DUAL", "MRD dual min rank = 4")
     p5 = p["pillar5_affine_gabidulin_and_bcel_frontier"]
     ag = p5["affine_gabidulin_rank5"]

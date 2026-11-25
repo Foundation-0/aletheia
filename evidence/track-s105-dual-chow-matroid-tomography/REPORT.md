@@ -55,7 +55,7 @@ Ordinary Chow $H_{M_q}(x)$ has $g_0(H) = 1$ (vs $g_0(H^*) = |\mu(\hat 0, \hat 1)
 
 - **Construction ($r = 5$, $d = 6$):** Let $K = \mathbb{F}_{q^3}$, $V = K \oplus K \cong \mathbb{F}_q^6$, and start from $G = \mathrm{Tr}^2(\mathrm{AG}(6, q))$ (rank 5, $q^6$ points). Partition the $q^9$ graph 3-spaces $W_{a,u,v} = \{(t, ut + vt^q + at^{q^2}) : t \in K\}$ into $m = q^3$ Gabidulin cosets $\mathcal{S}_a$ (each of size $q^6$, pairwise linear intersection $\dim \le 1$). Lift every direction $W \in \mathcal{S}_a$ to all $q^3$ parallel affine translates $v_0 + W$, forming $q^6 \cdot q^3 = q^9$ blocks in each coset family $\mathcal{F}_a$ (`512` at $q=2$), so $b = q^{12}$ (`4,096`) is the total union across all $m = q^3$ cosets.
   - **BCEL Prop 3.11 verification:** Distinct translates of the same direction are disjoint (rank $0 \le 2$); distinct directions in $\mathcal{S}_a$ meet in $\dim \le 1$, so their translates meet in at most an affine line (rank $\le 2$ holding within each $\mathcal{F}_a$; cross-coset blocks meet in up to `4` points, harmless via distinct $e_a$). Both $N_4 - b$ and $N_{\mathrm{U}} = m N_3 - b q[3]_q$ have all Taylor coefficients at $q = 2 + s$ strictly positive.
-  - **Exhaustive Finite Ground-Truth Check on $A_2$ (`|E| = 72`):** Constructed all `512` graph 3-spaces and all `4,096` blocks explicitly; checked all $\binom{512}{2} = 130,816$ block pairs in family $a=0$ (`max_intersection = 2` points $\implies$ rank $\le 2$); verified all `512 × 14 = 7,168` absorbed affine planes pairwise distinct; verified direct hyperplane count `W_4 = 97,246` equals the symbolic formula.
+  - **Exhaustive Finite Ground-Truth Check on $A_2$ (`|E| = 72`):** Constructed all `512` graph 3-spaces and all `4,096` blocks explicitly; checked all $\binom{512}{2} = 130,816$ block pairs in family $a=0$ (`max_intersection = 2` points $\implies$ rank $\le 2$); verified all `512 × 14 = 7,168` absorbed affine planes pairwise distinct; checked the hand-derived hyperplane count `W_4 = 97,246` (closed form over the explicit blocks, not re-enumerated) against the independent symbolic Gaussian-binomial formula — equal.
 - **18.06× Smaller Counterexample at Minimal Rank 5 ($q \ge 17$):**
   - **Ground set:** $|E(A_{17})| = 17^6 + 17^3 = \mathbf{24,142,482}$ vs PR `#569`'s $436,068,361$ — exact ratio **`436068361 / 24142482 = 18.062284×`** (and Lean Theorem 24 proves $q^6 + q^3 < [8]_q + q^4$ for all $q \ge 2$!).
   - **Exact $q = 17$ witness:** $\gamma(H^*_{A_{17}}) = (15349600526709754544356,\; 7671555032664686456016,\; 971618705289721182159)$, $\Delta_{H^*} = -803079342701737648941812651155060982786160 < 0$ (ratio `0.986538 < 1` vs `1.043058 > 1` at $q = 16$); $\Delta_{F^*} = -801221140302196159085049505807058587771120 < 0$.
@@ -100,8 +100,8 @@ All receipts below were recorded strictly post-last-edit on the frozen code, Lea
 - **Exhaustive Every-Leaf Re-Signed Forgery Battery (`SEC` / `FR0` / `FR1`) & DoS Caps:**
   - **`746/746` leaves** (`1,492/1,492` single-leaf re-signed tamper rejections across `SEC` and `FR0`, **`0` bypasses**, **`0` crashes**, zero input mutation) + `24` targeted semantic & `4,500`-digit int/decimal/rational DoS probes (`INVALID_INT_STR`/`INVALID_DEC_STR`/`INVALID_RATIONAL_STR`) + `5` structural type-confusion probes (`SEC_SHAPE_MISMATCH`, `0` raw crashes) verified across `SEC`, `FR0`, and `FR1`.
 - **Direct 4-Surface v2.1 Zone-B Fuzzer (`zone_b_fuzzer`):** **`82/82 PASS`** (`CLI 25/25`, `FR1 19/19`, `FR0 19/19`, `SEC 19/19`; `bypasses = 0`, `crashes = 0`).
-- **Official `aletheia-fast-mutate` (`--guards require_ok --workers 2 --timeout 180 --max-mutants 0`):** **`170/170 KILLED = 100.0%`** (`35/35` on `s105_dual_chow_matroid_oracle.py` + `135/135` on `verify_s105_dual_chow_matroid.py`; `survived = 0`, `truncated = False`, `null_mutant = passed` on both).
-- **Whole-File AST `BoolOp` Mutation (`OP_SWAP + SUBCOND_DEL`):** **`49/49 KILLED = 100.0%`** (`16` `BoolOp` nodes across oracle + verifier = `16` `OP_SWAP` + `33` `SUBCOND_DEL`; `survivors = []`).
+- **Official `aletheia-fast-mutate` (`--guards require_ok --workers 4 --timeout 240 --max-mutants 0`, re-run at this head after the derivation edits):** **`176/176 KILLED = 100.0%`** (`35/35` on `s105_dual_chow_matroid_oracle.py` + `141/141` on `verify_s105_dual_chow_matroid.py`; `survived = 0`, `truncated = False`, `null_mutant = passed` on both).
+- **Whole-File AST `BoolOp` Mutation (`OP_SWAP + SUBCOND_DEL`):** quoted `49/49 KILLED = 100.0%` at the reviewed head `918fc6d6` (`16` `BoolOp` nodes = `16` `OP_SWAP` + `33` `SUBCOND_DEL`); after the derivation edits the two files carry `20` `BoolOp` nodes, so that one-off battery was not re-quoted at this head — the guard-site receipt above was re-run instead.
 - **Multi-Env & RO-Dir Parity (`15/15`, `0` skips):**
   - `test_s105_dual_chow_matroid_r5.py`: **`16/16 OK`** (across `-I -B`, `-I -O -B`, `-I -B -W error`, `PYTHONHASHSEED=42 -B`, `env -i HOME=/nonexistent`, and read-only directory `-I -B`).
   - `verify_s105_dual_chow_matroid.py --check`: **`OK`** (across `-I -B`, `-I -O -B`, `-I -B -W error`, `env -i HOME=/nonexistent`, and read-only directory).
@@ -109,14 +109,15 @@ All receipts below were recorded strictly post-last-edit on the frozen code, Lea
 
 ## 8. Frozen Companion Manifest
 
-*(The 7 sibling artifacts below are cryptographically frozen; `REPORT.md`'s own digest is reported externally in the completion handoff.)*
+*(The 8 sibling artifacts below are cryptographically frozen; `REPORT.md`'s own digest is reported externally in the completion handoff.)*
 
 | File | Lines | Bytes | Mode | SHA-256 |
 |---|---:|---:|---:|---|
-| `DualChowMatroidTomography.lean` | `496` | `20,907` | `0644` | `71f98cb504814ee8baddb33d94e75172e4278b8f2f32dbe128e9937f95b5f2b4` |
+| `DualChowMatroidTomography.lean` | `499` | `21,145` | `0644` | `d81ac54a587f6b6b62afb7d7881aabaa4093be52fb5f7be676685ad2d2404f36` |
 | `lakefile.toml` | `5` | `131` | `0644` | `88b02bd23fb6d2831ac9e80a3a5336d807d125e0d4f0ade2b5f37cbc56be3dd6` |
 | `lean-toolchain` | `1` | `25` | `0644` | `582a63f8f9c5128067b688778c1051cf1464c3ca9d57b9325025c051c29b774a` |
-| `s105_dual_chow_matroid_oracle.py` | `1,242` | `52,398` | `0644` | `2e85890e9c647bffcc998e5ee94d0d638e710a8380991e080d4b470b69ad051b` |
-| `verify_s105_dual_chow_matroid.py` | `612` | `29,003` | `0644` | `fb5af0b8e2fef911fb62803f60c32d8e9fa53af19de6e5fab9248ad9faed69d7` |
-| `test_s105_dual_chow_matroid_r5.py` | `763` | `43,301` | `0644` | `4a89b89ae8786ef9b559fe4c5e6aad8bab7ede5670e77cfe5540fc257fa2f066` |
-| `s105_dual_chow_matroid_certificate.json` | `1` | `18,608` | `0600` | `906cd228010c16093644a4fc13650367648c9333dd027a183112573a6a315c26` |
+| `s105_dual_chow_matroid_oracle.py` | `1,258` | `53,565` | `0644` | `51d4f41b7b3573857458e47dcfe10b1bd1eff9f7cbaa070802c0e1046cb804cc` |
+| `verify_s105_dual_chow_matroid.py` | `630` | `30,293` | `0644` | `8870df1e5852ca833d88f5883ba8f0e7a61ba8ec5cf09f1f75a66fce72131c6b` |
+| `test_s105_dual_chow_matroid_r5.py` | `773` | `44,333` | `0644` | `bb8d3c2bdb27d8ad6061a23453bf2e1996011f9645f9ff5c6b72ae6021ce031e` |
+| `s105_dual_chow_matroid_audit.py` | `36` | `1,237` | `0644` | `a97e84be789b02809839519ff7ff209ec167a588cd76ad18a8b25dd20ad24ba7` |
+| `s105_dual_chow_matroid_certificate.json` | `1` | `18,729` | `0644` | `d176fd50dd7726aebff88bb338bbe18f23f1ee7a62e4e0fdefbc0d9b4323b4ea` |

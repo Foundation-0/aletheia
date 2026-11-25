@@ -6,7 +6,7 @@ Self-contained Aletheia evidence bundle resolving the dual Chow / dual augmented
 2. **Pillar 2 — Uniform Low-Rank Stability ($r \le 4$):** Proves that for all loopless, coloopless matroids of rank $r \le 4$, $H^*(M, t)$ has all real roots (with negative discriminant identity and discriminant nonnegativity proved universally in Theorems 12–16).
 3. **Pillar 3 — First Minimal-Rank Counterexample ($r = 5$, $q = 17$):** Pinned reproduction of PR `#569`'s projective counterexample ($|E| = 436,068,361$) breaking real-rootedness via degree-43 Taylor-shift certificates (Theorems 20–21).
 4. **Pillar 4 — Higher-Rank Phase Boundary & Exact MRD-Duality / Johnson-Bound Obstructions:** Proves via exact pure-$\mathbb{Q}$ Sturm chains that rank-6 projective Gabidulin breaks at $q = 11$ and rank-7 breaks at $q = 7$ (with $H^*$ failing the cubic gamma-discriminant before Newton log-concavity), verifies 4-dimensional min-rank-4 trace-orthogonal duals $C^\perp$ in $M_{4 \times 4}(\mathbb{F}_q)$ barring naive Cell-2 coalescence, and proves companion Johnson-bound degree-13 packings.
-5. **Pillar 5 — $18.06\times$ Smaller Affine Gabidulin Family $A_{5,q}$ in $\mathrm{AG}(6, q)$:** Constructs the minimal-rank counterexample on $|E(A_{17})| = 17^6 + 17^3 = \mathbf{24,142,482}$ points ($436,068,361 / 24,142,482 = \mathbf{18.062284\times}$ smaller ground set, kernel-checked in Theorem 24), verifies all $4,096$ blocks and pairwise rank $\le 2$ intersection within cosets on $A_2$ ($|E|=72$), and verifies degree-35 universal certificates proving $\Delta_{H^*} < 0$ and $\Delta_{F^*} < 0$ for all $q \ge 17$ (Theorems 22–23).
+5. **Pillar 5 — $18.06\times$ Smaller Affine Gabidulin Family $A_{5,q}$ in $\mathrm{AG}(6, q)$:** Constructs the minimal-rank counterexample on $|E(A_{17})| = 17^6 + 17^3 = \mathbf{24,142,482}$ points ($436,068,361 / 24,142,482 = \mathbf{18.062284\times}$ smaller ground set, ratio computed from the pinned sizes; the strict inequality $q^6+q^3 < [8]_q+q^4$ is kernel-checked in Theorem 24), verifies all $4,096$ blocks and pairwise rank $\le 2$ intersection within family $a=0$ ($512$ blocks, $130,816$ pairs) on $A_2$ ($|E|=72$), and verifies degree-35 universal certificates proving $\Delta_{H^*} < 0$ and $\Delta_{F^*} < 0$ for all $q \ge 17$ (Theorems 22–23).
 
 ## Honest Scope & Novelty Classification (`N1`)
 
@@ -20,7 +20,7 @@ Self-contained Aletheia evidence bundle resolving the dual Chow / dual augmented
 - `s105_dual_chow_matroid_oracle.py` — Pure-$\mathbb{Z}/\mathbb{Q}$ oracle (Sturm chains, Gaussian binomials, Gabidulin incidence, certificate builder)
 - `verify_s105_dual_chow_matroid.py` — Zone-B verifier, `SEC`/`FR0`/`FR1` auditor, 18-rule R12 static scanner, live Lean `4.36.0` gate
 - `s105_dual_chow_matroid_audit.py` — `*_audit.py` CI wrapper for `evidence-tracks` discovery
-- `s105_dual_chow_matroid_certificate.json` — Pinned canonical zero-float certificate (`18,608` bytes, mode `0600`)
+- `s105_dual_chow_matroid_certificate.json` — Pinned canonical zero-float certificate (mode `0644` as stored in git)
 - `test_s105_dual_chow_matroid_r5.py` — 16-test assertion-free test suite (`0` skips, 7-env `-I` parity)
 - `REPORT.md` — Detailed 5-pillar mathematical report, 24-theorem inventory, and companion SHA-256 manifest
 
