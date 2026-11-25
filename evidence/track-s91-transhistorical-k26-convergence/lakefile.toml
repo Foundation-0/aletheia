@@ -1,0 +1,6 @@
+name = "TranshistoricalK26AndTusiCure"
+version = "0.1.0"
+defaultTargets = ["TranshistoricalK26AndTusiCure"]
+
+[[lean_lib]]
+name = "TranshistoricalK26AndTusiCure"
