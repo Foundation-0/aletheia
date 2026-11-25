@@ -1101,7 +1101,8 @@ def _install_sigterm_raise() -> Any:
         return signal.signal(signal.SIGTERM, _sigterm_raises_keyboard_interrupt)
     except (ValueError, OSError):
         # Not in the main thread (or unsupported platform): skip, cleanup stays best-effort.
-        return None
+        pass
+    return None
 
 
 def _copy_workspace_no_symlinks(src_root: Path, dst_root: Path) -> None:

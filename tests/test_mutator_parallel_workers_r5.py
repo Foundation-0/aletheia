@@ -27,6 +27,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import signal
 import stat
 import sys
 import tempfile
@@ -507,6 +508,24 @@ class TestMutatorParallelWorkers(unittest.TestCase):
                 )
                 spy_install.assert_called_once()
             self.assertEqual(list(snap_parent.iterdir()), [])
+
+    def test_07_sigterm_install_off_main_thread_returns_none(self) -> None:
+        """_install_sigterm_raise called off the main thread: signal.signal raises
+        ValueError there, the fallback must swallow it and return None (no escape)."""
+        import threading
+        result: list = []
+        t = threading.Thread(target=lambda: result.append(mutator._install_sigterm_raise()))
+        t.start()
+        t.join(timeout=30)
+        self.assertFalse(t.is_alive())
+        self.assertEqual(result, [None])
+        # On the main thread the install succeeds and returns the previous handler.
+        prev = mutator._install_sigterm_raise()
+        try:
+            self.assertIsNotNone(prev)
+            self.assertIs(signal.getsignal(signal.SIGTERM), mutator._sigterm_raises_keyboard_interrupt)
+        finally:
+            signal.signal(signal.SIGTERM, prev if prev is not None else signal.SIG_DFL)
 
 
 if __name__ == "__main__":
