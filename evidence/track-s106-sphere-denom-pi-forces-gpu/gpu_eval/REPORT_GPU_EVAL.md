@@ -27,7 +27,7 @@
 
 ## 2. Root-Cause Physical Diagnosis of `Qwen/Qwen2.5-3B` Static `SphereMap` Catastrophe
 
-*Numbers in this section are console observations not serialized in the shipped JSONs (only the aggregate `kurtosis_summary` is); the per-matrix `rt_err`/`dc`/`dr` values below are reproducible from the shipped weights-free diagnostics but are report-only.*
+*Numbers in this section are console observations not serialized in the shipped JSONs (only the aggregate `kurtosis_summary` is); the per-matrix `rt_err`/`dc`/`dr` values below require the Qwen2.5-3B weights and the GPU evaluator (not shipped), so they are report-only.*
 
 On `Qwen/Qwen2.5-3B`, every static `SphereMap` arm exploded to `WikiKL = 15.6..21.4` (`PPL > 5×10^7`) even at `4.5 bpw`, whereas `p128_A16_3b` remained clean (`WikiKL = 0.518`, `PPL = 16.27`) and **Adversarial Null Shuffle (`null_shuffle_sp_A16_3b`) cut KL nearly `4×` (`19.08 -> 4.94`)**! Exact layerwise round-trip inspection (`rt_err = 3.57e-13`, confirming zero FP16 bug!) isolated the exact culprit to a single layer:
 - **`model.layers.1.mlp.gate_proj.weight`:** raw kurtosis `25.9 -> 3.06`, `dr ∈ [8.57e-5, 9.94e-2]` (`1,160×` row spread), and **`dc ∈ [1.19e-2, 4.43e+1]` (`3,722×` column spread, `dc_max = 44.3`!)**.
@@ -164,14 +164,16 @@ On `Qwen/Qwen2.5-3B`, every static `SphereMap` arm exploded to `WikiKL = 15.6..2
 
 ## 5. Frozen Artifact Manifest (`gpu_eval/` — `9` Sibling Files + `REPORT_GPU_EVAL.md` = `10` Files)
 
+*Note: the Phase-2 numbers in §1–§4 were produced by the pre-edit `s106_phase2_blind_gauntlet.py` (`f066f28b…`, `54,421` B); the head version differs by a comment-only hampack-baseline label.*
+
 | File | Lines | Bytes | Mode | SHA-256 (Full 64-Hex) | Role |
 | :--- | ---: | ---: | :---: | :--- | :--- |
-| `mlos_zone_b_gauntlet_receipt.json` | `92` | `2,718` | `0o644` (git 100644) | `e23145d05c4228932f50ac90a6211659db8f98dbbe0bf2eeeb8f31b2eba05c1c` | mlos Zone B gauntlet receipt (`clean_hardware_run=true`, re-signed with `bound_file_sha256`, `receipt=e8b001de...`) |
-| `mlos_zone_b_pilot_receipt.json` | `92` | `2,721` | `0o644` (git 100644) | `3403698ea134f04ff3bed51affd5ae98f3c493a9da5227a60df11d8156d8d53e` | mlos Zone B pilot receipt (`clean_hardware_run=true`, re-signed with `bound_file_sha256`, `receipt=f815393f...`) |
-| `s106_blind_gauntlet_results.json` | `1` | `85,198` | `0o644` (git 100644) | `ec49d4a76008e1ab968d68d7923e6e9ec7ddd2e18ae8b29917f43adc310a742b` | Canonical Phase 2 results receipt (`117/117` arms, `result_sha256=dab0b4fd...`) |
-| `s106_frozen_pilot_params.json` | `1` | `44,105` | `0o644` (git 100644) | `b075337a70367408f23f4be5188b1f0c2c73e2ce61dd11b6d94637857bb836ef` | Immutable Phase 1B locked constants (inner `pilot_params_sha256=26a40bee...`) |
-| `s106_phase1b_pilot_lock.py` | `523` | `22,329` | `0o644` (git 100644) | `137c6a72be373df3348d95d2c7b46746246ba2a377ff1278196cfcd03198065e` | Phase 1B parameter-lock runner (strictly synthetic Gaussian + Qwen/Qwen2.5-0.5B) |
-| `s106_phase2_blind_gauntlet.py` | `1,202` | `54,421` | `0o644` (git 100644) | `f066f28b632e83a0e01612e947443c03be560953a0e10d3453371908c2c00921` | Phase 2 blind zero-tuning held-out RTX 3080 evaluator (`3` models × `39` arms) |
-| `s106_quant_ops.py` | `816` | `33,725` | `0o644` (git 100644) | `9eebf4843f294f7dd279d45668ab58cb4759807362f1c726e5af9a1e74848144` | Exact-bpw GPU/CPU operator library (SphereMap, E8, A16, A16^8, Power-0.7, Hodge, EQ(S^3), EQ(S^7), Yukawa/Coulomb) |
-| `test_s106_gpu_eval_r5.py` | `232` | `12,032` | `0o644` (git 100644) | `9bf14438a53c652bb0c3a122e6ccc033f86516e8639cb4be665a1a52aebf7020` | Pure-stdlib R5 adversarial + hygiene test suite (6/6 tests, 0 bare asserts) |
-| `verify_s106_gpu_eval.py` | `491` | `23,881` | `0o644` (git 100644) | `e52babd09766386305213f3e53d5bc5c24913d3ef0f055938dd6e8ec66979655` | Pure-stdlib integrity, anti-snooping, CS-08, receipt re-sign + bound-link, and independent verdict re-derivation verifier |
+| `mlos_zone_b_gauntlet_receipt.json` | `92` | `2,718` | `0o644` (git 100644) | `e23145d05c4228932f50ac90a6211659db8f98dbbe0bf2eeeb8f31b2eba05c1c` | mlos Zone B gauntlet receipt (`clean_hardware_run=true`, re-signed with `bound_file_sha256`, `receipt=e8b001de...`)
+| `mlos_zone_b_pilot_receipt.json` | `92` | `2,721` | `0o644` (git 100644) | `3403698ea134f04ff3bed51affd5ae98f3c493a9da5227a60df11d8156d8d53e` | mlos Zone B pilot receipt (`clean_hardware_run=true`, re-signed with `bound_file_sha256`, `receipt=f815393f...`)
+| `s106_blind_gauntlet_results.json` | `1` | `85,198` | `0o644` (git 100644) | `ec49d4a76008e1ab968d68d7923e6e9ec7ddd2e18ae8b29917f43adc310a742b` | Canonical Phase 2 results receipt (`117/117` arms, `result_sha256=dab0b4fd...`)
+| `s106_frozen_pilot_params.json` | `1` | `44,105` | `0o644` (git 100644) | `b075337a70367408f23f4be5188b1f0c2c73e2ce61dd11b6d94637857bb836ef` | Immutable Phase 1B locked constants (inner `pilot_params_sha256=26a40bee...`)
+| `s106_phase1b_pilot_lock.py` | `523` | `22,329` | `0o644` (git 100644) | `137c6a72be373df3348d95d2c7b46746246ba2a377ff1278196cfcd03198065e` | Phase 1B parameter-lock runner (strictly synthetic Gaussian + Qwen/Qwen2.5-0.5B)
+| `s106_phase2_blind_gauntlet.py` | `1,202` | `54,479` | `0o644` (git 100644) | `8c459a3cb95705f79024502417b19eceae256f005f685364d837d4605e3b78a8` | `8c459a3cb95705f79024502417b19eceae256f005f685364d837d4605e3b78a8` |
+| `s106_quant_ops.py` | `816` | `33,725` | `0o644` (git 100644) | `9eebf4843f294f7dd279d45668ab58cb4759807362f1c726e5af9a1e74848144` | Exact-bpw GPU/CPU operator library (SphereMap, E8, A16, A16^8, Power-0.7, Hodge, EQ(S^3), EQ(S^7), Yukawa/Coulomb)
+| `test_s106_gpu_eval_r5.py` | `232` | `12,032` | `0o644` (git 100644) | `9bf14438a53c652bb0c3a122e6ccc033f86516e8639cb4be665a1a52aebf7020` | `9bf14438a53c652bb0c3a122e6ccc033f86516e8639cb4be665a1a52aebf7020` |
+| `verify_s106_gpu_eval.py` | `491` | `23,881` | `0o644` (git 100644) | `e52babd09766386305213f3e53d5bc5c24913d3ef0f055938dd6e8ec66979655` | `e52babd09766386305213f3e53d5bc5c24913d3ef0f055938dd6e8ec66979655` |

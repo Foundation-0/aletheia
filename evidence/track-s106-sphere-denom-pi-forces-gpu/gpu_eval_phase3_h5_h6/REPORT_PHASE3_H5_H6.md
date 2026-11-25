@@ -1,8 +1,8 @@
 # Track S106 Phase 3 Report: Amendments 1 & 2 (`H5a`, `H5b`, `H6a`, `H6b`, `H6c`)
 
-- **Parent Preregistration SHA-256:** `ac3e62116bc4841320d2c713787c23568beed1ae738bf9b284b7f0c2a118d72a`
-- **Amendment 1 (`H5`) SHA-256:** `c83910a0e1a98e2afe473e5b15109fcbaf8e16bf85a08188b10fbdecfd75a05f` (`h5_locked_protocol.json` locked `2026-11-25T13:37:02Z`, `mlos_zone_b_h5_receipt.json` `clean_hardware_run=true`, `anomalies=[]`, `1534369.0 ms`, `57°C -> 67°C`, `compute_vram_mib: 0 -> 0`)
-- **Amendment 2 (`H6`) SHA-256:** `b676cc556c9bbfa0849c29c3326ebd13e8f43e9c65960ddb5eb508fdead21d85` (`h6_locked_protocol.json` locked `2026-11-25T14:09:23Z`, `mlos_zone_b_h6_receipt.json` `clean_hardware_run=true`, `anomalies=[]`, `1106793.1 ms`, `53°C -> 71°C`, `compute_vram_mib: 0 -> 0`)
+- **Parent Preregistration SHA-256:** `ac3e62116bc4841320d2c713787c23568beed1ae738bf9b284b7f0c2a118d72a` — **UNVERIFIABLE (file not shipped in any reachable repo)**
+- **Amendment 1 (`H5`) SHA-256:** `c83910a0e1a98e2afe473e5b15109fcbaf8e16bf85a08188b10fbdecfd75a05f` — **UNVERIFIABLE (not shipped)** (`h5_locked_protocol.json` locked `2026-11-25T13:37:02Z`, `mlos_zone_b_h5_receipt.json` `clean_hardware_run=true`, `anomalies=[]`, `1534369.0 ms`, `57°C -> 67°C`, `compute_vram_mib: 0 -> 0`)
+- **Amendment 2 (`H6`) SHA-256:** `b676cc556c9bbfa0849c29c3326ebd13e8f43e9c65960ddb5eb508fdead21d85` — **UNVERIFIABLE (not shipped)** (`h6_locked_protocol.json` locked `2026-11-25T14:09:23Z`, `mlos_zone_b_h6_receipt.json` `clean_hardware_run=true`, `anomalies=[]`, `1106793.1 ms`, `53°C -> 71°C`, `compute_vram_mib: 0 -> 0`)
 - **Isolation & Integrity:** Executed exclusively in sibling dir `gpu_eval_phase3_h5_h6/` (leaving audited Phase-2 `gpu_eval/` 100% untouched); `74/74` LLM arms (`48` H5 + `26` H6) + `4/4` matched-param `10,818,432`-param micro-LMs completed with **`0` syndrome errors, `0` out-of-ball groups, `0` non-block diffs, `WEIGHTS=0`, `0` GitHub pushes**.
 
 ---
@@ -66,4 +66,4 @@
 | `s106_h6_hypersphere_arrangement_eval.py` | `558` | `29,946` | `0o644` (git 100644) | `639529b2019234f9722a4ed1d2715a03bf02bb7c77b02e725c77c571f1504d85` | Amendment 2 (H6a/H6b/H6c) held-out + micro-LM evaluator |
 | `s106_h6_results.json` | `1` | `17,711` | `0o644` (git 100644) | `f8b6e2a163f88c95d518a51a2f94af02acd24fcb450ede55a9742f6de2664fc4` | Canonical H6 results (`26/26` arms + `4` micro-LMs, `result_sha256=5ab86f4b...`) |
 | `test_s106_phase3_r5.py` | `189` | `9,824` | `0o644` (git 100644) | `fc1286b7e9d04cf1720b9f67a6d36c086d4a3dae46c41ce7f0357c20f48f7a4d` | Pure-stdlib R5 adversarial + hygiene test suite (6/6 tests, 0 bare asserts) |
-| `verify_s106_phase3.py` | `283` | `13,603` | `0o644` (git 100644) | `f41be384691994526efe690d7c80d1416e00f4caacd8d956405e6967cf2f1b8f` | Pure-stdlib integrity, receipt re-sign + bound-link, and literal locked-rule verdict verifier |
+| `verify_s106_phase3.py` | `284` | `13,663` | `0o644` (git 100644) | `8651e55b0586b62b07bd4dc26f804502f09884d48f7c0dc901638d8a4627ea9f` | Pure-stdlib integrity, receipt re-sign + bound-link, and literal locked-rule verdict verifier |

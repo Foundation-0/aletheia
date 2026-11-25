@@ -257,7 +257,8 @@ def verify_phase3_dir(d: pathlib.Path) -> dict[str, Any]:
                      "amendment1_sha256", AMEND1_PREFIX, regrade_h5)
     h6 = _verify_one(d, "h6_locked_protocol.json", "s106_h6_results.json", "mlos_zone_b_h6_receipt.json",
                      "amendment2_sha256", AMEND2_PREFIX, regrade_h6)
-    return {"ok": True, "h5": h5, "h6": h6}
+    return {"ok": True, "h5": h5, "h6": h6,
+            "amendment_status": "UNVERIFIABLE_NOT_SHIPPED"}
 
 
 def main(argv: list[str] | None = None) -> int:
