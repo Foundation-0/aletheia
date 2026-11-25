@@ -57,7 +57,7 @@ UPSTREAM_CERT_PINS: tuple[Mapping[str, str], ...] = (
         "track": "S73",
         "file": "track-s73-lowbit-and-sharednorm-quad-snake/rtx3080_s73_certificate.json",
         "sha256": "33dfb4153fe974e9ef13120190c14ada6dda63ffbee6caa46047d274f32d36cf",
-        "source_repo": "Foundation-0/cave-expedition",
+        "source_repo": "external-historical-pin (absent from aletheia, cave-expedition, math0@f9970082)",
     }),
     MappingProxyType({
         "track": "S77",
@@ -69,13 +69,13 @@ UPSTREAM_CERT_PINS: tuple[Mapping[str, str], ...] = (
         "track": "S78",
         "file": "track-s78-engram-lora-capacity-siliquant-mdl/s78_engram_lora_siliquant_certificate.json",
         "sha256": "3b8341ef5f588f970accb9a9d28f0b683af9747be045e69196e6c19d3fa58378",
-        "source_repo": "Foundation-0/cave-expedition",
+        "source_repo": "external-historical-pin (absent from aletheia, cave-expedition, math0@f9970082)",
     }),
     MappingProxyType({
         "track": "S79",
         "file": "track-s79-2dsd-multipole-dense-sparse-laws/s79_2dsd_multipole_certificate.json",
         "sha256": "9c30539e6d585141a9b1a5111935ca86de0f740e80749a622547a18242465ad8",
-        "source_repo": "Foundation-0/cave-expedition",
+        "source_repo": "external-historical-pin (absent from aletheia, cave-expedition, math0@f9970082)",
     }),
     MappingProxyType({
         "track": "S80",
