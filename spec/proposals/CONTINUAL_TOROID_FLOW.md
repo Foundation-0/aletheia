@@ -36,7 +36,7 @@ whose silent gap grows linearly with swarm age: $\Delta_{\text{blind}}(L) = \lfl
 
 ## 2. The Continual Rotational-Transform Law ($\iota_W > 0$)
 
-For any trailing sliding window of length $W_{\text{eff}} = \min(W, N)$ over the `seq`-ordered board messages ($W \ge 1$ exact integer, default $W = 50$), define the exact rational **sliding-window rotational transform**:
+For any trailing sliding window of length $W_{\text{eff}} = \min(W, N)$ over the `seq`-ordered board messages ($W \ge 1$ exact integer, default $W = 50$), define the exact rational **sliding-window rotational transform**. The window is taken **by message count** — the last $W_{\text{eff}}$ messages of the `seq`-ordered board (`ordered_msgs[-W:]` in `aletheia/flow_audit.py`), not the seq interval $(M - W, M]$; the two coincide only when the trailing seqs are contiguous:
 
 $$\iota_W := \frac{P_W}{W_{\text{eff}}} \in \mathbb{Q} \cap [0, 1],$$
 
