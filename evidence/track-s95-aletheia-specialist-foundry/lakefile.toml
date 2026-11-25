@@ -1,0 +1,5 @@
+name = "SpecialistFoundryCerts"
+defaultTargets = ["SpecialistFoundryCerts"]
+
+[[lean_lib]]
+name = "SpecialistFoundryCerts"
