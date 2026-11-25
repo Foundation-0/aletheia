@@ -809,16 +809,21 @@ def verify_lean_file(lean_path: pathlib.Path, check_pinned_sha: bool = True) -> 
 
 
 def verify_upstream_pins(expedition_root: pathlib.Path) -> Dict[str, Any]:
-    """Verify all 7 frozen upstream expedition cert SHA-256 pins on disk."""
+    """Verify upstream cert pins: in-repo pins are opened and re-hashed on disk;
+    cross-repo pins (S68/S70/S73/S78) name Foundation-0/cave-expedition and are SHA-pinned strings."""
     matched = 0
+    cross_repo = []
     for tid, rel_path, exp_sha in UPSTREAM_CERT_MANIFEST:
+        if tid in oracle.CROSS_REPO_UPSTREAM:
+            cross_repo.append({"track_id": tid, "source_repo": oracle.CROSS_REPO_SOURCE, "sha256": exp_sha})
+            continue
         target = expedition_root / rel_path
         raw = read_regular_file_bytes(target, 4 * 1024 * 1024, f"upstream:{tid}")
         got = hashlib.sha256(raw).hexdigest()
         if not hmac.compare_digest(got, exp_sha):
             raise VerifyError("UPSTREAM_SHA_MISMATCH", f"{tid}: got {got}, expected {exp_sha}")
         matched += 1
-    return {"ok": True, "matched": matched, "total": len(UPSTREAM_CERT_MANIFEST)}
+    return {"ok": True, "matched": matched, "cross_repo": cross_repo, "total": len(UPSTREAM_CERT_MANIFEST)}
 
 
 def _parse_cli_args(argv: Any) -> Dict[str, Any]:

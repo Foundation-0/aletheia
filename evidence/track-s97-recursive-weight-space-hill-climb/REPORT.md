@@ -17,7 +17,7 @@ Can a recursive weight-space editing hill-climb system (`ALETHEIA-WSE-HC`) **rep
 
 ## 2. Pillar 1 — Exact Pure-$\mathbb{Z}/\mathbb{Q}$ Theory of `ALETHEIA-WSE-HC` (`[exact]`)
 
-All equations below are computed in exact `int`/`Fraction` arithmetic (`s97_wse_hc_oracle.py`, zero floats) and independently re-derived in `verify_s97_wse_hc.py`, anchored to `7` frozen upstream expedition certificates (`S31`, `S68`, `S70`, `S73`, `S77`, `S78`, `S80` — `7/7` SHA-256 verified on disk).
+All equations below are computed in exact `int`/`Fraction` arithmetic (`s97_wse_hc_oracle.py`, zero floats) and independently re-derived in `verify_s97_wse_hc.py`, anchored to `7` frozen upstream expedition certificates (`S31`, `S68`, `S70`, `S73`, `S77`, `S78`, `S80`): `3/7` verified on disk in this repo (`S31` at its corrected path `track-s31-aletheia-v22-misfolding/`, `S77`, `S80` — re-hashed by `--verify-upstream`), and `4/7` (`S68`, `S70`, `S73`, `S78`) are cross-repo SHA pins in `Foundation-0/cave-expedition` (their certificate files are not in this repo).
 
 ### 2.1 (a) Subspace Dimensionality Collapse, Householder Isometry & `BlockH4` Parseval
 - **Target Parameter Geometry (`Qwen2.5-0.5B`, `layers 18..23` `self_attn.o_proj`, `d = 896`):** Ambient dim $D = 6 \times 896^2 = 4,816,896$ (`802,816` per layer) vs. rank-`16` LoRA budget $P_{\mathrm{LoRA}} = 172,032$ ($D / P_{\mathrm{LoRA}} = 28/1$) vs. per-step rank-`4` privileged-basis (`256`) + nullspace (`768`) subspace $d_{\mathrm{edit}} = 4 \times (256 + 768) = 4,096$, yielding an exact **`1,176/1` (`1,176×`) full SNR lift** and **`196/1` (`196×`) single-layer SNR lift** (Lean `thm01`).
@@ -69,7 +69,7 @@ Executed on **NVIDIA GeForce RTX 3080 Laptop GPU** (`8 GiB` GDDR6) via `flock /t
 - **Elaboration & Axioms:** Direct `lean` `rc=0`, `0` stderr bytes, `0` warnings; isolated scratch `lake build` (`4 jobs`, `0` warnings); axioms **`2` literal `[]` (`thm07`, `thm16`) + `1` `[propext]` (`thm01`) + `15` `[propext, Quot.sound]`**, **`0` `Classical.choice`**, `0` banned axioms, `0` external imports.
 - **R12+ Static/Live Gate & Security Hardening:** `74` adversarial trust-escape probes blocked (`0` FP on `6` clean controls incl. `decide (native := false)`, `decide (native := Bool.false)`, `export Nat (succ)`), `STRING_OR_GUILLEMET` (`["«»]`) enforced on comment-only stripped source (blocking `#2645` char-quote escapes and `#2728` `X1`/`X2`/`X3` lexing desyncs structurally), `\bLean\s*\.` whitespace-gap check, modifier-prefixed `private`/`protected theorem` discovery, `SAFE_LEAN_ENV_KEYS` 8-key allowlist subprocess environment, zero-TOCTOU private `0o700` temp-copy elaboration, strict non-coercing anchor types with `80`-digit numeric DoS cap, `2467`-digit / `8192`-bit cert integer cap, zero-float canonical `result_sha256` re-derivation, and leaf-complete `SEC`/`FR0`/`FR1` verification.
 - **Verification & Adversarial Gate Receipts:**
-  - `STANDALONE_CMP=EXACT`; live `--check --verify-lean --verify-upstream .. --json` `ok=true` (`18/18` Lean `83dd4cac...`, `7/7` upstream cert SHAs verified on disk).
+  - `STANDALONE_CMP=EXACT`; live `--check --verify-lean --verify-upstream .. --json` `ok=true` (`18/18` Lean, `3/7` upstream cert SHAs re-hashed on disk + `4/7` cross-repo pins in `Foundation-0/cave-expedition`: `S68`, `S70`, `S73`, `S78`).
   - Multi-environment R4/R5 parity: **`9/9 OK ×8` (`0` skips)** across `-I -B`, `-I -O -B`, `-I -B -W error`, `PYTHONHASHSEED=42`, `umask 077`, bare `env -i PATH=/usr/bin:/bin`, `HOME=/nonexistent`, and read-only `0o500` dir.
   - Official v2.1 4-surface `zone_b_fuzzer`: **`82/82 PASS`** (`CLI 25/25`, `FR1 19/19`, `FR0 19/19`, `SEC 19/19`; `0` bypasses, `0` crashes).
   - Exhaustive re-signed leaf-mutation sweep: **`468/468 = 100.0%` killed** (`234/234 SEC + 234/234 FR0`; `0` bypasses).
@@ -95,10 +95,10 @@ Executed on **NVIDIA GeForce RTX 3080 Laptop GPU** (`8 GiB` GDDR6) via `flock /t
 | `lakefile.toml` | `7` | `203` | `0o644` | `ca835bf2ce6c49a17950479e93791c9460f3eae954ccaf4d19c16fe2201a432c` | Standalone Lake manifest (`4`-job clean build) |
 | `lean-toolchain` | `1` | `25` | `0o644` | `582a63f8f9c5128067b688778c1051cf1464c3ca9d57b9325025c051c29b774a` | Pinned `leanprover/lean4:v4.36.0` |
 | `rtx3080_s97_wse_hc_bench.py` | `895` | `37,294` | `0o644` | `707e2e506ca410e5cacddd7aeee788f7ddc68250a73c260b75824304f6c73b8d` | Offline 4-way RTX 3080 `Qwen2.5-0.5B` benchmark harness |
-| `rtx3080_s97_wse_hc_results.json` | `1` | `3,446` | `0o600` | `3623b7900fca3f442fac485e7c54a7bf1ec12b2286750fb7b3022f48b493d210` | Compact live RTX 3080 receipt (`result_sha256=cef9653b...`) |
-| `mlos_zone_b_receipt.json` | `91` | `2,629` | `0o600` | `611d72323dbf9b3f1b6ca95680ee8ec63147918b3209f2052b4bca5954319173` | `mlos` Determinism Zone `B` receipt (`receipt_sha256=89b46d50...`) |
-| `s97_wse_hc_oracle.py` | `694` | `31,784` | `0o644` | `5de0e125882d1eab7408390eb02019d402b3789b472ecff6f46c981a1fab6922` | Pure-$\mathbb{Z}/\mathbb{Q}$ oracle + zero-float live anchor pin |
-| `verify_s97_wse_hc.py` | `907` | `41,855` | `0o644` | `03b3648a6303b3c9429c4478d78a8fb00561ab09bfc939d5379de465d86b3988` | Hardened non-hollow R12+ verifier (`SEC`/`FR0`/`FR1`/`CLI`) |
-| `s97_wse_hc_certificate.json` | `1` | `10,484` | `0o600` | `506c6baa149dec6aae1055f8428d868a49cea6e709e6ba1aa73752337efc48de` | Canonical cert (embedded `cert=17ba806c...`, `payload=ba15124b...`) |
-| `test_s97_wse_hc_r5.py` | `880` | `48,718` | `0o644` | `0954a7c88df098513d80f847dc53a648edd8ac1045e10cbb0e080061ffadfc75` | R5 adversarial + 0-skip Lean-less CI + 74-probe R12+ suite |
+| `rtx3080_s97_wse_hc_results.json` | `1` | `3,446` | `0o644` (`0o600` on `--write`) | `3623b7900fca3f442fac485e7c54a7bf1ec12b2286750fb7b3022f48b493d210` | Compact live RTX 3080 receipt (`result_sha256=cef9653b...`) |
+| `mlos_zone_b_receipt.json` | `91` | `2,629` | `0o644` (`0o600` on `--write`) | `611d72323dbf9b3f1b6ca95680ee8ec63147918b3209f2052b4bca5954319173` | `mlos` Determinism Zone `B` receipt (`receipt_sha256=89b46d50...`) |
+| `s97_wse_hc_oracle.py` | `698` | `31,984` | `0o644` | `d912728aa2d46aefd59aec4e44119d4f7546f2b8e601c400dfad5bfd6585dace` | Pure-$\mathbb{Z}/\mathbb{Q}$ oracle + zero-float live anchor pin |
+| `verify_s97_wse_hc.py` | `912` | `42,184` | `0o644` | `6db59d9f41f6c68e676ac2e2425a59c7d1f071edc03dfd83c705381d12d9c480` | Hardened non-hollow R12+ verifier (`SEC`/`FR0`/`FR1`/`CLI`) |
+| `s97_wse_hc_certificate.json` | `1` | `10,465` | `0o644` (`0o600` on `--write`) | `697bec02db009e8fb161f9bd61ab641575bebc9ebe04b35845f148767b5796e8` | Canonical cert (embedded `cert=e66ca16d...`, `payload=7e24f423...`) |
+| `test_s97_wse_hc_r5.py` | `883` | `49,000` | `0o644` | `12f2258cac1b99a7dc6d8fc96e20490f73cf4f8e35145e7eee657f12ea4111ed` | R5 adversarial + 0-skip Lean-less CI + 74-probe R12+ suite |
 | `REPORT.md` | — | — | `0o644` | *(self; exact lines/bytes/SHA-256 recorded externally in completion receipt)* | Track S97 synthesis & honesty report |

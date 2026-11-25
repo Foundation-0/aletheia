@@ -278,12 +278,15 @@ class TestS97VerifierAndSecurity(unittest.TestCase):
             verifier.verify_certificate_dict(self.valid_cert, full_replay=1)  # type: ignore[arg-type]
         self.assertEqual(ctx2.exception.code, "INVALID_FULL_REPLAY")
 
-        # Verify all 7 upstream certs on disk when expedition root is present
+        # Verify upstream pins when expedition root is present: 3 in-repo certs re-hashed on
+        # disk (S31 path fixed, S77, S80); 4 cross-repo pins (S68/S70/S73/S78) name cave-expedition.
         up_root = _find_upstream_root()
         if up_root is not None:
             up = verifier.verify_upstream_pins(up_root)
-            self.assertEqual(up["matched"], 7)
+            self.assertEqual(up["matched"], 3)
             self.assertEqual(up["total"], 7)
+            self.assertEqual(len(up["cross_repo"]), 4)
+            self.assertTrue(all(r["source_repo"] == "Foundation-0/cave-expedition" for r in up["cross_repo"]))
 
         tmp = pathlib.Path(tempfile.mkdtemp(prefix="s97_up_"))
         try:

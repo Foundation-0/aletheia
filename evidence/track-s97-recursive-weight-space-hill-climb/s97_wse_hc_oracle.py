@@ -57,8 +57,12 @@ LEAN_THEOREMS: Tuple[str, ...] = (
     "thm18_backprop_free_vram_savings_exact",
 )
 
+# Tracks whose certificate files are NOT in this repo: cross-repo SHA pins naming the source repo.
+CROSS_REPO_UPSTREAM: Tuple[str, ...] = ("S68", "S70", "S73", "S78")
+CROSS_REPO_SOURCE = "Foundation-0/cave-expedition"
+
 UPSTREAM_CERT_MANIFEST: Tuple[Tuple[str, str, str], ...] = (
-    ("S31", "track-s31-aletheia-v22-society-misfolding-tomography/aletheia_v22_misfolding_certificate.json", "f4f7f8abff0c7eae0d5678016c1041ab34870ef2de57a2f83e4cbb9a529f8a9b"),
+    ("S31", "track-s31-aletheia-v22-misfolding/aletheia_v22_misfolding_certificate.json", "f4f7f8abff0c7eae0d5678016c1041ab34870ef2de57a2f83e4cbb9a529f8a9b"),
     ("S68", "track-s68-zero-cal-adaptive-blockh4-router-and-ptx/rtx3080_s68_certificate.json", "a0b38faac25511be90fbc823754fc5819931250ce0af0c2a15a23cf05c957e4e"),
     ("S70", "track-s70-cross-layer-and-sorted-blockh4-lean4/s70_certificate.json", "5cdce98df676290d78688da689fe576492487125653e563c667df000980c45e4"),
     ("S73", "track-s73-lowbit-and-sharednorm-quad-snake/rtx3080_s73_certificate.json", "33dfb4153fe974e9ef13120190c14ada6dda63ffbee6caa46047d274f32d36cf"),
