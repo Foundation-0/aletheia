@@ -25,17 +25,26 @@ v2.0 upgrades (closing aletheia#5 #1, #6, #7, #11, #12 and aletheia#3 §4):
 from __future__ import annotations
 
 import ast
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import copy
 from dataclasses import dataclass
+import os
 from pathlib import Path
+import queue
+import secrets
 import shlex
+import signal
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
 from typing import Any, Sequence
 
 from .strict_io import AletheiaError, require_ok
+
+_MAX_MUTATION_WORKERS = 64
+_COPY_IGNORE_NAMES = frozenset({".git", "__pycache__", ".venv", "venv"})
 
 _REQUIRE_FUNC_NAMES = {"require", "require_ok", "require_cert", "check", "ensure"}
 
@@ -1000,7 +1009,10 @@ def _prepare_cmd(test_cmd: str, target_rel: str, *, add_cwd: bool = False) -> li
     When `add_cwd=True`, omits `-I` (keeping `-s -O -B`) so repo-local imports resolve.
     """
     expanded = test_cmd.replace("{target}", target_rel)
-    parts = shlex.split(expanded)
+    try:
+        parts = shlex.split(expanded)
+    except ValueError as exc:
+        raise AletheiaError("INVALID_TEST_CMD", f"malformed test_cmd: {exc}") from exc
     require_ok(len(parts) > 0, "EMPTY_TEST_CMD", "test_cmd cannot be empty")
     if parts[0] in ("python", "python3"):
         rest = parts[1:]
@@ -1019,6 +1031,120 @@ def _prepare_cmd(test_cmd: str, target_rel: str, *, add_cwd: bool = False) -> li
     return parts
 
 
+def _select_snap_parent(
+    snap_root: Path | None,
+    *,
+    prefer_shm: bool,
+    platform_name: str | None = None,
+    shm_dir: Path | None = None,
+) -> Path:
+    """Select parent directory for private 0o700 mutation snaps (/dev/shm on Linux when parallel, else tempdir)."""
+    if snap_root is not None:
+        try:
+            st = os.lstat(snap_root)
+        except OSError as exc:
+            raise AletheiaError("INVALID_SNAP_ROOT", f"snap_root unavailable: {exc}") from exc
+        require_ok(
+            stat.S_ISDIR(st.st_mode) and os.access(snap_root, os.W_OK | os.X_OK),
+            "INVALID_SNAP_ROOT",
+            f"snap_root must be a writable non-symlink directory: {snap_root}",
+        )
+        return snap_root.resolve()
+    plat = sys.platform if platform_name is None else platform_name
+    shm_cand = Path("/dev/shm") if shm_dir is None else shm_dir
+    if prefer_shm and plat.startswith("linux"):
+        try:
+            st_shm = os.lstat(shm_cand)
+        except OSError:
+            st_shm = None
+        if st_shm is not None and stat.S_ISDIR(st_shm.st_mode) and os.access(shm_cand, os.W_OK | os.X_OK):
+            return shm_cand
+    return Path(tempfile.gettempdir()).resolve()
+
+
+def _verify_private_dir_stat(st: os.stat_result, expected_uid: int, label: Path) -> None:
+    """Fail closed if a newly created private snap directory does not have mode 0o700 and matching UID."""
+    require_ok(stat.S_ISDIR(st.st_mode), "SNAP_DIR_SECURITY_FAILED", f"snap path is not a directory: {label}")
+    require_ok(st.st_uid == expected_uid, "SNAP_DIR_SECURITY_FAILED", f"snap dir uid mismatch: {label}")
+    require_ok((st.st_mode & 0o777) == 0o700, "SNAP_DIR_SECURITY_FAILED", f"snap dir mode is not 0o700: {label}")
+
+
+def _create_private_snap_dir(parent: Path) -> Path:
+    """Create an exclusive private 0o700 snap directory inside `parent` using CSPRNG naming."""
+    cand = parent / f"aletheia_mut_{os.getpid()}_{secrets.token_hex(8)}"
+    try:
+        os.mkdir(cand, 0o700)
+    except OSError as exc:
+        raise AletheiaError("SNAP_DIR_CREATE_FAILED", f"failed to create snap dir {cand}: {exc}") from exc
+    if os.name == "posix":
+        try:
+            os.chmod(cand, 0o700)
+            _verify_private_dir_stat(os.lstat(cand), os.getuid(), cand)
+        except BaseException:
+            try:
+                os.rmdir(cand)
+            except OSError:
+                pass
+            raise
+    return cand
+
+
+def _sigterm_raises_keyboard_interrupt(signum: int, frame: Any) -> None:
+    # Convert SIGTERM (timeout, CI cancellation, process managers) into a catchable
+    # exception so the `finally: shutil.rmtree(snap_dir)` cleanup runs instead of
+    # leaking the /dev/shm snap (rc=143 default would skip it).
+    raise KeyboardInterrupt(f"SIGTERM ({signum}) received; cleaning up snap dir")
+
+
+def _install_sigterm_raise() -> Any:
+    try:
+        return signal.signal(signal.SIGTERM, _sigterm_raises_keyboard_interrupt)
+    except (ValueError, OSError):
+        # Not in the main thread (or unsupported platform): skip, cleanup stays best-effort.
+        pass
+    return None
+
+
+def _copy_workspace_no_symlinks(src_root: Path, dst_root: Path) -> None:
+    """
+    Copy `src_root` into `dst_root` preserving independent inodes (`st_nlink == 1`)
+    and rejecting symlinks or non-regular files fail-closed.
+    """
+    os.mkdir(dst_root, 0o700)
+    stack: list[tuple[Path, Path]] = [(src_root, dst_root)]
+    while stack:
+        cur_src, cur_dst = stack.pop()
+        with os.scandir(cur_src) as it:
+            entries = sorted(it, key=lambda e: e.name)
+        for entry in entries:
+            name = entry.name
+            if name in _COPY_IGNORE_NAMES or name.endswith(".pyc"):
+                continue
+            if entry.is_symlink():
+                raise AletheiaError("SYMLINK_IN_WORKROOT", f"symlink forbidden inside work_root: {entry.path}")
+            dst_item = cur_dst / name
+            if entry.is_dir(follow_symlinks=False):
+                os.mkdir(dst_item, 0o700)
+                stack.append((Path(entry.path), dst_item))
+            elif entry.is_file(follow_symlinks=False):
+                shutil.copy2(entry.path, dst_item)
+            else:
+                raise AletheiaError("NON_REGULAR_IN_WORKROOT", f"non-regular file forbidden inside work_root: {entry.path}")
+
+
+def _child_env_for_workers(workers: int) -> dict[str, str] | None:
+    """Pin single-threaded BLAS/OpenMP and disable bytecode writes for parallel worker subprocesses."""
+    if workers <= 1:
+        return None
+    env = dict(os.environ)
+    env["OPENBLAS_NUM_THREADS"] = "1"
+    env["OMP_NUM_THREADS"] = "1"
+    env["MKL_NUM_THREADS"] = "1"
+    env["NUMEXPR_NUM_THREADS"] = "1"
+    env["PYTHONDONTWRITEBYTECODE"] = "1"
+    return env
+
+
 def run_mutation_suite(
     script_path: Path,
     test_cmd: str,
@@ -1029,11 +1155,21 @@ def run_mutation_suite(
     include_boundaries: bool = True,
     add_cwd: bool = False,
     extra_guards: Sequence[str] = (),
+    workers: int = 1,
+    snap_root: Path | None = None,
 ) -> dict[str, Any]:
     """
     Run AST refusal-site mutation testing against `script_path` in an isolated temporary workspace.
     Never modifies any file on disk outside the temporary directory!
+    With `workers > 1`, executes mutants in parallel across independent per-slot copies inside a
+    private `0o700` RAM-backed `/dev/shm` snap on Linux (with `tempfile.gettempdir()` fallback on
+    macOS/Windows), preserving `st_nlink == 1` semantics and bit-identical sorted output.
     """
+    require_ok(
+        type(workers) is int and 1 <= workers <= _MAX_MUTATION_WORKERS,
+        "INVALID_WORKERS",
+        f"workers must be exact int in [1, {_MAX_MUTATION_WORKERS}], got {workers!r}",
+    )
     target = script_path.resolve()
     require_ok(target.is_file(), "TARGET_SCRIPT_NOT_FOUND", f"script not found: {target}")
     src_root = (work_root or target.parent).resolve()
@@ -1063,20 +1199,29 @@ def run_mutation_suite(
 
     covered_lines = sorted({s.lineno for s in sites})
     rel_target = target.relative_to(src_root)
+    cmd = _prepare_cmd(test_cmd, str(rel_target), add_cwd=add_cwd)
+    child_env = _child_env_for_workers(workers)
+    effective_workers = min(workers, len(sites))
+    snap_parent = _select_snap_parent(snap_root, prefer_shm=(workers > 1))
+    snap_dir = _create_private_snap_dir(snap_parent)
 
-    with tempfile.TemporaryDirectory(prefix="aletheia_mut_") as tmp_s:
-        tmp_root = Path(tmp_s) / "work"
-        shutil.copytree(
-            src_root,
-            tmp_root,
-            ignore=shutil.ignore_patterns(".git", "__pycache__", "*.pyc", ".venv", "venv"),
-        )
+    _prev_sigterm = None
+    try:
+        if workers > 1:
+            _prev_sigterm = _install_sigterm_raise()
+        tmp_root = snap_dir / "slot_0"
+        try:
+            _copy_workspace_no_symlinks(src_root, tmp_root)
+        except OSError as exc:
+            raise AletheiaError(
+                "SNAP_COPY_FAILED",
+                f"failed to copy work_root into snap slot 0 (workers={workers}): {exc}",
+            ) from exc
         tmp_target = tmp_root / rel_target
-        cmd = _prepare_cmd(test_cmd, str(rel_target), add_cwd=add_cwd)
 
         # 1. Verify unmutated baseline passes (catch TimeoutExpired cleanly -> aletheia#5 #7)
         try:
-            base_proc = subprocess.run(cmd, cwd=str(tmp_root), capture_output=True, timeout=timeout, check=False)
+            base_proc = subprocess.run(cmd, cwd=str(tmp_root), env=child_env, capture_output=True, timeout=timeout, check=False)
         except subprocess.TimeoutExpired as exc:
             raise AletheiaError(
                 "BASELINE_TEST_TIMEOUT",
@@ -1098,7 +1243,7 @@ def run_mutation_suite(
         #    test command that pins the target's hash or formatting), not from the removed guard.
         tmp_target.write_text(null_mutant_source(source), encoding="utf-8", newline="\n")
         try:
-            null_proc = subprocess.run(cmd, cwd=str(tmp_root), capture_output=True, timeout=timeout, check=False)
+            null_proc = subprocess.run(cmd, cwd=str(tmp_root), env=child_env, capture_output=True, timeout=timeout, check=False)
         except subprocess.TimeoutExpired as exc:
             raise AletheiaError(
                 "NULL_MUTANT_TIMEOUT",
@@ -1122,33 +1267,112 @@ def run_mutation_suite(
         killed = 0
         survivors: list[dict[str, Any]] = []
 
-        for site in sites:
-            mutated_code = apply_single_mutation(source, site)
-            tmp_target.write_text(mutated_code, encoding="utf-8", newline="\n")
+        if effective_workers == 1:
+            for site in sites:
+                mutated_code = apply_single_mutation(source, site)
+                tmp_target.write_text(mutated_code, encoding="utf-8", newline="\n")
+                try:
+                    proc = subprocess.run(cmd, cwd=str(tmp_root), env=child_env, capture_output=True, timeout=timeout, check=False)
+                    is_killed = proc.returncode != 0
+                    rc = proc.returncode
+                except subprocess.TimeoutExpired:
+                    is_killed = True
+                    rc = -9
+
+                entry = {
+                    "id": site.mutant_id,
+                    "kind": site.kind,
+                    "line": site.lineno,
+                    "original": site.original_src,
+                    "mutated": site.mutated_src,
+                    "returncode": rc,
+                    "status": "KILLED" if is_killed else "SURVIVED",
+                }
+                results.append(entry)
+                if is_killed:
+                    killed += 1
+                else:
+                    survivors.append(entry)
+
+                tmp_target.write_text(source, encoding="utf-8", newline="\n")
+        else:
+            # Materialize per-worker isolated copies inside the RAM/temp snap dir so every
+            # sibling file retains independent inode semantics (`st_nlink == 1`).
+            slots: list[tuple[Path, Path]] = [(tmp_root, tmp_target)]
+            for slot_i in range(1, effective_workers):
+                slot_root = snap_dir / f"slot_{slot_i}"
+                try:
+                    shutil.copytree(tmp_root, slot_root)
+                except OSError as exc:
+                    # Each slot is a full copy of work_root into RAM-backed /dev/shm
+                    # (or the tempdir fallback); with many workers on a large work_root
+                    # this can hit ENOSPC. Fail closed with a structured error instead of
+                    # a raw traceback; the finally below still removes snap_dir.
+                    raise AletheiaError(
+                        "SNAP_COPY_FAILED",
+                        f"failed to replicate work_root into worker slot {slot_root} (workers={effective_workers}): {exc}",
+                    ) from exc
+                slots.append((slot_root, slot_root / rel_target))
+
+            mutated_sources = [apply_single_mutation(source, site) for site in sites]
+            slot_pool: queue.Queue[int] = queue.Queue()
+            for slot_i in range(effective_workers):
+                slot_pool.put(slot_i)
+
+            def _eval_one(idx: int, site: MutantSite, mutated_code: str) -> tuple[int, dict[str, Any]]:
+                slot_i = slot_pool.get()
+                s_root, s_target = slots[slot_i]
+                try:
+                    s_target.write_text(mutated_code, encoding="utf-8", newline="\n")
+                    try:
+                        proc = subprocess.run(cmd, cwd=str(s_root), env=child_env, capture_output=True, timeout=timeout, check=False)
+                        is_killed = proc.returncode != 0
+                        rc = proc.returncode
+                    except subprocess.TimeoutExpired:
+                        is_killed = True
+                        rc = -9
+                    finally:
+                        s_target.write_text(source, encoding="utf-8", newline="\n")
+                finally:
+                    slot_pool.put(slot_i)
+
+                return idx, {
+                    "id": site.mutant_id,
+                    "kind": site.kind,
+                    "line": site.lineno,
+                    "original": site.original_src,
+                    "mutated": site.mutated_src,
+                    "returncode": rc,
+                    "status": "KILLED" if is_killed else "SURVIVED",
+                }
+
+            indexed_results: list[tuple[int, dict[str, Any]]] = []
+            with ThreadPoolExecutor(max_workers=effective_workers) as pool:
+                futs = [
+                    pool.submit(_eval_one, idx, site, mcode)
+                    for idx, (site, mcode) in enumerate(zip(sites, mutated_sources))
+                ]
+                for fut in as_completed(futs):
+                    indexed_results.append(fut.result())
+
+            indexed_results.sort(key=lambda pair: pair[0])
+            for _, entry in indexed_results:
+                results.append(entry)
+                if entry["status"] == "KILLED":
+                    killed += 1
+                else:
+                    survivors.append(entry)
+    finally:
+        if _prev_sigterm is not None:
             try:
-                proc = subprocess.run(cmd, cwd=str(tmp_root), capture_output=True, timeout=timeout, check=False)
-                is_killed = proc.returncode != 0
-                rc = proc.returncode
-            except subprocess.TimeoutExpired:
-                is_killed = True
-                rc = -9
-
-            entry = {
-                "id": site.mutant_id,
-                "kind": site.kind,
-                "line": site.lineno,
-                "original": site.original_src,
-                "mutated": site.mutated_src,
-                "returncode": rc,
-                "status": "KILLED" if is_killed else "SURVIVED",
-            }
-            results.append(entry)
-            if is_killed:
-                killed += 1
-            else:
-                survivors.append(entry)
-
-            tmp_target.write_text(source, encoding="utf-8", newline="\n")
+                signal.signal(signal.SIGTERM, _prev_sigterm)
+            except (ValueError, OSError):
+                pass
+        # Best-effort cleanup: a mutant run can leave read-only files inside a slot,
+        # and rmtree without ignore_errors would raise PermissionError and mask the
+        # real verdict/results above. The SIGTERM handler above makes interrupts run
+        # this finally instead of exiting rc=143 and leaking the snap.
+        shutil.rmtree(snap_dir, ignore_errors=True)
 
     total = len(sites)
     kill_rate = round(100.0 * killed / total, 2) if total > 0 else 0.0
