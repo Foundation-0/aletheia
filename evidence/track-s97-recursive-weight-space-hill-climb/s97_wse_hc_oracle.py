@@ -57,9 +57,12 @@ LEAN_THEOREMS: Tuple[str, ...] = (
     "thm18_backprop_free_vram_savings_exact",
 )
 
-# Tracks whose certificate files are NOT in this repo: cross-repo SHA pins naming the source repo.
+# Tracks whose certificate files are NOT in this repo. Checked and absent from aletheia
+# (main + all branches), Foundation-0/cave-expedition (main + all branches), and
+# Foundation-0/math0@f9970082 — so these are external historical SHA-256 pins whose files
+# resolve in no readable repo (a private repo could hold them; none is known).
 CROSS_REPO_UPSTREAM: Tuple[str, ...] = ("S68", "S70", "S73", "S78")
-CROSS_REPO_SOURCE = "Foundation-0/cave-expedition"
+CROSS_REPO_SOURCE = "external-historical-pin (file not present in any readable repo: aletheia, cave-expedition, math0@f9970082 checked)"
 
 UPSTREAM_CERT_MANIFEST: Tuple[Tuple[str, str, str], ...] = (
     ("S31", "track-s31-aletheia-v22-misfolding/aletheia_v22_misfolding_certificate.json", "f4f7f8abff0c7eae0d5678016c1041ab34870ef2de57a2f83e4cbb9a529f8a9b"),
