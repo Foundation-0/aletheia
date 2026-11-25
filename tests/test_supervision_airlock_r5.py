@@ -631,7 +631,9 @@ class TestSupervisionAirlockR5(unittest.TestCase):
         nc_bad = sa.verify_snapshot_non_churn(ofo["children_after"], "author", ["airlock", "verifier"])
         self.assertFalse(nc_bad["passed"])
         self.assertEqual(nc_bad["error_code"], "ERR_SNAPSHOT_CHURN")
-        self.assertEqual(nc_bad["stale_downstream_count"], 2)
+        # downstream set is ALWAYS derived from child order now: [airlock, temp_worker, dead_transient, verifier]
+        self.assertEqual(nc_bad["downstream_ids"], ["airlock", "temp_worker", "dead_transient", "verifier"])
+        self.assertEqual(nc_bad["stale_downstream_count"], 3)
 
         # Clean transient exit drops child without restarting
         drop = sa.apply_otp_strategy_crash("rest_for_one", ch, "author", "normal", SHA_2)
@@ -697,15 +699,24 @@ class TestSupervisionAirlockR5(unittest.TestCase):
         c_dead_perm = _valid_otp_children()
         c_dead_perm[0]["alive"] = False
         self._expect_err("ERR_DEAD_PERMANENT_CHILD", sa.verify_snapshot_non_churn, c_dead_perm, "author", ["airlock"])
-        self._expect_err("ERR_INVALID_DOWNSTREAM", sa.verify_snapshot_non_churn, ch, "author", "bad")
-        self._expect_err("ERR_INVALID_DOWNSTREAM", sa.verify_snapshot_non_churn, ch, "author", [])
+        # non-list/empty downstream errors are only reachable when the author is NOT
+        # among the children (otherwise the set is derived from child order and the
+        # caller's list is never trusted)
+        self._expect_err("ERR_INVALID_DOWNSTREAM", sa.verify_snapshot_non_churn, ch, "missing2", "bad")
+        solo = [{"id": "solo", "policy": "permanent", "generation": 1, "snapshot_sha256": SHA_1, "alive": True}]
+        self._expect_err("ERR_INVALID_DOWNSTREAM", sa.verify_snapshot_non_churn, solo, "solo", ["x"])
         self._expect_err("ERR_UNKNOWN_AUTHOR", sa.verify_snapshot_non_churn, ch, 1, ["airlock"])
         self._expect_err("ERR_UNKNOWN_AUTHOR", sa.verify_snapshot_non_churn, ch, "missing", ["airlock"])
         self._expect_err("ERR_AUTHOR_NOT_ALIVE", sa.verify_snapshot_non_churn, ch, "dead_transient", ["airlock"])
-        self._expect_err("ERR_UNKNOWN_DOWNSTREAM", sa.verify_snapshot_non_churn, ch, "author", [1])
-        self._expect_err("ERR_UNKNOWN_DOWNSTREAM", sa.verify_snapshot_non_churn, ch, "author", ["missing"])
-        self._expect_err("ERR_INVALID_DOWNSTREAM", sa.verify_snapshot_non_churn, ch, "author", ["author"])
-        self._expect_err("ERR_INVALID_DOWNSTREAM", sa.verify_snapshot_non_churn, ch, "author", ["airlock", "airlock"])
+        # with a present author the downstream set is ALWAYS derived from child order;
+        # a bogus caller list is ignored entirely (never trusted)
+        nc_ign = sa.verify_snapshot_non_churn(ch, "author", [1])
+        self.assertTrue(nc_ign["passed"])
+        self.assertEqual(nc_ign["downstream_ids"], ["airlock", "temp_worker", "dead_transient", "verifier"])
+        # with an ABSENT author the caller list is used and fully validated
+        self._expect_err("ERR_UNKNOWN_DOWNSTREAM", sa.verify_snapshot_non_churn, ch, "missing2", [1])
+        self._expect_err("ERR_UNKNOWN_DOWNSTREAM", sa.verify_snapshot_non_churn, ch, "missing2", ["missing"])
+        self._expect_err("ERR_INVALID_DOWNSTREAM", sa.verify_snapshot_non_churn, ch, "missing2", ["airlock", "airlock"])
 
         # 3. Pure-Z/Q sliding-window restart intensity + inclusive boundary + trailing event refusal
         t_zero = sa.certify_restart_intensity_trace(0, 5, [0])
@@ -913,6 +924,73 @@ class TestSupervisionAirlockR5(unittest.TestCase):
             self.assertEqual(proc.returncode, 0, proc.stderr)
             digests.append(hashlib.sha256(proc.stdout.encode("utf-8")).hexdigest())
         self.assertEqual(len(set(digests)), 1)
+
+
+    def test_08_grammar_polarity_casefold_type_and_strategy_guards(self) -> None:
+        # --- airlock_envelope is genuinely stripped from a Zone-A submission ---
+        room = dict(_valid_tech_submission(), transcript="debate", authors=["alice"], models=["m1"], agreement_count=2)
+        stripped = sa.strip_zone_a_to_airlock_envelope(room)
+        for social_key in ("transcript", "authors", "models", "agreement_count"):
+            self.assertNotIn(social_key, stripped)
+        self.assertEqual(set(stripped.keys()), {"schema", "envelope_id", "claim_ledger", "pinned_inputs", "artifact_bundle"})
+
+        # --- Blocking: a grammar with no `against` token must be rejected ---
+        env = sa.strip_zone_a_to_airlock_envelope(_valid_tech_submission())
+
+        def _env_grammar_viol(grammar) -> None:
+            e = copy.deepcopy(env)
+            e["claim_ledger"]["finite_outcome_grammar"] = grammar
+            r = sa.validate_airlock_envelope(e)
+            self.assertFalse(r["passed"])
+            self.assertIn("INVALID_FINITE_OUTCOME_GRAMMAR", r["violations"])
+
+        _env_grammar_viol({"PASS": "supports", "FAIL": "supports"})  # no against -> reject
+        _env_grammar_viol({"PASS": "against", "FAIL": "against"})  # no supports -> reject
+        _env_grammar_viol({"PASS": "supports", "pass": "against"})  # case-colliding polarity -> reject
+        _env_grammar_viol({"A": "supports", "a": "inconclusive"})  # case-colliding any polarity -> reject
+        # valid: both polarities present, case-distinct
+        e_ok = copy.deepcopy(env)
+        e_ok["claim_ledger"]["finite_outcome_grammar"] = {"PASS": "supports", "FAIL": "against"}
+        self.assertTrue(sa.validate_airlock_envelope(e_ok)["passed"])
+
+        # --- Blocking: case-colliding grammar must not certify FALSIFIED + "pass" ---
+        sp = _valid_two_zone_spec()
+        sp["airlock_envelope"]["claim_ledger"]["finite_outcome_grammar"] = {"PASS": "supports", "pass": "against"}
+        sp["verdict_packet"]["part_e_verdict"] = "FALSIFIED"
+        sp["verdict_packet"]["part_i_grade"] = "E0_LEAD"
+        sp["verdict_packet"]["outcome_matched"] = "pass"
+        sp["verdict_packet"]["counterexample"] = "cex"
+        r = sa.certify_two_zone_airlock(sp)
+        self.assertFalse(r["passed"])
+        self.assertTrue(any(v.endswith("INVALID_FINITE_OUTCOME_GRAMMAR") for v in r["violations"]))
+
+        # --- Also-fix: unhashable outcome_matched -> typed violation, not TypeError ---
+        sp2 = _valid_two_zone_spec()
+        sp2["verdict_packet"]["outcome_matched"] = ["SUPPORTED"]
+        r2 = sa.certify_two_zone_airlock(sp2)
+        self.assertFalse(r2["passed"])
+        self.assertIn("VERDICT_OUTCOME_NOT_IN_DECLARED_GRAMMAR", r2["violations"])
+
+        # --- Also-fix: strategy is validated and downstream ALWAYS derived from child order ---
+        after = [
+            {"id": "author", "policy": "permanent", "generation": 1, "snapshot_sha256": SHA_1, "alive": True},
+            {"id": "airlock", "policy": "permanent", "generation": 1, "snapshot_sha256": SHA_1, "alive": True},
+            {"id": "verifier", "policy": "permanent", "generation": 1, "snapshot_sha256": SHA_1, "alive": True},
+        ]
+        # None no longer falls back to the caller's list: derived = [airlock, verifier]
+        nc_none = sa.verify_snapshot_non_churn(after, "author", ["verifier"])
+        self.assertTrue(nc_none["passed"])
+        self.assertEqual(nc_none["downstream_ids"], ["airlock", "verifier"])
+        # case-variant strategy is rejected
+        self._expect_err("ERR_INVALID_STRATEGY", sa.verify_snapshot_non_churn, after, "author", ["verifier"], "REST_FOR_ONE")
+
+        # --- Also-fix: 4300-char boundary is inclusive (M010 survivor) ---
+        ok4300 = "1" * 4298 + "/1"  # len == 4300 exactly: accepted (boundary inclusive)
+        self.assertEqual(len(ok4300), 4300)
+        self.assertEqual(sa.parse_nonneg_fraction(ok4300, "t"), Fraction(int("1" * 4298), 1))
+        with self.assertRaises(sa.AletheiaError) as cm_b:
+            sa.parse_nonneg_fraction("1" * 4299 + "/1", "t")  # len == 4301: rejected
+        self.assertEqual(cm_b.exception.code, "ERR_INVALID_FRACTION_STR")
 
 
 if __name__ == "__main__":

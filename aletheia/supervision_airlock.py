@@ -493,6 +493,14 @@ def validate_airlock_envelope(envelope: dict[str, Any]) -> dict[str, Any]:
                 for g, pol in grammar.items()
             ):
                 bad_grammar = True
+            elif "supports" not in grammar.values() or "against" not in grammar.values():
+                # A grammar with no `against` token (or no `supports` token) can never
+                # falsify: require at least one token of each polarity.
+                bad_grammar = True
+            elif len({g.casefold() for g in grammar}) != len(grammar):
+                # Case-colliding tokens with opposite polarity ({PASS: supports, pass:
+                # against}) would be ambiguous: enforce case-folded uniqueness.
+                bad_grammar = True
         if bad_grammar:
             violations.append("INVALID_FINITE_OUTCOME_GRAMMAR")
         fp = cl["falsifier_predicate"]
@@ -716,7 +724,7 @@ def certify_two_zone_airlock(spec: dict[str, Any]) -> dict[str, Any]:
         raw_grammar = cl_obj.get("finite_outcome_grammar") if cl_obj is not None else None
         grammar = raw_grammar if type(raw_grammar) is dict else {}
         om = vp["outcome_matched"]
-        if om not in grammar:
+        if type(om) is not str or om not in grammar:
             violations.append("VERDICT_OUTCOME_NOT_IN_DECLARED_GRAMMAR")
         elif type(om) is str:
             pol = grammar[om]
@@ -948,34 +956,38 @@ def verify_snapshot_non_churn(
 ) -> dict[str, Any]:
     """Certify that every alive downstream child matches author's immutable snapshot_sha256.
 
-    For strategy == "rest_for_one" the downstream set is DETERMINED by child order
-    (children after the author), so it is derived, not trusted from the caller."""
+    The downstream set is ALWAYS derived from child order (children after the author),
+    never trusted from the caller; `strategy`, when given, must be a known restart
+    strategy (so `None` and case variants like "REST_FOR_ONE" can no longer fall back
+    to the caller-supplied list)."""
+    if strategy is not None and not _in_str_set(strategy, RESTART_STRATEGIES):
+        raise AletheiaError("ERR_INVALID_STRATEGY", f"unknown strategy {strategy!r}")
     validated = _validate_otp_children(children_after)
-    if strategy == "rest_for_one":
-        ids = [ch["id"] for ch in validated]
-        aidx = ids.index(author_id) if author_id in ids else -1
-        if aidx >= 0:
-            downstream_ids = ids[aidx + 1:]
+    ids = [ch["id"] for ch in validated]
+    aidx = ids.index(author_id) if author_id in ids else -1
+    if aidx >= 0:
+        downstream_ids = ids[aidx + 1:]
     if type(downstream_ids) is not list:
         raise AletheiaError("ERR_INVALID_DOWNSTREAM", "downstream_ids must be non-empty list")
     if len(downstream_ids) == 0:
         raise AletheiaError("ERR_INVALID_DOWNSTREAM", "downstream_ids must be non-empty list")
     by_id: dict[str, dict[str, Any]] = {ch["id"]: ch for ch in validated}
+    # Validate every downstream id BEFORE the author checks (fail-closed ordering keeps
+    # these guards reachable even when the author is absent and the caller list is used).
+    seen_down: set[str] = set()
+    for did in downstream_ids:
+        if not _in_str_set(did, by_id):
+            raise AletheiaError("ERR_UNKNOWN_DOWNSTREAM", f"downstream {did!r} not in children_after")
+        if did in seen_down:
+            raise AletheiaError("ERR_INVALID_DOWNSTREAM", f"duplicate downstream id {did!r}")
+        seen_down.add(did)
     if not _in_str_set(author_id, by_id):
         raise AletheiaError("ERR_UNKNOWN_AUTHOR", f"author {author_id!r} not in children_after")
     if not by_id[author_id]["alive"]:
         raise AletheiaError("ERR_AUTHOR_NOT_ALIVE", f"author {author_id!r} must be alive")
     author_sha = by_id[author_id]["snapshot_sha256"]
-    seen_down: set[str] = set()
     stale: list[str] = []
     for did in downstream_ids:
-        if not _in_str_set(did, by_id):
-            raise AletheiaError("ERR_UNKNOWN_DOWNSTREAM", f"downstream {did!r} not in children_after")
-        if did == author_id:
-            raise AletheiaError("ERR_INVALID_DOWNSTREAM", f"author {author_id!r} cannot be downstream of itself")
-        if did in seen_down:
-            raise AletheiaError("ERR_INVALID_DOWNSTREAM", f"duplicate downstream id {did!r}")
-        seen_down.add(did)
         ch = by_id[did]
         if ch["alive"]:
             if ch["snapshot_sha256"] != author_sha:
@@ -985,6 +997,7 @@ def verify_snapshot_non_churn(
         "passed": passed,
         "error_code": None if passed else "ERR_SNAPSHOT_CHURN",
         "author_snapshot_sha256": author_sha,
+        "downstream_ids": list(downstream_ids),
         "stale_downstream_ids": stale,
         "stale_downstream_count": len(stale),
     }
