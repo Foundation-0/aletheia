@@ -5,7 +5,7 @@
 - **Schema & Track ID:** `aletheia.modular_cert_compressor.certificate.v1` (`TRACK-S55-MODULAR-CERT-COMPRESSOR-LEAN4`)
 - **Novelty Classification:** **`N1`** (engineering synthesis combining exact $\mathbb{Z}/\mathbb{Q}/\mathbb{F}_p$ polynomial compression, fraction-free Bareiss rank/minor verification, arbitrary-depth $O(n)$ Lean 4 anti-bypass lexing, and a live-compiled zero-import `Lean 4.36.0` kernel soundness companion; all underlying mathematical theorems and benchmark comparators are explicitly attributed as `N0` prior literature below).
 - **Oracle Class:** **`exact`** (`100%` pure Python 3 standard library + pure-`Init` `Lean 4.36.0`; zero IEEE-754 floats on any trust path, zero bare `assert`s, zero `.isdigit()`, zero `os.path.islink`, zero mathematical RNG).
-- **Certificate Size & Digests (`modular_cert_compressor_certificate.json`, `0o600`):**
+- **Certificate Size & Digests (`modular_cert_compressor_certificate.json`, written `0o600` by `--write`; `0644` in git since git cannot store `0600`):**
   - **On-disk size:** **`3,558` B (`3.47 KiB`, strictly `< 10 KiB`)**
   - **File SHA-256:** `7e87af3d3e40228c6609ccb2e7e7f70573fa5961609e4ef59c3c684661b66d59`
   - **`payload_sha256`:** `433511e86663cb05834368d5c4b08f78f8995d664fba1b7292e03c8af60b8cd1`
@@ -26,7 +26,7 @@ Following the symmetric sextic involution reduction of Diamond and Voisin (`hodg
 | Involution determinants | `det(tau_X) = -1`, `det(tau_Y) = -1`, `det(tau_X * tau_Y) = 1` | Exact fraction-free Bareiss elimination |
 | Mod-5 Jacobian smoothness | `6` nonzero terms (`2 * sum Z_k^6` over $\mathbb{F}_5$), unique origin critical point `true` | Exhaustive $\mathbb{F}_5$ verification + Lean 4 theorem |
 | Compressed packet size & SHA-256 | **`923` B** (`1ffede92228c423d11002be9863e7de1e4578ec10aee072ca2b9dbbf894a694a`) | Canonical ASCII JSON bytes |
-| Ratio vs. `233 GB` reference envelope (`[230, 233]` GB) | Exact `233000000000/923` (`~252.4M x`, strictly `> 20,000,000 x`) | Published `N0` comparator envelope (`arXiv:2611.09822v3`) |
+| Ratio vs. cited `233 GB` reference envelope (`[230, 233]` GB) | Exact `233000000000/923` (`~252.4M x`, strictly `> 20,000,000 x`) | Cited `N0` literature envelope (`arXiv:2611.09822v3`); **never enumerated or measured here** |
 
 > **Scope Honesty (`measured_live_deepmind_233gb_comparator = false`):** The `[230, 233]` GB figure is cited strictly as a published `N0` literature reference envelope from Shirobokov et al. (`arXiv:2611.09822v3`) and was **not** live-benchmarked on this host.
 
@@ -69,12 +69,14 @@ The compressor and secondary auditor enforce strict exact-rank, canonical-ration
 | 9 | `polya_1913_algebraic_parity_obstruction` | `[propext, Quot.sound]` |
 | 10 | `f2_frobenius_vs_z_carry_obstruction` | `[propext, Quot.sound]` |
 
+> **Finite-check labeling:** `5` of the `10` theorems (e.g. #8 `polya_1913_zero_of_512_sign_patterns`, which enumerates all `512` sign patterns) are kernel `decide` over finite domains, i.e. finite exhaustive checks, not symbolic proofs. Theorem #9 (`polya_1913_algebraic_parity_obstruction`) is the non-enumerative algebraic proof.
+
 ### 3.2 Hardened Static Lean 4 Anti-Bypass Pre-Filter & Strict Axiom Allowlist
 
 Before invoking the live `lean` kernel, `scan_lean4_anti_bypass` strips nested block comments, line comments, plain strings, `Char` literals (guarded against identifier primes), zero- and multi-hash raw strings (`r"..."`, `r#"..."#` with full Lean identifier boundary checking `_.'!?`), and interpolated strings (`s!"..."`, `m!"..."`, `f!"..."` with brace-depth tracking), normalizes ASCII French-guillemet identifiers (`«...»`), and scans for `15` forbidden trust-escape tokens plus a **single-pass $O(n)$ arbitrary-depth balanced-parenthesis `decide` scanner** (`_scan_lean4_decide_native`) with fail-closed plain-record-literal allowlisting and bound `DecideConfig` detection. After compilation, `verify_lean_companion_file` parses every `#print axioms` line and enforces the strict allowlist `<= {propext, Classical.choice, Quot.sound}`:
 
 - **Positive controls:** **`7/7` passed** (including `decide`, `decide +kernel`, `decide (native := false)`, `decide (native := ((Bool.false)))`, `panic!"bad {sorry} state"`, nested comments/raw strings, and `def f (decide : Nat) : Nat := decide+1`).
-- **Adversarial trust-escape fixtures:** **`40+` rejected** (covering `sorry`, `native_decide`, `Char`/raw-string/interpolated-string escape probes, guillemet `+«native»` / `(«native» := true)` / `(«config» := ...)`, anonymous constructor `⟨...⟩`, `.mk` / `DecideConfig.mk`, indirect variable and `{ c0 with ... }` record updates, `{ native }` punning, `:+` / `,+` custom infix operators, unbalanced braces, nested-paren `decide` forms, and non-standard `#print axioms` outputs).
+- **Adversarial trust-escape fixtures:** **`21/21` rejected** (cert-pinned `adversarial_fixtures_total: 21`, `adversarial_fixtures_rejected: 21`; this is the shipped fixture set counted by `modular_cert_compressor_oracle.py`). The larger `40+` probe count quoted in some external receipts is an AUDIT-155R2 one-off run over extra probe variants; that script is not shipped in this track. Coverage of the shipped `21`: `sorry`, `native_decide`, `Char`/raw-string/interpolated-string escape probes, guillemet `+«native»` / `(«native» := true)` / `(«config» := ...)`, anonymous constructor `⟨...⟩`, `.mk` / `DecideConfig.mk`, indirect variable and `{ c0 with ... }` record updates, `{ native }` punning, `:+` / `,+` custom infix operators, unbalanced braces, nested-paren `decide` forms, and non-standard `#print axioms` outputs).
 
 ---
 
@@ -100,8 +102,8 @@ All checks below ran after the final edit with `OPENBLAS_NUM_THREADS=1 OMP_NUM_T
 - **R4 3-Mode Isolated Parity (`-I -B`, `-I -O -B`, `-I -B -W error`) + `PYTHONHASHSEED=42 -B` + `umask 077`:**
   - `--standalone --json` matches on-disk `modular_cert_compressor_certificate.json` (`7e87af3d...`) across all modes.
   - Zero-arg self-check (`7febd825...`), `--check --json` (`4c04c6f1...`, `valid=true`), and `test_modular_cert_compressor_r5.py` (`7/7 OK`, including live `Lean 4.36.0`, exhaustive leaf zero-denominator sweep, `16T`/`80T` `0o600` concurrency burst, `>= 500` hardlink flips, `>= 550` `renameat2(RENAME_EXCHANGE)` swaps, and scratch `os.mkfifo` non-regular refusal with zero null-device writes) pass across every mode.
-- **5-Surface Adversarial Certificate Fuzzer (`CLI`, `FR1`, `FR0`, `RT_FR0`, `SEC_DIRECT`):** **`25/25` CLI + `19/19` `FR1` + `19/19` `FR0` + `19/19` `RT_FR0` + `19/19` `SEC_DIRECT` = `101/101` (`100.0%`, `bypasses=0`, `crashes=0`, `PASS`)**.
-- **Exhaustive Mutation Testing (`--workers 4 --max-mutants 0`):**
+- **5-Surface Adversarial Certificate Fuzzer (`CLI`, `FR1`, `FR0`, `RT_FR0`, `SEC_DIRECT`):** `101/101` (`25/25` CLI + `19/19` `FR1` + `19/19` `FR0` + `19/19` `RT_FR0` + `19/19` `SEC_DIRECT`; `100.0%`, `bypasses=0`, `crashes=0`) is an **external AUDIT-155R2 one-off receipt - the fuzzer script is not shipped**; the shipped tamper coverage is the targeted re-signed tamper list in `test_05`/`test_06` of `test_modular_cert_compressor_r5.py` plus the cert-pinned full-replay gates.
+- **Exhaustive Mutation Testing (`--max-mutants 0`; the `--workers 4` flag quoted in earlier receipts does not exist in this CLI):**
   - `modular_cert_compressor_oracle.py`: **`81/81` (`100.0%`, `survived=0`, `truncated=False`, `PASS`)**.
   - `modular_cert_compressor_audit.py`: **`118/118` (`100.0%`, `survived=0`, `truncated=False`, `PASS`)**.
   - **Combined:** **`199/199` (`100.0%`, `0` survivors)**.
@@ -109,7 +111,7 @@ All checks below ran after the final edit with `OPENBLAS_NUM_THREADS=1 OMP_NUM_T
   - `modular_cert_compressor_oracle.py`: **`45/45` `OP_SWAP` + `99/99` `SUBCOND_DEL` = `144/144` (`100.0%`, `survived=0`)**.
   - `modular_cert_compressor_audit.py`: **`20/20` `OP_SWAP` + `73/73` `SUBCOND_DEL` = `93/93` (`100.0%`, `survived=0`)**.
   - **Combined:** **`237/237` (`100.0%`, `0` survivors)**.
-- **Static Hygiene & Lean Audit:** `audit-check --lean-audit --strict-ancestors --safety-scan --scripts modular_cert_compressor_audit.py test_modular_cert_compressor_r5.py` **`PASS`** (`0` findings, `0` bare `assert`s, `0` AST floats, `0` `.isdigit()`, `0` CRLF, `0` host-path leaks, `PYC=0`).
+- **Static Hygiene & Lean Audit (track-scoped):** `audit-check evidence/track-s55-modular-cert-compressor-lean4 --lean-audit --strict-ancestors --safety-scan` **`PASS`** (`0` findings, `0` bare `assert`s, `0` AST floats, `0` `.isdigit()`, `0` CRLF, `0` host-path leaks, `PYC=0`). Repo-wide `--safety-scan` fails on `48` pre-existing base findings outside this track (CI's `audit-check` does not pass `--safety-scan`).
 
 ### Frozen 5-File Artifact Manifest (Sibling to This Report)
 
@@ -119,4 +121,4 @@ All checks below ran after the final edit with `OPENBLAS_NUM_THREADS=1 OMP_NUM_T
 | `modular_cert_compressor_oracle.py` | `1,149` | `46,022` | `0o644` | `d619f7f7002f0049ed1bd2a8d25551f83bfb4fd3a43966a153369af7fa32489b` |
 | `modular_cert_compressor_audit.py` | `768` | `36,930` | `0o644` | `197e4033855f07034e3ef087d9fcee714b45a5813bf20652dbbc7c0e7728b30e` |
 | `test_modular_cert_compressor_r5.py` | `1,289` | `72,810` | `0o644` | `1a4ceb5236769527ee98aeb5dbf5e2f58f3369f3d55bb98da66ce928979b60e2` |
-| `modular_cert_compressor_certificate.json` | `1` | `3,558` | `0o600` | `7e87af3d3e40228c6609ccb2e7e7f70573fa5961609e4ef59c3c684661b66d59` |
+| `modular_cert_compressor_certificate.json` | `1` | `3,558` | `0o600` on `--write`; `0644` in git | `7e87af3d3e40228c6609ccb2e7e7f70573fa5961609e4ef59c3c684661b66d59` |
