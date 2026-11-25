@@ -15,7 +15,7 @@
 
 Track S112 mechanizes the conservation laws and Law-5 structural obstructions across all **5 Natural Systems Stage-B Portals** in pure-`Init` Lean `4.36.0` alongside a pure-`int`/`Fraction` oracle (`s112_natural_systems_oracle.py`) and Wave-10 fail-closed verifier (`verify_natural_systems_lean.py`).
 
-All four Stage-B source artifacts are pinned by repo-relative path and SHA-256, but the files **resolve nowhere** (no branch or PR head of siliquant, math0, cave-expedition or aletheia carries them; verified by blob-sha256 and filename search on 2026-11-25). `--verify-pins` therefore reports **`PINS_UNVERIFIABLE` (`external=0 unverifiable=4`)** — fail-loud, never silently skipped, never claimed `PINS_OK`:
+All four Stage-B source artifacts are pinned by repo-relative path and SHA-256, but the files **resolve nowhere** (no branch or PR head of siliquant, math0, cave-expedition or aletheia carries them; verified by blob-sha256 and filename search on 2026-11-25). `--verify-pins` therefore reports **`PINS_UNVERIFIABLE` (`external=0 unverifiable=4`)** — reported loudly (rc 0), never silently skipped, never claimed `PINS_OK`:
 
 | Pin ID | Repo-Relative Path | SHA-256 |
 |---|---|---|
@@ -103,7 +103,7 @@ Every public theorem is checked by `#print axioms` under a scrubbed `env -i` Lea
 | Gate | Command / Harness | Exact Result |
 |---|---|---|
 | Live Pure-Init Lean `4.36.0` | `verify_natural_systems_lean.py --verify-lean --json` | **`34/34` theorems verified**, `rc = 0`, `stderr = 0 B`, `0` warnings, `18/18` static rules PASS, `0` `Classical.choice`, `0` `sorryAx` |
-| External Stage-B Pins | `verify_natural_systems_lean.py --verify-pins --json` | **`PINS_UNVERIFIABLE` (`external=0 unverifiable=4`)** — files not shipped in any reachable repo; fail-loud, not skipped |
+| External Stage-B Pins | `verify_natural_systems_lean.py --verify-pins --json` | **`PINS_UNVERIFIABLE` (`external=0 unverifiable=4`)** — files not shipped in any reachable repo; reported loudly (rc 0), not skipped |
 | Standalone Byte Parity | `s112_natural_systems_oracle.py --standalone \| cmp -s - s112_natural_systems_certificate.json` | **PASS (`0` byte diff; mode `0o644` in git / 100644)** |
 | Direct v2.1 Zone-B Fuzzer (4 Surfaces) | `aletheia-v21-upgrades` (`fuzz_cli_checker` + `fuzz_python_validator` on `FR1`, `FR0`, `SEC`) | **`82/82` PASS** (`cli 25/25`, `FR1 19/19`, `FR0 19/19`, `SEC 19/19`, `bypasses = 0`, `crashes = 0`) — **unshipped harness, not replayable from stock CLI** |
 | `aletheia mutate` | stock CLI: `--guards require_ok --max-mutants 0 --json` | oracle **`21/21` KILLED** reproduced; verifier 30/30-sample KILLED of 186 sites. Claimed `207/207` used unshipped `aletheia-fast-mutate` (`--workers` is not a stock flag) — **not replayable from stock CLI** |
@@ -121,6 +121,6 @@ Every public theorem is checked by `#print axioms` under a scrubbed `env -i` Lea
 | `NaturalSystemsConservation.lean` | `1,729` | `94,542` | `0f2accb66c6beed16cde96b9b11fdbfbae7d27a5e23bb4070de4835abf65090b` |
 | `s112_natural_systems_oracle.py` | `854` | `33,983` | `57ca0ceca2e14c2bab1d37d4a7148984c9b7e912db3447dc1ef99c70669a2637` |
 | `verify_natural_systems_lean.py` | `801` | `35,746` | `a6aee11f0ae4a31eec1ff3d4ba1eea1916e25dd7cfce0ecbc0f13a46ad0a92bf` |
-| `test_natural_systems_lean_r5.py` | `814` | `44,094` | `ec08d06d385abf35daf4d2f2f49ee88f35e7a05709dc93c7b1804cf584b9c510` |
+| `test_natural_systems_lean_r5.py` | `813` | `44,214` | `1cd9c1738516804ee8dcb0704b74750ef45de0012815a49339bd06acef165ae4` |
 | `s112_natural_systems_audit.py` | `20` | `564` | `a92f9acdc14f8a4e0eb2c66d26cd07f6b459bf3f697ec9cdca3a84953b464818` |
 | `s112_natural_systems_certificate.json` | `1` | `7,421` | `93c550316c5b65bc43f196469fba20892d088a9777f80f10b6b0ebc6727b6217` |
