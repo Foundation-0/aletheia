@@ -835,6 +835,65 @@ class TestLean4AndAuditRootHardening(unittest.TestCase):
             _req(res_rr10["clean"] is exp_clean, f"unexpected R10 ReDoS result: clean={res_rr10['clean']}")
             _req(elapsed_ms < 200.0, f"R10 ReDoS regression: {elapsed_ms:.1f} ms")
 
+        # 7. R11 closures: Init.Util impure C-FFI debug primitives (`dbgTrace*`/`dbgSleep`/`dbgStackTrace`),
+        # `@[export]`/`@[init]`/`@[builtin_init]` (+ `attribute [...]` equivalents), and R11 regressions
+        for label, bad_src, exp_findings in (
+            ("r11_dbgTrace", "def f : Nat := dbgTrace (String.ofList []) (fun _ => 0)\n", [("LEAN4_DBG_FFI_ESCAPE", 1)]),
+            ("r11_dbgTraceVal", "def f : Nat := dbgTraceVal 0\n", [("LEAN4_DBG_FFI_ESCAPE", 1)]),
+            ("r11_dbgTraceIfShared", "def f : Nat := dbgTraceIfShared (String.ofList []) 0\n", [("LEAN4_DBG_FFI_ESCAPE", 1)]),
+            ("r11_root_dbgTrace", "def f : Nat := _root_.dbgTrace (String.ofList []) (fun _ => 0)\n", [("LEAN4_DBG_FFI_ESCAPE", 1)]),
+            ("r11_root_dbgTraceVal", "def f : Nat := _root_.dbgTraceVal 0\n", [("LEAN4_DBG_FFI_ESCAPE", 1)]),
+            ("r11_root_dbgTraceIfShared", "def f : Nat := _root_.dbgTraceIfShared (String.ofList []) 0\n", [("LEAN4_DBG_FFI_ESCAPE", 1)]),
+            ("r11_guil_dbgTrace", "def f : Nat := «dbgTrace» (String.ofList []) (fun _ => 0)\n", [("LEAN4_DBG_FFI_ESCAPE", 1)]),
+            ("r11_dbgSleep", "def f : Nat := dbgSleep 0 (fun _ => 0)\n", [("LEAN4_DBG_FFI_ESCAPE", 1)]),
+            ("r11_dbgStackTrace", "def f : Nat := dbgStackTrace (fun _ => 0)\n", [("LEAN4_DBG_FFI_ESCAPE", 1)]),
+            ("r11_at_export", "@[export my_c_sym] def f (n : Nat) : Nat := n\n", [("LEAN4_ATTR_TRUST_ESCAPE", 1)]),
+            ("r11_attr_export", "def f (n : Nat) : Nat := n\nattribute [export my_c_sym] f\n", [("LEAN4_ATTR_TRUST_ESCAPE", 2)]),
+            ("r11_guil_attr_export", "def f (n : Nat) : Nat := n\nattribute [«export» my_c_sym] f\n", [("LEAN4_ATTR_TRUST_ESCAPE", 2)]),
+            ("r11_at_init", '@[init] def myInit : IO Unit := IO.println "SPOOF"\n', [("LEAN4_ATTR_TRUST_ESCAPE", 1)]),
+            ("r11_at_init_of", "def myInit : IO Nat := pure 0\n@[init myInit] opaque x : Nat\n", [("LEAN4_ATTR_TRUST_ESCAPE", 2)]),
+            ("r11_attr_init", 'def myInit : IO Unit := IO.println "SPOOF"\nattribute [init] myInit\n', [("LEAN4_ATTR_TRUST_ESCAPE", 2)]),
+            ("r11_at_builtin_init", '@[builtin_init] def myInit : IO Unit := IO.println "SPOOF"\n', [("LEAN4_ATTR_TRUST_ESCAPE", 1)]),
+            ("r11_attr_builtin_init", 'def myInit : IO Unit := IO.println "SPOOF"\nattribute [builtin_init] myInit\n', [("LEAN4_ATTR_TRUST_ESCAPE", 2)]),
+            ("r11_warn_sorry_false", "set_option warn.sorry false\n", [("LEAN4_SORRY", 1)]),
+            ("r11_warn_sorry_guil", "set_option «warn».«sorry» false\n", [("LEAN4_SORRY", 1)]),
+            ("r11_warn_sorry_root_sorryAx", "set_option warn.sorry false in theorem t : False := _root_.sorryAx False false\n", [("LEAN4_SORRY", 1), ("LEAN4_SORRY_AX", 1)]),
+            ("r11_decide_plus_revert_config_native", "def native : Bool := true\ntheorem t : 1 + 1 = 2 := by decide +revert (config := { native })\n", [("LEAN4_DECIDE_NATIVE", 2)]),
+            ("r11_decide_revert_false_config_native", "def native : Bool := true\ntheorem t : 1 + 1 = 2 := by decide (revert := false) (config := { native })\n", [("LEAN4_DECIDE_NATIVE", 2)]),
+            ("r11_decide_struct_update_native", "def native : Bool := true\ntheorem t : 1 + 1 = 2 := by decide +revert (config := { ({} : _) with native })\n", [("LEAN4_DECIDE_NATIVE", 2)]),
+        ):
+            res_r11 = audit_lean4_source(bad_src)
+            _req(not res_r11["clean"], f"{label} bypassed audit_lean4_source: {res_r11}")
+            _req(
+                [(f["code"], f["line"]) for f in res_r11["findings"]] == exp_findings,
+                f"wrong R11 findings for {label}: got {res_r11['findings']}, want {exp_findings}",
+            )
+
+        # Clean R11 non-FP controls (namespace export, init target outside [...], identifier substrings, comments/strings)
+        for ok_r11 in (
+            "export Nat (succ)\ntheorem t : succ 0 = 1 := rfl\n",
+            "def init : Nat := 0\nattribute [simp] init\n",
+            "@[simp] def init : Nat := 0\n",
+            "def my_dbgTrace : Nat := 0\ndef dbgTrace2 : Nat := 1\n",
+            '-- dbgTrace dbgTraceVal dbgTraceIfShared @[export foo] @[init]\ndef s := "dbgTrace @[export foo] @[init]"\n',
+            "theorem t : 1 + 1 = 2 := by decide (native := false)\n",
+            "theorem t : 1 + 1 = 2 := by decide (native := Bool.false)\n",
+        ):
+            res_ok11 = audit_lean4_source(ok_r11)
+            _req(res_ok11["clean"], f"false positive on clean R11 control {ok_r11!r}: {res_ok11['findings']}")
+
+        # Anti-ReDoS linear-time guard for R11
+        for r11_redos, exp_clean in (
+            ("dbgTrace " * 5000 + "\n", False),
+            ("@[export x] " * 3000 + "\n", False),
+            ("export Nat (succ)\n" * 3000, True),
+        ):
+            t0 = time.monotonic()
+            res_rr11 = audit_lean4_source(r11_redos)
+            elapsed_ms = (time.monotonic() - t0) * 1000.0
+            _req(res_rr11["clean"] is exp_clean, f"unexpected R11 ReDoS result: clean={res_rr11['clean']}")
+            _req(elapsed_ms < 200.0, f"R11 ReDoS regression: {elapsed_ms:.1f} ms")
+
     def test_02d_live_lean4_compiler_witnesses(self) -> None:
         """When a live `lean` binary is on PATH, verify each new escape & clean control actually compiles (rc == 0)."""
         lean_exe = shutil.which("lean")
@@ -939,6 +998,25 @@ class TestLean4AndAuditRootHardening(unittest.TestCase):
                     ("r10_clean_panic_multiline", 'def f : Nat := panic!"abc\ntheorem t : True := by sorry\n"\n', True, False),
                     ("r10_clean_dbg_trace_and_println_parens", 'def f1 : Nat := dbg_trace ("hi {sorry}"); 0\ndef f2 : IO Unit := println! ("hi {sorry}")\n', True, False),
                     ("r10_clean_notation_rhs_quote_and_macro_inline", 'notation "my_q" => "\\""\n@[macro_inline] def s : String := my_q\n', True, False),
+                    # R11 live Lean 4.36.0 compiler witnesses
+                    ("r11_dbgTrace", "def f : Nat := dbgTrace (String.ofList []) (fun _ => 0)\n", False, False),
+                    ("r11_dbgTraceVal", "def f : Nat := dbgTraceVal 0\n", False, False),
+                    ("r11_dbgTraceIfShared", "def f : Nat := dbgTraceIfShared (String.ofList []) 0\n", False, False),
+                    ("r11_root_dbgTrace", "def f : Nat := _root_.dbgTrace (String.ofList []) (fun _ => 0)\n", False, False),
+                    ("r11_dbgSleep", "def f : Nat := dbgSleep 0 (fun _ => 0)\n", False, False),
+                    ("r11_dbgStackTrace", "def f : Nat := dbgStackTrace (fun _ => 0)\n", False, False),
+                    ("r11_at_export", "@[export r11_c_sym_1] def f (n : Nat) : Nat := n\n", False, False),
+                    ("r11_attr_export", "def f (n : Nat) : Nat := n\nattribute [export r11_c_sym_2] f\n", False, False),
+                    ("r11_at_init", '@[init] def myInit : IO Unit := IO.println "SPOOF"\n', False, False),
+                    ("r11_at_init_of", "def myInit : IO Nat := pure 0\n@[init myInit] opaque x : Nat\n", False, False),
+                    ("r11_attr_init", 'def myInit : IO Unit := IO.println "SPOOF"\nattribute [init] myInit\n', False, False),
+                    ("r11_at_builtin_init", '@[builtin_init] def myInit : IO Unit := IO.println "SPOOF"\n', False, False),
+                    ("r11_attr_builtin_init", 'def myInit : IO Unit := IO.println "SPOOF"\nattribute [builtin_init] myInit\n', False, False),
+                    ("r11_warn_sorry_root_sorryAx", "set_option warn.sorry false in theorem t : False := _root_.sorryAx False false\n", False, False),
+                    ("r11_decide_plus_revert_config_native", "def native : Bool := true\ntheorem t : 1 + 1 = 2 := by decide +revert (config := { native })\n", False, False),
+                    ("r11_decide_revert_false_config_native", "def native : Bool := true\ntheorem t : 1 + 1 = 2 := by decide (revert := false) (config := { native })\n", False, False),
+                    ("r11_clean_namespace_export", "export Nat (succ)\ntheorem t : succ 0 = 1 := rfl\n", True, False),
+                    ("r11_clean_attr_simp_init", "def init : Nat := 0\nattribute [simp] init\n", True, False),
                 )
         for label, src, expect_clean, allow_non_init in probes:
             res = audit_lean4_source(src, allow_non_init_imports=allow_non_init)

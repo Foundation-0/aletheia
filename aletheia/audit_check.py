@@ -697,6 +697,10 @@ _LEAN4_HARD_LINE_RULES: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"\bLean\.ofReduceNat\b|\bofReduceNat\b"), "LEAN4_OF_REDUCE_NAT"),
     (re.compile(r"\bLean\.trustCompiler\b|\btrustCompiler\b"), "LEAN4_TRUST_COMPILER"),
     (
+        re.compile(r"\b(?:dbgTrace|dbgTraceVal|dbgTraceIfShared|dbgSleep|dbgStackTrace)\b"),
+        "LEAN4_DBG_FFI_ESCAPE",
+    ),
+    (
         re.compile(r"(?<!\.)\b(?:macro|macro_rules|elab|elab_rules|syntax)\b|\binterpolatedStr\b"),
         "LEAN4_META_SYNTAX_ESCAPE",
     ),
@@ -891,7 +895,7 @@ _LEAN4_IMPORT_FULL_RE = re.compile(
 
 # Unsound attribute trust escapes (`@[...]` and post-declaration `attribute [...]`) vs `@[csimp]`/`attribute [csimp]`
 _LEAN4_ATTR_OPEN_RE = re.compile(r"(?:@|(?<!\.)\battribute\s*)\[", flags=re.DOTALL)
-_LEAN4_HARD_ATTR_KW_RE = re.compile(r"\b(extern|implemented_by)\b")
+_LEAN4_HARD_ATTR_KW_RE = re.compile(r"\b(extern|implemented_by|export|init|builtin_init)\b")
 _LEAN4_CSIMP_ATTR_KW_RE = re.compile(r"\b(csimp)\b")
 
 
