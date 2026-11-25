@@ -38,7 +38,10 @@ PINNED_S64_DIGESTS: dict[str, str] = {
     "mlos_profile_sha256": "566c9192d38682a0ec4d652a63a3510aaefb9dc20ef91ae9bdc6d4abbbf5cbe2",
 }
 
-# Read-only frozen cross-study certificate anchors (exact disk SHA-256 digests)
+# Read-only frozen cross-study certificate anchors. These 5 SHA-256 digests are pinned
+# against upstream cross-repo trees (those tracks are not in this repo), so they are NOT
+# disk-verified here: silicon_universal_audit.py --verify-receipts verifies only the 3 S64
+# track files plus the mlos inner/profile SHAs and replays the raw capture.
 PINNED_CROSS_TRACK_CERTS: dict[str, str] = {
     "s53_pre_rapl_baseline_cert": "ac191f235fec87357ee7a73987483ab5d1019721245cae1c1c6b2a7a1d44a8d4",
     "s53_sensor_tomography_cert": "b127d37b3f94a64bd8afbcb39f386d42e9f2ffcc6e542d86a8203909afdbdac7",
@@ -539,7 +542,9 @@ def build_payload() -> dict[str, Any]:
     exact_codes = verify_exact_code_and_lattice_geometry()
     exact_gauge = verify_exact_stage_a_gauge_theorem()
 
-    # Exact SI-2019 Landauer brackets for frozen S58 / S60 LLM silicon energies (T_gpu = 63 C = 336.15 K)
+    # Exact SI-2019 Landauer brackets for frozen S58 / S60 LLM silicon energies (T_gpu = 63 C = 336.15 K).
+    # The S58/S60 mJ/tok energies and weight counts below are hardcoded external-track
+    # provenance constants (anchor tier); no raw S58/S60 data ships in this track.
     t_gpu_k = Fraction(63, 1) + Fraction(27315, 100)
     e_s58_bb_j = Fraction(4664749, 20000 * 1000)
     e_s58_e2e_j = Fraction(31278711, 100000 * 1000)
@@ -589,6 +594,8 @@ def build_payload() -> dict[str, Any]:
             "pinned_sha256": dict(PINNED_S64_DIGESTS),
             "pinned_cross_track_certs": dict(PINNED_CROSS_TRACK_CERTS),
             "pillar_1_dark_mode_schur_and_gauge": {
+                # s53_multisecond_eta_ladder_q is a hardcoded external-track provenance
+                # constant (frozen S53 multi-second RAPL tomography), not computed here.
                 "s53_multisecond_eta_ladder_q": [
                     "448340210833/500000000000",
                     "164231638427/250000000000",
@@ -784,6 +791,9 @@ def build_payload() -> dict[str, Any]:
                 "landauer_scale_gap_exceeds_10_to_10": True,
             },
             "pillar_6_universal_code_vs_weight_anisotropy": {
+                # Pillar-6 WikiKL ratios, the 101/95 layer split, and the P5 retention
+                # values below are hardcoded external-track provenance constants
+                # (frozen S58/S60 trained-weight analyses), not computed from raw data here.
                 "qwen_05b_block_weights": s58_wt_count,
                 "qwen_15b_block_weights": s60_wt_count,
                 "weight_scale_ratio_15b_over_05b_q": q_str(Fraction(s60_wt_count, s58_wt_count)),

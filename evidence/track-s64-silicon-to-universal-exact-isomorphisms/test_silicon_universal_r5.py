@@ -116,7 +116,9 @@ class TestTrackS64SiliconUniversalR5(unittest.TestCase):
         with self.assertRaises(ValueError):
             oracle.deterministic_coprime_shuffle([1, 2, 3, 4], 2)
 
-        # Disk cert check if present (0o600 local atomic write or 0o644 git checkout)
+        # Disk cert check if present. The 0o600 guarantee applies only to fresh atomic
+        # --write outputs; a git checkout stores 0644 (git cannot store 0600), so both
+        # modes are accepted here while the canonical bytes stay pinned.
         disk_cert = HERE / "silicon_universal_certificate.json"
         if disk_cert.exists():
             st = os.lstat(disk_cert)

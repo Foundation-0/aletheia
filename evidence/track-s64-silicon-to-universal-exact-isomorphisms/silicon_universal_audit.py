@@ -47,6 +47,10 @@ _ASCII_DIGITS = frozenset("0123456789")
 _DARWIN_SYSTEM_LINKS = frozenset({"tmp", "var", "etc"})
 _CERT_KEYS = frozenset({"schema", "track_id", "payload_sha256", "certificate_sha256", "payload"})
 
+# --check is a self-consistency pin: it compares the disk certificate against the payload
+# produced by the CURRENT oracle build_payload(), so editing oracle literals would not be
+# caught by --check alone. The semantic anchor is --verify-receipts, which re-reads the raw
+# capture from disk and replays it through the oracle, cross-checking the payload fields.
 _EXPECTED_PAYLOAD_BYTES: bytes = oracle.canonical_json_bytes(oracle.build_payload())
 
 

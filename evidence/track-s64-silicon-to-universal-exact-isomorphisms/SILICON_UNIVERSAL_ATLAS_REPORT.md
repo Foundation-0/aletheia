@@ -65,24 +65,22 @@ All exact universal invariants are computed live in pure $\mathbb{Z}/\mathbb{Q}$
 
 ## 3. Hardened Verification Receipts & Frozen Artifact Manifest
 
-- **Certificate (`silicon_universal_certificate.json`, `0o600`, `13,803` B):**
+- **Certificate (`silicon_universal_certificate.json`, written `0o600` by `--write`; `0644` in git since git cannot store `0600`, `13,803` B):**
   - `file_sha256`: `746bdc294df03dbebfea8cb42bea84a45d1506c69b8ad1fa9a15f858a52b401f`
   - `payload_sha256`: `90934fd1cd2de5634803588b45e136716571eb9654ac6d6216d30424c0ce3425`
   - `certificate_sha256`: `ba6eda1ad22926fd0e1a07ea2a1f8fd7bb6077c81e2de9b147f20f9d37b45054`
 - **Verification Gates (`100.0%` PASS):**
-  - **Live Hardware Replay (`--verify-receipts`):** `3/3` capture/probe/receipt files SHA-verified (`granular_silicon_microprobe.c` builds cleanly under `gcc -O3 -std=c11 -D_GNU_SOURCE -Wall -Wextra -Werror -pthread` with `0` warnings, `ELF=0`), `5/5` pinned cross-study certificate SHA-256 digests verified verbatim on disk, `mlos` receipt clean (`anomalies: []`, `exit_code: 0`), `raw_integer_replay_exact: true`, `live_11ch_stage_a_gauge_exact_zero: true`.
+  - **Live Hardware Replay (`--verify-receipts`):** `3/3` capture/probe/receipt files SHA-verified (`granular_silicon_microprobe.c` builds cleanly under `gcc -O3 -std=c11 -D_GNU_SOURCE -Wall -Wextra -Werror -pthread` with `0` warnings, `ELF=0`), `mlos` receipt clean (`anomalies: []`, `exit_code: 0`), `raw_integer_replay_exact: true`, `live_11ch_stage_a_gauge_exact_zero: true`. The `5` cross-study digests in `PINNED_CROSS_TRACK_CERTS` (`silicon_universal_oracle.py`) are pinned by SHA-256 against upstream cross-repo trees, not disk-verified here: `--verify-receipts` verifies `3/3` track files + mlos inner/profile SHAs and replays the capture. Scope note: exp-1 `raw_integer_replay_exact` replays the `256` `coarse_256_block_sums` (the raw `131,072` per-sample cycle arrays are not committed); the per-tick exp-2 replay (`1,600` samples x `13` columns) is genuinely full-array.
   - **Exhaustive Adversarial Tamper & Structural Sweep:** Full certificate tree (`330` scalar leaves, `36` nested dicts, `36` lists; payload `326` leaves, `35` dicts, `36` lists) tested across leaf mutations, empty lists, injected extra keys, and key deletions (`0` bypasses, `0` crashes, `0` `ZeroDivisionError`, `0` `IndexError`); hostile CLI (`--write --json`, `main(123)`, `main(["--check", 123])`) and `chmod 500` / `EEXIST` / `st_nlink > 1` / scratch FIFO all fail closed cleanly.
-  - **4-Surface Adversarial Fuzzer:** `25/25 CLI + 19/19 PY_CERT + 19/19 PY_PAYLOAD + 19/19 PY_TREE` = **`82 / 82` (`100.0%`, `bypasses=0`, `crashes=0`)**.
-  - **Live Mutation Testing (`--workers 4 --timeout 180 --max-mutants 0 --guards require_ok`):** `3/3` oracle + `174/174` audit = **`177 / 177` (`100.0%`, `survived=0`, `timeout=0`, `PASS`)**.
-  - **Whole-File DFS AST `BoolOp` Mutation (operator swaps + subcondition deletions):** `9/9` oracle (`3` nodes) + `64/64` audit (`20` nodes) = **`73 / 73` (`100.0%`, `survived=[]`)**.
-  - **3-Mode Isolated Parity (`-I -B`, `-I -O -B`, `-I -B -W error`) + `PYTHONHASHSEED=42 -B` + `umask 077` + Dual `audit-check --strict-ancestors --safety-scan`:** `PASS` (`0` findings, `0` leaks, `0` CRLF, `0` bare asserts, `0` AST floats/`.isdigit()`, `PYC=0`, `ELF=0`).
+  - **Ad-hoc local receipts (not shipped):** the `2,578`-tamper leaf sweep, the `82/82` 4-surface fuzzer, the `73/73` whole-file DFS AST `BoolOp` sweep, and the `177/177` mutation runs used local scripts/flags that are not committed (this CLI has no `--workers` flag); they are one-off local runs, not re-runnable from this repo. Shipped, re-runnable coverage: the `6`-test R5 suite (incl. `~50` targeted tamper cases in `test_03`) plus live `--check` / `--verify-receipts`.
+  - **3-Mode Isolated Parity (`-I -B`, `-I -O -B`, `-I -B -W error`) + `PYTHONHASHSEED=42 -B` + `umask 077` + track-scoped `audit-check evidence/track-s64-silicon-to-universal-exact-isomorphisms --strict-ancestors --safety-scan`:** `PASS` (`0` findings, `0` leaks, `0` CRLF, `0` bare asserts, `0` AST floats/`.isdigit()`, `PYC=0`, `ELF=0`). Repo-wide `--safety-scan` fails on `48` pre-existing base findings outside this track, and CI's `audit-check` does not pass `--safety-scan`.
 
 | File | Lines | Bytes | Mode | Exact SHA-256 |
 | :--- | ---: | ---: | :---: | :--- |
 | `granular_silicon_microprobe.c` | `590` | `22,889` | `0o644` | `3e5d6768c252df3691b8734fdb3beebab79d2728cb9cb14b43a793ed1367b239` |
 | `granular_silicon_capture.json` | `96` | `135,935` | `0o644` | `c70602cad0159d9619b710870c682997d293fb132cb75cbb3042ee8a63d373ac` |
-| `mlos_zone_b_receipt.json` | `91` | `2,645` | `0o600` | `ebbb3ec57a0dfee80df225ee766e5e28072ba92b564004bcde08a5c8f3945cf5` |
-| `silicon_universal_oracle.py` | `865` | `42,950` | `0o644` | `29bd0324cec3c1e8cbbcced13988c26af434097c5cd242d6892f73515e83e8dc` |
-| `silicon_universal_audit.py` | `873` | `38,910` | `0o644` | `3b6f81653766566496114018b7bfbc8733d668160707928830f32775dfb3d591` |
-| `silicon_universal_certificate.json` | `1` | `13,803` | `0o600` | `746bdc294df03dbebfea8cb42bea84a45d1506c69b8ad1fa9a15f858a52b401f` |
-| `test_silicon_universal_r5.py` | `763` | `43,046` | `0o644` | `759e1ea57e312ceb11d938078b1166bc76e53996b1efd19810c95d771dab6dd3` |
+| `mlos_zone_b_receipt.json` | `91` | `2,645` | `0o600` on write; `0644` in git | `ebbb3ec57a0dfee80df225ee766e5e28072ba92b564004bcde08a5c8f3945cf5` |
+| `silicon_universal_oracle.py` | `875` | `43,822` | `0o644` | `c58089010949a3bf47ed9b12226ecdc237194929eb82175bf624c8472008c52c` |
+| `silicon_universal_audit.py` | `877` | `39,272` | `0o644` | `5e518b91e0a443ec8db9379458d30ae0d1644e2844b6d3bcfab521180150eb74` |
+| `silicon_universal_certificate.json` | `1` | `13,803` | `0o600` on `--write`; `0644` in git | `746bdc294df03dbebfea8cb42bea84a45d1506c69b8ad1fa9a15f858a52b401f` |
+| `test_silicon_universal_r5.py` | `765` | `43,207` | `0o644` | `cdb957f49be29cec23e1978de9c07fd976987d9ff64219691467a00de00a6972` |
