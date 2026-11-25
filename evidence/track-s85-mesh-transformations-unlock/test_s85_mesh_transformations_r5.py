@@ -1492,6 +1492,50 @@ class TestS85SecondaryAuditReplayAndCLI(unittest.TestCase):
                 self.assertEqual(rc, 2)
                 self.assertIn("LEAN_BINARY_UNAVAILABLE", err_buf.getvalue())
 
+    def test_11_in_repo_upstream_rehash_and_label_class_traps(self) -> None:
+        # Positive: --check surface re-hashes the on-disk S83/S80 certificates and passes.
+        r = V.verify_certificate_dict(self.valid_cert, full_replay=True, track_dir=_THIS_DIR)
+        self.assertTrue(r["valid"] and r["full_replay"])
+        root = V._in_repo_root()
+        for k, rel in O.IN_REPO_CERT_PATHS.items():
+            raw = (root / rel).read_bytes()
+            self.assertEqual(O.sha256_hex(raw), O.UPSTREAM_CERT_SHAS[k])
+
+        # Negative: a one-byte-changed on-disk in-repo certificate fails UPSTREAM_REHASH_MISMATCH.
+        with tempfile.TemporaryDirectory() as td:
+            d = Path(td)
+            fake = d / "fake_cert.json"
+            fake.write_bytes(b"tampered")
+            with (
+                mock.patch.object(V, "_in_repo_root", return_value=d),
+                mock.patch.dict(O.IN_REPO_CERT_PATHS, {"track_s83_k8_mesh": "fake_cert.json"}),
+            ):
+                with self.assertRaises(O.S85Error) as cm_rh:
+                    V.verify_certificate_dict(self.valid_cert, full_replay=False, track_dir=_THIS_DIR)
+                self.assertEqual(cm_rh.exception.code, "UPSTREAM_REHASH_MISMATCH")
+
+        # Negative: a deleted in-repo certificate fails closed (FILE_READ_ERROR), not silently passes.
+        with (
+            mock.patch.object(V, "_in_repo_root", return_value=Path(td)),
+            mock.patch.dict(O.IN_REPO_CERT_PATHS, {"track_s83_k8_mesh": "missing.json"}),
+        ):
+            with self.assertRaises(O.S85Error) as cm_del:
+                V.verify_certificate_dict(self.valid_cert, full_replay=False, track_dir=_THIS_DIR)
+            self.assertEqual(cm_del.exception.code, "FILE_READ_ERROR")
+
+        # Negative: flipping a pin's external/in-repo class (label text unchanged) fails
+        # UPSTREAM_LABEL_CLASS — the class check is independent of the label string.
+        with mock.patch.dict(O.PIN_SOURCES, {"track_s83_k8_mesh": "aletheia (in-repo; re-hashed by verifier)"}):
+            with self.assertRaises(O.S85Error) as cm_lc:
+                V.verify_certificate_dict(self.valid_cert, full_replay=False, track_dir=_THIS_DIR)
+            self.assertEqual(cm_lc.exception.code, "UPSTREAM_LABEL_CLASS")
+
+        # Negative: an in-repo pin missing from UPSTREAM_CERT_SHAS fails UPSTREAM_LABEL_CLASS.
+        with mock.patch.dict(O.IN_REPO_CERT_PATHS, {"track_ghost": "evidence/x.json"}):
+            with self.assertRaises(O.S85Error) as cm_g:
+                V.verify_certificate_dict(self.valid_cert, full_replay=False, track_dir=_THIS_DIR)
+            self.assertEqual(cm_g.exception.code, "UPSTREAM_LABEL_CLASS")
+
 
 if __name__ == "__main__":
     unittest.main()

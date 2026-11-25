@@ -453,6 +453,20 @@ def _open_dir_chain(target: Path, label: str, *, create_parents: bool) -> tuple[
         raise
 
 
+def _in_repo_root() -> Path:
+    """Locate the aletheia repo root that contains this track's evidence bundle.
+
+    Walks up from this file's directory looking for the in-repo upstream track;
+    fail-closed if the bundle is not found.
+    """
+    marker = Path("evidence") / "track-s83-all-to-all-epistemic-mesh"
+    p = Path(_THIS_DIR).resolve()
+    for anc in (p, *p.parents):
+        if (anc / marker).is_dir():
+            return anc
+    raise oracle.S85Error("UPSTREAM_REPO_ROOT", "in-repo upstream evidence bundle not found above track dir")
+
+
 def read_regular_bytes_capped(path: Path, label: str = "file", max_bytes: int = MAX_JSON_BYTES) -> bytes:
     target = _require_concrete_path(path, label)
     oracle.require_exact_int(max_bytes, "max_bytes", lo=1, hi=MAX_ALLOWED_CAP_BYTES)
@@ -895,6 +909,16 @@ def secondary_audit_payload(payload: Any) -> dict[str, Any]:
         # Real class check: the literal table's external set must equal PIN_SOURCES exactly
         # (a pin added to PIN_SOURCES but not to the literal table — or vice versa — fails).
         oracle.require_ok((k in expected_sources) == (k in oracle.PIN_SOURCES), "UPSTREAM_LABEL_CLASS", f"{k}: external/in-repo class mismatch vs PIN_SOURCES")
+    # In-repo pins are re-hashed from the on-disk upstream certificates (fail-closed):
+    # a one-byte change to an in-repo upstream certificate, or a deleted file, fails here.
+    for k, rel in oracle.IN_REPO_CERT_PATHS.items():
+        oracle.require_ok(k in oracle.UPSTREAM_CERT_SHAS, "UPSTREAM_LABEL_CLASS", f"{k}: in-repo pin missing from UPSTREAM_CERT_SHAS")
+        raw = read_regular_bytes_capped(_in_repo_root() / rel, f"upstream.{k}", max_bytes=MAX_JSON_BYTES)
+        oracle.require_ok(
+            hmac.compare_digest(oracle.sha256_hex(raw), oracle.UPSTREAM_CERT_SHAS[k]),
+            "UPSTREAM_REHASH_MISMATCH",
+            f"{k}: on-disk {rel} does not match pinned sha256",
+        )
 
     # T1: Line-graph & Hodge invariants
     t1 = _require_exact_dict(payload["t1_line_graph_and_hodge"], _T1_KEYS, "t1")

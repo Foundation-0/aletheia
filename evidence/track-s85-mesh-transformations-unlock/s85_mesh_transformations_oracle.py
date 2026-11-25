@@ -46,6 +46,18 @@ def upstream_pin_source(key: str) -> str:
         return PIN_SOURCES[key]
     return "aletheia (in-repo; re-hashed by verifier)"
 
+
+# In-repo upstream certificates: repo-relative paths that the verifier re-hashes
+# from disk on every --check (fail-closed: missing or one-byte-changed file fails).
+IN_REPO_CERT_PATHS: dict[str, str] = {
+    "track_s83_k8_mesh": "evidence/track-s83-all-to-all-epistemic-mesh/s83_epistemic_mesh_certificate.json",
+    "track_s80_rocket_cce": "evidence/track-s80-rocket-songe-unsloth-optimizations/s80_certificate.json",
+}
+
+
+def in_repo_pin_path(key: str) -> str | None:
+    return IN_REPO_CERT_PATHS.get(key)
+
 UPSTREAM_CERT_SHAS: dict[str, str] = {
     "track_s83_k8_mesh": "74d269c5c1c35665fc835df796e6f94cdbd118ca4ce580a20310c5c969deabdb",
     "track_s23a_helicity": "b55631b1be71e8e46c5f6d153015c83b65bdf73bde7788933053e84b64aa6d31",
