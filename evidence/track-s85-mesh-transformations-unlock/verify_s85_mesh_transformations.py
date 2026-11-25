@@ -880,6 +880,15 @@ def secondary_audit_payload(payload: Any) -> dict[str, Any]:
     ups = _require_exact_dict(pa["upstream_cert_shas"], frozenset(oracle.UPSTREAM_CERT_SHAS.keys()), "upstream_cert_shas")
     for k, exp_sha in oracle.UPSTREAM_CERT_SHAS.items():
         oracle.require_ok(oracle.require_hex64(ups[k], f"ups.{k}") == exp_sha, "UPSTREAM_SHA_MISMATCH", k)
+    # Pin provenance is fail-closed: every pin's label must match its verified resolution class.
+    for k in oracle.UPSTREAM_CERT_SHAS:
+        lbl = oracle.upstream_pin_source(k)
+        if k in oracle.CROSS_REPO_UPSTREAM:
+            oracle.require_ok(lbl.startswith("external-historical-pin"), "UPSTREAM_LABEL", k)
+        elif k in oracle.MATH0_PIN_PATHS:
+            oracle.require_ok(lbl.startswith("Foundation-0/math0@f9970082:"), "UPSTREAM_LABEL", k)
+        else:
+            oracle.require_ok(lbl.startswith("aletheia"), "UPSTREAM_LABEL", k)
 
     # T1: Line-graph & Hodge invariants
     t1 = _require_exact_dict(payload["t1_line_graph_and_hodge"], _T1_KEYS, "t1")

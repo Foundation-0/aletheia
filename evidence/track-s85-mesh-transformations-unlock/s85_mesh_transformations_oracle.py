@@ -22,13 +22,28 @@ EXPECTED_LEAN_SOURCE_SHA256 = "553a0c63ef82ca696c390cf206d1d20e7ab13ab5b82dc505c
 EXPECTED_LAKEFILE_SHA256 = "7b9465ea2c560f1485f20cc7968c3c553fe4bb3b6259729f5b82a33f0cf6a8d6"
 EXPECTED_TOOLCHAIN_SHA256 = "582a63f8f9c5128067b688778c1051cf1464c3ca9d57b9325025c051c29b774a"
 
-# Upstream certificate SHA-256 pins. Only track_s83_k8_mesh and track_s80_rocket_cce resolve to
-# files in this repo; the other five (S23a, S23b, S73, S78, S79) are external pins — some may
-# resolve in Foundation-0/math0@main, the rest are absent from aletheia, cave-expedition, and
-# math0@f9970082 (external historical pins resolving in no readable repo).
+# Upstream certificate SHA-256 pins, with exact provenance (re-hashed by the reviewer against
+# aletheia main, cave-expedition all branches, and math0 all branches):
+#   - track_s83_k8_mesh and track_s80_rocket_cce resolve to files in THIS repo (verifier re-hashes them);
+#   - track_s23a_helicity resolves in Foundation-0/math0@f9970082 at the path in MATH0_PIN_PATHS;
+#   - the four in CROSS_REPO_UPSTREAM (S23b, S73, S78, S79) are absent from aletheia,
+#     cave-expedition (all 11 branches) and math0@f9970082 (= math0 main) — external
+#     historical pins resolving in NO readable repo.
 CROSS_REPO_UPSTREAM: frozenset[str] = frozenset({
-    "track_s23a_helicity", "track_s23b_jones_cs", "track_s73_siliquant", "track_s78_engram_lora", "track_s79_2dsd_csr",
+    "track_s23b_jones_cs", "track_s73_siliquant", "track_s78_engram_lora", "track_s79_2dsd_csr",
 })
+
+MATH0_PIN_PATHS: dict[str, str] = {
+    "track_s23a_helicity": "studies/track-s23a-ck-helicity-knotted-flux-fft/ck_helicity_fft_certificate.json",
+}
+
+
+def upstream_pin_source(key: str) -> str:
+    if key in CROSS_REPO_UPSTREAM:
+        return "external-historical-pin (absent from aletheia, cave-expedition all branches, math0@f9970082)"
+    if key in MATH0_PIN_PATHS:
+        return f"Foundation-0/math0@f9970082:{MATH0_PIN_PATHS[key]}"
+    return "aletheia (in-repo; re-hashed by verifier)"
 
 UPSTREAM_CERT_SHAS: dict[str, str] = {
     "track_s83_k8_mesh": "74d269c5c1c35665fc835df796e6f94cdbd118ca4ce580a20310c5c969deabdb",

@@ -10,19 +10,19 @@
 
 ## 1. Executive Summary & Honest `N0` vs. `N1` Novelty Boundary
 
-### 1.1 `N0` Prior Art & Anchored Upstream Certificates (`7` Frozen SHA-256 Pins: `2/7` On-Disk In-Repo, `5/7` External)
+### 1.1 `N0` Prior Art & Anchored Upstream Certificates (`7` Frozen SHA-256 Pins: `2/7` In-Repo, `1/7` math0@f9970082, `4/7` External-Historical Nowhere-Readable)
 
 All mathematical foundations—combinatorial Hodge 1-Laplacians, Harary–Zaslavsky signed graphs and 2-sheeted covering lifts, Rayleigh monotonicity, Schur/Kron network reduction, Cayley–Menger / centered Gram inertia, and non-normal transient amplification—are classical `N0` theory. Likewise, every empirical graph weight, obstruction wall, VRAM budget, and topological invariant ingested by `Track S85` originates from `7` previously audited frozen expedition certificates (`N0` inputs relative to `S85`):
 
-| Upstream Certificate Key | Frozen Role in `Track S85` | Pinned On-Disk SHA-256 |
-|---|---|---|
-| `track_s83_k8_mesh` | Complete $K_8$ epistemic mesh (`28` pairs, `6` `EXACT_OBSTRUCTION` walls, `v0-v1` `CONDITIONAL_BRIDGE`) | `74d269c5c1c35665fc835df796e6f94cdbd118ca4ce580a20310c5c969deabdb` |
-| `track_s23a_helicity` | Borromean rings (`L6a4`) zero pairwise linking & zero Abelian mutual helicity (`0`) | `b55631b1be71e8e46c5f6d153015c83b65bdf73bde7788933053e84b64aa6d31` |
-| `track_s23b_jones_cs` | Non-Abelian $SU(2)_2$ Jones/Chern–Simons norm squared (`|J|^2 = 4`) & Milnor `|mu_bar| = 1` | `04f1d454a96a4090dedf2c8a47c377c5e78d3724423761d8d359667bc87b0bd1` |
-| `track_s73_siliquant` | `3.0 bpw` consumer-silicon quantization pillar inside `8192 MiB` VRAM stack | `33dfb4153fe974e9ef13120190c14ada6dda63ffbee6caa46047d274f32d36cf` |
-| `track_s78_engram_lora` | `r = 64` LoRA/Engram adapter & optimizer budget (`192 MiB`) | `3b8341ef5f588f970accb9a9d28f0b683af9747be045e69196e6c19d3fa58378` |
-| `track_s79_2dsd_csr` | `2D-SD` / `CSR` (`<= 1/160`, overhead ratio `26/35 < 1`) sparse sidecar (`64 MiB`) | `9c30539e6d585141a9b1a5111935ca86de0f740e80749a622547a18242465ad8` |
-| `track_s80_rocket_cce` | `Rocket CCE` base (`3044 MiB`) vs. materialized `4.5 bpw` OOM wall (`8256 MiB > 8192 MiB`) | `95681a29ca577c4e3040f8ba63f8516b1cbb2bf1ebfdcda06277f21bb2aa2cb7` |
+| Upstream Certificate Key | Frozen Role in `Track S85` | Pinned SHA-256 | Pin status (verifier-checked) |
+|---|---|---|---|
+| `track_s83_k8_mesh` | Complete $K_8$ epistemic mesh (`28` pairs, `6` `EXACT_OBSTRUCTION` walls, `v0-v1` `CONDITIONAL_BRIDGE`) | `74d269c5c1c35665fc835df796e6f94cdbd118ca4ce580a20310c5c969deabdb`  aletheia in-repo (re-hashed) |
+| `track_s23a_helicity` | Borromean rings (`L6a4`) zero pairwise linking & zero Abelian mutual helicity (`0`) | `b55631b1be71e8e46c5f6d153015c83b65bdf73bde7788933053e84b64aa6d31`  math0@f9970082 (`studies/track-s23a-ck-helicity-knotted-flux-fft/ck_helicity_fft_certificate.json`) |
+| `track_s23b_jones_cs` | Non-Abelian $SU(2)_2$ Jones/Chern–Simons norm squared (`|J|^2 = 4`) & Milnor `|mu_bar| = 1` | `04f1d454a96a4090dedf2c8a47c377c5e78d3724423761d8d359667bc87b0bd1`  external-historical (nowhere readable) |
+| `track_s73_siliquant` | `3.0 bpw` consumer-silicon quantization pillar inside `8192 MiB` VRAM stack | `33dfb4153fe974e9ef13120190c14ada6dda63ffbee6caa46047d274f32d36cf`  external-historical (nowhere readable) |
+| `track_s78_engram_lora` | `r = 64` LoRA/Engram adapter & optimizer budget (`192 MiB`) | `3b8341ef5f588f970accb9a9d28f0b683af9747be045e69196e6c19d3fa58378`  external-historical (nowhere readable) |
+| `track_s79_2dsd_csr` | `2D-SD` / `CSR` (`<= 1/160`, overhead ratio `26/35 < 1`) sparse sidecar (`64 MiB`) | `9c30539e6d585141a9b1a5111935ca86de0f740e80749a622547a18242465ad8`  external-historical (nowhere readable) |
+| `track_s80_rocket_cce` | `Rocket CCE` base (`3044 MiB`) vs. materialized `4.5 bpw` OOM wall (`8256 MiB > 8192 MiB`) | `95681a29ca577c4e3040f8ba63f8516b1cbb2bf1ebfdcda06277f21bb2aa2cb7`  aletheia in-repo (re-hashed) |
 
 Additional cross-track references credited as `N0` context: `Track S76` (Loop-Schur operator $G_{\mathrm{loop}}^{-1}$), `Track S81` ($\mathbb{R}^3$ tetrahedron centered Gram determinant $\det G_4 = 0$), and `Track S75` / `Track S82` (`vp-vnp` `Rem D.3` $\operatorname{Mat}_2(\mathbb{F}_2)$ $\mathrm{CAT}(0)$ rank-metric Gram $\det G = -1/4 < 0$).
 
@@ -166,7 +166,7 @@ Promoting `v0-v1` alone adds `+2` exact transitive closures, whereas promoting `
 
 ## 4. Post-Last-Edit Verification & Adversarial Hardening Receipts (R4 Hardened)
 
-- **Byte-Exact Oracle & Certificate Replay:** `canonical_json_bytes(build_certificate())` matches `s85_mesh_transformations_certificate.json` (`11,078` B, `0o600`) byte-for-byte (`STANDALONE_CMP=EXACT`); `verify_s85_mesh_transformations.py --check --json` and `--verify-lean MeshTransformationsUnlock.lean --json` both exit `0` (`valid: true`, `theorems_verified: 18`, `7/7` pinned upstream SHAs exact — `2/7` re-hashed on disk in this repo (S83, S80), `5/7` external pins (S23a, S23b, S73, S78, S79) — some may resolve in `Foundation-0/math0@main`, the rest in no readable repo (aletheia, cave-expedition, math0@f9970082 checked); none is on disk here)).
+- **Byte-Exact Oracle & Certificate Replay:** `canonical_json_bytes(build_certificate())` matches `s85_mesh_transformations_certificate.json` (`11,078` B, `0o600`) byte-for-byte (`STANDALONE_CMP=EXACT`); `verify_s85_mesh_transformations.py --check --json` and `--verify-lean MeshTransformationsUnlock.lean --json` both exit `0` (`valid: true`, `theorems_verified: 18`, `7/7` pinned upstream SHAs exact (string-pinned in the certificate) — `2/7` re-hashed on disk in this repo (S83, S80), `1/7` resolves in `Foundation-0/math0@f9970082` (S23a, `studies/track-s23a-ck-helicity-knotted-flux-fft/ck_helicity_fft_certificate.json`), `4/7` are external-historical pins resolving in NO readable repo (S23b, S73, S78, S79 — absent from aletheia, cave-expedition all branches, math0@f9970082); provenance labels are fail-closed-checked by the verifier (`UPSTREAM_LABEL`))).
 - **11-Env Isolated `-I` Test Parity (`test_s85_mesh_transformations_r5.py`):** **`10/10 OK ×11`** (`0` skips) across `-I -B`, `-I -O -B`, `-I -B -W error`, `PYTHONHASHSEED=42`, `umask 077`, `env -i PATH=/usr/bin:/bin HOME=/nonexistent` (Lean-less), `HOME=/nonexistent` + direct `ALETHEIA_LEAN_BIN` (live Lean), bare `env -i PATH=/usr/bin:/bin` (`-I -B`, `-I -O -B`, `-I -B -W error`, `LEAN_LESS_REQUIRE_RC=1`, `LEAN_LESS_VERIFY_LEAN_RC=2`), and CI `chmod 644` inside a `0o555` read-only directory.
 - **R12 Static Lean Gate & Live `LEAN_PATH` Hijack Immunity (`S85R2-VER-03`):** Full R12 scanner removes leading `(?<!\.)` and blocks all dot-qualified `_root_.sorryAx`/`Lean.ofReduce*`, `dbgTrace*`/`dbg_sleep`/`dbg_stack_trace`, `panic!`/`unreachable!`/`assert!`/`debug_assert!`/`panicCore`/`panicWithPos*`, `noncomputable`, `bv_decide`, `set_option`/`warn.sorry`, `@[extern|implemented_by|export|init|builtin_init|term_elab|command_elab|tactic|macro|macro_rules|builtin_*]`, `#guard`/`#guard_msgs`/`#check`/`#synth`/`#eval`/`#reduce`/`#exit`, `config :=`, `with native`, line-anchored public `theorem` & `#print axioms`, with `0` FP on clean controls (`decide (native := false)`, `Bool.false`, `export Nat (succ)`, `attribute [simp] init`, `@[inline]`, `@[macro_inline]`, `my_panic`). Allowlisted `_clean_lean_env()` (`PATH, HOME, USER, LOGNAME, TMPDIR, LANG, LC_ALL, TERM`) is passed to BOTH `lean` subprocess calls (`LIVE_LEAN_PATH_HIJACK: unscrubbed_rc=1 -> scrubbed_thms=18`).
 - **4-Surface Crash Immunity & Exhaustive `337/337` Leaf-Complete `SEC`/`FR0` Anchoring (`S85R2-VER-01`, `S85R2-VER-02`, R3/R4 `337/337` Leaf-Complete Closure):** Bounded `parse_decimal_str_to_q` (`places in [1, 18]`, `len(int_s) <= MAX_INT_DIGITS = 2467`) eliminates `>4,300`-digit `ValueError` DoS (`INT_TOO_LARGE`); explicit `sy_q[idx] > 0` (`T4_SY_POS`) eliminates `ZeroDivisionError`; exact canonical anchors across `T1` (`168, 210, 18, 11`, exact `by_tag` & `sample_disjoint_functor_bridges`), `T2` (`mw=6, mu=5, mask=119`, exact `antipodal_sheet_resistances_q`), `T3` (exact base decimals, all `7` `single_surgery_rows` `original_w`/`mediator`/`multi_wall_after`/decimals, and all `3` `three_step_cascade` steps), `T4` (`a=3/2, b=1/3, curl=2`, exact `nn`/`sy`, `ung=3/2, gam=1/3`), and `T5` (`oom=8256, base=3044, lora=192, csr=64, csr_ratio=26/35`) reject **`337/337` single-leaf re-signed mutations** under BOTH basic bumps (`bool` flip / `int +1` / `str + "x"`) AND smart `+1 ULP` numeric-preserving bumps across `SEC` and `FR0` (`1,348/1,348` checks, `0` bypasses, `0` crashes) as well as `337/337` on `FR1`.
@@ -184,8 +184,8 @@ Promoting `v0-v1` alone adds `+2` exact transitive closures, whereas promoting `
 | `MeshTransformationsUnlock.lean` | `414` | `21,131` | `0o644` | `553a0c63ef82ca696c390cf206d1d20e7ab13ab5b82dc505ce34fc18ca19b8ef` |
 | `lakefile.toml` | `5` | `131` | `0o644` | `7b9465ea2c560f1485f20cc7968c3c553fe4bb3b6259729f5b82a33f0cf6a8d6` |
 | `lean-toolchain` | `1` | `25` | `0o644` | `582a63f8f9c5128067b688778c1051cf1464c3ca9d57b9325025c051c29b774a` |
-| `s85_mesh_transformations_oracle.py` | `1,019` | `42,378` | `0o644` | `972336513e92e7a1fbaeb18193feeeeb63171673a3a47cb10a425395d2c742a7` |
-| `verify_s85_mesh_transformations.py` | `1,334` | `63,906` | `0o644` | `7518681b5e690ac9b20b93e2a75e899c6918aaf35403827cb5e5c0012f212ed5` |
+| `s85_mesh_transformations_oracle.py` | `1,042` | `43,619` | `0o644` | `ad480cfbade282c1c9a1453fe5b99da7af0ec8b53b04d6e8272b090a371ad622` |
+| `verify_s85_mesh_transformations.py` | `1,343` | `64,459` | `0o644` | `66170ee9709f2623068e4eeaf4390aa5dce275d2aa19b7099cbf9b835d9d3c6f` |
 | `test_s85_mesh_transformations_r5.py` | `1,497` | `92,764` | `0o644` | `1aa62fd86a09d54fb2a5227449440f637e6752f2700cbe44d50982940434e757` |
 | `s85_mesh_transformations_certificate.json` | `1` | `11,078` | `0o600` | `f9a7c7efe7d63c0b9be36041b365d43a1b31ec4c1565e97c962631bde464dd50` |
 
