@@ -26,23 +26,24 @@ EXPECTED_TOOLCHAIN_SHA256 = "582a63f8f9c5128067b688778c1051cf1464c3ca9d57b932502
 # aletheia main, cave-expedition all branches, and math0 all branches):
 #   - track_s83_k8_mesh and track_s80_rocket_cce resolve to files in THIS repo (verifier re-hashes them);
 #   - track_s23a_helicity resolves in Foundation-0/math0@f9970082 at the path in MATH0_PIN_PATHS;
-#   - the four in CROSS_REPO_UPSTREAM (S23b, S73, S78, S79) are absent from aletheia,
-#     cave-expedition (all 11 branches) and math0@f9970082 (= math0 main) — external
-#     historical pins resolving in NO readable repo.
+#   - the four in CROSS_REPO_UPSTREAM resolve byte-exact at the pinned repo@ref:path below
+#     (re-hashed across every branch and PR head of siliquant, math0, cave-expedition, aletheia).
 CROSS_REPO_UPSTREAM: frozenset[str] = frozenset({
     "track_s23b_jones_cs", "track_s73_siliquant", "track_s78_engram_lora", "track_s79_2dsd_csr",
 })
 
-MATH0_PIN_PATHS: dict[str, str] = {
-    "track_s23a_helicity": "studies/track-s23a-ck-helicity-knotted-flux-fft/ck_helicity_fft_certificate.json",
+PIN_SOURCES: dict[str, str] = {
+    "track_s23a_helicity": "Foundation-0/math0@f9970082:studies/track-s23a-ck-helicity-knotted-flux-fft/ck_helicity_fft_certificate.json",
+    "track_s23b_jones_cs": "Foundation-0/math0@PR#33-head:studies/track-s23b-jones-cs-poincare-ntt-sigma/jones_cs_poincare_ntt_certificate.json",
+    "track_s73_siliquant": "Moissanite-Labs/siliquant@PR#103-head(3065627d):studies/rtx3080-s73-lowbit-and-sharednorm-quad-snake/rtx3080_s73_certificate.json",
+    "track_s78_engram_lora": "Moissanite-Labs/siliquant@main:studies/s78-engram-lora-capacity-siliquant-mdl/s78_engram_lora_siliquant_certificate.json",
+    "track_s79_2dsd_csr": "Moissanite-Labs/siliquant@PR#101-head(3e06f18c):studies/s79-2dsd-multipole-dense-sparse-laws/s79_2dsd_multipole_certificate.json",
 }
 
 
 def upstream_pin_source(key: str) -> str:
-    if key in CROSS_REPO_UPSTREAM:
-        return "external-historical-pin (absent from aletheia, cave-expedition all branches, math0@f9970082)"
-    if key in MATH0_PIN_PATHS:
-        return f"Foundation-0/math0@f9970082:{MATH0_PIN_PATHS[key]}"
+    if key in PIN_SOURCES:
+        return PIN_SOURCES[key]
     return "aletheia (in-repo; re-hashed by verifier)"
 
 UPSTREAM_CERT_SHAS: dict[str, str] = {

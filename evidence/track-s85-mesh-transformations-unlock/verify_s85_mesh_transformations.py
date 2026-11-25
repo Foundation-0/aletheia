@@ -880,15 +880,19 @@ def secondary_audit_payload(payload: Any) -> dict[str, Any]:
     ups = _require_exact_dict(pa["upstream_cert_shas"], frozenset(oracle.UPSTREAM_CERT_SHAS.keys()), "upstream_cert_shas")
     for k, exp_sha in oracle.UPSTREAM_CERT_SHAS.items():
         oracle.require_ok(oracle.require_hex64(ups[k], f"ups.{k}") == exp_sha, "UPSTREAM_SHA_MISMATCH", k)
-    # Pin provenance is fail-closed: every pin's label must match its verified resolution class.
+    # Pin provenance is fail-closed against an INDEPENDENT literal table (not the oracle's own
+    # function, which would be tautological): each pin's source must equal the expected repo@ref:path.
+    expected_sources = {
+        "track_s23a_helicity": "Foundation-0/math0@f9970082:studies/track-s23a-ck-helicity-knotted-flux-fft/ck_helicity_fft_certificate.json",
+        "track_s23b_jones_cs": "Foundation-0/math0@PR#33-head:studies/track-s23b-jones-cs-poincare-ntt-sigma/jones_cs_poincare_ntt_certificate.json",
+        "track_s73_siliquant": "Moissanite-Labs/siliquant@PR#103-head(3065627d):studies/rtx3080-s73-lowbit-and-sharednorm-quad-snake/rtx3080_s73_certificate.json",
+        "track_s78_engram_lora": "Moissanite-Labs/siliquant@main:studies/s78-engram-lora-capacity-siliquant-mdl/s78_engram_lora_siliquant_certificate.json",
+        "track_s79_2dsd_csr": "Moissanite-Labs/siliquant@PR#101-head(3e06f18c):studies/s79-2dsd-multipole-dense-sparse-laws/s79_2dsd_multipole_certificate.json",
+    }
     for k in oracle.UPSTREAM_CERT_SHAS:
-        lbl = oracle.upstream_pin_source(k)
-        if k in oracle.CROSS_REPO_UPSTREAM:
-            oracle.require_ok(lbl.startswith("external-historical-pin"), "UPSTREAM_LABEL", k)
-        elif k in oracle.MATH0_PIN_PATHS:
-            oracle.require_ok(lbl.startswith("Foundation-0/math0@f9970082:"), "UPSTREAM_LABEL", k)
-        else:
-            oracle.require_ok(lbl.startswith("aletheia"), "UPSTREAM_LABEL", k)
+        exp = expected_sources.get(k, "aletheia (in-repo; re-hashed by verifier)")
+        oracle.require_ok(oracle.upstream_pin_source(k) == exp, "UPSTREAM_LABEL", k)
+        oracle.require_ok(k in oracle.CROSS_REPO_UPSTREAM or k in expected_sources or exp.startswith("aletheia"), "UPSTREAM_LABEL_CLASS", k)
 
     # T1: Line-graph & Hodge invariants
     t1 = _require_exact_dict(payload["t1_line_graph_and_hodge"], _T1_KEYS, "t1")
