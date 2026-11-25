@@ -26,6 +26,7 @@ import io
 import json
 import os
 from pathlib import Path
+import shutil
 import stat
 import sys
 import tempfile
@@ -459,6 +460,53 @@ class TestMutatorParallelWorkers(unittest.TestCase):
             ])
             self.assertEqual(rc_b, 2)
             self.assertEqual(json.loads(out_b)["code"], "INVALID_WORKERS")
+
+    def test_06_snap_copy_fail_closed_kills_snap_copy_failed_mutant(self) -> None:
+        """SNAP_COPY_FAILED kill: an OSError (e.g. ENOSPC) during any snap slot copy —
+        including slot 0 — must raise AletheiaError(SNAP_COPY_FAILED) and leave no snap behind."""
+        with tempfile.TemporaryDirectory(prefix="aletheia_t_snapfail_") as td:
+            root = Path(td)
+            work = root / "ws"
+            snap_parent = root / "snaps"
+            work.mkdir()
+            snap_parent.mkdir()
+            os.chmod(snap_parent, 0o700)
+            tgt = work / "target_mod.py"
+            write_lf_text(tgt, _SAMPLE_TARGET)
+            write_lf_text(work / "sibling_cert.json", '{"ok":true}\n')
+            write_lf_text(work / "test_strong.py", _STRONG_TEST)
+
+            # Slot-0 copy (initial _copy_workspace_no_symlinks) failing must fail closed.
+            with mock.patch.object(mutator, "_copy_workspace_no_symlinks", side_effect=OSError(28, "No space left on device")):
+                code = _code_of(lambda: mutator.run_mutation_suite(
+                    tgt, "python3 test_strong.py", work_root=work, max_mutants=0, add_cwd=True, workers=2, snap_root=snap_parent
+                ))
+            self.assertEqual(code, "SNAP_COPY_FAILED")
+            self.assertEqual(list(snap_parent.iterdir()), [])
+
+            # Replica slot copy (shutil.copytree) failing must fail closed too.
+            real_copytree = shutil.copytree
+
+            def _raise_enospc(src, dst, *a, **k):
+                if str(dst).endswith("slot_1"):
+                    raise OSError(28, "No space left on device")
+                return real_copytree(src, dst, *a, **k)
+
+            with mock.patch("shutil.copytree", side_effect=_raise_enospc):
+                code2 = _code_of(lambda: mutator.run_mutation_suite(
+                    tgt, "python3 test_strong.py", work_root=work, max_mutants=0, add_cwd=True, workers=2, snap_root=snap_parent
+                ))
+            self.assertEqual(code2, "SNAP_COPY_FAILED")
+            self.assertEqual(list(snap_parent.iterdir()), [])
+
+            # SIGTERM during a workers>1 run must run the finally cleanup (no leaked snap):
+            # the installed handler converts SIGTERM into a catchable exception.
+            with mock.patch.object(mutator, "_install_sigterm_raise", wraps=mutator._install_sigterm_raise) as spy_install:
+                mutator.run_mutation_suite(
+                    tgt, "python3 test_strong.py", work_root=work, max_mutants=2, add_cwd=True, workers=2, snap_root=snap_parent
+                )
+                spy_install.assert_called_once()
+            self.assertEqual(list(snap_parent.iterdir()), [])
 
 
 if __name__ == "__main__":

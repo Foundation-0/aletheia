@@ -33,6 +33,7 @@ from pathlib import Path
 import queue
 import secrets
 import shlex
+import signal
 import shutil
 import stat
 import subprocess
@@ -1088,6 +1089,21 @@ def _create_private_snap_dir(parent: Path) -> Path:
     return cand
 
 
+def _sigterm_raises_keyboard_interrupt(signum: int, frame: Any) -> None:
+    # Convert SIGTERM (timeout, CI cancellation, process managers) into a catchable
+    # exception so the `finally: shutil.rmtree(snap_dir)` cleanup runs instead of
+    # leaking the /dev/shm snap (rc=143 default would skip it).
+    raise KeyboardInterrupt(f"SIGTERM ({signum}) received; cleaning up snap dir")
+
+
+def _install_sigterm_raise() -> Any:
+    try:
+        return signal.signal(signal.SIGTERM, _sigterm_raises_keyboard_interrupt)
+    except (ValueError, OSError):
+        # Not in the main thread (or unsupported platform): skip, cleanup stays best-effort.
+        return None
+
+
 def _copy_workspace_no_symlinks(src_root: Path, dst_root: Path) -> None:
     """
     Copy `src_root` into `dst_root` preserving independent inodes (`st_nlink == 1`)
@@ -1188,9 +1204,18 @@ def run_mutation_suite(
     snap_parent = _select_snap_parent(snap_root, prefer_shm=(workers > 1))
     snap_dir = _create_private_snap_dir(snap_parent)
 
+    _prev_sigterm = None
     try:
+        if workers > 1:
+            _prev_sigterm = _install_sigterm_raise()
         tmp_root = snap_dir / "slot_0"
-        _copy_workspace_no_symlinks(src_root, tmp_root)
+        try:
+            _copy_workspace_no_symlinks(src_root, tmp_root)
+        except OSError as exc:
+            raise AletheiaError(
+                "SNAP_COPY_FAILED",
+                f"failed to copy work_root into snap slot 0 (workers={workers}): {exc}",
+            ) from exc
         tmp_target = tmp_root / rel_target
 
         # 1. Verify unmutated baseline passes (catch TimeoutExpired cleanly -> aletheia#5 #7)
@@ -1337,9 +1362,15 @@ def run_mutation_suite(
                 else:
                     survivors.append(entry)
     finally:
+        if _prev_sigterm is not None:
+            try:
+                signal.signal(signal.SIGTERM, _prev_sigterm)
+            except (ValueError, OSError):
+                pass
         # Best-effort cleanup: a mutant run can leave read-only files inside a slot,
         # and rmtree without ignore_errors would raise PermissionError and mask the
-        # real verdict/results above.
+        # real verdict/results above. The SIGTERM handler above makes interrupts run
+        # this finally instead of exiting rc=143 and leaking the snap.
         shutil.rmtree(snap_dir, ignore_errors=True)
 
     total = len(sites)
