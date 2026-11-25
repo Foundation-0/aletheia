@@ -1275,7 +1275,17 @@ def run_mutation_suite(
             slots: list[tuple[Path, Path]] = [(tmp_root, tmp_target)]
             for slot_i in range(1, effective_workers):
                 slot_root = snap_dir / f"slot_{slot_i}"
-                shutil.copytree(tmp_root, slot_root)
+                try:
+                    shutil.copytree(tmp_root, slot_root)
+                except OSError as exc:
+                    # Each slot is a full copy of work_root into RAM-backed /dev/shm
+                    # (or the tempdir fallback); with many workers on a large work_root
+                    # this can hit ENOSPC. Fail closed with a structured error instead of
+                    # a raw traceback; the finally below still removes snap_dir.
+                    raise AletheiaError(
+                        "SNAP_COPY_FAILED",
+                        f"failed to replicate work_root into worker slot {slot_root} (workers={effective_workers}): {exc}",
+                    ) from exc
                 slots.append((slot_root, slot_root / rel_target))
 
             mutated_sources = [apply_single_mutation(source, site) for site in sites]
@@ -1327,7 +1337,10 @@ def run_mutation_suite(
                 else:
                     survivors.append(entry)
     finally:
-        shutil.rmtree(snap_dir)
+        # Best-effort cleanup: a mutant run can leave read-only files inside a slot,
+        # and rmtree without ignore_errors would raise PermissionError and mask the
+        # real verdict/results above.
+        shutil.rmtree(snap_dir, ignore_errors=True)
 
     total = len(sites)
     kill_rate = round(100.0 * killed / total, 2) if total > 0 else 0.0

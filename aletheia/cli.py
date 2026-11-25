@@ -142,7 +142,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_mut.add_argument("--guards", action="extend", nargs="+", default=[], help="Extra guard function names (e.g. need or fail_if:reject)")
     p_mut.add_argument("--max-mutants", type=int, default=100, help="Maximum mutant sites to execute (0 = all; truncating yields NOT_SHOWN)")
     p_mut.add_argument("--timeout", type=int, default=30, help="Per-mutant test timeout in seconds")
-    p_mut.add_argument("--workers", type=int, default=1, help="Parallel worker slots (default: 1; >1 uses private 0o700 /dev/shm snaps on Linux with tempdir fallback)")
+    p_mut.add_argument("--workers", type=int, default=1, help="Parallel worker slots (default: 1; >1 uses private 0o700 /dev/shm snaps on Linux with tempdir fallback; N workers replicate work_root N times into RAM-backed /dev/shm or the tempdir, so pick N to fit available RAM/tmpfs)")
     p_mut.add_argument("--no-boundaries", action="store_true", help="Only mutate if/require guard deletion (skip boundary flips)")
     p_mut.add_argument("--json", action="store_true", help="Emit JSON output")
 

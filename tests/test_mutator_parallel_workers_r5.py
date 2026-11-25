@@ -322,6 +322,10 @@ class TestMutatorParallelWorkers(unittest.TestCase):
             ro_dir = root / "ro_dir"
             ro_dir.mkdir()
             os.chmod(ro_dir, 0o500)
+            # os.access(..., W_OK) is permissive for euid 0, so a 0o500 dir is not
+            # read-only when the suite runs as root; exclude ro_dir from the
+            # read-only expectations in that case.
+            running_as_root = hasattr(os, "geteuid") and os.geteuid() == 0
             reg_file = root / "afile"
             write_lf_text(reg_file, "x\n")
             sym_dir = root / "sym_dir"
@@ -332,7 +336,8 @@ class TestMutatorParallelWorkers(unittest.TestCase):
             try:
                 # Explicit snap_root validation
                 self.assertEqual(mutator._select_snap_parent(real_dir, prefer_shm=False), real_dir.resolve())
-                for bad_root in (missing_dir, reg_file, sym_dir, ro_dir):
+                bad_roots = [missing_dir, reg_file, sym_dir] + ([] if running_as_root else [ro_dir])
+                for bad_root in bad_roots:
                     self.assertEqual(
                         _code_of(lambda p=bad_root: mutator._select_snap_parent(p, prefer_shm=True)),
                         "INVALID_SNAP_ROOT",
@@ -352,7 +357,8 @@ class TestMutatorParallelWorkers(unittest.TestCase):
                     mutator._select_snap_parent(None, prefer_shm=True, platform_name="darwin", shm_dir=real_dir),
                     tmp_fallback,
                 )
-                for bad_shm in (missing_dir, sym_dir, reg_file, ro_dir):
+                bad_shm_list = [missing_dir, sym_dir, reg_file] + ([] if running_as_root else [ro_dir])
+                for bad_shm in bad_shm_list:
                     self.assertEqual(
                         mutator._select_snap_parent(None, prefer_shm=True, platform_name="linux", shm_dir=bad_shm),
                         tmp_fallback,
@@ -365,10 +371,13 @@ class TestMutatorParallelWorkers(unittest.TestCase):
                 finally:
                     created.rmdir()
 
-                self.assertEqual(
-                    _code_of(lambda: mutator._create_private_snap_dir(ro_dir)),
-                    "SNAP_DIR_CREATE_FAILED",
-                )
+                if not running_as_root:
+                    # as root, mkdir inside a 0o500 dir succeeds, so this case is
+                    # only meaningful for non-root runners
+                    self.assertEqual(
+                        _code_of(lambda: mutator._create_private_snap_dir(ro_dir)),
+                        "SNAP_DIR_CREATE_FAILED",
+                    )
 
                 uid = os.getuid() if hasattr(os, "getuid") else 1000
                 st_ok = os.stat_result((stat.S_IFDIR | 0o700, 0, 0, 1, uid, 0, 0, 0, 0, 0))
