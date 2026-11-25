@@ -5,14 +5,14 @@
 - **Oracle Class / Novelty Tier:** `exact` / `N1` (100% pure-$\mathbb{Z}/\mathbb{Q}$ `int` / `fractions.Fraction` exact linear algebra, exact Sylvester inertia, and exhaustive simplicial topology across all `120` edges, `560` triangles, `1,820` tetrahedra, and `4,368` 5-cells; `0` AST floats, `0` `float()`, `0` bare `assert`s, `0` RNG)
 - **Live Formal Proof Kernel:** `Lean 4.36.0` (`leanprover/lean4:v4.36.0`) — `18/18` pure-`Init` theorems (`16` universally quantified `∀` + `2` exact ground witnesses `Thms 10, 14`; `0` external imports, `0` compiler warnings, `4` literal zero-axiom `[]` + `1` `[propext]` + `13` `[propext, Quot.sound]`, `0` `Classical.choice`, `0` banned axioms; R10+ comment-only static scanner + strict quote/guillemet ban + `EXPECTED_LEAN_SHA256` pin + `lean --stdin` zero-TOCTOU execution)
 - **Certificate Digests:**
-  - `payload_sha256`: `e469fa91ad12b6976882512bf85f83d2673e43c5c1ca0c0d3b610bd6183d68d8`
-  - `certificate_sha256`: `933b9c9d8e0fc889b3a1ba3db53f933a3c327eb13b9e19103ec7815f165d6552`
+  - `payload_sha256`: `f302d7d38434177286238fafb1077b3ee8a4cdfd716aae579a4085ce467ef88d`
+  - `certificate_sha256`: `b0d35075947dd3c9d29baf3cc9a2ff7e276f9089d0cf6c288bdd066ab58585c7`
 
 ---
 
-## 1. Epistemic Scope & Pinned 16-Node Provenance (`16/16` On-Disk Verified)
+## 1. Epistemic Scope & Pinned 16-Node Provenance (SHA-256-Pinned, Cross-Repo)
 
-All `16` nodes `n00..n15` span all five verified research spines (`S1–S83`), extending `Track S83`'s Wave-4 $K_8$ mesh (`n00..n07`) with eight cross-spine foundational anchors (`n08..n15`). Every node certificate is verified strictly read-only on disk via `verify_s84_higher_order_k16.py --expedition-root ..`:
+All `16` nodes `n00..n15` span all five verified research spines (`S1–S83`), extending `Track S83`'s Wave-4 $K_8$ mesh (`n00..n07`) with eight cross-spine foundational anchors (`n08..n15`). Every node certificate is pinned by SHA-256 against the upstream expedition trees (cross-repo); `verify_s84_higher_order_k16.py --expedition-root <dir>` verifies those pins strictly read-only where the upstream trees are present. In this repo only `3/16` pinned files are present by SHA (`n03` track-s77, `n06` track-s80, and `n12` under a renamed directory); the other `13` live in the upstream expedition trees, and `--expedition-root` fails closed (`INVALID_PARENT_DIR:2`) when they are absent:
 
 | Node | Spine | Track | Pinned Certificate Relative Path | Bytes | Exact SHA-256 |
 |---|---|---|---|---:|---|
@@ -54,7 +54,7 @@ The $120$ undirected pathways of $K_{16}$ strictly preserve all `28` Wave-4 $K_8
   - `320` `CONDITIONAL_COMPOUNDING_CLOSURE` (`0` walls, $\ge 1$ conditional bridge, $\mathbb{Z}_2$ holonomy `0`)
   - `137` `FRUSTRATED_CURVATURE_LOOP` (exactly `1` obstruction wall, odd $\mathbb{Z}_2$ holonomy `1` — automatic repair generators)
   - `35` `MULTI_WALL_BOUNDARY_SECTOR` ($\ge 2$ obstruction walls)
-- **Exact Simplicial Hodge-1 Identity:** Boundary-of-boundary $B_1 B_2 = 0$ verified across all **`8,960/8,960`** entries (`16 × 560`, `0` nonzeros); unweighted $B_1 B_1^\top$ has inertia `[15, 0, 1]`, yielding exact orthogonal edge-flow decomposition $120 = 15_{\mathrm{grad}} + 105_{\mathrm{curl}} + 0_{\mathrm{harm}}$ with $\mathrm{tr}(B_1^\top B_1) = 240$ and $\mathrm{tr}(B_2 B_2^\top) = 1,680$.
+- **Exact Simplicial Hodge-1 Identity:** Boundary-of-boundary $B_1 B_2 = 0$ proven identically zero by Lean Thm 12 (d^2 = 0; shapes/traces by construction, not entry-checked in Python); unweighted $B_1 B_1^\top$ has inertia `[15, 0, 1]`, yielding exact orthogonal edge-flow decomposition $120 = 15_{\mathrm{grad}} + 105_{\mathrm{curl}} + 0_{\mathrm{harm}}$ with $\mathrm{tr}(B_1^\top B_1) = 240$ and $\mathrm{tr}(B_2 B_2^\top) = 1,680$.
 - **Disjoint-Edge 2nd-Order Natural Transformations:** `630` exhaustive vertex-disjoint same-operator pairs across $K_{16}$, anchored by `8` curated natural transformations (`NT01..NT08`) pairing disjoint edges with identical operator tags across distinct spines (e.g., `NT01`: `(n00, n08)` `E_8/A_16` Hadamard `8×` flip $\leftrightarrow$ `(n09, n13)` `64 B` MESI/Krein flip [`⦺`]; `NT02`: `(n03, n04)` Mellin width vs $\mathbb{R}^3$ wall $\leftrightarrow$ `(n00, n14)` $\mathbb{F}_2[x]$ vs $\mathbb{Z}$ carry wall [`⧇`]; `NT04`: `(n05, n06)` `CS-15`/`songe` ratchet $\leftrightarrow$ `(n10, n12)` `CS-21`/DPI proxy-gaming closure [`⫩`]).
 
 ---
@@ -138,7 +138,7 @@ Compiled live via `lean --stdin` (`rc = 0`, `0` stderr bytes, `0` warnings) and 
 
 ## 7. Aletheia R1–R5 & R10+ Verification Gate Summary
 
-- **3-Mode R4 Parity (`-I -B`, `-I -O -B`, `-I -B -W error`) + `PYTHONHASHSEED=42` + `umask 077` + CI `chmod 644` / RO-Dir Sim + No-Lean `env -i PATH=/usr/bin:/bin` `0`-Skip Parity:** `test_s84_higher_order_k16_r5.py` `8/8 OK` across all modes (`0` skips); live `--check --lean --expedition-root .. --json` `PASS` (`16/16` pinned certs matched, `18/18` theorems live-verified).
+- **3-Mode R4 Parity (`-I -B`, `-I -O -B`, `-I -B -W error`) + `PYTHONHASHSEED=42` + `umask 077` + CI `chmod 644` / RO-Dir Sim + No-Lean `env -i PATH=/usr/bin:/bin` `0`-Skip Parity:** `test_s84_higher_order_k16_r5.py` `8/8 OK` across all modes (`0` skips); live `--check --lean --json` `PASS` (`18/18` theorems live-verified); the `--expedition-root` pin check is cross-repo (3/16 pinned files present in this repo by SHA, the rest verified where the upstream expedition trees are present; fails closed `INVALID_PARENT_DIR:2` otherwise).
 - **Direct 4-Surface `S19c` v2.1 `zone_b_fuzzer` (Zero Wrappers):** **`82/82 PASS`** (`CLI 25/25`, `FR1 19/19`, `FR0 [full_replay=False] 19/19`, `SEC [secondary_audit_payload] 19/19`; `byp=0, cr=0`).
 - **Live `aletheia-fast-mutate` (`--guards require_ok --workers 4 --timeout 180 --max-mutants 0`):** **`234/234 KILLED = 100.0%`** (`verify_s84_higher_order_k16.py 219/219`, `s84_higher_order_k16_oracle.py 15/15`; `survived=0, timeout=0, truncated=False, null_mutant=passed ×2`).
 - **Null-Checked Whole-File DFS AST `BoolOp` (`OP_SWAP + SUBCOND_DEL`):** **`36/36 KILLED = 100.0%`** (`verify_s84_higher_order_k16.py 22/22`, `s84_higher_order_k16_oracle.py 14/14`; `survived=0, timeout=0`).
@@ -153,8 +153,8 @@ Compiled live via `lean --stdin` (`rc = 0`, `0` stderr bytes, `0` warnings) and 
 | `HigherOrderEpistemicMesh.lean` | `495` | `28960` | `0o644` | `00238fb5e82cbb64e1b0877c4962a7cac1dec3332871dd9471b3fe6636bdb831` |
 | `lakefile.toml` | `6` | `146` | `0o644` | `2c9fa4e2bf0c8da196d9ed8633d0489c314892ffc2eed36ea8937b751122296a` |
 | `lean-toolchain` | `1` | `25` | `0o644` | `582a63f8f9c5128067b688778c1051cf1464c3ca9d57b9325025c051c29b774a` |
-| `s84_higher_order_k16_oracle.py` | `1219` | `58211` | `0o644` | `392ec6a46b73c87cdb808994c6ec9d2d74bb31a6b59c253cd7709cdb71b4c72d` |
-| `verify_s84_higher_order_k16.py` | `818` | `34240` | `0o644` | `b599353667308762075eff11a4a1cc66727bdd324a6b0bcb0625872005ed181d` |
-| `test_s84_higher_order_k16_r5.py` | `969` | `60581` | `0o644` | `35a8a5bfb9694c0e731c1979be60bc3cca7e8fa6fe46815ce2cb6ecbed9f9c1c` |
-| `s84_higher_order_k16_certificate.json` | `1` | `43481` | `0o600` | `925b5b016231d6f4f72fc0dcfab725fff34160629ba1a0eabf879b38b86d3eb2` |
+| `s84_higher_order_k16_oracle.py` | `1,216` | `58,313` | `0o644` | `712f6b7ca2eeb43bdb837f6c0447841a61d819d252d007100ec132132afa5e65` |
+| `verify_s84_higher_order_k16.py` | `818` | `34,264` | `0o644` | `a1c25cae025cbb0887e848bed43b9488e745d53a8fa278cc7983d358e8840ec6` |
+| `test_s84_higher_order_k16_r5.py` | `977` | `61,328` | `0o644` | `a85065981fab45845bb2d8d79d3b1e2ad97d5cc6c8a29eff2ab061aad1fee734` |
+| `s84_higher_order_k16_certificate.json` | `1` | `43,632` | `0o644` (`0o600` on `--write`) | `f1a52d94c90389b123dd64b4fe15b13b4cc15587af30e3d3f670b6a6a9269149` |
 | `REPORT.md` | *(self)* | *(self)* | `0o644` | *(computed externally post-write)* |

@@ -69,7 +69,7 @@ MESH_NODES: tuple[dict[str, Any], ...] = (
         "relative_ref": "track-s73-lowbit-and-sharednorm-quad-snake/rtx3080_s73_certificate.json",
         "bytes": 5202,
         "sha256": "33dfb4153fe974e9ef13120190c14ada6dda63ffbee6caa46047d274f32d36cf",
-        "anchor": "3.0 bpw QuadSnake -11.42% (2.70x amp), p=0.375 PyKL 0.018248 (-20.58%)",
+        "anchor": "quoted anchor (external track, not an S84 claim): 3.0 bpw QuadSnake -11.42% (2.70x amp), p=0.375 PyKL 0.018248 (-20.58%)",
     },
     {
         "id": "n01",
@@ -773,6 +773,8 @@ def certify_pillar2_order2_triangles_hodge_and_disjoint(
         "MULTI_WALL_BOUNDARY_SECTOR": 0,
     }
     tri_holonomy: dict[tuple[int, int, int], int] = {}
+    # B_1 B_2 = 0 identically (boundary-of-boundary, d^2 = 0); proven by Lean Thm 12.
+    # No Python entry-count is claimed: the former loop iterated constant-zero expressions.
     b1_b2_nonzero = 0
 
     for a in range(16):
@@ -796,11 +798,6 @@ def certify_pillar2_order2_triangles_hodge_and_disjoint(
                     tri_counts["FRUSTRATED_CURVATURE_LOOP"] += 1
                 else:
                     tri_counts["MULTI_WALL_BOUNDARY_SECTOR"] += 1
-
-                # Oriented simplicial boundary-of-boundary B_1 B_2 on triangle (a,b,c)
-                for val in ((-1) + 1, 1 + (-1), 1 + (-1)):
-                    if val != 0:
-                        b1_b2_nonzero += 1
 
     unw_edges = [(u, v, Fraction(1, 1)) for (u, v) in sorted(emap.keys())]
     b1_b1t_inertia = q_sylvester_inertia(build_weighted_laplacian(16, unw_edges))
@@ -847,7 +844,7 @@ def certify_pillar2_order2_triangles_hodge_and_disjoint(
         "hodge_1_simplicial": {
             "b1_shape": [16, 120],
             "b2_shape": [120, 560],
-            "b1_b2_entries_checked": 16 * 560,
+            "b1_b2_proof": "B1B2 = 0 identically (d^2 = 0), proven by Lean Thm 12; shapes/traces by construction, not entry-checked in Python",
             "b1_b2_nonzero_entries": b1_b2_nonzero,
             "b1_b2_identically_zero": b1_b2_nonzero == 0,
             "b1_b1t_inertia": b1_b1t_inertia,
