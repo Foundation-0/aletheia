@@ -1,6 +1,6 @@
 # Track S21c: Cross-Org `aska-physical` Zone-B, `NaN`-Swallowing & `-O` Bare-`assert` Tomography
 
-Self-contained zero-float ($\mathbb{Z}/\mathbb{Q}$) static AST tomography and live-reproduction evidence bundle auditing all `9` public engineering repositories of `aska-physical` across four orthogonal verification-trust defect families:
+Self-contained zero-float ($\mathbb{Z}/\mathbb{Q}$) static AST tomography and evidence bundle whose live reproductions run at the pinned Nov 11–17 heads (historical audit, not live-`main`) auditing all `9` public engineering repositories of `aska-physical` across four orthogonal verification-trust defect families:
 
 1. **`F1_BARE_ASSERT_O_STRIP` (`8/9` repos, `86` sites):** Bare `assert` statements on verification paths silently stripped under `python3 -O`.
 2. **`F2_NAN_SWALLOW_MAXMIN` (`8/9` repos, `76` sites / `29` constant-first):** Unchecked Python `max(c, NaN) == c` / `min(c, NaN) == c` calls converting `NaN` demands, capacities, or margins into finite passing bounds.
