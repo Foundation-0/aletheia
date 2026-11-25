@@ -12,7 +12,7 @@
 
 ## 1. Epistemic Scope & Pinned 16-Node Provenance (SHA-256-Pinned, Cross-Repo)
 
-All `16` nodes `n00..n15` span all five verified research spines (`S1–S83`), extending `Track S83`'s Wave-4 $K_8$ mesh (`n00..n07`) with eight cross-spine foundational anchors (`n08..n15`). Every node certificate is pinned by SHA-256 against the upstream expedition trees (cross-repo); `verify_s84_higher_order_k16.py --expedition-root <dir>` verifies those pins strictly read-only where the upstream trees are present. In this repo only `3/16` pinned files are present by SHA (`n03` track-s77, `n06` track-s80, and `n12` under a renamed directory); the other `13` live in the upstream expedition trees, and `--expedition-root` fails closed (`INVALID_PARENT_DIR:2`) when they are absent:
+All `16` nodes `n00..n15` span all five verified research spines (`S1–S83`), extending `Track S83`'s Wave-4 $K_8$ mesh (`n00..n07`) with eight cross-spine foundational anchors (`n08..n15`). Every node certificate is pinned by SHA-256 against the upstream expedition trees (cross-repo); `verify_s84_higher_order_k16.py --expedition-root <dir>` verifies those pins strictly read-only where the upstream trees are present. In this repo only `5/16` pinned files are present by SHA on current main (`n03` track-s77, `n06` track-s80, `n10` track-s54 and `n11` track-s50 landed via #56/#55, and `n12` under a renamed directory — note `n12`'s pinned path `track-s31-aletheia-v22-society-misfolding-tomography/` is the historical name; the file now lives at `track-s31-aletheia-v22-misfolding/`); the other `11` are external pins: `n09` and `n15` are pinned to specific historical PR commits (`Foundation-0/aletheia#71@d9f0be20` and `#68@8de8309d` — at those PRs' current heads the bytes differ, and will differ again on merge), and the remaining `9` resolve to sibling-repo trees (`Foundation-0/math0` studies / cave-expedition) or nowhere readable. `--expedition-root` fails closed (`INVALID_PARENT_DIR:2`) when they are absent:
 
 | Node | Spine | Track | Pinned Certificate Relative Path | Bytes | Exact SHA-256 |
 |---|---|---|---|---:|---|
@@ -25,13 +25,13 @@ All `16` nodes `n00..n15` span all five verified research spines (`S1–S83`), e
 | `n06` | Spine V | `Track S80` | `track-s80-rocket-songe-unsloth-optimizations/s80_certificate.json` | `6098` | `95681a29ca577c4e3040f8ba63f8516b1cbb2bf1ebfdcda06277f21bb2aa2cb7` |
 | `n07` | Spine I | `Track S79` | `track-s79-2dsd-multipole-dense-sparse-laws/s79_2dsd_multipole_certificate.json` | `6460` | `9c30539e6d585141a9b1a5111935ca86de0f740e80749a622547a18242465ad8` |
 | `n08` | Spine I | `Track S59+S47` | `track-s59-exact-e8-vs-a16-hadamard-law/e8_vs_a16_hadamard_certificate.json` | `6360` | `914a84512d7026b23af0672d4b175128534a7d3c8a0fbc9152b28bc38ea8f1ed` |
-| `n09` | Spine I | `Track S71+S65` | `track-s71-proximity-barrier-silicon-unlock/s71_proximity_certificate.json` | `2982` | `7774fedfd575f48451aae0722cdbaf8015673585786dc43dc8e35402580efe6d` |
+| `n09` | Spine I | `Track S71+S65` | `track-s71-proximity-barrier-silicon-unlock/s71_proximity_certificate.json` | `2982` | `7774fedfd575f48451aae0722cdbaf8015673585786dc43dc8e35402580efe6d` — pinned to historical commit `Foundation-0/aletheia#71@d9f0be20` |
 | `n10` | Spine II | `Track S54+S38` | `track-s54-silq-cs21-boundary-compiler/silq_cs21_compiler_certificate.json` | `12813` | `94b9c34f196afc031e6169032eb42d2fe2ddd120d2dc137bc52c0ee2bebf3850` |
 | `n11` | Spine III | `Track S50+S42/43` | `track-s50-zero-dw-state-transport-tomography/zero_dw_state_transport_certificate.json` | `12803` | `1316eede91b66c309c427fec60e36374350d65b6649eba7154de8e4ea4431320` |
 | `n12` | Spine V | `Track S31+S34` | `track-s31-aletheia-v22-society-misfolding-tomography/aletheia_v22_misfolding_certificate.json` | `12707` | `f4f7f8abff0c7eae0d5678016c1041ab34870ef2de57a2f83e4cbb9a529f8a9b` |
 | `n13` | Spine III | `Track S28+S23b/33` | `track-s28-alcubierre-adm-slemma-tomography/alcubierre_adm_certificate.json` | `7831` | `6d5579f52d176f39d6f160a405873843ff616ca7d1d76c95f1a3d340237bbc9f` |
 | `n14` | Spine II | `Track S40+S22c/41` | `track-s40-mozart-perfect-numbers-bridge/mozart_perfect_bridge_certificate.json` | `11634` | `3c6b226b43804befdd102a4f02800421087ed851009967bc20b2e72479ce336e` |
-| `n15` | Spine V | `Track S62+S56/57` | `track-s62-ceer-lean4-silicon-recursion/ceer_silicon_certificate.json` | `11121` | `cef74336a38edc2d7c0b05007952690c0f8608607bc800036292aa4642665b53` |
+| `n15` | Spine V | `Track S62+S56/57` | `track-s62-ceer-lean4-silicon-recursion/ceer_silicon_certificate.json` | `11121` | `cef74336a38edc2d7c0b05007952690c0f8608607bc800036292aa4642665b53` — pinned to historical commit `Foundation-0/aletheia#68@8de8309d` |
 
 ---
 
