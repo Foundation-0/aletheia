@@ -23,8 +23,9 @@ EXPECTED_LAKEFILE_SHA256 = "7b9465ea2c560f1485f20cc7968c3c553fe4bb3b6259729f5b82
 EXPECTED_TOOLCHAIN_SHA256 = "582a63f8f9c5128067b688778c1051cf1464c3ca9d57b9325025c051c29b774a"
 
 # Upstream certificate SHA-256 pins. Only track_s83_k8_mesh and track_s80_rocket_cce resolve to
-# files in this repo; the other five (S23a, S23b, S73, S78, S79) are cross-repo pins in
-# Foundation-0/cave-expedition whose certificate files are not present here.
+# files in this repo; the other five (S23a, S23b, S73, S78, S79) are external pins — some may
+# resolve in Foundation-0/math0@main, the rest are absent from aletheia, cave-expedition, and
+# math0@f9970082 (external historical pins resolving in no readable repo).
 CROSS_REPO_UPSTREAM: frozenset[str] = frozenset({
     "track_s23a_helicity", "track_s23b_jones_cs", "track_s73_siliquant", "track_s78_engram_lora", "track_s79_2dsd_csr",
 })
