@@ -810,7 +810,7 @@ def verify_lean_file(lean_path: pathlib.Path, check_pinned_sha: bool = True) -> 
 
 def verify_upstream_pins(expedition_root: pathlib.Path) -> Dict[str, Any]:
     """Verify upstream cert pins: in-repo pins are opened and re-hashed on disk;
-    cross-repo pins (S68/S70/S73/S78) name Foundation-0/cave-expedition and are SHA-pinned strings."""
+    external pins (S68/S70/S73/S78) are labelled external-historical-pin and resolve in no readable repo."""
     matched = 0
     cross_repo = []
     for tid, rel_path, exp_sha in UPSTREAM_CERT_MANIFEST:
