@@ -626,7 +626,18 @@ class TestCEERLean4SynthAndAntiBypass(unittest.TestCase):
         with mock.patch.object(cls.subprocess, "run", return_value=bad_ver):
             _expect_err(cls.CEERLeanError, "LEAN_VERSION_FAIL", cls.verify_lean4_source_live, "theorem t : True := trivial\n", ["t"], lean_bin="lean")
 
-        ok_ver = subprocess.CompletedProcess(["lean", "--version"], 0, "Lean 4.36.0\n", "")
+        wrong_ver = subprocess.CompletedProcess(
+            ["lean", "--version"], 0, "Lean (version 4.35.0, x86_64-unknown-linux-gnu, commit deadbeef, Release)\n", ""
+        )
+        with mock.patch.object(cls.subprocess, "run", return_value=wrong_ver):
+            _expect_err(cls.CEERLeanError, "LEAN_VERSION_UNSUPPORTED", cls.verify_lean4_source_live, "theorem t : True := trivial\n", ["t"], lean_bin="lean")
+
+        ok_ver = subprocess.CompletedProcess(
+            ["lean", "--version"],
+            0,
+            "Lean (version 4.36.0, x86_64-unknown-linux-gnu, commit 611c117bfaf7b7ae1cfcf246ce6fba31e8f509e9, Release)\n",
+            "",
+        )
         with mock.patch.object(cls.subprocess, "run", side_effect=[ok_ver, subprocess.TimeoutExpired("lean", 1)]):
             _expect_err(cls.CEERLeanError, "LEAN_EXEC_ERROR", cls.verify_lean4_source_live, "theorem t : True := trivial\n", ["t"], lean_bin="lean")
 
@@ -1003,6 +1014,12 @@ class TestCEERAuditHardeningAndMutate(unittest.TestCase):
             rc_c, out_c, err_c = _call(["--check", str(cert_path), "--json"])
             require_ok(rc_c == 0 and not err_c and json.loads(out_c)["valid"] is True, f"check: {rc_c} {err_c}")
 
+            rc_vc, out_vc, err_vc = _call(["--verify-chain", str(cert_path), "--json"])
+            require_ok(
+                rc_vc == 0 and not err_vc and json.loads(out_vc)["chain_valid"] is True and json.loads(out_vc)["external_chain"] is True,
+                f"verify-chain: {rc_vc} {err_vc}",
+            )
+
             lean_dir = root / "lean_out"
             lean_dir.mkdir()
             rc_e, out_e, err_e = _call(["--emit-lean-dir", str(lean_dir)])
@@ -1019,6 +1036,8 @@ class TestCEERAuditHardeningAndMutate(unittest.TestCase):
                 ["--check", "--json"],
                 ["--check", str(cert_path), "--bogus"],
                 ["--check", str(root / "missing.json")],
+                ["--verify-chain"],
+                ["--verify-chain", str(cert_path), "--bogus"],
                 ["--emit-lean-dir"],
             ):
                 rc_b, _ob, err_b = _call(bad_argv)

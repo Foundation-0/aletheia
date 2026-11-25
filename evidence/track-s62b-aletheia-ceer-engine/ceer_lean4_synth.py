@@ -589,6 +589,8 @@ def verify_lean4_source_live(
     if ver_proc.returncode != 0:
         raise CEERLeanError("LEAN_VERSION_FAIL", f"lean --version exited {ver_proc.returncode}")
     lean_version = ver_proc.stdout.strip().splitlines()[0] if ver_proc.stdout.strip() else "unknown"
+    if not lean_version.startswith("Lean (version 4.36.0"):
+        raise CEERLeanError("LEAN_VERSION_UNSUPPORTED", f"require 'Lean (version 4.36.0' prefix, got: {lean_version}")
 
     with tempfile.TemporaryDirectory(prefix="aletheia_ceer_lean_") as td:
         os.chmod(td, 0o700)

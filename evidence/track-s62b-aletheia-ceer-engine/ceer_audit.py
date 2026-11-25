@@ -597,13 +597,30 @@ def main(argv: list[str] | None = None) -> int:
             emitted = emit_lean_files(out_dir)
             sys.stdout.buffer.write(canonical_json_bytes({"emitted": emitted}))
             return 0
+        if len(clean_args) in (2, 3) and clean_args[0] == "--verify-chain":
+            if len(clean_args) == 3 and clean_args[2] != "--json":
+                raise CEERAuditError("CLI_INVALID_ARGS", "unsupported flag after --verify-chain <path>")
+            src = _validate_cli_target_path(clean_args[1])
+            raw = read_regular_bytes_safe(src)
+            obj = load_strict_canonical_json_bytes(raw)
+            cycles = obj
+            if type(obj) is dict:
+                if type(obj.get("cycles")) is list:
+                    cycles = obj["cycles"]
+                elif type(obj.get("payload")) is dict and type(obj["payload"].get("cycles")) is list:
+                    cycles = obj["payload"]["cycles"]
+            res = verify_cycle_chain_integrity(cycles)
+            res = dict(res)
+            res["external_chain"] = True
+            sys.stdout.buffer.write(canonical_json_bytes(res))
+            return 0
         if clean_args in (["--verify-lean"], ["--verify-lean", "--json"]):
             res = verify_all_lean_live()
             sys.stdout.buffer.write(canonical_json_bytes(res))
             return 0
         raise CEERAuditError(
             "CLI_INVALID_ARGS",
-            "usage: ceer_audit.py (--standalone [--json] | --write <path> | --check <path> [--json] | --emit-lean-dir <dir> | --verify-lean [--json])",
+            "usage: ceer_audit.py (--standalone [--json] | --write <path> | --check <path> [--json] | --verify-chain <path> [--json] | --emit-lean-dir <dir> | --verify-lean [--json])",
         )
     except (CEERAuditError, ce.CEERError, cls.CEERLeanError) as exc:
         sys.stderr.write(f"ERROR {exc}\n")
