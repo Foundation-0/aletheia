@@ -4,7 +4,7 @@
 **Schema Version:** `aletheia.s93_openai_omega94_vpvnp_forensics.v1`  
 **Novelty Classification:** **`N1`** (exact pure-$\mathbb{Z}/\mathbb{Q}$ operator analysis, live forensic R12 trust & statement-fidelity audit, Law-5 `CAT(0)` reconciliation, and `18/18` universally quantified `∀` pure-`Init` `Lean 4.36.0` theorems)  
 **Pinned External Commits:** `openai/math @ 3344da59991ed94f9ba711217b29c1d760badfa6` (`v4.34.1`) & `open-goat/pequalnp-proofs @ 1fa81fa383a2c3dd82666ddbc771e25731a37e8f` (`v4.36.0`) — read strictly read-only (`0` repo clones or snapshot files copied into `expedition/`)  
-**Certificate File SHA-256:** `d4627fc4ed7a8af368bb33dad470cbea0677161afc4ffc6736a41171f51eeaa9` (`21,800` B, `0o600`)  
+**Certificate File SHA-256:** `d4627fc4ed7a8af368bb33dad470cbea0677161afc4ffc6736a41171f51eeaa9` (`21,800` B, `0o644` in git; `--write` creates `0o600`)  
 **Certificate Envelope SHA-256:** `0aefcf8f3e02bd61d2eed464835eaa14aba1c3d5cef0039d2a9c0cfaac35f116`  
 **Payload SHA-256:** `668b0911f1bd1612596003f80af576b95956e615f1fb89cd1fcc77905ee37775`
 
@@ -25,7 +25,9 @@
 
 ## 2. Cryptographically Pinned Primary Provenance (`12` Wave-6/Forensic + `4` Upstream Expedition Certs)
 
-### 2.1 Wave-6 Snapshot & Live GitHub Forensic Artifacts (`12/12` On-Disk Exact Match)
+### 2.1 Wave-6 Snapshot & Live GitHub Forensic Artifacts (`12/12` Pinned by SHA-256 at Named Upstream Commits)
+
+*(Note: `s93_forensic_cache/` is not committed in this repository; the verifier checks certificate hashes against the pinned oracle table rather than fetching upstream bytes at runtime. `pnp_note1_text` pins a frozen `91,850`-byte text extraction of `pequalnp.com/papers/note-1`.)*
 
 | Source ID | Repository | Size (B) | SHA-256 Prefix | Forensic Role |
 |---|---|---|---|---|
@@ -42,7 +44,9 @@
 | `pnp_check_lemma_lean` | `open-goat/pequalnp-proofs` | `30,349` | `86997b026ef2b80d...` | Kernel replay, statement-env isolation, axiom allowlist, reduce text/waste screens |
 | `pnp_outside_guard_mjs` | `open-goat/pequalnp-proofs` | `36,528` | `a4fde1897820a2a4...` | PR intake guard (plain blob 100644, UTF-8/NUL/bidi, header-only imports) |
 
-### 2.2 Frozen Upstream Expedition Certificates (`4/4` On-Disk Exact Match)
+### 2.2 Frozen Upstream Expedition Certificates (`4/4` Pinned by SHA-256; Source Repos & Paths)
+
+*(Source locations: `S44` lives in this repository at `evidence/track-s44-formal-agent-quantum-hodge/formal_agent_quantum_hodge_certificate.json`; `S41`, `S75`, and `S82` live in `Foundation-0/math0/studies/`. The `Frozen Certificate` column below records the exact path strings pinned inside the certificate payload.)*
 
 | Track | Frozen Certificate | SHA-256 Prefix | Cross-Framework Bridge |
 |---|---|---|---|
@@ -208,12 +212,11 @@ Compiled live with `leanprover/lean4:v4.36.0` (`OmegaNineFourthsAndSpectrum.lean
 ## 8. Aletheia R1–R5 & R12 Verification Gates & Hardening Receipts
 
 - **R1–R2 Exactness, Immutability & Zero-Float Enforcement:** `s93_omega94_vpvnp_oracle.py` and `verify_s93_omega94_vpvnp.py` contain `0` floating-point literals, `0` `float()` calls, `0` `.isdigit()` calls, `0` `random` imports, `0` bare `assert`s, immutable `MappingProxyType` global provenance/statement tables (zero cross-call aliasing), and `MAX_RATIONAL_STR_LEN = 256` blocking `>4300`-digit rational DoS strings before `int()`.
-- **R3 Zone-B Filesystem, Field-Complete `SEC`/`FR0`/`FR1` Pinning, R12 Static Lean Hardening & Strict 5-Key Lean Env Allowlist:** Symlink/hardlink/FIFO/oversize/NUL/surrogate/cwd-symlink checks verified live; field-complete canonical payload pinning (`PAYLOAD_CANONICAL_PIN_MISMATCH`) closes all `11/11` `AUDIT-193` `F01, F04–F13` re-signed semantic/narrative forgeries plus `S93-FACT-01` across `SEC`, `FR0`, and `FR1`; zero-TOCTOU `lean --stdin` elaboration uses a strict `5`-key subprocess env allowlist (`SAFE_LEAN_ENV_KEYS = {"PATH", "HOME", "LANG", "LC_ALL", "TMPDIR"}`) on both `--version` and `--stdin` — blocking `LD_PRELOAD`, `LD_LIBRARY_PATH`, `DYLD_INSERT_LIBRARIES`, `LEAN_SRC_PATH`, `LEAN_PATH`, `LEAN_OPTS`, `LEAN_SYSROOT`, `ELAN_TOOLCHAIN`, `ELAN_HOME`, `LEAN_CC`, `LAKE_HOME`, and any unlisted ambient variable (verified live & mocked across `12` poisoned vars); R12 static Lean gate blocks `dbg_trace`/`dbgTrace*`/`dbgSleep`/`dbgStackTrace`/`dbg_sleep`/`dbg_stack_trace`/`panic!`/`unreachable!`/`panicWithPosWithDecl`/`set_option`/`warn.sorry`, `\bLean\s*\.` direct meta/kernel escapes, `@[...]` / `attribute [...]` escapes (`extern|implemented_by|export|init|builtin_init|term_elab|command_elab|tactic|macro|macro_rules|csimp`), `debug.terminalTacticsAsSorry`, `bv_decide`, `#guard`/`#guard_msgs`, end-anchored `decide (native := ...)`, struct-punning `config := { native }`, and `Char := '"'` quote-desync bypasses (verified via comment-only stripping + direct `"` ban), with `0` FP on clean controls (`decide (native := false)`, `decide (native := Bool.false)`, `decide (config := { native := false })`, `export Nat (succ)`, `attribute [simp] init`, `SmoothShell.partial`, and `private`/`protected theorem` discovery).
+- **R3 Zone-B Filesystem, Field-Complete `SEC`/`FR0`/`FR1` Pinning, R12 Static Lean Hardening & Strict 5-Key Lean Env Allowlist:** Symlink/hardlink/FIFO/oversize/NUL/surrogate/cwd-symlink checks verified live; field-complete canonical payload pinning (`PAYLOAD_CANONICAL_PIN_MISMATCH`) closes all `11/11` `F01, F04–F13` re-signed semantic/narrative forgeries plus `S93-FACT-01` across `SEC`, `FR0`, and `FR1`; zero-TOCTOU `lean --stdin` elaboration uses a strict `5`-key subprocess env allowlist (`SAFE_LEAN_ENV_KEYS = {"PATH", "HOME", "LANG", "LC_ALL", "TMPDIR"}`) on both `--version` and `--stdin` — blocking `LD_PRELOAD`, `LD_LIBRARY_PATH`, `DYLD_INSERT_LIBRARIES`, `LEAN_SRC_PATH`, `LEAN_PATH`, `LEAN_OPTS`, `LEAN_SYSROOT`, `ELAN_TOOLCHAIN`, `ELAN_HOME`, `LEAN_CC`, `LAKE_HOME`, and any unlisted ambient variable (verified live & mocked across `12` poisoned vars); R12 static Lean gate blocks `dbg_trace`/`dbgTrace*`/`dbgSleep`/`dbgStackTrace`/`dbg_sleep`/`dbg_stack_trace`/`panic!`/`unreachable!`/`panicWithPosWithDecl`/`set_option`/`warn.sorry`, `\bLean\s*\.` direct meta/kernel escapes, `@[...]` / `attribute [...]` escapes (`extern|implemented_by|export|init|builtin_init|term_elab|command_elab|tactic|macro|macro_rules|csimp`), `debug.terminalTacticsAsSorry`, `bv_decide`, `#guard`/`#guard_msgs`, end-anchored `decide (native := ...)`, struct-punning `config := { native }`, and `Char := '"'` quote-desync bypasses (verified via comment-only stripping + direct `"` ban), with `0` FP on clean controls (`decide (native := false)`, `decide (native := Bool.false)`, `decide (config := { native := false })`, `export Nat (succ)`, `attribute [simp] init`, `SmoothShell.partial`, and `private`/`protected theorem` discovery).
 - **9-Env Isolated R4 + RO-Dir + Dual Lean-Less CI Parity:** `test_s93_omega94_vpvnp_r5.py` passes **`15/15 OK ×9`** (`-I -B`, `-I -O -B`, `-I -B -W error`, `PYTHONHASHSEED=42`, `umask 077`, `chmod 644`, RO-dir `0o500`, bare `env -i PATH=/usr/bin:/bin`, and `env -i PATH=/usr/bin:/bin HOME=/nonexistent`; `0` skipped tests!). `--standalone` and `--check --json` are byte-identical (`cmp -s ×4`) across all three R4 modes plus `PYTHONHASHSEED=42`.
-- **Genuine `82/82` 4-Surface v2.1 Zero-Bypass Fuzzing (ZBF):** `CLI 25 + FR1 19 + FR0 19 + SEC 19 = 82/82` rejected cleanly (`0` bypasses, `0` crashes, `baseline_ok=True ×4`).
-- **Live Mutation Testing (`aletheia-fast-mutate --guards require_ok --workers 1 --timeout 180 --max-mutants 0`):** **`237/237` (`100.0%`)** killed (`17/17` oracle + `220/220` verifier; `0` survivors, `0` timeouts, `truncated=False ×2`, `null_mutant=passed ×2`).
-- **Null-Checked Whole-File DFS AST Boolean-Operator Mutation (boolean operator flip + sub-condition deletion):** **`284/284` (`100.0%`)** killed (`54/54` oracle + `230/230` verifier; `0` survivors, `0` timeouts, `null_ok=True ×2`).
-- **Dual Static Audit Gate:** `aletheia audit-check --lean-audit --strict-ancestors --safety-scan --scripts verify_s93_omega94_vpvnp.py test_s93_omega94_vpvnp_r5.py` passes cleanly (`PASS ×2`, `0` Lean findings/notices, `0` safety findings, `0` leaks, `0` bare `assert`s, `0` CRLF).
+- **In-Repo Mutation Testing (`python3 -m aletheia mutate --guards require_ok --max-mutants 0`):** **`237/237` (`100.0%`)** killed (`17/17` oracle + `220/220` verifier; `0` survivors, `0` timeouts, `truncated=False ×2`, `null_mutant=passed ×2`).
+- **External Pre-PR Robustness Runs (Out-of-Repo Harnesses, Not Reproducible via Stock In-Repo CLI):** External pre-PR runs recorded `82/82` 4-surface Zone-B fuzzing (`CLI 25 + FR1 19 + FR0 19 + SEC 19`, `0` bypasses, `0` crashes) and `284/284` whole-file DFS AST boolean-operator mutation (`54/54` oracle + `230/230` verifier); in-repo verification is covered by the shipped `test_s93_omega94_vpvnp_r5.py` suite and stock `python3 -m aletheia mutate` above.
+- **Static Audit Gate:** Track-scoped `aletheia audit-check --lean-audit --strict-ancestors --safety-scan --scripts verify_s93_omega94_vpvnp.py test_s93_omega94_vpvnp_r5.py` passes cleanly (`0` Lean findings/notices, `0` safety findings, `0` leaks, `0` bare `assert`s, `0` CRLF).
 
 ---
 
@@ -224,7 +227,7 @@ Compiled live with `leanprover/lean4:v4.36.0` (`OmegaNineFourthsAndSpectrum.lean
 | `OmegaNineFourthsAndSpectrum.lean` | `377` | `20,536` | `0o644` | `59bb6bc1c798403db69092109575f7772fd8bdfdd0d8026f5d5910947c69a6ab` |
 | `lakefile.toml` | `5` | `137` | `0o644` | `7d9e9aec20e4acd0d05e13716dcd001d5d4db1e12a792a44355ce6b2301e0511` |
 | `lean-toolchain` | `1` | `25` | `0o644` | `582a63f8f9c5128067b688778c1051cf1464c3ca9d57b9325025c051c29b774a` |
-| `s93_omega94_vpvnp_certificate.json` | `1` | `21,800` | `0o600` | `d4627fc4ed7a8af368bb33dad470cbea0677161afc4ffc6736a41171f51eeaa9` |
+| `s93_omega94_vpvnp_certificate.json` | `1` | `21,800` | `0o644` | `d4627fc4ed7a8af368bb33dad470cbea0677161afc4ffc6736a41171f51eeaa9` |
 | `s93_omega94_vpvnp_oracle.py` | `864` | `40,507` | `0o644` | `6a05b1148c9392fd8e7674940e82610705b6b9feb7458862391865174c000e05` |
 | `test_s93_omega94_vpvnp_r5.py` | `1189` | `83,422` | `0o644` | `3ddf0768ae0c0d611770002c64eebe6218cd1bdd54ad5589f46d023408910089` |
 | `verify_s93_omega94_vpvnp.py` | `1090` | `56,831` | `0o644` | `fce2e9a43ce4319cb57ad91e1f7c1ca4f2e5ff33c1a34d7ead79964b417e80a3` |

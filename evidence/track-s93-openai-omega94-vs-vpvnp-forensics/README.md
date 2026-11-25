@@ -10,6 +10,7 @@ Self-contained Aletheia evidence bundle providing exact pure-$\mathbb{Z}/\mathbb
 ## Honest Scope & Novelty Classification (`N0`/`N1`)
 
 - **Novelty Classification:** **`N1`** (`N0` published monuments in `openai/math`, `open-goat/pequalnp-proofs`, and `vp-vnp`, read strictly read-only with zero external repository copies; `N1` exact pure-$\mathbb{Z}/\mathbb{Q}$ synthesis, forensic audit, negative-Gram reconciliation, and `18/18` pure-`Init` Lean `4.36.0` companion).
+- **Lean Companion Scope:** `OmegaNineFourthsAndSpectrum.lean` proves `18/18` pure-`Init` integer/rational/Boolean arithmetic facts about the closed-form rectangular formula, `CAT(0)` Gram/CN witnesses, trust-scorecard conjunctions, and `pequalnp` path/cycle/`C_4` size identities; it does not formalize `Mathlib` matrix-multiplication tensor rank or asymptotic $\omega$ itself (see `REPORT.md` §7 for theorem-by-theorem statements).
 
 ## Files
 
