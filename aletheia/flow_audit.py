@@ -522,11 +522,10 @@ def diagnose_continual_flow(
             ev1.append("board JSONL has 0 posts from cartographer / portal-keeper")
         elif cart_gap > max_cartographer_gap:
             r1 += 45
-            # legacy_lifetime_blind_spot models the exact rational 7/20 idealization
-            # of the shipped float check in aletheia/diagnose.py (last_seq < max_seq *
-            # 0.35): the cross-multiplied form 20*L >= 7*M agrees with the float test
-            # at exact multiples (0.35 * 20 == 7.0); only off-multiple float rounding
-            # can differ.
+            # legacy_lifetime_blind_spot mirrors the shipped legacy CS-01 seq check
+            # in aletheia/diagnose.py, which is already the exact rational form
+            # (max_seq >= 8 and last_seq * 20 < max_seq * 7) — not a float compare —
+            # so 20*L >= 7*M agrees with it by construction, with no float rounding.
             legacy_blind_spot = all((max_seq >= 8, last_cart_seq * 20 >= max_seq * 7))
             ev1.append(
                 f"cartographer/portal-keeper silent for {cart_gap} messages "

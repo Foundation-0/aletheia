@@ -653,6 +653,19 @@ class TestContinualToroidFlowR5(unittest.TestCase):
                 _req(p_ext.returncode in (0, 1) and "Traceback" not in p_ext.stderr, f"{ts_tag} cli failed: {p_ext}")
                 _req(json.loads(p_ext.stdout)["schema"] == fa.FLOW_AUDIT_SCHEMA, f"{ts_tag} cli json invalid")
 
+    def test_05_base_dir_open_fail_closed_kills_guard_except_reject(self) -> None:
+        """M011 kill: a failing base-directory os.open() must raise AletheiaError(FILE_READ_ERROR),
+        never fall through with an unbound cur_fd (guard_except_reject survivor class)."""
+        import errno as _errno
+        from unittest import mock as _mock
+
+        def _raise_eacces(*args: Any, **kwargs: Any) -> int:
+            raise OSError(_errno.EACCES, "mocked EACCES on base open")
+
+        with _mock.patch("os.open", side_effect=_raise_eacces):
+            _expect_err(lambda: fa._open_dir_chain(["any"], start_abs=False, label="m011"), "FILE_READ_ERROR", "base open EACCES")
+            _expect_err(lambda: fa._open_dir_chain([], start_abs=True, label="m011abs"), "FILE_READ_ERROR", "abs base open EACCES")
+
 
 if __name__ == "__main__":
     unittest.main()
