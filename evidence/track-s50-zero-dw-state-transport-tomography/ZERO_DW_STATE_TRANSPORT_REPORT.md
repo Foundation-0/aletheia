@@ -53,6 +53,8 @@ This package certifies a single **coordinate-free pure-$\mathbb{Z}/\mathbb{Q}$ Z
 | Piecewise-linear ReLU on $[-1, 1]^2$ | Area ratio $= 1/4$, global divergence $= -4 \ne 0$ | Exact cohomological failure of smooth conservation |
 | Commutator $[\operatorname{ReLU}, \delta_1](u_{\mathrm{asym}})$ | Sum $= +13 \ne 0$ | Proves $\operatorname{ReLU}$ does not commute with $\delta_1$ |
 
+*Convention note:* the `+13 / -13` source/sink split and the commutator sum `+13` are dependent on the oracle's fixed internal edge ordering of the cube complex (a different valid edge ordering yields, e.g., `+12 / -12` and `+12`); the ordering-invariant facts are the net-zero Gauss-Stokes sum, the `12/12` basis-flux zero count, and the non-zero commutator. The ReLU image-area determinant (`1`) and per-quadrant displacement divergences (`0, -1, -1, -2`, summing to the global residual `-4`) are not conventions: they are computed in the oracle as `det J_i` and `tr(J_i - I)` of the quadrant Jacobians `J_i` of the piecewise-linear map `R(x, y) = (max(x, 0), max(y, 0))` on `[-1, 1]^2` (`_relu_pl_quadrant_jacobians`), so the `1/4` area ratio and `-4` residual are derived, not asserted.
+
 ### 2.3 Pillar 3 — Iso-Frobenius Blindness & 4-Channel State-Transport Airlock
 
 | Control Case | Param-Only | Frob-Only | Legacy 3-Ch | 4-Ch Airlock | Exact Role |
@@ -101,13 +103,13 @@ All constituent mathematical structures are established prior art and are explic
 - `python3 -I -B zero_dw_state_transport_audit.py --check <path>` — verify regular-file strict streaming read, canonical single-line LF-only UTF-8/ASCII JSON bytes, SHA-256 digests, full pure-$\mathbb{Q}$ oracle replay, independent division-free algebraic cross-checks, and iterative bijective strict-typed full-schema equality.
 
 ### 4.2 Verified Receipts
-- **3-Mode Isolated Parity (`-I -B`, `-I -O -B`, `-I -B -W error`) plus `PYTHONHASHSEED=42 -B`:** Zero-arg and `--standalone --json` outputs are bit-identical to `zero_dw_state_transport_certificate.json` (`12,803` bytes, `0o600`), `--check` returns `valid: true`, and `test_zero_dw_state_transport_r5.py` passes `17/17 OK` across all modes.
+- **3-Mode Isolated Parity (`-I -B`, `-I -O -B`, `-I -B -W error`) plus `PYTHONHASHSEED=42 -B`:** Zero-arg and `--standalone --json` outputs are bit-identical to `zero_dw_state_transport_certificate.json` (`12,803` bytes; `0644` in git, `0o600` on `--write` output only, since git cannot store `0600`), `--check` returns `valid: true`, and `test_zero_dw_state_transport_r5.py` passes `17/17 OK` across all modes.
 - **Live `aletheia mutate --guards require_ok --max-mutants 0 --work-root . --add-cwd`:**
   - `zero_dw_state_transport_oracle.py`: **`176/176` (`100.0%`, `survived=0`, `truncated=False`, `PASS`)**.
   - `zero_dw_state_transport_audit.py`: **`103/103` (`100.0%`, `survived=0`, `truncated=False`, `PASS`)**.
-- **Whole-File DFS AST `BoolOp` Mutation Sweep (`OP_SWAP + SUBCOND_DEL`):** `30/30` (`oracle.py`) + `18/18` (`audit.py`) = **`48/48` (`100.0%`, `survived=[]`)**.
-- **4-Surface Adversarial Certificate Fuzzer:** **`77/77 PASS`** (`23/23` CLI + `18/18` `full_replay=True` + `18/18` `full_replay=False` + `18/18` direct `secondary_audit_payload`; `bypasses=0`, `crashes=0`).
-- **Exhaustive Tamper Walk (`531` cases: `405` leaves, zero/negative denominators, `32` nested-dict extra-key & container-collapse mutations, runtime floats, and Python scalar/container subclasses):** `0` accepted under `verify_certificate_dict(full_replay=False)`, `0` accepted under direct `secondary_audit_payload`, `0` raw crashes, `0` accepted and `0` tracebacks under live CLI `--check`.
+- **Whole-File DFS AST `BoolOp` Mutation Sweep (`OP_SWAP + SUBCOND_DEL`):** `30/30` (`oracle.py`) + `18/18` (`audit.py`) = **`48/48` (`100.0%`, `survived=[]`)** — one-off local run, not shipped (the sweep script is not committed; the shipped reproducible mutation receipts are the `aletheia mutate` runs above).
+- **4-Surface Adversarial Certificate Fuzzer:** **`77/77 PASS`** (`23/23` CLI + `18/18` `full_replay=True` + `18/18` `full_replay=False` + `18/18` direct `secondary_audit_payload`; `bypasses=0`, `crashes=0`) — one-off local run, not shipped (the fuzzer script is not committed; the shipped tamper coverage is the re-signed tamper matrix inside `test_zero_dw_state_transport_r5.py`).
+- **Exhaustive Tamper Walk (`531` cases: `405` leaves, zero/negative denominators, `32` nested-dict extra-key & container-collapse mutations, runtime floats, and Python scalar/container subclasses):** `0` accepted under `verify_certificate_dict(full_replay=False)`, `0` accepted under direct `secondary_audit_payload`, `0` raw crashes, `0` accepted and `0` tracebacks under live CLI `--check` — one-off local run, not shipped (the walker script is not committed).
 - **Kernel & Concurrency Stress Suite:** `16T` distinct + `16T` same-target + `80T` barrier burst atomic `0o600` writes with `os.fsync`, `520`-iter Linux `renameat2(RENAME_EXCHANGE)` decoy-swap race (`0` escapes, cleanly skipped on non-Linux hosts), `420`-iter concurrent hardlink race, verified root-owned macOS `/var`/`/tmp`/`/etc` prefix normalization, `/proc/kallsyms` streaming read-cap defense, scratch `os.mkfifo` non-regular rejection, `chmod 000`, deleted CWD, symlinked `$PWD`, and raw non-UTF-8 CLI bytes (`rc=2`, structured JSON).
 - **Certificate Digests:**
   - `payload_sha256`: `6e2ee73ca4bb29834ab192443a9506c20517b50e8e293f78d767131358ece7ef`
@@ -119,8 +121,8 @@ All constituent mathematical structures are established prior art and are explic
 
 | File | Lines | Bytes | Mode | SHA-256 |
 | :--- | ---: | ---: | :---: | :--- |
-| `zero_dw_state_transport_oracle.py` | `1422` | `60883` | `0644` | `a5444772fa803f5972294eb9f8bd86b7d5f8fcc7fd7a58f4985a83cfd84a51aa` |
+| `zero_dw_state_transport_oracle.py` | `1447` | `62113` | `0644` | `97df58d6324104d63fc0622c1bf11820329553ea9d3ac0012ca9f14b0846db3f` |
 | `zero_dw_state_transport_audit.py` | `522` | `23173` | `0644` | `c45d11303349562f031f3ae9b9ce8afb624938f580eb8e0c79d7b2c360e37c1a` |
 | `test_zero_dw_state_transport_r5.py` | `1157` | `63347` | `0644` | `30bcdccf8dc6bba35a7f31adeed129fb9832c3648515ca9034b95a5bc045a492` |
-| `zero_dw_state_transport_certificate.json` | `1` | `12803` | `0600` | `1316eede91b66c309c427fec60e36374350d65b6649eba7154de8e4ea4431320` |
+| `zero_dw_state_transport_certificate.json` | `1` | `12803` | `0644` (git; `0o600` on `--write` output only) | `1316eede91b66c309c427fec60e36374350d65b6649eba7154de8e4ea4431320` |
 | `ZERO_DW_STATE_TRANSPORT_REPORT.md` | *(this report)* | *(verified post-write)* | `0644` | *(verified by `audit-check`)* |

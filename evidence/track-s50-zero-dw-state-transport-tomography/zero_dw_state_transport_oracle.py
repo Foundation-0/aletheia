@@ -933,6 +933,21 @@ def build_pillar1_gdn2_state_transport() -> dict[str, Any]:
 # Pillar 2: Viscoplastic ReLU Yield-Wall Advection & S^2 Hodge Obstruction
 # ---------------------------------------------------------------------------
 
+def _relu_pl_quadrant_jacobians() -> list[list[list[Fraction]]]:
+    """Quadrant Jacobians of the piecewise-linear ReLU map R(x, y) = (max(x, 0), max(y, 0))
+    on [-1, 1]^2, in fixed sign order (+,+), (-,+), (+,-), (-,-). Restricted to the
+    quadrant with sign vector (sx, sy), R is the exact linear map
+    (x, y) -> (x if sx > 0 else 0, y if sy > 0 else 0), so its Jacobian over Q is
+    diag(1 if sx > 0 else 0, 1 if sy > 0 else 0)."""
+    jacobians: list[list[list[Fraction]]] = []
+    for sx, sy in ((1, 1), (-1, 1), (1, -1), (-1, -1)):
+        jacobians.append([
+            [Fraction(1, 1) if sx > 0 else Fraction(0, 1), Fraction(0, 1)],
+            [Fraction(0, 1), Fraction(1, 1) if sy > 0 else Fraction(0, 1)],
+        ])
+    return jacobians
+
+
 def build_pillar2_yield_wall_and_s2_cohomology() -> dict[str, Any]:
     # Frozen 2D yield-wall weights: w0 = (1, 0), b0 = -1, query q = (3/2, 0)
     w_frozen_2d = [[Fraction(1, 1), Fraction(0, 1)], [Fraction(-1, 1), Fraction(0, 1)]]
@@ -1030,9 +1045,19 @@ def build_pillar2_yield_wall_and_s2_cohomology() -> dict[str, Any]:
     pos_source_sum = sum(x for x in div_asym if x > 0)
     neg_sink_sum = sum(x for x in div_asym if x < 0)
 
-    # Piecewise-linear ReLU obstruction on [-1, 1]^2 (4 unit quadrants)
-    quad_dets = [1, 0, 0, 0]
-    quad_disp_divs = [0, -1, -1, -2]
+    # Piecewise-linear ReLU obstruction on [-1, 1]^2 (4 unit quadrants): the image-area
+    # determinants and displacement-field divergences are derived from the quadrant
+    # Jacobians of R(x, y) = (max(x, 0), max(y, 0)), not asserted as literals.
+    # quad_dets[i] = det J_i; quad_disp_divs[i] = tr(J_i - I) = div(R(x) - x) on quadrant i.
+    relu_quads = _relu_pl_quadrant_jacobians()
+    quad_dets = [
+        int(jac[0][0] * jac[1][1] - jac[0][1] * jac[1][0])
+        for jac in relu_quads
+    ]
+    quad_disp_divs = [
+        int((jac[0][0] - 1) + (jac[1][1] - 1))
+        for jac in relu_quads
+    ]
     relu_img_area = sum(quad_dets)
     relu_dom_area = 4
     relu_global_div = sum(quad_disp_divs)
