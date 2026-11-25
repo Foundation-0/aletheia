@@ -189,7 +189,7 @@ class TestTrackS108TokenizerLoopAuditR5(unittest.TestCase):
             src = json.loads((td_path / "mlos_zone_b_h8c_receipt.json").read_text(encoding="utf-8"))
             src["execution"]["started_utc"] = "2026-11-25T00:00:00Z"
             src["execution"]["ended_utc"] = "2026-11-26T00:00:00Z"
-            assert "2026-11-25T00:00:00Z" <= created <= "2026-11-26T00:00:00Z"
+            self.assertTrue("2026-11-25T00:00:00Z" <= created <= "2026-11-26T00:00:00Z")
             src["receipt_sha256"] = audit.canonical_sha256({k: v for k, v in src.items() if k != "receipt_sha256"})
             (td_path / "mlos_zone_b_h8a_receipt.json").write_text(json.dumps(src, indent=2), encoding="utf-8")
             with self.assertRaises(audit.S108AuditError):
