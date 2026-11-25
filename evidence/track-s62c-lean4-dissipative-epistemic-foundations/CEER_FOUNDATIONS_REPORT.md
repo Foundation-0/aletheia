@@ -2,7 +2,7 @@
 
 ## 1. OWN_TERMS_FIRST: Mathematical Scope & Honest Novelty Accounting
 
-This package delivers a self-contained, zero-Mathlib **Lean 4.36.0** (`Init`-only) formalization of **24 kernel-checked theorems** (**21 universal `∀` theorems** over unbounded `Int`/`Nat`/`List Int`/`Fin` domains plus **3 non-vacuous concrete witness bundles**) across three standalone Lean modules, paired with a pure-$\mathbb{Z}/\mathbb{Q}$ Python verifier, adversarial R1–R5 test suite, and canonical `0o600` certificate.
+This package delivers a self-contained, zero-Mathlib **Lean 4.36.0** (`Init`-only) formalization of **24 kernel-checked theorems** (**21 universal `∀` theorems** over unbounded `Int`/`Nat`/`List Int`/`Fin` domains plus **3 non-vacuous concrete witness bundles**) across three standalone Lean modules, paired with a pure-$\mathbb{Z}/\mathbb{Q}$ Python verifier, adversarial R1–R5 test suite, and a canonical certificate (written `0o600` by `--write`; `0644` in git).
 
 Each mathematical foundation is formulated and proved first in its own native algebraic structure before linking to experimental falsification:
 
@@ -32,7 +32,7 @@ Each mathematical foundation is formulated and proved first in its own native al
   - Ostrowski (1937) & Varga (1962): tridiagonal M-matrices and discrete Green's function positivity.
   - de Moura & Ullrich (2021): The Lean 4 theorem prover and core `Init` kernel.
 - **`N1` Constructive Formalization & Engineering Contribution:**
-  - Zero-import pure-`Init` Lean 4.36.0 kernel mechanization (21 universal `∀` theorems + 3 non-vacuous witness bundles, zero Mathlib, zero `sorry`/`admit`/`axiom`/`native_decide`, zero warnings) connecting raw integer experimental counterexamples unconditionally to kernel-checked refutations of infinite hypothesis classes, coupled to a Zone-B hardened pure-$\mathbb{Z}/\mathbb{Q}$ verifier and canonical `0o600` certificate.
+  - Zero-import pure-`Init` Lean 4.36.0 kernel mechanization (21 universal `∀` theorems + 3 non-vacuous witness bundles, zero Mathlib, zero `sorry`/`admit`/`axiom`/`native_decide`, zero warnings) connecting raw integer experimental counterexamples unconditionally to kernel-checked refutations of infinite hypothesis classes, coupled to a Zone-B hardened pure-$\mathbb{Z}/\mathbb{Q}$ verifier and a canonical certificate (written `0o600` by `--write`; `0644` in git). Per the repo's Law 4 N0-default, the mathematics above is classical N0; the `N1` label is justified specifically as a **new formalization of classical (N0) facts** (plus the hardened verifier), not as new mathematics.
 
 ---
 
@@ -83,6 +83,7 @@ Each mathematical foundation is formulated and proved first in its own native al
   python3 -I -B ceer_foundations_audit.py --check ceer_foundations_certificate.json
   python3 -I -B test_ceer_foundations_r5.py -v
   ```
+- **Shipped vs one-off counts:** the reproducible, shipped counts are the `13/13` R5 tests (in all 3 R4 CI modes `-I -B`, `-I -O -B`, `-I -B -W error`) including `48` re-signed certificate tamper cases in `test_10`, plus the live-Lean `--check`. The larger sweeps quoted in the PR body (`1,146/1,146` + `670/670` tampers, `82/82` zone_b_fuzzer, `201/201` `aletheia mutate`, `117/117` BoolOp, `18/18` trust escapes, `14/14` git merge-trees) were one-off local runs whose drivers are not shipped in this repo.
 
 ---
 
@@ -100,5 +101,7 @@ Each mathematical foundation is formulated and proved first in its own native al
 | `CEERFoundations/Module3_UniversalLaplacianThermalCoupling.lean` | `410` | `21,160` | `0o644` | `0ea5bda245895b0b87b3dac6494c207d19f83dfd51a56f46fd112d4daeebdd6c` |
 | `ceer_foundations_audit.py` | `1,734` | `71,970` | `0o644` | `3b4585e0cb6ce504f4f85810440b760838cd934ae23dab465a351faf8a92458b` |
 | `test_ceer_foundations_r5.py` | `967` | `56,634` | `0o644` | `190d197157392bc934b886acc8eadd7b0a810948f605823bc862dd30d583b0d9` |
-| `ceer_foundations_certificate.json` | `1` | `7,640` | `0o600` | `2596be5caf772da6bbf7ab2be2c9c60a64133f16b996db61d2c8a463d13e1e1b` |
+| `ceer_foundations_certificate.json` | `1` | `7,640` | `0o644` | `2596be5caf772da6bbf7ab2be2c9c60a64133f16b996db61d2c8a463d13e1e1b` |
 | `CEER_FOUNDATIONS_REPORT.md` | *(this file)* | — | `0o644` | *(self-documenting report)* |
+
+Mode column: the certificate is written `0o600` by the audit's `--write` path; `0644` in git (git cannot store `0600`).
