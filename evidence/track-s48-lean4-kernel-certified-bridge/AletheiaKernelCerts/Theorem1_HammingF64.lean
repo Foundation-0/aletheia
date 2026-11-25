@@ -273,5 +273,7 @@ theorem hamming16_weight_4_witness :
 #print axioms hamming16_H_self_orthogonal
 #print axioms hamming16_dmin_ge_4
 #print axioms hamming16_weight_4_witness
+#print axioms hamming16_no_weight_1
+#print axioms hamming16_no_weight_2
 
 end AletheiaKernelCerts.Theorem1

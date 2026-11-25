@@ -4,8 +4,8 @@
 **Schema Version:** `aletheia.lean4_kernel_bridge.v1`  
 **Oracle Class:** `lean4_kernel_plus_exact_zq` (Lean 4.36.0 pure core `Init` kernel + pure-$\mathbb{Z}/\mathbb{Q}$ Python stdlib cross-check; `0` IEEE-754 floats on trust paths, `0` external Mathlib dependencies)  
 **Novelty Classification:** `N1` (constructive pure-`Init` Lean 4.36.0 kernel proofs and fail-closed certificate verification bridge for `N0` classical algebraic, coding-theoretic, thermodynamic, and verification results)  
-**Certificate Digest:** `certificate_sha256 = 8694aab3b8b1ad91ad6bb7a1c678292f7a68d381ced5ad635a625d16afe76e53`  
-**Payload Digest:** `payload_sha256 = b3b14eb669672eb0db837da662a747bb8f809450d832645c0580b4c4074f441f`
+**Certificate Digest:** `certificate_sha256 = 2264354d6abdbc2cc985ecdf0a937b7a0ff67b6143bb237ad661119af02cbb38`  
+**Payload Digest:** `payload_sha256 = 2ef122b04a8e6f198d0807dfeb7b0799ec06baf8ef985c9ab820ce05b61c3579`
 
 ---
 
@@ -13,7 +13,7 @@
 
 Before introducing any downstream synthesis, we state the exact scope of what is machine-checked here and what remains upstream prior art:
 
-- **What is kernel-checked (`exact` / Lean 4.36.0 core kernel):** Thirty-four (34) formal theorems across five standalone, zero-Mathlib Lean 4 modules (`AletheiaKernelCerts/Theorem1_HammingF64.lean` through `Theorem5_PolyaFermatSextic.lean`), compiled live with `Lean (version 4.36.0, x86_64-unknown-linux-gnu, commit 611c117bfaf7b7ae1cfcf246ce6fba31e8f509e9, Release)` and verified by `lake build` (`Build completed successfully (12 jobs)`). Every module emits machine-checked `#print axioms` receipts strictly contained in `{propext, Classical.choice, Quot.sound}` — with zero `sorry`, zero `sorryAx`, zero `admit`, zero custom `axiom`, zero `native_decide`, zero `decide` native-evaluation escapes (`+native`, `(native := ...)`, `(config := ...)` outside plain record literals, or guillemet-escaped identifiers), zero `Lean.ofReduceBool`, zero `Lean.ofReduceNat`, zero `Lean.trustCompiler`, zero `unsafe`, zero `partial`, and zero non-`Init`/`Std` imports.
+- **What is kernel-checked (`exact` / Lean 4.36.0 core kernel):** Thirty-six (36) formal theorems across five standalone, zero-Mathlib Lean 4 modules (`AletheiaKernelCerts/Theorem1_HammingF64.lean` through `Theorem5_PolyaFermatSextic.lean`), compiled live with `Lean (version 4.36.0, x86_64-unknown-linux-gnu, commit 611c117bfaf7b7ae1cfcf246ce6fba31e8f509e9, Release)` and verified by `lake build` (`Build completed successfully (12 jobs)`). Every module emits machine-checked `#print axioms` receipts strictly contained in `{propext, Classical.choice, Quot.sound}` — with zero `sorry`, zero `sorryAx`, zero `admit`, zero custom `axiom`, zero `native_decide`, zero `decide` native-evaluation escapes (`+native`, `(native := ...)`, `(config := ...)` outside plain record literals, or guillemet-escaped identifiers), zero `Lean.ofReduceBool`, zero `Lean.ofReduceNat`, zero `Lean.trustCompiler`, zero `unsafe`, zero `partial`, and zero non-`Init`/`Std` imports.
 - **What is NOT claimed (`measured_external_mathlib = false`):** This evidence package does not depend on or benchmark external Mathlib libraries, nor does it make empirical claims about live LLM weights or silicon throughput. It establishes the formal kernel-verified algebraic invariants and their independent pure-$\mathbb{Z}/\mathbb{Q}$ cross-check receipts.
 - **Upstream `N0` Prior Art Anchors:**
   1. R. W. Hamming (1950), *Error detecting and error correcting codes*, Bell Syst. Tech. J. 29(2):147–160 (extended Hamming $[16, 11, 4]$ linear codes).
@@ -28,13 +28,13 @@ Before introducing any downstream synthesis, we state the exact scope of what is
 
 ---
 
-## 2. Live Lean 4.36.0 Kernel-Checked Theorem Inventory (5 Modules, 34 Theorems)
+## 2. Live Lean 4.36.0 Kernel-Checked Theorem Inventory (5 Modules, 36 Theorems)
 
 All five modules compile cleanly with zero warnings in **4.11 s total** under standalone `lean` (`v4.36.0`) and pass `lake build` (`12 jobs`, exit code `0`).
 
 | Module ID | Domain | File | Lines | Theorems | Live `lean` Time | Axiom Footprint (`#print axioms`) |
 | :--- | :--- | :--- | :---: | :---: | :---: | :--- |
-| `T1_HAMMING_F64` | IEEE-754 `binary64` & Extended Hamming `[16, 11, 4]` | `AletheiaKernelCerts/Theorem1_HammingF64.lean` | 277 | 9 | 1.19 s | `[]`, `[propext]`, `[propext, Quot.sound]`, `[propext, Classical.choice, Quot.sound]` |
+| `T1_HAMMING_F64` | IEEE-754 `binary64` & Extended Hamming `[16, 11, 4]` | `AletheiaKernelCerts/Theorem1_HammingF64.lean` | 279 | 11 | 1.19 s | `[]`, `[propext]`, `[propext, Quot.sound]`, `[propext, Classical.choice, Quot.sound]` |
 | `T2_BLOCK_H2_INT8` | Doubled $E_8$ `Block-H2` INT8 Safety vs. `WHT_8` | `AletheiaKernelCerts/Theorem2_BlockH2Int8.lean` | 319 | 6 | 1.65 s | `[propext]`, `[propext, Classical.choice, Quot.sound]` |
 | `T3_CS01_BLIND_WINDOW` | `CS-01` Asymptotic Blind-Window Obstruction | `AletheiaKernelCerts/Theorem3_CS01BlindWindow.lean` | 98 | 8 | 0.28 s | `[propext, Quot.sound]`, `[propext, Classical.choice, Quot.sound]` |
 | `T4_CS21_LANDAUER` | `CS-21` Boundary Offloading & Landauer Bracket | `AletheiaKernelCerts/Theorem4_CS21Landauer.lean` | 113 | 5 | 0.30 s | `[propext, Quot.sound]`, `[propext, Classical.choice, Quot.sound]` |
@@ -43,6 +43,7 @@ All five modules compile cleanly with zero warnings in **4.11 s total** under st
 ### 2.1 Theorem 1 — IEEE-754 `binary64` Sharp Decode Boundary & Extended Hamming `[16, 11, 4]` (`Theorem1_HammingF64.lean`)
 - **`f64_pow2_significand_sharp_upper` & `f64_pow2_significand_sharp_break`:** Proves $\forall w \le 64, w \cdot 2^{47} \le 2^{53}$ while $65 \cdot 2^{47} > 2^{53}$.
 - **`f64_group128_f16_exact_w64`, `f64_w64_max_scaled_sum_exact`, & `f64_group128_f16_w65_odd_overflow` (ZERO axioms `[]`):** Proves universally for any integer weight bound $w \le 64$ and scaled finite `binary16` activation $a \le 65{,}504 \cdot 2^{24}$ that $128 w a \le 9{,}002{,}801{,}208{,}229{,}888 \le 2^{53}$, whereas $w = 65$ produces the odd integer $9{,}072{,}036{,}617{,}912{,}321 > 2^{53}$ (inexact in IEEE-754 `binary64`, whose ULP above $2^{53}$ is $2$).
+- **`hamming16_no_weight_1` & `hamming16_no_weight_2`:** kernel `decide` finite exhaustive checks (over all `16` basis vectors and all `120` distinct index pairs) that no weight-1 or weight-2 vector lies in $C_{16}$.
 - **`hamming16_H_G_orthogonal`, `hamming16_H_self_orthogonal`, `hamming16_dmin_ge_4`, & `hamming16_weight_4_witness`:** Verifies $H_{16} G_{16}^\top = 0 \pmod 2$ and dual containment $H_{16} H_{16}^\top = 0 \pmod 2$ ($\mathrm{RM}(1,4) \subseteq C_{16}$), proves universally that every nonzero codeword $v \in C_{16}$ satisfies $\operatorname{wt}(v) \ge 4$ (via overall parity eliminating odd weights and explicit distinct-index syndrome separation eliminating weight $2$), and exhibits row $0$ of $G_{16}$ achieving exact Hamming weight $4$. Independently cross-checked over all $2^{11} = 2{,}048$ codewords in Python (`d_min = 4`, $A_4 = 140$).
 
 ### 2.2 Theorem 2 — `Block-H2` INT8 Safety vs. `WHT_8` Overflow on Doubled $E_8$ (`Theorem2_BlockH2Int8.lean`)
@@ -70,12 +71,12 @@ All five modules compile cleanly with zero warnings in **4.11 s total** under st
 
 - **Live Lean 4.36.0 & Lake Build:**
   - `lean --version`: `Lean (version 4.36.0, x86_64-unknown-linux-gnu, commit 611c117bfaf7b7ae1cfcf246ce6fba31e8f509e9, Release)`
-  - All `5/5` standalone `.lean` compilations: `RC=0`, `0` warnings, `34/34` theorems verified strictly within `{propext, Classical.choice, Quot.sound}` (`4` theorems require `[]` zero axioms).
+  - All `5/5` standalone `.lean` compilations: `RC=0`, `0` warnings, `36/36` theorems verified strictly within `{propext, Classical.choice, Quot.sound}` (`4` theorems require `[]` zero axioms).
   - Clean-copy `lake build`: `Build completed successfully (12 jobs)` (`RC=0`; no `.lake/` build clutter retained in the directory).
   - Live `Lean 4.36.0` static trust-escape verification: **`17/17`** live trust escapes caught (`12/12` `decide` native-evaluation escapes including French-guillemet identifiers, positional/constructor/indirect/`with` `DecideConfig` forms, field punning, and custom `:+` / `,+` infix expressions + `5/5` `Char` `'"'`, raw `r"\"`, and interpolated `s!"{...}"` lexer-desync escapes) and **`6/6`** clean controls accepted (`0` false positives), with linear $O(n)$ parsing (`19.97 ms` / `11.26 ms` on depth-5,000 nested expressions).
 - **Isolated Execution Parity (`-I -B`, `-I -O -B`, `-I -B -W error`, plus `PYTHONHASHSEED=42 -B` and `umask 077`):**
-  - `lean4_kernel_bridge_audit.py --standalone --json` matches `lean4_kernel_bridge_certificate.json` (`0o600`, `10,044` B, `3b3a718bc5edb7fa70f9078570536ca6dfbdfe8653410909e7006424533b5da4`) byte-for-byte.
-  - `lean4_kernel_bridge_audit.py --check lean4_kernel_bridge_certificate.json` passes (`RC=0`, identical digest `c5d5506fb336413336f1301be9ec2556fc0cb4dee1a67abfa32c785d6a7f376c` across all 4 modes and `umask 077`, running live Lean 4.36.0 re-verification + disk SHA-256 + canonical wire bytes + pure-$\mathbb{Z}/\mathbb{Q}$ replay).
+  - `lean4_kernel_bridge_audit.py --standalone --json` matches `lean4_kernel_bridge_certificate.json` (written `0o600` by `--write`; `0644` in git since git cannot store `0600`, `10,331` B, `812a573407fef8e0b5fcc0c6e025abdae4d9311252adaab995f8f4bae8bc2b5e`) byte-for-byte.
+  - `lean4_kernel_bridge_audit.py --check lean4_kernel_bridge_certificate.json` passes (`RC=0`, identical digest `ae95132a880365adcb78af9c5817c323f37696ca60505b44f5b4e2a073ab95ed` across all 4 modes and `umask 077`, running live Lean 4.36.0 re-verification + disk SHA-256 + canonical wire bytes + pure-$\mathbb{Z}/\mathbb{Q}$ replay).
   - `test_lean4_kernel_bridge_r5.py` passes `13/13 OK` across all 4 modes and `umask 077` (`0` bare asserts, `0` AST floats / `float()`, scratch `os.mkfifo` only).
 - **Mutation Testing & Structural Completeness:**
   - Live `aletheia mutate --max-mutants 0` on `lean4_kernel_bridge_audit.py`: **`205/205` (`100.0%`, `survived=0`, `truncated=False`, `null_mutant=passed`, `verdict=PASS`)**.
@@ -83,8 +84,8 @@ All five modules compile cleanly with zero warnings in **4.11 s total** under st
   - Exhaustive leaf-by-leaf tamper sweep on direct `secondary_audit_payload(payload)` (all `290` leaves): **`1,608/1,608` mutations rejected cleanly (`accepted=0`, `raw_excs=0`)**.
 - **Adversarial Fuzzing (4-Surface Corpus):**
   - Total **`82/82 PASS` (`bypasses=0`, `crashes=0`)**: live `--check` CLI (`25/25`, including non-canonical wire-byte and CLI-flag rejection), `validate_certificate_payload(..., verify_live_lean=True)` (`19/19`), `validate_certificate_payload(..., verify_live_lean=False)` (`19/19`), and `secondary_audit_payload` (`19/19`).
-- **Static Lean 4 & Safety Audit (`aletheia audit-check . --lean-audit --strict-ancestors --safety-scan`):**
-  - `PASS` (`0` findings, `0` Lean 4 findings, `0` Lean 4 notices, `0` safety findings, `0` leaks, `0` bare asserts, `0` `.pyc` artifacts).
+- **Static Lean 4 & Safety Audit (track-scoped: `aletheia audit-check evidence/track-s48-lean4-kernel-certified-bridge --lean-audit --strict-ancestors --safety-scan`):**
+  - `PASS` (`0` findings, `0` Lean 4 findings, `0` Lean 4 notices, `0` safety findings, `0` leaks, `0` bare asserts, `0` `.pyc` artifacts). Repo-wide `--safety-scan` fails on `48` pre-existing base findings outside this track, and CI's `audit-check` does not pass `--safety-scan`.
 
 ---
 
@@ -94,12 +95,12 @@ All five modules compile cleanly with zero warnings in **4.11 s total** under st
 | :--- | :---: | :---: | :---: | :--- |
 | `lean-toolchain` | 1 | 25 | `0o644` | `582a63f8f9c5128067b688778c1051cf1464c3ca9d57b9325025c051c29b774a` |
 | `lakefile.toml` | 13 | 383 | `0o644` | `635eed593f80fac843b303a5c519790ea936456358bd3b983d67d7021d1e19cf` |
-| `AletheiaKernelCerts/Theorem1_HammingF64.lean` | 277 | 11518 | `0o644` | `3389bff715bbb2aaede334e43c1930315d0675150ae56ab939630d263c356a2d` |
+| `AletheiaKernelCerts/Theorem1_HammingF64.lean` | 279 | 11590 | `0o644` | `29420282e59a2498be1d338eedf0b8edfb1ce00fa4252ca11f65945cc07714f9` |
 | `AletheiaKernelCerts/Theorem2_BlockH2Int8.lean` | 319 | 13480 | `0o644` | `b28a53bc95cef25b72bc56737212f4146d63c0256906f1aaac8f116e389fdb27` |
 | `AletheiaKernelCerts/Theorem3_CS01BlindWindow.lean` | 98 | 3746 | `0o644` | `c3cdd902bf000596bcd22e1e7e9cf100361fb6518662206ed6a0967ce22123b4` |
 | `AletheiaKernelCerts/Theorem4_CS21Landauer.lean` | 113 | 5386 | `0o644` | `63ee34fdb0d1894be3d65ff0528dcd5af449027d1eacf1ff59b7ed8468c3172f` |
 | `AletheiaKernelCerts/Theorem5_PolyaFermatSextic.lean` | 262 | 12145 | `0o644` | `afc819355de9609bb9a617a63e4c11398c3e6ae84a2ebbd1dafa5940b5e9cc5b` |
-| `lean4_kernel_bridge_audit.py` | 1968 | 79236 | `0o644` | `9aad0bb0640540059b532b985ad1a295ef67f96f242e524a1080303d1aa97cfc` |
-| `test_lean4_kernel_bridge_r5.py` | 1234 | 71068 | `0o644` | `856b2b32fbf2f24da6da7e9ea782285129f64eb41e121ed59cc4a0de57c0d4f0` |
-| `lean4_kernel_bridge_certificate.json` | 1 | 10044 | `0o600` | `3b3a718bc5edb7fa70f9078570536ca6dfbdfe8653410909e7006424533b5da4` |
+| `lean4_kernel_bridge_audit.py` | 1976 | 79935 | `0o644` | `f7193e0997bf3e6a0e6e00f49e13ee0d76a82a6f0d10424d92c2deaa4c9a43a9` |
+| `test_lean4_kernel_bridge_r5.py` | 1234 | 71068 | `0o644` | `80d45d019d2c8aa58e7d20b192695cb5ce62edf84a526a2237d458859910db8e` |
+| `lean4_kernel_bridge_certificate.json` | 1 | 10331 | `0o600` on `--write`; `0644` in git | `812a573407fef8e0b5fcc0c6e025abdae4d9311252adaab995f8f4bae8bc2b5e` |
 | `LEAN4_KERNEL_BRIDGE_REPORT.md` | — | — | `0o644` | *(this report; verified clean under `audit-check`)* |

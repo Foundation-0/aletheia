@@ -896,7 +896,7 @@ class TestTrackS48Lean4KernelBridgeR5(unittest.TestCase):
         verdict = audit.validate_certificate_payload(cert, project_root=_TRACK_DIR, verify_live_lean=False)
         self.assertIs(verdict["verified"], True)
         self.assertEqual(verdict["module_count"], 5)
-        self.assertEqual(verdict["theorem_count"], 34)
+        self.assertEqual(verdict["theorem_count"], 36)
 
         # Non-dict rejected at _require_exact_keys and non-bool verify_live_lean rejected strictly
         self._assert_err("INVALID_DICT", audit.validate_certificate_payload, [1, 2])
@@ -1196,7 +1196,7 @@ class TestTrackS48Lean4KernelBridgeR5(unittest.TestCase):
             self.assertEqual(res["theorems"], [{"name": "ok", "axioms": [], "standard_axioms_only": True}])
 
     def test_95_live_lean_full_bridge_and_cli_parity(self) -> None:
-        # Live Lean 4.36.0 build across all 5 modules & 34 theorems matches disk certificate byte-for-byte
+        # Live Lean 4.36.0 build across all 5 modules & 36 theorems matches disk certificate byte-for-byte
         live_cert = audit.build_certificate(_TRACK_DIR)
         disk_raw = audit.read_regular_bytes_capped(_CERT_PATH, "disk_cert")
         self.assertEqual(audit.canonical_json_bytes(live_cert) + b"\n", disk_raw)
@@ -1208,14 +1208,14 @@ class TestTrackS48Lean4KernelBridgeR5(unittest.TestCase):
         self.assertEqual(rc, 0)
         chk = audit.parse_strict_json_text(out_check.getvalue())
         self.assertIs(chk["verified"], True)
-        self.assertEqual(chk["theorem_count"], 34)
+        self.assertEqual(chk["theorem_count"], 36)
 
         # Zero-arg summary, --standalone --json, and --write CLI paths (avoid repeating 5-module build 3x by mocking build_certificate ONLY for CLI formatting dispatch, after already executing live build_certificate + live --check above)
         with mock.patch.object(audit, "build_certificate", return_value=live_cert):
             out_sum = io.StringIO()
             with mock.patch.object(sys, "stdout", out_sum):
                 self.assertEqual(audit.main([]), 0)
-            self.assertEqual(audit.parse_strict_json_text(out_sum.getvalue())["theorem_count"], 34)
+            self.assertEqual(audit.parse_strict_json_text(out_sum.getvalue())["theorem_count"], 36)
 
             out_st = io.StringIO()
             with mock.patch.object(sys, "stdout", out_st):

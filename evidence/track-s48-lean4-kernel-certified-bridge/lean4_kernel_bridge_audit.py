@@ -88,6 +88,8 @@ MODULE_SPECS: tuple[dict[str, Any], ...] = (
             "AletheiaKernelCerts.Theorem1.hamming16_H_self_orthogonal",
             "AletheiaKernelCerts.Theorem1.hamming16_dmin_ge_4",
             "AletheiaKernelCerts.Theorem1.hamming16_weight_4_witness",
+            "AletheiaKernelCerts.Theorem1.hamming16_no_weight_1",
+            "AletheiaKernelCerts.Theorem1.hamming16_no_weight_2",
         ),
     },
     {
@@ -145,6 +147,10 @@ MODULE_SPECS: tuple[dict[str, Any], ...] = (
     },
 )
 
+# Hardcoded expected receipt table. Under `--check` (default verify_live_lean=True) the live
+# Lean 4.36.0 kernel output must equal the certificate and the certificate must equal this
+# table, so the chain is anchored to the live kernel; with verify_live_lean=False the
+# cert-to-table comparison alone is a self-consistency check, so always run `--check`.
 EXPECTED_THEOREM_AXIOMS: dict[str, tuple[str, ...]] = {
     "AletheiaKernelCerts.Theorem1.f64_pow2_significand_sharp_upper": ("propext", "Quot.sound"),
     "AletheiaKernelCerts.Theorem1.f64_pow2_significand_sharp_break": ("propext", "Quot.sound"),
@@ -155,6 +161,8 @@ EXPECTED_THEOREM_AXIOMS: dict[str, tuple[str, ...]] = {
     "AletheiaKernelCerts.Theorem1.hamming16_H_self_orthogonal": ("propext",),
     "AletheiaKernelCerts.Theorem1.hamming16_dmin_ge_4": ("propext", "Classical.choice", "Quot.sound"),
     "AletheiaKernelCerts.Theorem1.hamming16_weight_4_witness": ("propext",),
+    "AletheiaKernelCerts.Theorem1.hamming16_no_weight_1": ("propext", "Classical.choice", "Quot.sound"),
+    "AletheiaKernelCerts.Theorem1.hamming16_no_weight_2": ("propext", "Classical.choice", "Quot.sound"),
     "AletheiaKernelCerts.Theorem2.blockH2_orthogonal_2I": ("propext", "Classical.choice", "Quot.sound"),
     "AletheiaKernelCerts.Theorem2.wht8_orthogonal_8I": ("propext", "Classical.choice", "Quot.sound"),
     "AletheiaKernelCerts.Theorem2.blockH2_universal_le_78_and_int8_safe": ("propext", "Classical.choice", "Quot.sound"),
@@ -1702,7 +1710,7 @@ def secondary_audit_payload(
     tc_sha = require_sha256_hex(manifest["lean_toolchain_sha256"], "manifest.lean_toolchain_sha256")
     lake_sha = require_sha256_hex(manifest["lakefile_sha256"], "manifest.lakefile_sha256")
     require_ok(manifest["module_count"] == 5, "MODULE_COUNT_MISMATCH", "manifest.module_count must be 5")
-    require_ok(manifest["total_theorem_count"] == 34, "THEOREM_COUNT_MISMATCH", "manifest.total_theorem_count must be 34")
+    require_ok(manifest["total_theorem_count"] == 36, "THEOREM_COUNT_MISMATCH", "manifest.total_theorem_count must be 36")
 
     mods = p["theorem_modules"]
     require_ok(type(mods) is list and len(mods) == len(MODULE_SPECS), "MODULE_LIST_MISMATCH", "theorem_modules must have 5 entries")
