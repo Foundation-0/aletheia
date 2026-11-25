@@ -880,6 +880,8 @@ _LEAN4_WORD_CONT_CHARS: frozenset[str] = _LEAN4_ID_FIRST_CHARS | _LEAN4_ID_SUBSC
 _LEAN4_ID_REST_CHARS: frozenset[str] = _LEAN4_WORD_CONT_CHARS | frozenset("'!?")
 _LEAN4_PANIC_PREV_CHARS: frozenset[str] = _LEAN4_ID_REST_CHARS | frozenset(".")
 _LEAN4_DEC_NUM_CHARS: frozenset[str] = frozenset("0123456789_")
+_LEAN4_BIN_NUM_CHARS: frozenset[str] = frozenset("01_")
+_LEAN4_OCT_NUM_CHARS: frozenset[str] = frozenset("01234567_")
 _LEAN4_HEX_NUM_CHARS: frozenset[str] = _LEAN4_HEX_DIGITS | frozenset("_")
 _LEAN4_SIMPLE_GUILLEMET_INNER_RE = re.compile(r"\A[A-Za-z_][A-Za-z0-9_']*\Z")
 _LEAN4_INTERP_BANG_WORDS = frozenset(
@@ -1158,7 +1160,12 @@ def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
                 num_end = i + 1
                 if ch == "0" and nxt in "xXbBoO":
                     num_end += 1
-                    while num_end < n and source[num_end] in _LEAN4_HEX_NUM_CHARS:
+                    base_chars = (
+                        _LEAN4_HEX_NUM_CHARS
+                        if nxt in "xX"
+                        else (_LEAN4_BIN_NUM_CHARS if nxt in "bB" else _LEAN4_OCT_NUM_CHARS)
+                    )
+                    while num_end < n and source[num_end] in base_chars:
                         num_end += 1
                 else:
                     while num_end < n and source[num_end] in _LEAN4_DEC_NUM_CHARS:
@@ -1178,7 +1185,7 @@ def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
                             while exp_pos < n and source[exp_pos] in _LEAN4_DEC_NUM_CHARS:
                                 exp_pos += 1
                             num_end = exp_pos
-                out.append(source[i:num_end])
+                out.append(" " * (num_end - i))
                 i = num_end
                 continue
             ident_prev = in_ident or (i > 0 and source[i - 1] == ".")
