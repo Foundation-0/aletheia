@@ -645,7 +645,9 @@ def capture_all(heritage_root, bayt_root):
                 obs_top_dot += sum(v * dj[k] for k, v in di.items() if k in dj)
                 obs_top_den += t_top_totals[i] * t_top_totals[j]
 
-        # B=250 independent random-vocabulary-slot placement nulls (without replacement in 0..v_shared-1)
+        # B=250 uniform random-slot placement baseline over 0..v_shared-1 (expected collision ~1/v_shared).
+        # Note: this is a 1/V_shared vocabulary-size normalization baseline, NOT a frequency-matched
+        # cross-treatise significance test (any two Zipfian texts from the same language exceed 1/V_shared).
         null_top_dot_sum = 0
         null_top_den_sum = 0
         vocab_ge = 0

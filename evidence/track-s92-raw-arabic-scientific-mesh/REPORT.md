@@ -1,10 +1,10 @@
-# Track S92: Live Raw-Arabic `K_12` Cross-Treatise Scientific Mesh, Higher-Order Translation Silo-Cut Collapse, and Law-5 Dotless `Rasm` Obstruction
+# Track S92: Frozen Offline-Capture Raw-Arabic `K_12` Cross-Treatise Scientific Mesh, Modeled Higher-Order Translation Silo-Cut Collapse, and Law-5 Dotless `Rasm` Obstruction
 
 - **Track ID:** `TRACK-S92-RAW-ARABIC-SCIENTIFIC-MESH`
 - **Schema Version:** `s92-raw-arabic-scientific-mesh/v1`
 - **Governance Standard:** Aletheia v2.1 (`OWN_TERMS_FIRST`, Law 2b, Law 4 honest novelty ceiling, Law 5 explicit non-commutativity obstruction, Zone-B I/O & JSON hardening, R12 Lean proof auditing & env scrubbing)
 - **Prior Art Attribution (`N0`):** All pure-Arabic layered cohesion methodology (`raw`, `rasm`, `light_stem`, `root`), $B = 250$ deterministic LCG multi-shuffle empirical rank $p$-values, exact pure-$\mathbb{Q}$ Holm-Bonferroni adjustment at $\alpha = 1/20$, two-instrument translation edge-loss measurements, explicit retraction of naive absolute-overlap ladder ordering, and Open Issues `#8` (stemmer convention sensitivity range) and `#9` (per-layer lift ordering without overclaiming) originate in **`Foundation-0/bayt-al-hikma`** (`arabic-continuum`, `arabic-lexicon`, `PREREGISTERED_HYPOTHESES.md`) and are explicitly credited here as **`N0` prior art**.
-- **Track S92 Novelty Classification (Law 4 Honest Ceiling):** **`N1`** (`0` `N2` claims) — novel live empirical synthesis applying `bayt-al-hikma`'s `OWN_TERMS_FIRST` pure-Arabic methodology directly to `12` untranslated classical Arabic scientific primary treatises (`1,500,610` Arabic tokens across `6` disciplines) and `12` parallel Arabic-English scientific catalogs (`148` entries), integrated with exact pure-$\mathbb{Q}$ higher-order `K_12` simplicial/Schur conductance operators (`⧄`), heterogeneous English silo-cut Schur collapse, Law-5 live dotless `rasm` homography witnesses, and an `18`-theorem pure-`Init` `Lean 4.36.0` companion.
+- **Track S92 Novelty Classification (Law 4 Honest Ceiling):** **`N1`** (`0` `N2` claims) — novel offline-captured empirical synthesis applying `bayt-al-hikma`'s `OWN_TERMS_FIRST` pure-Arabic methodology directly to `12` untranslated classical Arabic scientific primary treatises (`1,500,610` Arabic tokens across `6` disciplines) and `12` parallel Arabic-English scientific catalogs (`148` entries), integrated with exact pure-$\mathbb{Q}$ higher-order `K_12` simplicial/Schur conductance operators (`⧄`), modeled counterfactual heterogeneous English silo-cut Schur attenuation, Law-5 dotless `rasm` homography witnesses, and an `18`-theorem pure-`Init` `Lean 4.36.0` companion.
 
 ---
 
@@ -16,7 +16,7 @@ Directly pinned read-only from `bayt-al-hikma`:
 
 Under independent per-edge translation retention $r = 1 - \ell \in (0, 1)$, a $k$-simplex on $k+1$ vertices requires all $\binom{k+1}{2} \in \{1, 3, 6, 10\}$ edges to survive simultaneously, giving exact pure-$\mathbb{Q}$ survival $r^{\binom{k+1}{2}}$ and collapse $1 - r^{\binom{k+1}{2}}$ (formally proved for all $0 < p < q$ in `RawArabicHigherOrderMesh.lean`, Theorems 1–12):
 
-| Translation Regime (`N0` / Live Catalog) | Exact Edge Loss $\ell$ | Retention $r$ | $k=1$ Edges Lost ($1-r^1$) | $k=2$ Triangles Lost ($1-r^3$) | $k=3$ Tetrahedra Lost ($1-r^6$) | $k=4$ 5-Cells Lost ($1-r^{10}$) |
+| Translation Regime (`N0` / Offline-Captured Catalog) | Exact Edge Loss $\ell$ | Retention $r$ | $k=1$ Edges Lost ($1-r^1$) | $k=2$ Triangles Lost ($1-r^3$) | $k=3$ Tetrahedra Lost ($1-r^6$) | $k=4$ 5-Cells Lost ($1-r^{10}$) |
 |---|---:|---:|---:|---:|---:|---:|
 | `bayt-al-hikma` Sahih 7-root (`arabic-continuum`) | `3734/7335` | `3601/7335` | `50.9066%` | **`88.1677%`** | **`98.6000%`** | **`99.9187%`** |
 | `bayt-al-hikma` Pickthall 7-root (`arabic-continuum`) | `1933/2934` | `1001/2934` | `65.8828%` | **`96.0288%`** | **`99.8423%`** | **`99.9979%`** |
@@ -24,14 +24,16 @@ Under independent per-edge translation retention $r = 1 - \ell \in (0, 1)$, a $k
 | `bayt-al-hikma` Sahih Cross-Lemma (`arabic-lexicon`) | `36842/54262` | `17420/54262` | `67.8965%` | **`96.6913%`** | **`99.8905%`** | **`99.9988%`** |
 | `bayt-al-hikma` Pickthall Same-Lemma (`arabic-lexicon`) | `35423/77081` | `41658/77081` | `45.9556%` | `84.2147%` | `97.5082%` | `99.7874%` |
 | `bayt-al-hikma` Pickthall Cross-Lemma (`arabic-lexicon`) | `39773/54262` | `14489/54262` | `73.2981%` | **`98.0962%`** | **`99.9638%`** | **`99.9998%`** |
-| Live Bilingual Scientific Catalogs (`stem_v1`, overall) | `345/664` | `319/664` | `51.9578%` | **`88.9116%`** | **`98.7705%`** | **`99.9345%`** |
-| Live Bilingual Scientific Catalogs (`stem_v1`, **cross-disc**) | `78/85` | `7/85` | **`91.7647%`** | **`99.9441%`** | **`99.999969%`** | **`99.99999999%`** |
+| Offline-Captured Bilingual Scientific Catalogs (`stem_v1`, overall) | `345/664` | `319/664` | `51.9578%` | **`88.9116%`** | **`98.7705%`** | **`99.9345%`** |
+| Offline-Captured Bilingual Scientific Catalogs (`stem_v1`, **cross-disc**) | `78/85` | `7/85` | **`91.7647%`** | **`99.9441%`** | **`99.999969%`** | **`99.99999999%`** |
 
 ---
 
-## 2. Pillar 1: Live Raw-Arabic `K_12` Cross-Treatise Scientific Mesh (`1,500,610` Tokens, `6` Disciplines, Zero English Mediation)
+## 2. Pillar 1: Frozen Offline-Capture Raw-Arabic `K_12` Cross-Treatise Scientific Mesh (`1,500,610` Tokens, `6` Disciplines, Zero English Mediation)
 
-### 2.1 Pinned `12` Primary Raw-Arabic Treatises (`islamic-scientific-heritage-text`)
+### 2.1 Pinned `12` Primary Raw-Arabic Treatises (`s92_raw_arabic_anchor.json` Frozen Offline Capture)
+
+*(Source availability disclosure: all Pillar 1–3 counts replay deterministically from the committed `60,436`-byte frozen anchor `s92_raw_arabic_anchor.json`, captured offline via `s92_raw_arabic_capture.py` from a local read-only checkout of classical Arabic scientific primary texts `islamic-scientific-heritage-text`, which is not publicly hosted on GitHub. All `Foundation-0/bayt-al-hikma` prior-art pins in §1 are publicly verifiable on GitHub.)*
 
 | # | Treatise ID | Discipline | Author & Work | Bytes | Raw Arabic Tokens | $V_{\text{raw}}$ | $V_{\text{rasm}}$ | $V_{\text{stem\_v1}}$ | $V_{\text{stem\_v2}}$ | $C_2(\text{rasm})/C_2(\text{raw})$ | SHA-256 (prefix) |
 |---:|---|---|---|---:|---:|---:|---:|---:|---:|---:|---|
@@ -70,34 +72,34 @@ Under independent per-edge translation retention $r = 1 - \ell \in (0, 1)$, a $k
 
 **B. Full-Text Cross-Treatise `K_12` (`66` Pairs, `1,500,610` Tokens, Algorithmic Top-50 Function-Word Strip, `B = 250`):**
 
-| Arabic Layer | Shared Vocab $V$ | Within-Disc $C_2$ | Cross-Disc $C_2$ | Within / Cross | Disc-Perm Raw $p$ (Holm $p_{\text{adj}}$) | Top-500 Vocab-Null Lift | Vocab-Null Holm $p_{\text{adj}}$ |
+| Arabic Layer | Shared Vocab $V$ | Within-Disc $C_2$ | Cross-Disc $C_2$ | Within / Cross | Disc-Perm Raw $p$ (Holm $p_{\text{adj}}$) | Top-500 $1/V$-Norm Ratio (`obs / uniform-slot`) | Recorded Uniform-Slot $p_{\text{adj}}$ *(Non-Diagnostic)* |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| `raw` | `28,873` | `0.000415` | `0.000193` | `2.148108×` | `6/251` (`0.071713`, NS) | **`26.120364×`** | `4/251 = 0.015936` (**PASS**) |
-| `dotless_rasm` | `26,939` | `0.000458` | `0.000236` | **`1.943300×`** | `7/251` (`0.071713`, NS) | **`25.849883×`** | `4/251 = 0.015936` (**PASS**) |
-| `stem_v1` | `16,038` | `0.000856` | `0.000401` | `2.135359×` | `4/251` (`0.063745`, NS) | **`17.669178×`** | `4/251 = 0.015936` (**PASS**) |
-| `stem_v2` | `14,654` | `0.000904` | `0.000421` | `2.144774×` | `10/251` (`0.071713`, NS) | **`16.062432×`** | `4/251 = 0.015936` (**PASS**) |
+| `raw` | `28,873` | `0.000415` | `0.000193` | `2.148108×` | `6/251` (`0.071713`, NS) | `26.120364×` | `4/251 = 0.015936` *(uniform-slot artifact)* |
+| `dotless_rasm` | `26,939` | `0.000458` | `0.000236` | **`1.943300×`** | `7/251` (`0.071713`, NS) | `25.849883×` | `4/251 = 0.015936` *(uniform-slot artifact)* |
+| `stem_v1` | `16,038` | `0.000856` | `0.000401` | `2.135359×` | `4/251` (`0.063745`, NS) | `17.669178×` | `4/251 = 0.015936` *(uniform-slot artifact)* |
+| `stem_v2` | `14,654` | `0.000904` | `0.000421` | `2.144774×` | `10/251` (`0.071713`, NS) | `16.062432×` | `4/251 = 0.015936` *(uniform-slot artifact)* |
 
-- **Exact 4-Layer Cross-Treatise Lift Reversal (`bayt-al-hikma` Convergence):** Naive absolute cross-treatise collision strictly climbs `raw (0.000193) < dotless_rasm (0.000236) < stem_v1 (0.000401) < stem_v2 (0.000421)`, while `B = 250` vocabulary-label null-normalized lift **strictly reverses across all 4 layers**: `raw (26.120364×) > dotless_rasm (25.849883×) > stem_v1 (17.669178×) > stem_v2 (16.062432×)` (`4/4` rejected at Holm $p_{\text{adj}} = 4/251 = 0.015936 \le 1/20$).
+- **Honest Null-Model Disclosure (`1/V_shared` Vocabulary-Size Normalization — Significance Claim Retracted):** The `B = 250` uniform-slot vocabulary baseline (`s92_raw_arabic_capture.py:648`) places each treatise's top-500 terms uniformly into `0..V_shared-1`, so its expected collision scales as $\approx 1/V_{\text{shared}}$ (`null × V_shared ∈ [0.9789, 0.9934]` across all 4 layers). Consequently, the recorded ratio `obs / null ≈ obs × V_shared` decreases (`26.120364× > 25.849883× > 17.669178× > 16.062432×`) because $V_{\text{shared}}$ contracts from `28,873` to `14,654` while observed top-500 collision rises (`8.98e-4 -> 1.0888e-3`). Furthermore, any two Zipfian texts from the same language exceed a uniform-slot null (`vocab_ge = 0`, `p = 1/251`), so the recorded Holm column **cannot test cross-treatise scientific structure and is NOT claimed as an independent significance result or `bayt-al-hikma` convergence** (the numbers are retained strictly to document the frozen anchor/certificate fields). The genuine frequency-preserving null-normalized reversal in Pillar 1 is the **within-treatise `W = 20` local cohesion `dotless_rasm < raw` reversal** in §2.2A (whose token-order shuffles preserve exact treatise unigram frequencies).
 - **Honest Discipline-Permutation Reporting:** All `4/4` layers exhibit `1.94×–2.15×` within-discipline enrichment (raw $p \in [4/251, 10/251]$), and dotless `rasm` blunts discipline separation from `2.15×` down to `1.94×`; under 4-test Holm-Bonferroni at `B=250`, none crosses `0.05` (`0.063745–0.071713`) precisely because the `56` cross-discipline pairs already share dense common scientific Arabic vocabulary.
 
 ### 2.3 Empirical `K_12` Simplicial Complex (`1,573` Simplices) & Exact Schur Conductance (`⧄`) Collapse
 
 On the empirical `stem_v1` `K_12` conductance mesh ($w_{ij} = \max(1, \lfloor (10^5 \cdot \text{dot}_{ij} + \lfloor \text{den}_{ij}/2 \rfloor) / \text{den}_{ij} \rfloor)$):
-- **Cross-Discipline Simplicial Share Escalation:**
+- **Cross-Discipline Simplicial Share Counts (Combinatorial Consequence of the `4/3/2/1/1/1` Discipline Partition):** Because the largest discipline (Astronomy) has `4` treatises, within-discipline counts are determined strictly by combinatorics (`10` edges, `5` triangles, `1` tetrahedron, `0` 5-cells — every 5-cell is cross-disciplinary by pigeonhole), while the bottleneck weight distributions (`min/max/mean`) are empirical:
   - $k=1$ edges (`66`): `56/66` (`28/33 = 84.8485%`) cross-disciplinary (`min=22`, `max=390`, `mean=79.500000`)
   - $k=2$ triangles (`220`): `215/220` (`43/44 = 97.7273%`) cross-disciplinary (`min=22`, `max=170`, `mean=49.836364`)
   - $k=3$ tetrahedra (`495`): `494/495` (`99.7980%`) cross-disciplinary (`min=22`, `max=123`, `mean=38.929293`)
-  - $k=4$ 5-cells (`792`): **`792/792` (`100.0000%`) cross-disciplinary** (`min=22`, `max=122`, `mean=33.175505`)
+  - $k=4$ 5-cells (`792`): `792/792` (`100.0000%`, pigeonhole) cross-disciplinary (`min=22`, `max=122`, `mean=33.175505`)
 - **Raw-Arabic `K_12` Exact Schur Compounding (`⧄`):** Sylvester $LDL^\top$ inertia **`[11, 0, 1]`**, exact Foster sum **`11/1`**, **`66/66` edges strictly Schur-compounded** (`2.248271×` to `14.103075×` over direct pairwise weight), mean effective conductance `437.360494` (`within = 563.121629`, `cross = 414.903149`).
 - **Uniform English Thinning (`C_eff(rG) = r C_eff(G)` verified in exact pure-$\mathbb{Q}$ on the full `K_12` graph Laplacian by `s92_raw_arabic_mesh_oracle.py`; scalar `Nat` multiplicative thinning/inflation monotonicity and 2-edge series-branch scaling monotonicity formalized in Lean Theorems 13–15):**
   - Sahih (`r = 3601/7335`): mean $C_{\text{eff}} = 214.715084$ (`-50.91%`, resistance inflation `2.036934×`).
   - Pickthall (`r = 1001/2934`): mean $C_{\text{eff}} = 149.215356$ (`-65.88%`, resistance inflation `2.931069×`).
   - Bilingual Catalog Overall (`r = 319/664`): mean $C_{\text{eff}} = 210.117466$ (`-51.96%`, resistance inflation `2.081505×`).
-- **Heterogeneous English Silo-Cut on Live `K_12` (`within r = 104/193 = 53.8860%`, `cross r = 7/85 = 8.2353%`):**
-  - Inertia `[11, 0, 1]`, Foster `11/1`, **`66/66` edges strictly collapsed**:
-  - Cross-discipline mean Schur conductance collapses **`-87.8015%`** (`414.903149 -> 50.611876`).
-  - Even **within-discipline** mean Schur conductance collapses **`-73.8195%`** (`563.121629 -> 147.427881` — `27.71` percentage points worse than the direct `46.11%` within-discipline edge loss, proving that severing cross-discipline Arabic relay paths degrades intra-discipline cohesion via Schur compounding loss!).
-  - Overall mean Schur conductance collapses **`-85.0739%`** (`437.360494 -> 65.280968`).
+- **Modeled Counterfactual Heterogeneous English Silo-Cut on `K_12` (`within r = 104/193 = 53.8860%`, `cross r = 7/85 = 8.2353%`):** *(Cross-corpus counterfactual model: scales the `6`-discipline treatise Laplacian by retention ratios estimated from the separate `148`-entry bilingual catalog corpus, which has `85` cross-folder pairs across `4` top-level catalog folders where e.g. optics and physics share `04_optics_mechanics_chemistry`.)*
+  - Inertia `[11, 0, 1]`, Foster `11/1`, **`66/66` edges strictly reduced**:
+  - Cross-discipline mean Schur conductance drops **`-87.8015%`** (`414.903149 -> 50.611876`).
+  - Within-discipline mean Schur conductance drops **`-73.8195%`** (`563.121629 -> 147.427881` — `27.71` percentage points deeper than the direct `46.11%` within-discipline edge scaling, illustrating under this deterministic Laplacian weight-scaling model how attenuating cross-discipline relay paths lowers intra-discipline effective conductance via Schur compounding).
+  - Overall mean Schur conductance drops **`-85.0739%`** (`437.360494 -> 65.280968`).
 
 ---
 
@@ -117,7 +119,7 @@ On the empirical `stem_v1` `K_12` conductance mesh ($w_{ij} = \max(1, \lfloor (1
 | `q_y_s` | `ق-ي-س` | `1,609` | `12/12` | `6/6` | `1,652` | None (`12/12` universal) |
 | `E_d_l` | `ع-د-ل` | `3,340` | `12/12` | `6/6` | `3,452` | None (`12/12` universal) |
 
-- **Law-5 Live Dotless `Rasm` Homography Witnesses (Top 5 of 10 Verified, Total Top-10 $\Delta S_2 = 73,793,804$):**
+- **Law-5 Dotless `Rasm` Homography Witnesses (Top 5 of 10 Verified, Total Top-10 $\Delta S_2 = 73,793,804$):**
   1. `ٮكوٮ` (`2` forms, $\Delta S_2 = 31,496,660$): `يكون` (`6,877`) + `تكون` (`2,290`)
   2. **`حٮٮ` (`5` forms, $\Delta S_2 = 19,609,998$): merges trigonometric sine `جيب` (`2,478`) with preposition `حتي` (`2,573`) and `حيث` (`401`)!**
   3. `الٮ` (`3` forms, $\Delta S_2 = 6,348,168$): `الي` (`17,605`) + `الب` (`144`) + `الت` (`36`)
@@ -126,7 +128,7 @@ On the empirical `stem_v1` `K_12` conductance mesh ($w_{ij} = \max(1, \lfloor (1
 
 ---
 
-## 4. Pillar 3: Live Bilingual Parallel Scientific Catalog Loss (`12` Catalogs, `148` Entries, `6`-Variant Sensitivity Sweep per Issue `#8`)
+## 4. Pillar 3: Offline-Captured Bilingual Parallel Scientific Catalog Loss (`12` Catalogs, `148` Entries, `6`-Variant Sensitivity Sweep per Issue `#8`)
 
 Across `12` real parallel Arabic-English scientific catalogs (`148` parallel entries spanning Medicine, Astronomy, Mathematics, Optics, and Mechanical Engineering), all `6/6` Arabic × English stemmer variants beat `250/250` random English permutations (`perm_le = 0/250`, Holm $p_{\text{adj}} = 6/251 = 0.023904 \le 1/20$), yet English translation wipes out `51.96%–56.41%` of overall Arabic morphological links and **`91.76%–94.74%` of cross-discipline scientific links**:
 
@@ -157,7 +159,7 @@ Across `12` real parallel Arabic-English scientific catalogs (`148` parallel ent
 ## 6. Reproduction Commands
 
 ```bash
-# 1. Verify canonical certificate against pinned live anchor (standalone, no dataset root needed)
+# 1. Verify canonical certificate against pinned offline-captured anchor (standalone, no dataset root needed)
 python3 -I -B verify_s92_raw_arabic_mesh.py --check s92_raw_arabic_mesh_certificate.json
 python3 -I -B verify_s92_raw_arabic_mesh.py --standalone | cmp - s92_raw_arabic_mesh_certificate.json
 
@@ -179,14 +181,14 @@ python3 -I -B -W error test_s92_raw_arabic_mesh_r5.py
 
 ## 7. Local Track File Manifest (`10` Core Files, Frozen R4)
 
-All `7/10` frozen core files (`RawArabicHigherOrderMesh.lean`, `lakefile.toml`, `lean-toolchain`, `s92_raw_arabic_capture.py`, `s92_raw_arabic_anchor.json`, `s92_raw_arabic_mesh_oracle.py`, `s92_raw_arabic_mesh_certificate.json`) are byte-for-byte frozen artifacts. Both canonical JSON artifacts are single-line compact JSON with no trailing newline (`1` logical line, `wc -l = 0`).
+All `6` frozen verification/anchor/certificate/Lean core artifacts (`RawArabicHigherOrderMesh.lean`, `lakefile.toml`, `lean-toolchain`, `s92_raw_arabic_anchor.json`, `s92_raw_arabic_mesh_oracle.py`, `s92_raw_arabic_mesh_certificate.json`) plus `verify_s92_raw_arabic_mesh.py` and `test_s92_raw_arabic_mesh_r5.py` are byte-for-byte unchanged (`s92_raw_arabic_capture.py` carries only a comment-only documentation note on the uniform-slot baseline). Both canonical JSON artifacts are single-line compact JSON with no trailing newline (`1` logical line, `wc -l = 0`).
 
 | File | Lines | Bytes | Mode | SHA-256 |
 |---|---:|---:|---|---|
 | `RawArabicHigherOrderMesh.lean` | `304` | `12,215` | `0644` | `07e704dfcc828312190885a1c6aa779670522c6689085c38da3bd7508b800ba9` |
 | `lakefile.toml` | `7` | `187` | `0644` | `f4cccdd80678ecc5aa12fdc85f19ab8eee1f784f49c514c76b6329c7d24fcf40` |
 | `lean-toolchain` | `1` | `25` | `0644` | `582a63f8f9c5128067b688778c1051cf1464c3ca9d57b9325025c051c29b774a` |
-| `s92_raw_arabic_capture.py` | `932` | `39,451` | `0644` | `e6352023c81dc7dd050f46d0a0438716a7c77233d0f8cc378e9c7ebf0d3f1e41` |
+| `s92_raw_arabic_capture.py` | `934` | `39,663` | `0644` | `8b74d0970269e4b86b8c63fec904ba842b8cfc74c41945d740898da03f03123d` |
 | `s92_raw_arabic_anchor.json` | `1` (`0` LF) | `60,436` | `0644` | `eeffe3c912d8f4037b5e04cfc06abbe6fd9145802ca9009ac0a2ae184621db89` |
 | `s92_raw_arabic_mesh_oracle.py` | `883` | `42,149` | `0644` | `d0b8c3dbe0024d34c3aab70602416fd0d430f940116096f46e9ab2eca0af412c` |
 | `s92_raw_arabic_mesh_certificate.json` | `1` (`0` LF) | `26,339` | `0644` | `294e26e91bfa8cae6c3e48c44a8e9acea37404932eaf4855c05f2e8eaad0738b` |
