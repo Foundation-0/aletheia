@@ -11,12 +11,16 @@ Unifies three dual-family verified architectural primitives:
   1. Law 1b Unmerged-PR Serendipity Mining (`certify_law1b_serendipity_mining`, `AUDIT-111R`)
   2. Two-Zone Blinded Airlock, `ClaimLedger` Outcome Binding & Observational Non-Interference
      (`strip_zone_a_to_airlock_envelope`, `validate_airlock_envelope`, `certify_two_zone_airlock`,
-     `verify_observational_non_interference`, `AUDIT-105R`, harmonized with `EMPIRICAL_CLAIMS.md`)
+     `verify_observational_non_interference`, `AUDIT-105R`, harmonized with `EMPIRICAL_CLAIMS.md`
+     except the deliberate verdict-packet adverse-grade cap at `E0_LEAD` (see spec :52 divergence note))
   3. Erlang/OTP Supervision Tree Semantics, Frozen-Snapshot `rest_for_one` Non-Churn,
      Pure-Q Sliding-Window Intensity, `monitor` vs. `link` Fault Isolation & `exo#1200` Bridge
      (`otp_should_restart`, `apply_otp_strategy_crash`, `verify_snapshot_non_churn`,
      `certify_restart_intensity_trace`, `certify_monitor_vs_link_isolation`,
      `decide_hybrid_supervision`, `AUDIT-110R`).
+
+AUDIT-111R / AUDIT-105R / AUDIT-110R are pending on open cave-expedition PRs #1 and #27
+(not yet on cave main); cited here as pending, not as verified.
 
 Declared-Record / Formal-Model Scope Boundary:
   Certifies well-formedness, invariants, and exact discrete transitions over caller-supplied
@@ -114,6 +118,9 @@ ALLOWED_VERDICT_KEYS: frozenset[str] = frozenset({
     "part_e_verdict", "part_i_grade", "outcome_matched",
     "r5_killed", "r5_total", "counterexample",
 })
+OUTCOME_POLARITIES: frozenset[str] = frozenset({"supports", "against", "inconclusive"})
+MIN_R5_TOTAL_FOR_VERIFIED = 10
+
 ALLOWED_PART_E_VERDICTS: frozenset[str] = frozenset({
     "VERIFIED", "PARTIAL_FRAGILE", "FALSIFIED", "NOT_SHOWN",
 })
@@ -127,13 +134,6 @@ EVIDENCE_GRADE_RANK: dict[str, int] = {
     "E5_OUTSIDE_REPLICATED": 5,
 }
 ALLOWED_PART_I_GRADES: frozenset[str] = frozenset(EVIDENCE_GRADE_RANK.keys()) | {"EXACT_ONLY_NA"}
-ADVERSE_OUTCOME_TOKENS: frozenset[str] = frozenset({
-    "FAIL", "FAILED", "FALSIFIED", "REJECTED", "REFUTED",
-    "CANNOT_TEST", "NOT_SHOWN", "INCONCLUSIVE",
-})
-POSITIVE_OUTCOME_TOKENS: frozenset[str] = frozenset({
-    "PASS", "PASSED", "SUPPORTED", "VERIFIED", "CONFIRMED",
-})
 
 RESTART_POLICIES: frozenset[str] = frozenset({"permanent", "transient", "temporary"})
 EXIT_REASONS: frozenset[str] = frozenset({"normal", "shutdown", "abnormal"})
@@ -194,16 +194,22 @@ def _is_safe_relpath(val: Any) -> bool:
     return not any(part in ("", ".", "..") for part in val.split("/"))
 
 
-def contains_forbidden_non_exact(obj: Any) -> bool:
-    """Return True if obj contains any float, complex, non-str dict key, or non-JSON container."""
+MAX_JSON_DEPTH = 64
+
+
+def contains_forbidden_non_exact(obj: Any, _depth: int = 0) -> bool:
+    """Return True if obj contains any float, complex, non-str dict key, non-JSON container,
+    or nesting deeper than MAX_JSON_DEPTH (DoS cap — raises no RecursionError)."""
     if obj is None:
         return False
     if type(obj) in (bool, int, str):
         return False
+    if _depth > MAX_JSON_DEPTH:
+        return True
     if type(obj) is dict:
-        return any(type(k) is not str or contains_forbidden_non_exact(v) for k, v in obj.items())
+        return any(type(k) is not str or contains_forbidden_non_exact(v, _depth + 1) for k, v in obj.items())
     if type(obj) in (list, tuple):
-        return any(contains_forbidden_non_exact(v) for v in obj)
+        return any(contains_forbidden_non_exact(v, _depth + 1) for v in obj)
     return True
 
 
@@ -228,6 +234,8 @@ def parse_nonneg_fraction(val: Any, label: str = "tick") -> Fraction:
             raise AletheiaError("ERR_NEGATIVE_TICK", f"{label} must be >= 0")
         return val
     if type(val) is str:
+        if len(val) > 4300:
+            raise AletheiaError("ERR_INVALID_FRACTION_STR", f"{label} rational string exceeds 4300-char cap")
         if not FRAC_RE.fullmatch(val):
             raise AletheiaError("ERR_INVALID_FRACTION_STR", f"{label} invalid rational string")
         num_s, den_s = val.split("/")
@@ -244,11 +252,11 @@ def frac_str(q: Fraction) -> str:
 
 
 # ---------------------------------------------------------------------------
-# 1. Law 1b: Exhaustive Serendipity & Unmerged-PR Portal Mining (AUDIT-111R)
+# 1. Law 1b: Blind-Spot-Free Cross-Repo Serendipity & Unmerged-PR Portal Mining (AUDIT-111R, pending on cave-expedition PRs #1/#27)
 # ---------------------------------------------------------------------------
 
 def certify_law1b_serendipity_mining(spec: dict[str, Any]) -> dict[str, Any]:
-    """Fail-closed certifier enforcing Aletheia v2.1 Law-1b guards G-1b.1..G-1b.4.
+    """Fail-closed certifier enforcing Aletheia v2.1 Law-1b guards G-1b.1..G-1b.4. "Blind-spot-free" = >=1 open and >=1 closed-unmerged PR mined OVERALL (not per repo, no coverage fraction); executed-witness honest_novelty is caller-declared.
 
     Declared-Record Scope Boundary: certifies caller-supplied mining records;
     disk re-hashing of frozen GitHub JSON files is performed separately.
@@ -476,21 +484,22 @@ def validate_airlock_envelope(envelope: dict[str, Any]) -> dict[str, Any]:
         if not _is_valid_id(cl["claim_id"]):
             violations.append("INVALID_CLAIM_ID")
         grammar = cl["finite_outcome_grammar"]
-        bad_grammar = type(grammar) is not list
+        bad_grammar = type(grammar) is not dict
         if not bad_grammar:
-            if len(grammar) < 2:
+            if not (2 <= len(grammar) <= 64):
                 bad_grammar = True
-            elif any(not _is_nonempty_str(g) or _has_control_char(g) or g != g.strip() for g in grammar):
-                bad_grammar = True
-            elif len({g.lower() for g in grammar}) != len(grammar):
+            elif any(
+                not _is_clean_ascii_text(g) or len(g) > 64 or g != g.strip() or not _in_str_set(pol, OUTCOME_POLARITIES)
+                for g, pol in grammar.items()
+            ):
                 bad_grammar = True
         if bad_grammar:
             violations.append("INVALID_FINITE_OUTCOME_GRAMMAR")
         fp = cl["falsifier_predicate"]
         if not _is_nonempty_str(fp):
             violations.append("EMPTY_FALSIFIER_PREDICATE")
-        elif _has_control_char(fp):
-            violations.append("EMPTY_FALSIFIER_PREDICATE")
+        elif not _is_clean_ascii_text(fp) or len(fp) > 4096:
+            violations.append("INVALID_FALSIFIER_PREDICATE_CONTENT")
         if cl["novelty_default"] != "N0":
             violations.append("NOVELTY_DEFAULT_MUST_BE_N0")
         ceil = cl["linguistic_ceiling"]
@@ -705,18 +714,16 @@ def certify_two_zone_airlock(spec: dict[str, Any]) -> dict[str, Any]:
         if type(cl_obj) is not dict:
             cl_obj = None
         raw_grammar = cl_obj.get("finite_outcome_grammar") if cl_obj is not None else None
-        grammar = raw_grammar if type(raw_grammar) is list else []
+        grammar = raw_grammar if type(raw_grammar) is dict else {}
         om = vp["outcome_matched"]
         if om not in grammar:
             violations.append("VERDICT_OUTCOME_NOT_IN_DECLARED_GRAMMAR")
         elif type(om) is str:
-            om_upper = om.strip().upper()
-            if pev == "VERIFIED":
-                if om_upper in ADVERSE_OUTCOME_TOKENS:
-                    violations.append("VERDICT_OUTCOME_CONTRADICTS_PART_E")
-            elif pev in ("PARTIAL_FRAGILE", "FALSIFIED", "NOT_SHOWN"):
-                if om_upper in POSITIVE_OUTCOME_TOKENS:
-                    violations.append("VERDICT_OUTCOME_CONTRADICTS_PART_E")
+            pol = grammar[om]
+            if pev == "VERIFIED" and pol != "supports":
+                violations.append("VERDICT_OUTCOME_CONTRADICTS_PART_E")
+            elif pev in ("PARTIAL_FRAGILE", "FALSIFIED", "NOT_SHOWN") and pol == "supports":
+                violations.append("VERDICT_OUTCOME_CONTRADICTS_PART_E")
 
         cl_ceil = cl_obj.get("linguistic_ceiling") if cl_obj is not None else None
         if type(pig) is str:
@@ -746,6 +753,8 @@ def certify_two_zone_airlock(spec: dict[str, Any]) -> dict[str, Any]:
         elif pev == "VERIFIED":
             if r5k != r5t:
                 violations.append("VERDICT_VERIFIED_WITH_R5_SURVIVORS")
+            elif r5t < MIN_R5_TOTAL_FOR_VERIFIED:
+                violations.append("VERDICT_VERIFIED_R5_FLOOR")
 
         cex = vp["counterexample"]
         if pev == "VERIFIED":
@@ -935,9 +944,18 @@ def verify_snapshot_non_churn(
     children_after: list[dict[str, Any]],
     author_id: str,
     downstream_ids: list[str],
+    strategy: str | None = None,
 ) -> dict[str, Any]:
-    """Certify that every alive downstream child matches author's immutable snapshot_sha256."""
+    """Certify that every alive downstream child matches author's immutable snapshot_sha256.
+
+    For strategy == "rest_for_one" the downstream set is DETERMINED by child order
+    (children after the author), so it is derived, not trusted from the caller."""
     validated = _validate_otp_children(children_after)
+    if strategy == "rest_for_one":
+        ids = [ch["id"] for ch in validated]
+        aidx = ids.index(author_id) if author_id in ids else -1
+        if aidx >= 0:
+            downstream_ids = ids[aidx + 1:]
     if type(downstream_ids) is not list:
         raise AletheiaError("ERR_INVALID_DOWNSTREAM", "downstream_ids must be non-empty list")
     if len(downstream_ids) == 0:
@@ -1213,7 +1231,7 @@ def run_v21_proposals_self_test() -> dict[str, Any]:
         "envelope_id": "env-v21-001",
         "claim_ledger": {
             "claim_id": "claim-v21-001",
-            "finite_outcome_grammar": ["SUPPORTED", "REFUTED", "INCONCLUSIVE"],
+            "finite_outcome_grammar": {"SUPPORTED": "supports", "REFUTED": "against", "INCONCLUSIVE": "inconclusive"},
             "falsifier_predicate": "residual_sq_norm != 0/1",
             "novelty_default": "N0",
             "linguistic_ceiling": "E2_SEALED",

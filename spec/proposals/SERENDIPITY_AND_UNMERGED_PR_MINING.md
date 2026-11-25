@@ -1,4 +1,4 @@
-# Proposal: Law 1b — Exhaustive Serendipity & Unmerged-PR Portal Mining
+# Proposal: Law 1b — Blind-Spot-Free Cross-Repo Serendipity & Unmerged-PR Portal Mining
 
 **Status:** Proposal, not adopted. Adoption is for the method's maintainers. Written against `aletheia.spec.v2.0` (`spec/LAWS_AND_GATES.md`), aligned with `spec/proposals/EMPIRICAL_CLAIMS.md` (`aletheia#10`), and backed by dual-continent verified unmerged-PR portal-mining evidence (`N0` protocol formalization and pure-$\mathbb{Z}/\mathbb{Q}$ re-formulation over upstream open and closed-unmerged mechanisms).  
 **Reference Implementation:** [`aletheia/supervision_airlock.py`](../../aletheia/supervision_airlock.py) (`certify_law1b_serendipity_mining`, schema `aletheia.law1b.v1`), verified by [`tests/test_supervision_airlock_r5.py`](../../tests/test_supervision_airlock_r5.py).
@@ -25,9 +25,9 @@ Inspecting only `main` — or even inspecting only `open` PRs while ignoring `cl
 
 ## 2. Proposed Statement of Law 1b
 
-> **Law 1b — Exhaustive Serendipity & Unmerged-PR Portal Mining:**
+> **Law 1b — Blind-Spot-Free Cross-Repo Serendipity & Unmerged-PR Portal Mining:**
 > 1. **Leave no read-only portal path unexplored:** Whenever a portal repository, anomaly, or cross-domain operator surfaces, execute a strictly read-only exploration pass (`external_writes == 0`) rather than gating read-only curiosity on pre-justified payoff.
-> 2. **Mine BOTH `open` and `closed_unmerged` PRs (plus issues/discussions) on every portal:** Query `state=all` PRs, record `merged`, `open`, and `closed_unmerged` counts explicitly, and inspect high-signal candidates from **both** unmerged buckets whenever present.
+> 2. **Mine BOTH `open` and `closed_unmerged` PRs (plus issues/discussions) on every portal:** Query `state=all` PRs, record `merged`, `open`, and `closed_unmerged` counts explicitly, and inspect high-signal candidates from **both** unmerged buckets whenever present. "Blind-spot-free" is certified as >=1 open AND >=1 closed-unmerged PR mined overall (not per-repo, no coverage fraction); executed-witness `honest_novelty` is caller-declared.
 > 3. **Couple serendipity to Law 4 & Law 5 (zero metaphor inflation):** Classify every mined entry explicitly as either an **`EXECUTED_EXACT_WITNESS`** (backed by an independent zero-float executable reproducer and negative control) or a **`CATALOGED_LEAD`** (strictly capped at honest novelty **`N0`** until independently executed and full-text prior-art checked).
 
 ---

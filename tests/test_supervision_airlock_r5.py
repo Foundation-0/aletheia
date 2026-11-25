@@ -80,7 +80,7 @@ def _valid_tech_submission() -> dict:
         "envelope_id": "env-r5-001",
         "claim_ledger": {
             "claim_id": "claim-r5-001",
-            "finite_outcome_grammar": ["SUPPORTED", "REFUTED", "INCONCLUSIVE"],
+            "finite_outcome_grammar": {"SUPPORTED": "supports", "REFUTED": "against", "INCONCLUSIVE": "inconclusive"},
             "falsifier_predicate": "residual != 0/1",
             "novelty_default": "N0",
             "linguistic_ceiling": "E2_SEALED",
@@ -413,14 +413,15 @@ class TestSupervisionAirlockR5(unittest.TestCase):
         _check_env_viol(lambda e: e["claim_ledger"].update({"extra": 1}), "INVALID_CLAIM_LEDGER_SCHEMA")
         _check_env_viol(lambda e: e["claim_ledger"].update({"claim_id": "-bad"}), "INVALID_CLAIM_ID")
         _check_env_viol(lambda e: e["claim_ledger"].update({"finite_outcome_grammar": "bad"}), "INVALID_FINITE_OUTCOME_GRAMMAR")
-        _check_env_viol(lambda e: e["claim_ledger"].update({"finite_outcome_grammar": ["ONLY_ONE"]}), "INVALID_FINITE_OUTCOME_GRAMMAR")
-        _check_env_viol(lambda e: e["claim_ledger"].update({"finite_outcome_grammar": ["OK", ""]}), "INVALID_FINITE_OUTCOME_GRAMMAR")
-        _check_env_viol(lambda e: e["claim_ledger"].update({"finite_outcome_grammar": ["OK", "   "]}), "INVALID_FINITE_OUTCOME_GRAMMAR")
-        _check_env_viol(lambda e: e["claim_ledger"].update({"finite_outcome_grammar": ["OK", "BAD\x07"]}), "INVALID_FINITE_OUTCOME_GRAMMAR")
-        _check_env_viol(lambda e: e["claim_ledger"].update({"finite_outcome_grammar": ["OK", " PAD "]}), "INVALID_FINITE_OUTCOME_GRAMMAR")
-        _check_env_viol(lambda e: e["claim_ledger"].update({"finite_outcome_grammar": ["PASS", "pass"]}), "INVALID_FINITE_OUTCOME_GRAMMAR")
+        _check_env_viol(lambda e: e["claim_ledger"].update({"finite_outcome_grammar": {"ONLY": "supports"}}), "INVALID_FINITE_OUTCOME_GRAMMAR")
+        _check_env_viol(lambda e: e["claim_ledger"].update({"finite_outcome_grammar": {"OK": "supports", "": "against"}}), "INVALID_FINITE_OUTCOME_GRAMMAR")
+        _check_env_viol(lambda e: e["claim_ledger"].update({"finite_outcome_grammar": {"OK": "supports", "BAD\x07": "against"}}), "INVALID_FINITE_OUTCOME_GRAMMAR")
+        _check_env_viol(lambda e: e["claim_ledger"].update({"finite_outcome_grammar": {"OK": "supports", " PAD ": "against"}}), "INVALID_FINITE_OUTCOME_GRAMMAR")
+        _check_env_viol(lambda e: e["claim_ledger"].update({"finite_outcome_grammar": {"OK": "supports", "BAD": "maybe"}}), "INVALID_FINITE_OUTCOME_GRAMMAR")
+        _check_env_viol(lambda e: e["claim_ledger"].update({"finite_outcome_grammar": {"BROKEN": "against", "HOLDS": "supports", "P\u0410SS": "supports"}}), "INVALID_FINITE_OUTCOME_GRAMMAR")
         _check_env_viol(lambda e: e["claim_ledger"].update({"falsifier_predicate": "   "}), "EMPTY_FALSIFIER_PREDICATE")
-        _check_env_viol(lambda e: e["claim_ledger"].update({"falsifier_predicate": "a\nb"}), "EMPTY_FALSIFIER_PREDICATE")
+        _check_env_viol(lambda e: e["claim_ledger"].update({"falsifier_predicate": "a\nb"}), "INVALID_FALSIFIER_PREDICATE_CONTENT")
+        _check_env_viol(lambda e: e["claim_ledger"].update({"falsifier_predicate": "x" * 4097}), "INVALID_FALSIFIER_PREDICATE_CONTENT")
         _check_env_viol(lambda e: e["claim_ledger"].update({"novelty_default": "N1"}), "NOVELTY_DEFAULT_MUST_BE_N0")
         _check_env_viol(lambda e: e["claim_ledger"].update({"linguistic_ceiling": 5}), "INVALID_LINGUISTIC_CEILING")
         _check_env_viol(lambda e: e["claim_ledger"].update({"linguistic_ceiling": "E9"}), "INVALID_LINGUISTIC_CEILING")
@@ -783,6 +784,46 @@ class TestSupervisionAirlockR5(unittest.TestCase):
         self._expect_err("ERR_INVALID_MAX_RETRIES", sa.decide_hybrid_supervision, **dict(kw, max_retries=-1))
         self._expect_err("ERR_INVALID_MAX_RETRIES", sa.decide_hybrid_supervision, **dict(kw, max_retries=11))
         self._expect_err("ERR_INVALID_STOP_FLAG", sa.decide_hybrid_supervision, **dict(kw, stop_requested=1))
+
+    def test_07_bypass_regressions_polarity_dos_nonchurn(self) -> None:
+        # A1-A4: verdict/outcome polarity is declared per grammar token (ASCII only);
+        # VERIFIED + adverse-polarity or adverse + supports-polarity must be rejected.
+        base = _valid_two_zone_spec()
+        for om, pev, pig in (("BROKEN", "VERIFIED", "E2_SEALED"), ("FAILURE", "VERIFIED", "E2_SEALED"),
+                             ("P\u0410SS", "FALSIFIED", "E0_LEAD"), ("F\u0410IL", "VERIFIED", "E2_SEALED")):
+            spec = copy.deepcopy(base)
+            spec["airlock_envelope"]["claim_ledger"]["finite_outcome_grammar"][om] = "against" if pev == "VERIFIED" else "supports"
+            spec["verdict_packet"]["outcome_matched"] = om
+            spec["verdict_packet"]["part_e_verdict"] = pev
+            spec["verdict_packet"]["part_i_grade"] = pig
+            spec["verdict_packet"]["counterexample"] = None if pev == "VERIFIED" else "cex"
+            res = sa.certify_two_zone_airlock(spec)
+            self.assertFalse(res["passed"], (om, pev))
+            self.assertIn("VERDICT_OUTCOME_CONTRADICTS_PART_E", res["violations"])
+        # A8: VERIFIED with a 1/1 mutation run is below the floor.
+        spec = copy.deepcopy(base)
+        spec["verdict_packet"]["r5_killed"] = 1
+        spec["verdict_packet"]["r5_total"] = 1
+        res = sa.certify_two_zone_airlock(spec)
+        self.assertIn("VERDICT_VERIFIED_R5_FLOOR", res["violations"])
+        # A12: deep nesting is rejected as forbidden (no RecursionError).
+        deep = 1
+        for _ in range(5000):
+            deep = {"a": deep}
+        self.assertTrue(sa.contains_forbidden_non_exact(deep))
+        # A13: >4300-digit fraction string is a typed error, not ValueError.
+        with self.assertRaises(sa.AletheiaError) as cm:
+            sa.certify_restart_intensity_trace(1, 5, ["1" * 5000 + "/1"])
+        self.assertEqual(cm.exception.code, "ERR_INVALID_FRACTION_STR")
+        # A14b: rest_for_one derives the downstream set from child order.
+        after = [
+            {"id": "author", "policy": "permanent", "generation": 1, "snapshot_sha256": SHA_1, "alive": True},
+            {"id": "airlock", "policy": "permanent", "generation": 1, "snapshot_sha256": SHA_1, "alive": True},
+            {"id": "verifier", "policy": "permanent", "generation": 2, "snapshot_sha256": SHA_2, "alive": True},
+        ]
+        nc = sa.verify_snapshot_non_churn(after, "author", ["verifier"], strategy="rest_for_one")
+        self.assertFalse(nc["passed"])  # derived downstream [airlock, verifier]; verifier is stale
+        self.assertEqual(nc["stale_downstream_ids"], ["verifier"])
 
     def test_06_selftest_dynamic_tampering_and_3mode_isolated_parity(self) -> None:
         # _run_expected_rejection returns rejected=False when no error raised
