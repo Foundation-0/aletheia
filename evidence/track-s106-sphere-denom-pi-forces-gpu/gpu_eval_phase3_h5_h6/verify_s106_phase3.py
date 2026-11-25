@@ -252,22 +252,34 @@ def _verify_one(d: pathlib.Path, proto_name: str, res_name: str, receipt_name: s
             "protocol_file_sha256": hashlib.sha256(proto_raw).hexdigest(), "receipt": rec, "arms": n, "verdicts": recomputed}
 
 
-def verify_phase3_dir(d: pathlib.Path) -> dict[str, Any]:
+def verify_phase3_dir(d: pathlib.Path, amendment1_path: pathlib.Path | None = None,
+                     amendment2_path: pathlib.Path | None = None) -> dict[str, Any]:
     h5 = _verify_one(d, "h5_locked_protocol.json", "s106_h5_results.json", "mlos_zone_b_h5_receipt.json",
                      "amendment1_sha256", AMEND1_PREFIX, regrade_h5)
     h6 = _verify_one(d, "h6_locked_protocol.json", "s106_h6_results.json", "mlos_zone_b_h6_receipt.json",
                      "amendment2_sha256", AMEND2_PREFIX, regrade_h6)
-    return {"ok": True, "h5": h5, "h6": h6,
-            "amendment_status": "UNVERIFIABLE_NOT_SHIPPED"}
+    # Real amendment check: when the amendment markdowns are supplied, their SHA-256 must
+    # match the pinned prefixes; otherwise the status is loudly UNVERIFIABLE_NOT_SHIPPED.
+    status = "VERIFIED"
+    for path, prefix in ((amendment1_path, AMEND1_PREFIX), (amendment2_path, AMEND2_PREFIX)):
+        if path is None:
+            status = "UNVERIFIABLE_NOT_SHIPPED"
+            continue
+        raw = _read(path, "amendment")
+        if not hashlib.sha256(raw).hexdigest().startswith(prefix):
+            raise S106Phase3Error("AMENDMENT_FILE_SHA_MISMATCH", str(path))
+    return {"ok": True, "h5": h5, "h6": h6, "amendment_status": status}
 
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="Track S106 Phase 3 (H5/H6) verifier")
     ap.add_argument("--dir", type=pathlib.Path, default=pathlib.Path(__file__).resolve().parent)
     ap.add_argument("--json", action="store_true")
+    ap.add_argument("--amendment1", type=pathlib.Path, default=None)
+    ap.add_argument("--amendment2", type=pathlib.Path, default=None)
     a = ap.parse_args(argv)
     try:
-        res = verify_phase3_dir(a.dir)
+        res = verify_phase3_dir(a.dir, a.amendment1, a.amendment2)
     except S106Phase3Error as exc:
         print(f"FAIL {exc}", file=sys.stderr)
         return 1
