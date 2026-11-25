@@ -1035,6 +1035,38 @@ class TestS71Lean4R8AndAuditHardening(unittest.TestCase):
             self.assertEqual(rc_m, 2)
             self.assertIn("BIJECTION_PARSE_ERROR", eb_m.decode("utf-8"))
             shutil.copyfile(STUDY_DIR / "s71_empirical_results.json", td_p / "s71_empirical_results.json")
+            # Duplicate label row must fail (label bijection must be unique too)
+            emp_dl = json.loads((STUDY_DIR / "s71_empirical_results.json").read_text(encoding="utf-8"))
+            _df = emp_dl["measurements"]["avx512_a16_blockh4_dual_force"]
+            _lab_row = next(r for r in _df if r.get("label") == "dual_force_aligned_reg_read_shared")
+            emp_dl["measurements"]["avx512_a16_blockh4_dual_force"] = _df + [dict(_lab_row)]
+            (td_p / "s71_empirical_results.json").write_text(json.dumps(emp_dl), encoding="utf-8")
+            rc_dl, _ob_dl, eb_dl = _run_cli(["--check", str(cli_out)])
+            self.assertEqual(rc_dl, 2)
+            self.assertIn("BIJECTION_MISMATCH", eb_dl.decode("utf-8"))
+            shutil.copyfile(STUDY_DIR / "s71_empirical_results.json", td_p / "s71_empirical_results.json")
+            # measurements not an object must fail schema-closed
+            emp_m = json.loads((STUDY_DIR / "s71_empirical_results.json").read_text(encoding="utf-8"))
+            emp_m["measurements"] = []
+            (td_p / "s71_empirical_results.json").write_text(json.dumps(emp_m), encoding="utf-8")
+            rc_m2, _ob_m2, eb_m2 = _run_cli(["--check", str(cli_out)])
+            self.assertEqual(rc_m2, 2)
+            self.assertIn("BIJECTION_SCHEMA_ERROR", eb_m2.decode("utf-8"))
+            shutil.copyfile(STUDY_DIR / "s71_empirical_results.json", td_p / "s71_empirical_results.json")
+            # a row group that is not a list must fail schema-closed
+            emp_g = json.loads((STUDY_DIR / "s71_empirical_results.json").read_text(encoding="utf-8"))
+            emp_g["measurements"]["write_write_2core"] = {}
+            (td_p / "s71_empirical_results.json").write_text(json.dumps(emp_g), encoding="utf-8")
+            rc_g, _ob_g, eb_g = _run_cli(["--check", str(cli_out)])
+            self.assertEqual(rc_g, 2)
+            self.assertIn("BIJECTION_SCHEMA_ERROR", eb_g.decode("utf-8"))
+            shutil.copyfile(STUDY_DIR / "s71_empirical_results.json", td_p / "s71_empirical_results.json")
+            # a NaN literal must fail closed (parse_constant rejects; not BIJECTION_PARSE_ERROR but still rc=2)
+            (td_p / "s71_empirical_results.json").write_text('{"measurements": {"a16_syndrome_errors": NaN}}', encoding="utf-8")
+            rc_n, _ob_n, eb_n = _run_cli(["--check", str(cli_out)])
+            self.assertEqual(rc_n, 2)
+            self.assertNotIn("Traceback", eb_n.decode("utf-8"))
+            shutil.copyfile(STUDY_DIR / "s71_empirical_results.json", td_p / "s71_empirical_results.json")
             rc, ob, _ = _run_cli(["--verify-receipts", str(STUDY_DIR)])
             self.assertEqual(rc, 0)
             self.assertTrue(json.loads(ob.decode("utf-8"))["all_verified"])

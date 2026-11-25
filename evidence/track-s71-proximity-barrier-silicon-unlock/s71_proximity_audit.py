@@ -945,9 +945,7 @@ def verify_frozen_tokens_bijection(cert_dir: Path) -> dict[str, Any]:
                 "BIJECTION_MISMATCH",
                 f"token {key}: expected exactly 1 row at stride {stride} in {group}, found {len(matches)}",
             )
-        tok = tokens.get(key)
-        if type(tok) is not dict:
-            raise AuditError("BIJECTION_MISMATCH", f"frozen token {key} missing or not a dict")
+        tok = tokens[key]
         for field in _TOKEN_FIELDS:
             if tok.get(field) != matches[0].get(field):
                 raise AuditError(
@@ -962,9 +960,7 @@ def verify_frozen_tokens_bijection(cert_dir: Path) -> dict[str, Any]:
                 "BIJECTION_MISMATCH",
                 f"token {key}: expected exactly 1 row with label {label!r} in {group}, found {len(matches)}",
             )
-        tok = tokens.get(key)
-        if type(tok) is not dict:
-            raise AuditError("BIJECTION_MISMATCH", f"frozen token {key} missing or not a dict")
+        tok = tokens[key]
         for field in _TOKEN_FIELDS:
             if tok.get(field) != matches[0].get(field):
                 raise AuditError(
