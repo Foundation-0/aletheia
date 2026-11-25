@@ -1154,15 +1154,30 @@ def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
                 out.append(ch)
                 i += 1
         else:
-            if "0" <= ch <= "9":
+            if not in_ident and "0" <= ch <= "9":
                 num_end = i + 1
                 if ch == "0" and nxt in "xXbBoO":
                     num_end += 1
-                    num_chars = _LEAN4_HEX_NUM_CHARS
+                    while num_end < n and source[num_end] in _LEAN4_HEX_NUM_CHARS:
+                        num_end += 1
                 else:
-                    num_chars = _LEAN4_DEC_NUM_CHARS
-                while num_end < n and source[num_end] in num_chars:
-                    num_end += 1
+                    while num_end < n and source[num_end] in _LEAN4_DEC_NUM_CHARS:
+                        num_end += 1
+                    has_dot = False
+                    if num_end < n and source[num_end] == "." and num_end + 1 < n and "0" <= source[num_end + 1] <= "9":
+                        has_dot = True
+                        num_end += 2
+                        while num_end < n and source[num_end] in _LEAN4_DEC_NUM_CHARS:
+                            num_end += 1
+                    exp_start = num_end + 1 if (not has_dot and num_end < n and source[num_end] == ".") else num_end
+                    if exp_start < n and source[exp_start] in "eE":
+                        exp_pos = exp_start + 1
+                        if exp_pos < n and source[exp_pos] in "+-":
+                            exp_pos += 1
+                        if exp_pos < n and "0" <= source[exp_pos] <= "9":
+                            while exp_pos < n and source[exp_pos] in _LEAN4_DEC_NUM_CHARS:
+                                exp_pos += 1
+                            num_end = exp_pos
                 out.append(source[i:num_end])
                 i = num_end
                 continue

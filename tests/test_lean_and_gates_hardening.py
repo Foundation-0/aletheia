@@ -1053,8 +1053,43 @@ class TestLean4AndAuditRootHardening(unittest.TestCase):
         _req(_strip_lean4_comments_and_literals("!'\"'") == "!   ", "char literal right after unary ! must be blanked")
         _req(_strip_lean4_comments_and_literals("0x1a'\"'") == "0x1a   ", "char literal right after hex literal must be blanked")
         _req(_strip_lean4_comments_and_literals("«x»'\"'") == "«x»   ", "char literal right after closing guillemet must be blanked")
+        # Scientific literals ([0-9_]+ ('.' [0-9_]*)? ([eE][+-]?[0-9][0-9_]*)?) must not leak 'e' into in_ident
+        _req(_strip_lean4_comments_and_literals("1.5e3'\"'") == "1.5e3   ", "char literal right after 1.5e3 must be blanked")
+        _req(_strip_lean4_comments_and_literals("1e-5'\"'") == "1e-5   ", "char literal right after 1e-5 must be blanked")
+        _req(_strip_lean4_comments_and_literals("1.0E+3'\"'") == "1.0E+3   ", "char literal right after 1.0E+3 must be blanked")
+        _req(_strip_lean4_comments_and_literals("1.e3'\"'") == "1.e3   ", "char literal right after 1.e3 must be blanked")
+        _req(_strip_lean4_comments_and_literals("1_0.2_5e1_0'\"'") == "1_0.2_5e1_0   ", "char literal right after underscore scientific literal must be blanked")
+        _req(_strip_lean4_comments_and_literals("1.'\"'") == "1.   ", "char literal right after trailing-dot float must be blanked")
+        # Malformed scientific exponents must fail closed and never swallow adjacent sorry/identifiers
+        for sci_bad in (
+            "def x := 1e+sorry\n",
+            "def x := 1e-sorry\n",
+            "def x := 1.5e sorry\n",
+            "def x := 1.e sorry\n",
+            "def x := 1e_3 + sorry\n",
+            "def x := 1.5.e3 + sorry\n",
+        ):
+            res_sb = audit_lean4_source(sci_bad)
+            _req(
+                any(f["code"] == "LEAN4_SORRY" for f in res_sb["findings"]),
+                f"malformed scientific literal hid LEAN4_SORRY in {sci_bad!r}: {res_sb['findings']}",
+            )
+        # Exact Review 6058102250 scientific-literal + char desync probes: LEAN4_SORRY on line 4 must be reported!
+        for sci_lit in ("1.5e3", "1e-5", "1.0E+3", "1.e3", "1_0.2_5e1_0"):
+            sci_src = (
+                'syntax "sc" scientific char : term\n'
+                'macro_rules | `(sc $s $c) => `(0)\n'
+                f"def a : Nat := sc {sci_lit}'\"'\n"
+                "theorem t : 1 = 2 := by sorry\n"
+                "def c : Char := '\"'\n"
+            )
+            res_sci = audit_lean4_source(sci_src)
+            _req(
+                any(f["code"] == "LEAN4_SORRY" and f["line"] == 4 for f in res_sci["findings"]),
+                f"scientific literal {sci_lit} hid line-4 LEAN4_SORRY: {res_sci['findings']}",
+            )
 
-        # Clean R13 non-FP controls (prime-suffixed identifiers, letterlike idents, literal-newline char, s!™/Macro.trace™/unary ! char/hex)
+        # Clean R13 non-FP controls (prime-suffixed identifiers, letterlike idents, literal-newline char, s!™/Macro.trace™/unary ! char/hex/scientific)
         for ok_r13 in (
             'def x\' := "hi"\ntheorem t\' : True := trivial\n',
             'theorem sq_nonneg\' : True := trivial\ndef f\' (s : String) : String := s\ndef a := f\' "sorry"\n',
@@ -1064,6 +1099,8 @@ class TestLean4AndAuditRootHardening(unittest.TestCase):
             'def Macro.trace™ (n : Nat) (s : String) : String := s\ndef a := Macro.trace™[0] "{sorry}"\n',
             'def f™ : String := "\\""\n',
             "def b : Bool := !'\"'.isDigit\ndef n : Nat := 0x1a + 1_000\ndef x1' : String := \"sorry\"\n",
+            "def f : Float := 1e-5\ndef g : Float := 1.5E+3\ndef h : Float := 1_000.2_5e-0_2\ndef q : Float := 1.\n",
+            "def x'1e3' : String := \"sorry\"\ndef x'0x1' : String := \"sorry\"\n",
             'def c1 : Char := \'\\"\'\ndef c2 : Char := \'\\\'\'\ndef c3 : Char := \'\\\\\'\ndef c4 : Char := \'\\x22\'\ndef c5 : Char := \'\\u0022\'\n',
         ):
             res_ok13 = audit_lean4_source(ok_r13)
@@ -1074,13 +1111,14 @@ class TestLean4AndAuditRootHardening(unittest.TestCase):
             f"notation™ must not trigger LEAN4_SYNTAX_QUOTE_TOKEN: {res_not_tm['findings']}",
         )
 
-        # Anti-ReDoS linear-time guard for R13 (including long ident + prime run proving O(1) per-char in_ident state)
+        # Anti-ReDoS linear-time guard for R13 (including long ident + prime run & scientific literals)
         for r13_redos, exp_clean in (
             ("x™' '\"' " * 2000 + "\n", True),
             ("'\n' " * 2000 + "\n", True),
             ("λ'\"' " * 2000 + "\n", True),
             ("a" * 5000 + "'" * 5000 + "\n", True),
             ("!'\"' " * 2000 + "\n", True),
+            ("1.5e+3'\"' " * 2000 + "\n", True),
         ):
             t0 = time.process_time()
             res_rr13 = audit_lean4_source(r13_redos)
@@ -1088,11 +1126,16 @@ class TestLean4AndAuditRootHardening(unittest.TestCase):
             _req(res_rr13["clean"] is exp_clean, f"unexpected R13 ReDoS result: clean={res_rr13['clean']}")
             _req(elapsed_ms < 500.0, f"R13 ReDoS regression: {elapsed_ms:.1f} ms")
 
+        # When lean is absent from PATH, test_02d must loudly skip via SkipTest (never silently return)
+        with mock.patch.object(shutil, "which", return_value=None):
+            with self.assertRaises(unittest.SkipTest):
+                self.test_02d_live_lean4_compiler_witnesses()
+
     def test_02d_live_lean4_compiler_witnesses(self) -> None:
         """When a live `lean` binary is on PATH, verify each new escape & clean control actually compiles (rc == 0)."""
         lean_exe = shutil.which("lean")
         if lean_exe is None:
-            return
+            self.skipTest("lean binary not on PATH")
         probes = (
                     (
                         "xprime_skipKernelTC",
@@ -1253,6 +1296,10 @@ class TestLean4AndAuditRootHardening(unittest.TestCase):
                     ("r13b_x1_bang_char_interp_rbrace", "def x : String := s!\"{if !'}'.isDigit then (by sorry : String) else \"ok\"}\"\n", False, False),
                     ("r13b_guil_dot_prime_char", "def «f».x' (_ : Char) : Nat := 0\ndef a := «f».x' '\"'\ntheorem t : (1 : Nat) = 2 := by sorry\ndef g : String := \"\\\"\"\n", False, False),
                     ("r13b_clean_bang_char_hex_and_x1prime", "def b : Bool := !'\"'.isDigit\ndef n : Nat := 0x1a + 1_000\ndef x1' : String := \"sorry\"\n", True, False),
+                    ("r13c_sci_1_5e3_char_sorry", 'syntax "sc" scientific char : term\nmacro_rules | `(sc $s $c) => `(0)\ndef a : Nat := sc 1.5e3\'"\'\ntheorem t : 1 = 2 := by sorry\ndef c : Char := \'"\'\n', False, False),
+                    ("r13c_sci_1e_neg5_char_sorry", 'syntax "sc" scientific char : term\nmacro_rules | `(sc $s $c) => `(0)\ndef a : Nat := sc 1e-5\'"\'\ntheorem t : 1 = 2 := by sorry\ndef c : Char := \'"\'\n', False, False),
+                    ("r13c_sci_1dot_e3_char_sorry", 'syntax "sc" scientific char : term\nmacro_rules | `(sc $s $c) => `(0)\ndef a : Nat := sc 1.e3\'"\'\ntheorem t : 1 = 2 := by sorry\ndef c : Char := \'"\'\n', False, False),
+                    ("r13c_clean_sci_and_prime_ident", "def f : Float := 1e-5\ndef g : Float := 1.5E+3\ndef h : Float := 1_000.2_5e-0_2\ndef x'1e3' : String := \"sorry\"\ndef x'0x1' : String := \"sorry\"\n", True, False),
                 )
         for label, src, expect_clean, allow_non_init in probes:
             res = audit_lean4_source(src, allow_non_init_imports=allow_non_init)
