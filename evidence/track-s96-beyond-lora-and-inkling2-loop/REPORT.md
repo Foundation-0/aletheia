@@ -55,7 +55,7 @@ All metrics are computed identically over exact $\mathbb{Q}$ (`fractions.Fractio
 
 ### 3.2 `S95` bf16 `< ½-ULP` Merge-Annihilation Diagnosis & Preregistered `ButterflyHead-8+8` Hybrid
 
-Folding live empirical diagnostics from `S95` (`Qwen2.5-0.5B`, `d = 896`, matched budget `16 * 1792 = 28,672` params/proj) into exact pure-$\mathbb{Q}$ preregistered gates (**not executed in CPU-only S96; zero `N2` claims**):
+Folding **external** empirical diagnostics from `S95` (`Qwen2.5-0.5B`, `d = 896`, matched budget `16 * 1792 = 28,672` params/proj; source: the Qwen 4 Max collab report `COLLAB-INKLING2-M1H1-REVIEW.md`, **not shipped in this repo**) into exact pure-$\mathbb{Q}$ preregistered gates (**not executed in CPU-only S96; zero `N2` claims**):
 
 | `S95` / `ButterflyHead-8+8` Metric | Exact Pure-$\mathbb{Q}$ Value | Decimal / Operational Meaning | Lean 4.36.0 Theorem |
 | :--- | :--- | :--- | :--- |
@@ -167,7 +167,8 @@ python3 -I -B verify_s96_beyond_lora_inkling.py --check s96_beyond_lora_inkling_
 # 2. Live R12 static + scrubbed Lean 4.36.0 --stdin kernel axiom verification
 python3 -I -B verify_s96_beyond_lora_inkling.py --verify-lean BeyondLoraAndInklingLoop.lean --json
 
-# 3. Pinned upstream corpus (10 tracks) & Inkling-2-Mini specs (2 files)
+# 3. Pinned upstream corpus (10 tracks: 2/10 re-hashed on disk in-repo (S80, S83); 8/10 cross-repo
+#    SHA pins in Foundation-0/cave-expedition (S42, S59, S73, S76, S78, S79, S82, S87)) & Inkling-2-Mini specs
 python3 -I -B verify_s96_beyond_lora_inkling.py --verify-upstream .. --json
 python3 -I -B verify_s96_beyond_lora_inkling.py --verify-inkling <INKLING_SPEC_DIR> --json
 

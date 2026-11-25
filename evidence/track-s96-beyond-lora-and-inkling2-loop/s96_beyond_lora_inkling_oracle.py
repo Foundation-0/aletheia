@@ -61,6 +61,13 @@ INKLING_SPEC_MANIFEST: tuple[tuple[str, str], ...] = (
     ("inkling2_mini_README.md", "ab4fbc79a26f57a4160eae83ff33f7ec5442f4a6cae21478fdda36b4a0c13592"),
 )
 
+# Upstream certificate pins: only S80 and S83 resolve to files in this repo; the other 8
+# (S42, S59, S73, S76, S78, S79, S82, S87) are cross-repo pins in Foundation-0/cave-expedition.
+CROSS_REPO_UPSTREAM: frozenset[str] = frozenset({
+    "S42", "S59", "S73", "S76", "S78", "S79", "S82", "S87",
+})
+CROSS_REPO_SOURCE = "Foundation-0/cave-expedition"
+
 UPSTREAM_CERT_MANIFEST: tuple[tuple[str, str, str], ...] = (
     (
         "S42",
@@ -564,9 +571,12 @@ def build_pillar2_beyond_lora_architectures() -> dict[str, Any]:
     ]
     proj_saturated = build_nullspace_projected_update(dw_raw, x_base_full)
 
-    # 5. Live S95 bf16 <1/2-ULP annihilation diagnosis & ButterflyHead-8+8 preregistration (Qwen 4 Max collab)
-    bfly_zero_q = Fraction(407, 500)      # 81.40% of Butterfly entries zeroed below 1/2-ULP on bf16 merge
-    lora_zero_q = Fraction(873, 10000)    # 8.73% of LoRA entries zeroed on bf16 merge
+    # 5. S95 bf16 <1/2-ULP annihilation diagnosis & ButterflyHead-8+8 preregistration.
+    #    The 407/500 vs 873/10000 fractions are EXTERNAL measurements from the Qwen 4 Max
+    #    collab report COLLAB-INKLING2-M1H1-REVIEW.md, which is NOT shipped in this repo;
+    #    they are cited as external inputs, not reproduced here.
+    bfly_zero_q = Fraction(407, 500)      # external: 81.40% of Butterfly entries zeroed below 1/2-ULP on bf16 merge
+    lora_zero_q = Fraction(873, 10000)    # external: 8.73% of LoRA entries zeroed on bf16 merge
     annih_ratio_q = bfly_zero_q / lora_zero_q
     bh_d = 896
     bh_s = 8
@@ -675,7 +685,7 @@ def build_pillar3_inkling2_loop_and_roofline() -> dict[str, Any]:
     rho_3pass_stable = s76_rho**num_passes
     rho_3pass_unstable = Fraction(5, 4) ** num_passes
 
-    # Per-pass quantization noise vs initial-error contraction (COLLAB-INKLING2-M1H1-REVIEW.md)
+    # Per-pass quantization noise vs initial-error contraction (external collab report COLLAB-INKLING2-M1H1-REVIEW.md, not shipped)
     m1h1_drift_cap = Fraction(2, 1)
     m1h1_rel_l2_cap = Fraction(1, 20)
     g3_s76 = eval_per_pass_quant_noise(s76_rho, num_passes)

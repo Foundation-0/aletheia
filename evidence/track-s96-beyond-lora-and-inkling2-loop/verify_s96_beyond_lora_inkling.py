@@ -47,6 +47,8 @@ from s96_beyond_lora_inkling_oracle import (
     MAX_JSON_DEPTH,
     S96Error,
     UPSTREAM_CERT_MANIFEST,
+    CROSS_REPO_UPSTREAM,
+    CROSS_REPO_SOURCE,
     build_certificate,
     canonical_json_bytes,
     frac_to_dec_str,
@@ -1149,10 +1151,15 @@ def check_certificate_file(path: Path) -> dict[str, Any]:
 
 
 def verify_upstream_manifest(exp_root: Path) -> dict[str, Any]:
-    """Fail-closed verification of all 10 pinned upstream certificate SHA-256s on disk."""
+    """Verify upstream pins: in-repo pins are opened and re-hashed on disk; cross-repo pins
+    (8 of 10) name Foundation-0/cave-expedition and are SHA-pinned strings (files not in this repo)."""
     _validate_path(exp_root)
     verified = 0
+    cross_repo = []
     for tid, rel, expected_sha in UPSTREAM_CERT_MANIFEST:
+        if tid in CROSS_REPO_UPSTREAM:
+            cross_repo.append({"track_id": tid, "source_repo": CROSS_REPO_SOURCE, "sha256": expected_sha})
+            continue
         raw = read_regular_file_bytes(exp_root / rel, max_bytes=MAX_JSON_BYTES)
         actual_sha = hashlib.sha256(raw).hexdigest()
         require_ok(
@@ -1164,6 +1171,7 @@ def verify_upstream_manifest(exp_root: Path) -> dict[str, Any]:
     return {
         "status": "UPSTREAM_VERIFIED",
         "tracks_verified": verified,
+        "cross_repo_pins": cross_repo,
         "expected_tracks": len(UPSTREAM_CERT_MANIFEST),
     }
 
