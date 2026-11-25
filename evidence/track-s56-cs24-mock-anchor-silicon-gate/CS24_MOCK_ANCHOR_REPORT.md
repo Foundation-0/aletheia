@@ -3,12 +3,12 @@
 - **Identifier:** `TRACK-S56-CS24-MOCK-ANCHOR-GATE`
 - **Schema Version:** `aletheia.track_s56.cs24_mock_anchor.v1`
 - **Oracle Class:** `exact` (100% pure Python 3 stdlib: `int`, `fractions.Fraction`, `hashlib`, `hmac`, `json`; **`0`** IEEE-754 floats on trust paths, **`0`** AST float literals, **`0`** `float()` calls, **`0`** bare `assert`s, **`0`** `.isdigit()` calls, **`0`** mathematical RNG calls, **`0`** external dependencies)
-- **Novelty Classification:** **`N1`** (executable zero-float `CS-24` governance gate, empirical non-commutativity witness suite anchored to live `UX582HS` hardware receipts, and fail-closed certificate auditor; all classical test-double, hardware-in-the-loop, `pciutils`, and NVML/KMD prior art explicitly quarantined as **`N0`**)
-- **Canonical Certificate Digests (`cs24_mock_anchor_certificate.json`, `0o600`, LF-only, `5,837` B):**
-  - File / `--standalone --json` SHA-256: `26cc2265d301a6871c618351707ce6e470e6e710d918c5cb8cab42e88fa9ac00`
-  - `payload_sha256`: `37ce0870d9a07700fe5ea1f54206e424484dab8e0239074e618528ce22962a25`
-  - `certificate_sha256`: `378a5fe8088c0bf7ba331fddf93b7380d0792f72486dd3243ecf1d3e5fcad4d4`
-  - Zero-arg / `--check` stdout SHA-256: `9564dd8ff1d277019612e4de3d439c64e83b9416ceb4307d213be2bd68999fe7`
+- **Novelty Classification:** **`N1`** (executable zero-float `CS-24` governance gate, an encoded non-commutativity witness suite (hardcoded constants demonstrating a `Delta=+1` encoding; no live hardware measurements were taken), and a fail-closed certificate auditor; all classical test-double, hardware-in-the-loop, `pciutils`, and NVML/KMD prior art explicitly quarantined as **`N0`**)
+- **Canonical Certificate Digests (`cs24_mock_anchor_certificate.json`, LF-only, `5,914` B; `0644` in git, `0o600` on `--write` output only, since git cannot store `0600`):**
+  - File / `--standalone --json` SHA-256: `da574cf8bd3a7e61bee62e72097b0d39766f8b65389496764a1dd6f9f1ff33db`
+  - `payload_sha256`: `fd6a18b543b75a0905ec4a64f929144ca2715f773b23b4d6e69cfddbedb1f0d3`
+  - `certificate_sha256`: `b2892fb03d4dab91b2fbb22aea0ef8995687006f936c4880d99d947972bae4e7`
+  - Zero-arg / `--check` stdout SHA-256: `d7c435200bf6c2f4e69e2c559773ed8aed7b56991af51a3e4a7ad94c06576461`
 
 ---
 
@@ -22,7 +22,7 @@ and the exact rational **false-green divergence rate** over a witness corpus of 
 
 $$R_{\mathrm{div}} = \frac{\#\{w : V_{\mathrm{mock}}(w) = 1 \wedge V_{\mathrm{silicon}}(w) = 0\}}{N} \in \mathbb{Q} \cap [0, 1].$$
 
-Across all four live empirical `UX582HS` hardware/driver defects documented below, $V_{\mathrm{mock}} = 1$ while $V_{\mathrm{silicon}} = 0$, giving $\Delta_{\mathrm{comm}} = +1$ on `4/4` witnesses ($R_{\mathrm{div}} = 1$), constructively proving $\mathcal{M} \circ \mathcal{K} \neq \mathcal{K} \circ \mathcal{M}$.
+Across the four encoded `UX582HS` witness constants below, the oracle encodes $V_{\mathrm{mock}} = 1$ while $V_{\mathrm{silicon}} = 0$, giving $\Delta_{\mathrm{comm}} = +1$ on `4/4` witnesses ($R_{\mathrm{div}} = 1$). These witnesses are hardcoded string constants demonstrating a `Delta=+1` encoding of $\mathcal{M} \circ \mathcal{K} \neq \mathcal{K} \circ \mathcal{M}$; the oracle never spawns a subprocess and no live hardware measurement was taken, so the certificate is a self-consistent replay of those constants, not a measurement.
 
 ---
 
@@ -42,21 +42,22 @@ Across all four live empirical `UX582HS` hardware/driver defects documented belo
 
 ### 3.1 Pillar 1 — Empirical `UX582HS` Non-Commutativity Witnesses & Power-State Commutator
 
-| Witness ID | Subsystem | Mocked Pass | $V_{\mathrm{mock}}$ | $V_{\mathrm{silicon}}$ | $\Delta_{\mathrm{comm}}$ | Live Silicon Reality |
+| Witness ID | Subsystem | Mocked Pass | $V_{\mathrm{mock}}$ | $V_{\mathrm{silicon}}$ | $\Delta_{\mathrm{comm}}$ | Encoded Witness Constant (not a live measurement) |
 |---|---|---:|---:|---:|---:|---|
 | `W1_LSPCI_DNNS_FLAG` | `ml_os.probe.lspci` | `16/16` | `1` | `0` | **`+1`** | Real Linux `pciutils` rejects `-Dnns` without `-s <slot>` (`igpu_model=null`); fix requires `lspci -Dnn` for `0000:00:02.0 [8086:9a60]`. |
 | `W2_NVIDIA_KMD_2MIB_BASELINE` | `ml_os.stamp_run.vram_baseline` | `16/16` | `1` | `0` | **`+1`** | NVIDIA Linux driver `615.78.08` (`GA104M`) retains `2 MiB` internal KMD metadata with `0` graphics/compute processes. |
 | `W3_UX582HS_DP3_ELAN9009_LUA` | `aletheia_shell.display_hud` | `7/7` | `1` | `0` | **`+1`** | Live `UX582HS` exposes `DP-3` + `elan9009:00-04f3:2c23` and Omarchy `4.5.0` Lua `hl.dsp.exec_cmd` dispatch contract. |
-| `W4_AC110W_VS_BAT55W_ROOFLINE` | `siliquant.rtx3080_roofline` | `18/18` | `1` | `0` | **`+1`** | Battery `55 W` `SwPowerCap` vs. AC `110 W` `P0` shifts BF16 GEMM from `31.880` to `35.031` TFLOPS (`+9.8839%`). |
+| `W4_AC110W_VS_BAT55W_ROOFLINE` | `quoted_external_track_anchor.roofline` | `18/18` | `1` | `0` | **`+1`** | Quoted external power-state figures (battery `55 W` vs AC `110 W`, BF16 GEMM `31.880` -> `35.031` TFLOPS, `+9.8839%`) are an unverified illustration, not a measured result. |
 
-- **Exact Power-State Roofline Ratios (Pure $\mathbb{Q}$):**
+- The W1-W4 witness strings (including the W4 power-state figures) are encoded constants in the oracle; the ratios below are exact rational arithmetic over those quoted constants, not hardware telemetry.
+- **Exact Power-State Roofline Ratios (Pure $\mathbb{Q}$) over the quoted constants:**
   - Power cap ratio: $110 / 55 = \mathbf{2}$
   - BF16 throughput ratio: $35031 / 31880$
   - Exact relative BF16 uplift: $(35031 - 31880) / 31880 = \mathbf{3151/31880}$ (`9.8839%`)
 
 ### 3.2 Pillars 2 & 3 — Executable `CS-24` Gate Matrix (`12` Certified Claims + Live Float Probe)
 
-`evaluate_cs24_mock_anchor_gate(claim)` enforces strict schema keysets, strict `int`/`bool`/`str` typing (rejecting `bool`-in-`int` and runtime `float` values as `CS24_RECEIPT_TYPE_CONTAMINATION`), constant-time `hmac.compare_digest` receipt SHA-256 pinning (forbidding all-zero digests), non-mocked subprocess attestation (`subprocess_mocked == False`), `clean_hardware_run == True` / `exit_code == 0` / `anomalies == []` / `determinism_zone == "B"`, verified Linux KMD baseline (`0 <= memory_used_mib <= linux_kmd_baseline_vram_mib <= 4` with `gpu_processes_queried == True` and `graphics_processes_count == 0`, or `0 MiB` on non-Linux), exact power-regime alignment, and non-empty PCI/DRM/CUDA witness strings.
+`evaluate_cs24_mock_anchor_gate(claim)` enforces strict schema keysets, strict `int`/`bool`/`str` typing (rejecting `bool`-in-`int` and runtime `float` values as `CS24_RECEIPT_TYPE_CONTAMINATION`), a constant-time `hmac.compare_digest` receipt self-consistency check over `receipt_sha256` vs `expected_receipt_sha256` (forbidding all-zero digests) — both fields live inside the same receipt, so this is self-consistency within one file, not external pinning, and a forged self-consistent receipt is ALLOWed; likewise `subprocess_mocked == False` is a self-declared field, not attestation (the oracle never spawns a subprocess), `clean_hardware_run == True` / `exit_code == 0` / `anomalies == []` / `determinism_zone == "B"`, verified Linux KMD baseline (`0 <= memory_used_mib <= linux_kmd_baseline_vram_mib <= 4` with `gpu_processes_queried == True` and `graphics_processes_count == 0`, or `0 MiB` on non-Linux), exact power-regime alignment, and non-empty PCI/DRM/CUDA witness strings.
 
 | Group | Claim ID | Domain | Verdict | `CS-24` Reason Code |
 |---|---|---|---|---|
@@ -87,7 +88,7 @@ Across all four live empirical `UX582HS` hardware/driver defects documented belo
 
 - **Atomic `dir_fd` I/O & Cross-Platform Safety:** `read_regular_bytes_capped` and `write_regular_bytes_safe` traverse ancestor chains via `O_RDONLY | O_DIRECTORY | O_NOFOLLOW`, verify root-owned macOS `/var`, `/tmp`, `/etc` -> `/private/*` aliases without resolving user symlinks (`_normalize_darwin_system_prefix`), validate logical `$PWD` without symlinks when its `(st_dev, st_ino)` matches `.`, enforce NUL/lone-surrogate string hygiene on direct `evaluate_cs24_mock_anchor_gate` calls, wrap deleted-CWD `OSError` as `CWD_UNAVAILABLE`, stream reads in `65,536`-byte chunks (`max_bytes <= 64 MiB`), reject non-regular files (tested with scratch `os.mkfifo` inside `TemporaryDirectory`, zero device-path writes), and write atomically via `0o600` `O_CREAT | O_EXCL | O_NOFOLLOW | O_NONBLOCK` temp files with `threading.Lock` + monotonic sequence + CSPRNG token + `os.fsync(fd)` + pre-replace `fstat(fd).st_nlink == 1` + target `st_nlink <= 1` + `os.replace(..., dir_fd)` + `os.fsync(dfd)`.
 - **Honest Same-UID POSIX Boundary:** POSIX provides no atomic kernel primitive combining `renameat` with simultaneous link-count enforcement; full isolation against a malicious same-UID writer requires OS directory isolation (`0700` owned directory or distinct UIDs).
-- **Honest Verification Boundary:** `verify_certificate_dict(..., full_replay=True)` enforces canonical ASCII+LF framing, constant-time `hmac.compare_digest` over both `payload_sha256` and `certificate_sha256`, iterative JSON-tree validation (`_validate_json_tree`), bijective schema/keyset/length/leaf verification across all `24` dicts, `18` lists, and `146` leaves plus independent division-free algebraic cross-checks inside `secondary_audit_payload` (active under both `full_replay=False` and direct calls), AND full deterministic oracle replay. Because the auditor imports the oracle, `--check` is deterministic replay plus intra-package secondary cross-checking rather than a zero-shared-code independent audit.
+- **Honest Verification Boundary:** `verify_certificate_dict(..., full_replay=True)` enforces canonical ASCII+LF framing, constant-time `hmac.compare_digest` over both `payload_sha256` and `certificate_sha256`, iterative JSON-tree validation (`_validate_json_tree`), bijective schema/keyset/length/leaf verification across all `24` dicts, `18` lists, and `146` leaves plus independent division-free algebraic cross-checks inside `secondary_audit_payload` (active under both `full_replay=False` and direct calls), AND full deterministic oracle replay. Because the auditor imports the oracle, `--check` is deterministic replay plus intra-package secondary cross-checking (against the golden `_EXPECTED_PAYLOAD` copy) rather than a zero-shared-code independent audit. The gate's fail-closed guarantee covers tampering with the committed artifacts (any byte change breaks `payload_sha256` / `certificate_sha256` and the replay), not fabrication of a whole new self-consistent receipt: the receipt digest check compares two fields both contained in the receipt itself, and the `pinned_live_receipts` hashes are SHA-256 values of hardcoded strings in the same file, so no external registry backs them (an external registry is not possible offline).
 
 ---
 
@@ -98,19 +99,19 @@ All verification checks ran strictly sequentially (`OPENBLAS_NUM_THREADS=1 OMP_N
 | Gate | Scope | Exact Result |
 |---|---|---|
 | **Unit & Adversarial Regression Suite** | `test_cs24_mock_anchor_r5.py` (`9` test methods, incl. exhaustive `24`-dict / `18`-list / `146`-leaf / container-to-scalar tamper sweep, Darwin alias tests, & Linux-guarded `renameat2`) | **`9/9` PASS** (`~0.45s`, `0` bare `assert`s, `0` AST floats/`float()`, `0` `.isdigit()`, `0` device-path writes) |
-| **R4 3-Mode Isolated + Hash-Seed Parity** | `-I -B`, `-I -O -B`, `-I -B -W error`, plus `PYTHONHASHSEED=42 -B` (non-isolated) | **`4/4` bit-identical** (`26cc2265d301a6871c618351707ce6e470e6e710d918c5cb8cab42e88fa9ac00`), `--check` `9564dd8f…` ×4, unit suite `9/9 OK` ×4 (plus `umask 077` `OK`) |
+| **R4 3-Mode Isolated + Hash-Seed Parity** | `-I -B`, `-I -O -B`, `-I -B -W error`, plus `PYTHONHASHSEED=42 -B` (non-isolated) | **`4/4` bit-identical** (`da574cf8bd3a7e61bee62e72097b0d39766f8b65389496764a1dd6f9f1ff33db`), `--check` `d7c43520…` ×4, unit suite `9/9 OK` ×4 (plus `umask 077` `OK`) |
 | **Refusal-Site Mutation Suite (Exhaustive)** | `cs24_mock_anchor_oracle.py` + `cs24_mock_anchor_audit.py` | **`51/51` + `110/110` = `161/161` (`100.0%`, `survived=0`, `truncated=False`)** |
-| **Exhaustive `SWAP + SUBCOND_DEL` AST `BoolOp`** | `cs24_mock_anchor_oracle.py` + `cs24_mock_anchor_audit.py` | **`33/33` + `30/30` = `63/63` (`100.0%`, `survivors=[]`)** |
-| **4-Surface Adversarial Zone-B Fuzzing** | CLI (`25`) + `full_replay=True` (`19`) + `full_replay=False` (`19`) + direct `secondary_audit_payload` (`19`) | **`82/82` (`100.0%`, `bypasses=0`, `crashes=0`)** |
-| **Concurrency & Kernel Races** | `16T` distinct + `16T` same + `80T` burst + `550` `renameat2(RENAME_EXCHANGE)` (Linux) + `500` hardlink race | **`0` errors, `0` leaks, `0` clobbers, `0` leftover `.tmp` files** |
+| **Exhaustive `SWAP + SUBCOND_DEL` AST `BoolOp`** | `cs24_mock_anchor_oracle.py` + `cs24_mock_anchor_audit.py` | **`33/33` + `30/30` = `63/63` (`100.0%`, `survivors=[]`)** — one-off local run, not shipped |
+| **4-Surface Adversarial Zone-B Fuzzing** | CLI (`25`) + `full_replay=True` (`19`) + `full_replay=False` (`19`) + direct `secondary_audit_payload` (`19`) | **`82/82` (`100.0%`, `bypasses=0`, `crashes=0`)** — one-off local run, not shipped |
+| **Concurrency & Kernel Races** | `16T` distinct + `16T` same + `80T` burst + `550` `renameat2(RENAME_EXCHANGE)` (Linux) + `500` hardlink race | **`0` errors, `0` leaks, `0` clobbers, `0` leftover `.tmp` files** — one-off local run, not shipped (shipped coverage is the single concurrency/race test in the R5 suite) |
 | **Static Hygiene & Path-Safety Gate** | Strict ancestor permissions, safety scan, zero-float / zero-assert / zero-CRLF / zero-leak verification | **`PASS`** (`5` files, `2/2` scripts, `0` findings, `0` `.pyc`) |
 
 ### Frozen 5-File Manifest
 
 | File | Lines | Bytes | Mode | SHA-256 |
 |---|---:|---:|---:|---|
-| `cs24_mock_anchor_oracle.py` | `697` | `28,858` | `0o644` | `192ea7c3cc45c87ae0ca5eb63bf38e8f4e542cdd8fe2c3a6f5911721db05f0d1` |
-| `cs24_mock_anchor_audit.py` | `809` | `35,711` | `0o644` | `da37c0aa02eb6c389e9a06de27254ac2651fefedc116a86b55ec3fe00e60f042` |
+| `cs24_mock_anchor_oracle.py` | `697` | `28,998` | `0o644` | `4a4c0409cba53092054d27c68983740e25215b14622596d1d2ed570cd7109a3b` |
+| `cs24_mock_anchor_audit.py` | `809` | `35,788` | `0o644` | `fee1b25f9fb8d0ac24d6232ffe157b87e4adb4fcf11ad9e05e4d83afecc20fb8` |
 | `test_cs24_mock_anchor_r5.py` | `1,020` | `52,700` | `0o644` | `e551edcd630a46d4157a026ee216e2ef05777811f50075e64aec2dd20b7c917f` |
-| `cs24_mock_anchor_certificate.json` | `1` | `5,837` | `0o600` | `26cc2265d301a6871c618351707ce6e470e6e710d918c5cb8cab42e88fa9ac00` |
+| `cs24_mock_anchor_certificate.json` | `1` | `5,914` | `0644` (git; `0o600` on `--write`) | `da574cf8bd3a7e61bee62e72097b0d39766f8b65389496764a1dd6f9f1ff33db` |
 | `CS24_MOCK_ANCHOR_REPORT.md` | (this report) | — | `0o644` | See directory manifest on freeze |

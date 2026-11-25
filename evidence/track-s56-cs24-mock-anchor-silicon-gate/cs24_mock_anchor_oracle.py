@@ -340,7 +340,7 @@ def evaluate_cs24_mock_anchor_gate(claim: Any) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# Pillar 3 & 4: Real Empirical UX582HS Witness Suite + Contingency Matrix
+# Pillar 3 & 4: Encoded UX582HS Witness Constants (not live measurements) + Contingency Matrix
 # ---------------------------------------------------------------------------
 
 def _make_live_receipt(
@@ -386,7 +386,7 @@ def _derive_pinned_sha(tag: str) -> str:
 
 def build_payload() -> dict[str, Any]:
     """Build exact pure-Z/Q certified CS-24 payload across all four pillars."""
-    # Pillar 1: 4 real UX582HS mock-vs-silicon commutator witnesses + power roofline commutator
+    # Pillar 1: 4 encoded UX582HS mock-vs-silicon commutator witnesses (hardcoded constants, not live probes) + power roofline commutator
     commutator_cases = [
         evaluate_commutator_witness(
             "W1_LSPCI_DNNS_FLAG",
@@ -417,9 +417,9 @@ def build_payload() -> dict[str, Any]:
         ),
         evaluate_commutator_witness(
             "W4_AC110W_VS_BAT55W_ROOFLINE",
-            "siliquant.rtx3080_roofline",
+            "quoted_external_track_anchor.roofline",
             "Unpinned mocked power envelope treated as equivalent across battery and AC states",
-            "Battery 55W SwPowerCap vs AC 110W P0 shifts BF16 GEMM from 31.880 to 35.031 TFLOPS (+9.8839%)",
+            "Quoted external power-state figures (battery 55W vs AC 110W, BF16 GEMM 31.880 -> 35.031 TFLOPS, +9.8839%) are an unverified illustration, not a measured result",
             18,
             18,
             False,
