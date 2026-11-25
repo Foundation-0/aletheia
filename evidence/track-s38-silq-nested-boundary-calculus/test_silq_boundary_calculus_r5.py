@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Track S38 (Portal 36): Comprehensive R5 Adversarial, Concurrency, Mutation & Algebra Test Suite.
+"""Track S38: Comprehensive R5 Adversarial, Concurrency, Mutation & Algebra Test Suite.
 
 Zero AST float literals, zero float() calls, zero bare asserts, zero .isdigit(),
 zero RNG, zero external dependencies.
@@ -18,8 +18,10 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 from typing import Any
 import unittest
+from unittest import mock
 
 _THIS_DIR = str(Path(__file__).resolve().parent)
 if _THIS_DIR not in sys.path:
@@ -30,6 +32,14 @@ import silq_boundary_calculus_oracle as oracle
 
 # Runtime float constructed without AST float literal or float() call
 _RUNTIME_FLOAT: Any = json.loads("1.5")
+
+
+def _require_real_tmpdir_or_skip(case: unittest.TestCase) -> None:
+    """Skip tempdir-based symlink-guard tests cleanly when TMPDIR traverses a symlink (e.g. macOS /var -> /private/var)."""
+    tmp_root = Path(tempfile.gettempdir())
+    for anc in (tmp_root, *tmp_root.parents):
+        if anc.is_symlink():
+            case.skipTest(f"TMPDIR traverses symlink ancestor {anc}; set TMPDIR to a symlink-free path")
 
 
 class _EvilInt(int):
@@ -220,6 +230,8 @@ class Test01ZoneBPrimitivesAndParsers(unittest.TestCase):
         self._expect_err("NONFINITE_CONSTANT", oracle.parse_strict_json_text, '{"x":NaN}')
         self._expect_err("INVALID_JSON", oracle.parse_strict_json_text, '{"x":' + ("9" * 5000) + "}")
         self._expect_err("JSON_DEPTH_EXCEEDED", oracle.parse_strict_json_text, ("[" * 1500) + "0" + ("]" * 1500), require_object=False)
+        with mock.patch.object(oracle.json, "loads", side_effect=RecursionError("deep")):
+            self._expect_err("JSON_DEPTH_EXCEEDED", oracle.parse_strict_json_text, "{}")
         self._expect_err("INVALID_JSON", oracle.parse_strict_json_text, '{"a":')
 
 
@@ -331,7 +343,7 @@ class Test02PublicMathAndSilqAPIGuards(unittest.TestCase):
         self.assertEqual(_tc("general", p_cb, [{"op": "measure", "src": "missing", "dst": "m"}], [])["type_error_code"], "UNBOUND_OR_DEAD_VAR")
         self.assertEqual(_tc("general", p_cb, [{"op": "measure", "src": "c", "dst": "m"}], [])["type_error_code"], "TYPE_MISMATCH")
         self.assertEqual(_tc("general", p_cb, [{"op": "measure", "src": "q", "dst": "m"}], [])["type_error_code"], "CONST_CONSUMPTION_FORBIDDEN")
-        # Use-after-measure (dead var!) kills _is_live SUBCOND_DEL[1]
+        # Use-after-measure rejects dead variable
         self.assertEqual(
             _tc("general", p_b, [{"op": "measure", "src": "a", "dst": "m"}, {"op": "qfree_gate", "gate": "X", "controls": [], "target": "a"}], ["m"])["type_error_code"],
             "UNBOUND_OR_DEAD_VAR",
@@ -393,7 +405,8 @@ class Test02PublicMathAndSilqAPIGuards(unittest.TestCase):
         ):
             self.assertEqual(_tc("mfree", p_3b, [bad_arity_stmt], ["a", "b", "d"])["type_error_code"], "GATE_ARITY_MISMATCH")
 
-        # S38-DS-01: !B classical controls rejected on lifted_and, qfree_gate, unitary_gate; phase/Z/S/T/CZ rejected on const B
+        # Strict !B/B operand separation (no !tau <: tau subtyping in this toy IR),
+        # consistent const-control handling for CNOT & CZ, and const-target rejection across unitary gates
         p_mix = [
             {"name": "c", "type": "!B", "const": False},
             {"name": "a", "type": "B", "const": False},
@@ -403,15 +416,48 @@ class Test02PublicMathAndSilqAPIGuards(unittest.TestCase):
         self.assertEqual(_tc("mfree", p_mix, [{"op": "lifted_and", "dst": "t", "ctrl1": "a", "ctrl2": "c"}], ["a"])["type_error_code"], "TYPE_MISMATCH")
         self.assertEqual(_tc("qfree", p_mix, [{"op": "qfree_gate", "gate": "CNOT", "controls": ["c"], "target": "a"}], ["a"])["type_error_code"], "TYPE_MISMATCH")
         self.assertEqual(_tc("mfree", p_mix, [{"op": "unitary_gate", "gate": "CZ", "controls": ["c"], "target": "a"}], ["a"])["type_error_code"], "TYPE_MISMATCH")
+        # Both CNOT and CZ consistently accept a const control with a non-const target
+        self.assertTrue(_tc("mfree", p_mix, [{"op": "qfree_gate", "gate": "CNOT", "controls": ["q"], "target": "a"}], ["a"])["well_typed"])
+        self.assertTrue(_tc("mfree", p_mix, [{"op": "unitary_gate", "gate": "CZ", "controls": ["q"], "target": "a"}], ["a"])["well_typed"])
         for const_u in (
             {"op": "unitary_gate", "gate": "phase", "controls": [], "target": "q"},
             {"op": "unitary_gate", "gate": "Z", "controls": [], "target": "q"},
             {"op": "unitary_gate", "gate": "S", "controls": [], "target": "q"},
             {"op": "unitary_gate", "gate": "T", "controls": [], "target": "q"},
-            {"op": "unitary_gate", "gate": "CZ", "controls": ["q"], "target": "a"},
             {"op": "unitary_gate", "gate": "CZ", "controls": ["a"], "target": "q"},
         ):
             self.assertEqual(_tc("mfree", p_mix, [const_u], ["a"])["type_error_code"], "CONST_MODIFICATION_FORBIDDEN")
+
+        # Documented toy-IR scope boundary: DJ CNOT-allocated ancilla is outside lifted_and-only forget(),
+        # whereas Toffoli lifted_and + diagonal Z + explicit forget() type-checks and synthesizes CCX
+        dj_forget_attempt = _tc(
+            "mfree",
+            [{"name": "O", "type": "B", "const": False}],
+            [
+                {"op": "alloc_q", "dst": "H"},
+                {"op": "unitary_gate", "gate": "H", "controls": [], "target": "O"},
+                {"op": "qfree_gate", "gate": "CNOT", "controls": ["O"], "target": "H"},
+                {"op": "unitary_gate", "gate": "Z", "controls": [], "target": "H"},
+                {"op": "forget", "var": "H"},
+                {"op": "unitary_gate", "gate": "H", "controls": [], "target": "O"},
+            ],
+            ["O"],
+        )
+        self.assertFalse(dj_forget_attempt["well_typed"])
+        self.assertEqual(dj_forget_attempt["type_error_code"], "UNCOMPUTATION_FAILED")
+
+        toff_forget_ok = _tc(
+            "mfree",
+            [{"name": "a", "type": "B", "const": True}, {"name": "b", "type": "B", "const": True}],
+            [
+                {"op": "lifted_and", "dst": "tmp", "ctrl1": "a", "ctrl2": "b"},
+                {"op": "unitary_gate", "gate": "Z", "controls": [], "target": "tmp"},
+                {"op": "forget", "var": "tmp"},
+            ],
+            [],
+        )
+        self.assertTrue(toff_forget_ok["well_typed"])
+        self.assertEqual(toff_forget_ok["synthesized_uncomputations"], ["CCX(a,b,tmp)"])
 
     def test_pillar3_and_pillar4_public_api_guards(self) -> None:
         st2 = [oracle.CYC_ONE, oracle.CYC_ZERO, oracle.CYC_ZERO, oracle.CYC_ZERO]
@@ -423,7 +469,7 @@ class Test02PublicMathAndSilqAPIGuards(unittest.TestCase):
         self._expect_err("INVALID_KEEP_QUBITS", oracle.partial_trace_state, st3, 3, [0, 0])
         self._expect_err("INVALID_KEEP_QUBITS", oracle.partial_trace_state, st2, 2, [0, 1])
 
-        # Pillar 4 analyze_classical_gate_erasure edge cases killing is_bij & involution BoolOps
+        # Pillar 4 analyze_classical_gate_erasure edge cases for bijection and involution checks
         self._expect_err("INVALID_TRUTH_TABLE", oracle.analyze_classical_gate_erasure, 1, 1, [0])
         self._expect_err("INVALID_TRUTH_TABLE", oracle.analyze_classical_gate_erasure, 1, 1, _EvilList([0, 1]))
         # Non-bijection because ni != no (1 -> 2, injective [0, 1] has outputs[outputs[x]] == x!)
@@ -435,8 +481,8 @@ class Test02PublicMathAndSilqAPIGuards(unittest.TestCase):
         self.assertTrue(cyc3["is_bijection"])
         self.assertFalse(cyc3["involution_verified"])
         # Table boundary check (max_qubits=24 ok, 25 rejected)
-        self.assertEqual(len(oracle.build_nested_simulation_table(24)), 24)
-        self._expect_err("INT_OUT_OF_RANGE", oracle.build_nested_simulation_table, 25)
+        self.assertEqual(len(oracle.build_dense_statevector_size_table(24)), 24)
+        self._expect_err("INT_OUT_OF_RANGE", oracle.build_dense_statevector_size_table, 25)
 
 
 class Test03ZoneBFileIOConcurrencyRacesAndCLI(unittest.TestCase):
@@ -459,6 +505,7 @@ class Test03ZoneBFileIOConcurrencyRacesAndCLI(unittest.TestCase):
         self._expect_err("INT_OUT_OF_RANGE", audit.read_regular_bytes_capped, Path("/tmp/unused_s38"), max_bytes=oracle.HARD_MAX_BYTES_CAP + 1)
         self._expect_err("INT_OUT_OF_RANGE", audit.read_regular_bytes_capped, Path("/tmp/unused_s38"), max_bytes=1 << 100)
 
+        _require_real_tmpdir_or_skip(self)
         with tempfile.TemporaryDirectory(prefix="s38_io_") as tmp:
             td = Path(tmp)
             real_dir = td / "real"
@@ -518,6 +565,21 @@ class Test03ZoneBFileIOConcurrencyRacesAndCLI(unittest.TestCase):
             self._expect_err("HARDLINK_FORBIDDEN", audit.write_regular_file_bytes, hl_a, b"CLOBBER\n")
             self.assertEqual(hl_b.read_bytes(), b"ORIGINAL\n")
 
+            # Direct OSError fail-closed handler coverage across _check_pwd_no_symlinks,
+            # _open_parent_dir_fd, require_safe_path, read_regular_bytes_capped, write_regular_file_bytes
+            with mock.patch.dict(os.environ, {"PWD": str(real_dir)}):
+                with mock.patch.object(audit.os, "open", side_effect=PermissionError("root denied")):
+                    self._expect_err("CWD_UNAVAILABLE", audit._check_pwd_no_symlinks)
+                    self._expect_err("FILE_IO_ERROR", audit.require_safe_path, Path("/tmp/x.json"))
+            with mock.patch.object(audit.os, "lstat", side_effect=PermissionError("lstat denied")):
+                self._expect_err("PATH_STAT_ERROR", audit.require_safe_path, ok_file)
+                self._expect_err("FILE_WRITE_ERROR", audit.write_regular_file_bytes, real_dir / "w_lstat.json", b"x")
+            with mock.patch.object(audit.os, "read", side_effect=OSError("read io error")):
+                self._expect_err("FILE_READ_ERROR", audit.read_regular_bytes_capped, ok_file)
+            with mock.patch.object(audit.os, "fsync", side_effect=OSError("fsync io error")):
+                self._expect_err("FILE_WRITE_ERROR", audit.write_regular_file_bytes, real_dir / "w_fsync.json", b"x")
+            self.assertEqual([p.name for p in real_dir.glob(".s38_silq_tmp_*")], [])
+
     def test_cli_argv_guards(self) -> None:
         bad_argvs: list[tuple[Any, str]] = [
             ("not_a_list", "INVALID_ARGV"),
@@ -545,6 +607,7 @@ class Test03ZoneBFileIOConcurrencyRacesAndCLI(unittest.TestCase):
             (["--wr=--json"], "UNKNOWN_FLAG"),
             (["--unknown"], "UNKNOWN_FLAG"),
         ]
+        _require_real_tmpdir_or_skip(self)
         with tempfile.TemporaryDirectory(prefix="s38_cli_bad_") as tmp:
             old_cwd = os.getcwd()
             os.chdir(tmp)
@@ -623,9 +686,20 @@ class Test04PayloadAndSecondaryAuditTamperMatrix(unittest.TestCase):
         hollow["payload"] = {}
         self._expect_err("INVALID_PAYLOAD_KEYS", oracle.validate_certificate_payload, self._resign(hollow), full_replay=False)
 
+        # Validator accepts any valid Aletheia novelty tier (N0/N1/N2) without hard-coding a self-assigned tier
+        for valid_tier in ("N0", "N1", "N2"):
+            t_ok = copy.deepcopy(self.valid_cert)
+            t_ok["payload"]["novelty_classification"] = valid_tier
+            self.assertTrue(oracle.validate_certificate_payload(self._resign(t_ok), full_replay=False)["valid"])
+
         for field, bad_v, code in [
             ("oracle_class", "approx", "INVALID_PAYLOAD_META"),
-            ("novelty_classification", "N2", "INVALID_PAYLOAD_META"),
+            ("novelty_classification", "N9", "INVALID_PAYLOAD_META"),
+            ("novelty_classification", [], "INVALID_PAYLOAD_META"),
+            ("novelty_classification", "", "INVALID_PAYLOAD_META"),
+            ("novelty_classification", 0, "INVALID_PAYLOAD_META"),
+            ("novelty_classification", True, "INVALID_PAYLOAD_META"),
+            ("novelty_classification", None, "INVALID_PAYLOAD_META"),
             ("zero_floats_exact_arithmetic", False, "INVALID_PAYLOAD_META"),
             ("all_verified", False, "INVALID_PAYLOAD_META"),
             ("literature_anchors_n0", "ab", "INVALID_PAYLOAD_META"),
@@ -636,6 +710,13 @@ class Test04PayloadAndSecondaryAuditTamperMatrix(unittest.TestCase):
             t_m["payload"][field] = bad_v
             self._expect_err(code, oracle.validate_certificate_payload, self._resign(t_m), full_replay=False)
 
+        # A str subclass is rejected even earlier: the strict JSON tree gate
+        # (validate_json_tree_iterative) requires exact types, so it fires
+        # FORBIDDEN_JSON_TYPE before the tier check and cannot be re-signed.
+        evil_str = copy.deepcopy(self.valid_cert)
+        evil_str["payload"]["novelty_classification"] = _EvilStr("N0")
+        self._expect_err("FORBIDDEN_JSON_TYPE", oracle.validate_certificate_payload, evil_str, full_replay=False)
+
         unver = copy.deepcopy(self.valid_cert)
         unver["payload"]["pillar1_cyclotomic_clifford_t"]["pillar_verified"] = False
         self._expect_err("PILLAR_NOT_VERIFIED", oracle.validate_certificate_payload, self._resign(unver), full_replay=False)
@@ -645,7 +726,7 @@ class Test04PayloadAndSecondaryAuditTamperMatrix(unittest.TestCase):
         self._expect_err("INVALID_PILLAR_KEYS", oracle.validate_certificate_payload, self._resign(extra_pk), full_replay=False)
 
         bool_int = copy.deepcopy(self.valid_cert)
-        bool_int["payload"]["pillar2_silq_static_typechecker"]["valid_program_count"] = True
+        bool_int["payload"]["pillar2_toy_silq_ir_checker"]["valid_program_count"] = True
         self._expect_err("BOOL_IN_NON_BOOL_FIELD", oracle.validate_certificate_payload, self._resign(bool_int), full_replay=False)
 
         bool_list = copy.deepcopy(self.valid_cert)
@@ -653,7 +734,7 @@ class Test04PayloadAndSecondaryAuditTamperMatrix(unittest.TestCase):
         self._expect_err("BOOL_IN_LIST", oracle.validate_certificate_payload, self._resign(bool_list), full_replay=False)
 
         bool_nested = copy.deepcopy(self.valid_cert)
-        bool_nested["payload"]["pillar4_landauer_nested_simulation"]["nested_simulation_table_n1_to_n20"][0]["n_qubits"] = True
+        bool_nested["payload"]["pillar4_landauer_and_dense_sizes"]["dense_statevector_size_table_n1_to_n20"][0]["n_qubits"] = True
         self._expect_err("BOOL_IN_NON_BOOL_FIELD", oracle.validate_certificate_payload, self._resign(bool_nested), full_replay=False)
 
         int_in_bool = copy.deepcopy(self.valid_cert)
@@ -727,29 +808,29 @@ class Test04PayloadAndSecondaryAuditTamperMatrix(unittest.TestCase):
         _tamper("AUDIT_P1_NONUNITARY", lambda p: p["pillar1_cyclotomic_clifford_t"].__setitem__("pillar_verified", False))
 
         # Pillar 2 tampers (incl. strict keysets, annotation, synthesis list, must-fail exact codes/details/names)
-        _tamper("AUDIT_SCHEMA_ERROR", lambda p: p["pillar2_silq_static_typechecker"].__setitem__("extra_p2", 1))
-        _tamper("AUDIT_SCHEMA_TYPE", lambda p: p.__setitem__("pillar2_silq_static_typechecker", []))
-        _tamper("AUDIT_P2_VALID_COUNT", lambda p: p["pillar2_silq_static_typechecker"].__setitem__("valid_program_count", 5))
-        _tamper("INVALID_INT", lambda p: p["pillar2_silq_static_typechecker"].__setitem__("valid_program_count", True))
-        _tamper("AUDIT_P2_VALID_TYPED", lambda p: p["pillar2_silq_static_typechecker"]["valid_programs"][0].__setitem__("well_typed", False))
-        _tamper("AUDIT_P2_VALID_TYPED", lambda p: p["pillar2_silq_static_typechecker"]["valid_programs"][0].__setitem__("extra_vp", 1))
-        _tamper("AUDIT_P2_VALID_TYPED", lambda p: p["pillar2_silq_static_typechecker"]["valid_programs"][0].__setitem__("annotation", "general"))
-        _tamper("AUDIT_P2_VALID_TYPED", lambda p: p["pillar2_silq_static_typechecker"]["valid_programs"][0].__setitem__("return_types", ["!B", "!B"]))
-        _tamper("AUDIT_P2_VALID_TYPED", lambda p: p["pillar2_silq_static_typechecker"]["valid_programs"][1].__setitem__("name", p["pillar2_silq_static_typechecker"]["valid_programs"][0]["name"]))
-        _tamper("AUDIT_P2_VALID_TYPED", lambda p: p["pillar2_silq_static_typechecker"]["valid_programs"][2].__setitem__("synthesized_uncomputations", []))
-        _tamper("AUDIT_P2_FAIL_COUNT", lambda p: p["pillar2_silq_static_typechecker"].__setitem__("must_fail_program_count", 6))
-        _tamper("AUDIT_P2_FAIL_REJECTED", lambda p: p["pillar2_silq_static_typechecker"]["must_fail_programs"][0].__setitem__("well_typed", True))
-        _tamper("AUDIT_P2_FAIL_REJECTED", lambda p: p["pillar2_silq_static_typechecker"]["must_fail_programs"][0].__setitem__("extra_fp", 1))
-        _tamper("AUDIT_P2_FAIL_REJECTED", lambda p: p["pillar2_silq_static_typechecker"]["must_fail_programs"][0].__setitem__("annotation", "mfree"))
-        _tamper("AUDIT_P2_FAIL_REJECTED", lambda p: p["pillar2_silq_static_typechecker"]["must_fail_programs"][0].__setitem__("synthesized_uncomputations", ["X"]))
-        _tamper("INVALID_BOOL", lambda p: p["pillar2_silq_static_typechecker"]["must_fail_programs"][0].__setitem__("well_typed", 0))
+        _tamper("AUDIT_SCHEMA_ERROR", lambda p: p["pillar2_toy_silq_ir_checker"].__setitem__("extra_p2", 1))
+        _tamper("AUDIT_SCHEMA_TYPE", lambda p: p.__setitem__("pillar2_toy_silq_ir_checker", []))
+        _tamper("AUDIT_P2_VALID_COUNT", lambda p: p["pillar2_toy_silq_ir_checker"].__setitem__("valid_program_count", 5))
+        _tamper("INVALID_INT", lambda p: p["pillar2_toy_silq_ir_checker"].__setitem__("valid_program_count", True))
+        _tamper("AUDIT_P2_VALID_TYPED", lambda p: p["pillar2_toy_silq_ir_checker"]["valid_programs"][0].__setitem__("well_typed", False))
+        _tamper("AUDIT_P2_VALID_TYPED", lambda p: p["pillar2_toy_silq_ir_checker"]["valid_programs"][0].__setitem__("extra_vp", 1))
+        _tamper("AUDIT_P2_VALID_TYPED", lambda p: p["pillar2_toy_silq_ir_checker"]["valid_programs"][0].__setitem__("annotation", "general"))
+        _tamper("AUDIT_P2_VALID_TYPED", lambda p: p["pillar2_toy_silq_ir_checker"]["valid_programs"][0].__setitem__("return_types", ["!B", "!B"]))
+        _tamper("AUDIT_P2_VALID_TYPED", lambda p: p["pillar2_toy_silq_ir_checker"]["valid_programs"][1].__setitem__("name", p["pillar2_toy_silq_ir_checker"]["valid_programs"][0]["name"]))
+        _tamper("AUDIT_P2_VALID_TYPED", lambda p: p["pillar2_toy_silq_ir_checker"]["valid_programs"][2].__setitem__("synthesized_uncomputations", []))
+        _tamper("AUDIT_P2_FAIL_COUNT", lambda p: p["pillar2_toy_silq_ir_checker"].__setitem__("must_fail_program_count", 6))
+        _tamper("AUDIT_P2_FAIL_REJECTED", lambda p: p["pillar2_toy_silq_ir_checker"]["must_fail_programs"][0].__setitem__("well_typed", True))
+        _tamper("AUDIT_P2_FAIL_REJECTED", lambda p: p["pillar2_toy_silq_ir_checker"]["must_fail_programs"][0].__setitem__("extra_fp", 1))
+        _tamper("AUDIT_P2_FAIL_REJECTED", lambda p: p["pillar2_toy_silq_ir_checker"]["must_fail_programs"][0].__setitem__("annotation", "mfree"))
+        _tamper("AUDIT_P2_FAIL_REJECTED", lambda p: p["pillar2_toy_silq_ir_checker"]["must_fail_programs"][0].__setitem__("synthesized_uncomputations", ["X"]))
+        _tamper("INVALID_BOOL", lambda p: p["pillar2_toy_silq_ir_checker"]["must_fail_programs"][0].__setitem__("well_typed", 0))
         def _rename_err_codes(p: dict) -> None:
-            r0 = p["pillar2_silq_static_typechecker"]["must_fail_programs"][0]
+            r0 = p["pillar2_toy_silq_ir_checker"]["must_fail_programs"][0]
             r0["type_error_code"] = "FORGED_CODE"
             r0["expected_error_code"] = "FORGED_CODE"
         _tamper("AUDIT_P2_FAIL_REJECTED", _rename_err_codes)
-        _tamper("AUDIT_P2_FAIL_REJECTED", lambda p: p["pillar2_silq_static_typechecker"]["must_fail_programs"][0].__setitem__("type_error_detail", "forged detail"))
-        _tamper("AUDIT_P2_FAIL_REJECTED", lambda p: p["pillar2_silq_static_typechecker"]["must_fail_programs"][1].__setitem__("name", "renamed_fail"))
+        _tamper("AUDIT_P2_FAIL_REJECTED", lambda p: p["pillar2_toy_silq_ir_checker"]["must_fail_programs"][0].__setitem__("type_error_detail", "forged detail"))
+        _tamper("AUDIT_P2_FAIL_REJECTED", lambda p: p["pillar2_toy_silq_ir_checker"]["must_fail_programs"][1].__setitem__("name", "renamed_fail"))
 
         # Pillar 3 tampers (incl. strict keysets, hermitian, trace_is_one, interference_*, purity_strictly_dropped)
         _tamper("AUDIT_SCHEMA_ERROR", lambda p: p["pillar3_uncomputation_partial_trace"].__setitem__("extra_p3", 1))
@@ -767,34 +848,35 @@ class Test04PayloadAndSecondaryAuditTamperMatrix(unittest.TestCase):
         _tamper("AUDIT_P3_FLAGS", lambda p: p["pillar3_uncomputation_partial_trace"].__setitem__("purity_strictly_dropped", False))
 
         # Pillar 4 tampers (incl. strict keysets, n_in_bits/input_state_count/distinct_output_count/max_fiber_size metadata)
-        _tamper("AUDIT_SCHEMA_ERROR", lambda p: p["pillar4_landauer_nested_simulation"].__setitem__("extra_p4", 1))
-        _tamper("AUDIT_SCHEMA_TYPE", lambda p: p.__setitem__("pillar4_landauer_nested_simulation", []))
-        _tamper("AUDIT_P4_LANDAUER_AND", lambda p: p["pillar4_landauer_nested_simulation"]["irreversible_and_2_to_1"].__setitem__("extra_and", 1))
-        _tamper("AUDIT_P4_LANDAUER_AND", lambda p: p["pillar4_landauer_nested_simulation"]["irreversible_and_2_to_1"].__setitem__("n_in_bits", 9))
-        _tamper("AUDIT_P4_LANDAUER_AND", lambda p: p["pillar4_landauer_nested_simulation"]["irreversible_and_2_to_1"].__setitem__("input_state_count", 8))
-        _tamper("AUDIT_P4_LANDAUER_AND", lambda p: p["pillar4_landauer_nested_simulation"]["irreversible_and_2_to_1"].__setitem__("distinct_output_count", 3))
-        _tamper("AUDIT_P4_LANDAUER_AND", lambda p: p["pillar4_landauer_nested_simulation"]["irreversible_and_2_to_1"].__setitem__("max_fiber_size", 4))
-        _tamper("AUDIT_P4_LANDAUER_AND", lambda p: p["pillar4_landauer_nested_simulation"]["irreversible_and_2_to_1"].__setitem__("two_pow_N_H_X_given_Y", 26))
-        _tamper("AUDIT_P4_LANDAUER_AND", lambda p: p["pillar4_landauer_nested_simulation"]["irreversible_and_2_to_1"].__setitem__("landauer_erasure_lower_bound_bits", "999"))
-        _tamper("INVALID_INT", lambda p: p["pillar4_landauer_nested_simulation"]["irreversible_and_2_to_1"].__setitem__("two_pow_N_H_X_given_Y", True))
-        _tamper("AUDIT_P4_LANDAUER_ERASE", lambda p: p["pillar4_landauer_nested_simulation"]["irreversible_reset_1_to_1"].__setitem__("extra_er", 1))
-        _tamper("AUDIT_P4_LANDAUER_ERASE", lambda p: p["pillar4_landauer_nested_simulation"]["irreversible_reset_1_to_1"].__setitem__("n_in_bits", 2))
-        _tamper("AUDIT_P4_LANDAUER_ERASE", lambda p: p["pillar4_landauer_nested_simulation"]["irreversible_reset_1_to_1"].__setitem__("max_fiber_size", 1))
-        _tamper("AUDIT_P4_LANDAUER_ERASE", lambda p: p["pillar4_landauer_nested_simulation"]["irreversible_reset_1_to_1"].__setitem__("two_pow_N_H_X_given_Y", 999))
-        _tamper("AUDIT_P4_LANDAUER_ERASE", lambda p: p["pillar4_landauer_nested_simulation"]["irreversible_reset_1_to_1"].__setitem__("is_bijection", True))
-        _tamper("AUDIT_P4_TOFFOLI", lambda p: p["pillar4_landauer_nested_simulation"]["reversible_toffoli_3_to_3"].__setitem__("extra_ccx", 1))
-        _tamper("AUDIT_P4_TOFFOLI", lambda p: p["pillar4_landauer_nested_simulation"]["reversible_toffoli_3_to_3"].__setitem__("n_in_bits", 2))
-        _tamper("AUDIT_P4_TOFFOLI", lambda p: p["pillar4_landauer_nested_simulation"]["reversible_toffoli_3_to_3"].__setitem__("max_fiber_size", 2))
-        _tamper("AUDIT_P4_TOFFOLI", lambda p: p["pillar4_landauer_nested_simulation"]["reversible_toffoli_3_to_3"].__setitem__("involution_verified", False))
-        _tamper("AUDIT_P4_SIM_N", lambda p: p["pillar4_landauer_nested_simulation"]["nested_simulation_table_n1_to_n20"].pop())
-        _tamper("AUDIT_P4_SIM_SCALING", lambda p: p["pillar4_landauer_nested_simulation"]["nested_simulation_table_n1_to_n20"][0].__setitem__("extra_row", 1))
-        _tamper("AUDIT_P4_SIM_SCALING", lambda p: p["pillar4_landauer_nested_simulation"]["nested_simulation_table_n1_to_n20"][0].__setitem__("hilbert_dim_2n", 3))
-        _tamper("AUDIT_P4_SIM_SCALING", lambda p: p["pillar4_landauer_nested_simulation"]["nested_simulation_table_n1_to_n20"][19].__setitem__("overhead_2n_over_n", "999"))
-        _tamper("AUDIT_P4_SIM_SCALING", lambda p: p["pillar4_landauer_nested_simulation"]["nested_simulation_table_n1_to_n20"][19].__setitem__("overhead_decimal_trunc2", "999.00"))
-        _tamper("AUDIT_P4_ISO", lambda p: p["pillar4_landauer_nested_simulation"].__setitem__("algebraic_group_isomorphic_l0_l2", False))
-        _tamper("AUDIT_P4_ISO", lambda p: p["pillar4_landauer_nested_simulation"].__setitem__("overhead_strictly_increasing_from_n2", False))
+        _tamper("AUDIT_SCHEMA_ERROR", lambda p: p["pillar4_landauer_and_dense_sizes"].__setitem__("extra_p4", 1))
+        _tamper("AUDIT_SCHEMA_TYPE", lambda p: p.__setitem__("pillar4_landauer_and_dense_sizes", []))
+        _tamper("AUDIT_P4_LANDAUER_AND", lambda p: p["pillar4_landauer_and_dense_sizes"]["irreversible_and_2_to_1"].__setitem__("extra_and", 1))
+        _tamper("AUDIT_P4_LANDAUER_AND", lambda p: p["pillar4_landauer_and_dense_sizes"]["irreversible_and_2_to_1"].__setitem__("n_in_bits", 9))
+        _tamper("AUDIT_P4_LANDAUER_AND", lambda p: p["pillar4_landauer_and_dense_sizes"]["irreversible_and_2_to_1"].__setitem__("input_state_count", 8))
+        _tamper("AUDIT_P4_LANDAUER_AND", lambda p: p["pillar4_landauer_and_dense_sizes"]["irreversible_and_2_to_1"].__setitem__("distinct_output_count", 3))
+        _tamper("AUDIT_P4_LANDAUER_AND", lambda p: p["pillar4_landauer_and_dense_sizes"]["irreversible_and_2_to_1"].__setitem__("max_fiber_size", 4))
+        _tamper("AUDIT_P4_LANDAUER_AND", lambda p: p["pillar4_landauer_and_dense_sizes"]["irreversible_and_2_to_1"].__setitem__("two_pow_N_H_X_given_Y", 26))
+        _tamper("AUDIT_P4_LANDAUER_AND", lambda p: p["pillar4_landauer_and_dense_sizes"]["irreversible_and_2_to_1"].__setitem__("landauer_erasure_lower_bound_bits", "999"))
+        _tamper("INVALID_INT", lambda p: p["pillar4_landauer_and_dense_sizes"]["irreversible_and_2_to_1"].__setitem__("two_pow_N_H_X_given_Y", True))
+        _tamper("AUDIT_P4_LANDAUER_ERASE", lambda p: p["pillar4_landauer_and_dense_sizes"]["irreversible_reset_1_to_1"].__setitem__("extra_er", 1))
+        _tamper("AUDIT_P4_LANDAUER_ERASE", lambda p: p["pillar4_landauer_and_dense_sizes"]["irreversible_reset_1_to_1"].__setitem__("n_in_bits", 2))
+        _tamper("AUDIT_P4_LANDAUER_ERASE", lambda p: p["pillar4_landauer_and_dense_sizes"]["irreversible_reset_1_to_1"].__setitem__("max_fiber_size", 1))
+        _tamper("AUDIT_P4_LANDAUER_ERASE", lambda p: p["pillar4_landauer_and_dense_sizes"]["irreversible_reset_1_to_1"].__setitem__("two_pow_N_H_X_given_Y", 999))
+        _tamper("AUDIT_P4_LANDAUER_ERASE", lambda p: p["pillar4_landauer_and_dense_sizes"]["irreversible_reset_1_to_1"].__setitem__("is_bijection", True))
+        _tamper("AUDIT_P4_TOFFOLI", lambda p: p["pillar4_landauer_and_dense_sizes"]["reversible_toffoli_3_to_3"].__setitem__("extra_ccx", 1))
+        _tamper("AUDIT_P4_TOFFOLI", lambda p: p["pillar4_landauer_and_dense_sizes"]["reversible_toffoli_3_to_3"].__setitem__("n_in_bits", 2))
+        _tamper("AUDIT_P4_TOFFOLI", lambda p: p["pillar4_landauer_and_dense_sizes"]["reversible_toffoli_3_to_3"].__setitem__("max_fiber_size", 2))
+        _tamper("AUDIT_P4_TOFFOLI", lambda p: p["pillar4_landauer_and_dense_sizes"]["reversible_toffoli_3_to_3"].__setitem__("involution_verified", False))
+        _tamper("AUDIT_P4_SIM_N", lambda p: p["pillar4_landauer_and_dense_sizes"]["dense_statevector_size_table_n1_to_n20"].pop())
+        _tamper("AUDIT_P4_SIM_SCALING", lambda p: p["pillar4_landauer_and_dense_sizes"]["dense_statevector_size_table_n1_to_n20"][0].__setitem__("extra_row", 1))
+        _tamper("AUDIT_P4_SIM_SCALING", lambda p: p["pillar4_landauer_and_dense_sizes"]["dense_statevector_size_table_n1_to_n20"][0].__setitem__("hilbert_dim_2n", 3))
+        _tamper("AUDIT_P4_SIM_SCALING", lambda p: p["pillar4_landauer_and_dense_sizes"]["dense_statevector_size_table_n1_to_n20"][19].__setitem__("overhead_2n_over_n", "999"))
+        _tamper("AUDIT_P4_SIM_SCALING", lambda p: p["pillar4_landauer_and_dense_sizes"]["dense_statevector_size_table_n1_to_n20"][19].__setitem__("overhead_decimal_trunc2", "999.00"))
+        _tamper("AUDIT_P4_ISO", lambda p: p["pillar4_landauer_and_dense_sizes"].__setitem__("generators_unitary", False))
+        _tamper("AUDIT_P4_ISO", lambda p: p["pillar4_landauer_and_dense_sizes"].__setitem__("overhead_strictly_increasing_from_n2", False))
 
     def test_file_level_canonical_byte_guards(self) -> None:
+        _require_real_tmpdir_or_skip(self)
         raw = oracle.canonical_json_bytes(self.valid_cert) + b"\n"
         with tempfile.TemporaryDirectory(prefix="s38_cert_") as tmp:
             td = Path(tmp)
@@ -817,7 +899,107 @@ class Test98KernelRacesAndConcurrencyStress(unittest.TestCase):
             fn(*args, **kwargs)
         self.assertEqual(ctx.exception.code, code)
 
-    def test_deleted_cwd_concurrency_renameat2_and_hardlink_races(self) -> None:
+    def test_live_renameat2_toctou_race(self) -> None:
+        # Linux/glibc-only renameat2(RENAME_EXCHANGE) TOCTOU race witness; explicitly skips elsewhere
+        if sys.platform != "linux":
+            self.skipTest("renameat2(RENAME_EXCHANGE) TOCTOU race requires Linux glibc; skipped on " + sys.platform)
+        _require_real_tmpdir_or_skip(self)
+        libc = ctypes.CDLL(None, use_errno=True)
+        renameat2 = getattr(libc, "renameat2", None)
+        if renameat2 is None:
+            self.skipTest("libc renameat2 symbol unavailable on this platform")
+        if hasattr(renameat2, "argtypes"):
+            renameat2.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_uint]
+            renameat2.restype = ctypes.c_int
+
+        AT_FDCWD = -100
+        RENAME_EXCHANGE = 2
+        with tempfile.TemporaryDirectory(prefix="s38_toctou_") as tmp:
+            td = Path(tmp)
+            canary_dir = td / "canary"
+            canary_dir.mkdir(mode=0o700)
+            canary_file = canary_dir / "data.json"
+            canary_file.write_bytes(b"CANARY_DO_NOT_LEAK_OR_CLOBBER\n")
+            safe_dir = td / "slot_a"
+            safe_dir.mkdir(mode=0o700)
+            (safe_dir / "data.json").write_bytes(b"SAFE_PAYLOAD\n")
+            sym_slot = td / "slot_b"
+            sym_slot.symlink_to(canary_dir)
+
+            p_a = os.fsencode(str(safe_dir))
+            p_b = os.fsencode(str(sym_slot))
+            # Synchronous first-call probe: skip cleanly if filesystem/kernel rejects RENAME_EXCHANGE
+            probe_rc = renameat2(AT_FDCWD, p_a, AT_FDCWD, p_b, RENAME_EXCHANGE)
+            if probe_rc != 0:
+                self.skipTest(f"renameat2(RENAME_EXCHANGE) unsupported on tmp filesystem (errno={ctypes.get_errno()})")
+            restore_rc = renameat2(AT_FDCWD, p_a, AT_FDCWD, p_b, RENAME_EXCHANGE)
+            self.assertEqual(restore_rc, 0)
+
+            stop_ev = threading.Event()
+            swaps = [0]
+            deadline_ns = time.monotonic_ns() + 15_000_000_000
+
+            def _swapper() -> None:
+                consecutive_failures = 0
+                while (not stop_ev.is_set() or swaps[0] < 600) and time.monotonic_ns() < deadline_ns:
+                    if renameat2(AT_FDCWD, p_a, AT_FDCWD, p_b, RENAME_EXCHANGE) == 0:
+                        swaps[0] += 1
+                        consecutive_failures = 0
+                    else:
+                        consecutive_failures += 1
+                        if consecutive_failures >= 100:
+                            break
+                    if stop_ev.is_set() and swaps[0] >= 600:
+                        break
+
+            t = threading.Thread(target=_swapper, daemon=True)
+            t.start()
+            try:
+                target = safe_dir / "data.json"
+                for i in range(550):
+                    try:
+                        got = audit.read_regular_bytes_capped(target)
+                        self.assertNotIn(b"CANARY", got)
+                    except oracle.SilqBoundaryError as exc:
+                        self.assertIn(exc.code, ("SYMLINK_FORBIDDEN", "PATH_STAT_ERROR", "FILE_READ_ERROR", "FILE_IO_ERROR"))
+                    try:
+                        audit.write_regular_file_bytes(target, f"SAFE_WRITE_{i}\n".encode("ascii"))
+                    except oracle.SilqBoundaryError as exc:
+                        self.assertIn(exc.code, ("SYMLINK_FORBIDDEN", "PATH_STAT_ERROR", "FILE_WRITE_ERROR", "FILE_IO_ERROR"))
+            finally:
+                stop_ev.set()
+                t.join(timeout=5)
+            self.assertFalse(t.is_alive())
+            self.assertGreaterEqual(swaps[0], 500)
+            self.assertEqual(canary_file.read_bytes(), b"CANARY_DO_NOT_LEAK_OR_CLOBBER\n")
+            self.assertEqual([p.name for p in safe_dir.glob(".s38_silq_tmp_*")], [])
+
+    def test_renameat2_missing_or_failing_skips_without_hanging(self) -> None:
+        # Issue #52 item 5 regression: failing or missing renameat2 must skip cleanly without hanging
+        _require_real_tmpdir_or_skip(self)
+
+        class _FailingLibc:
+            @staticmethod
+            def renameat2(_dfd1: int, _p1: bytes, _dfd2: int, _p2: bytes, _flags: int) -> int:
+                return -1
+
+        class _MissingLibc:
+            pass
+
+        with mock.patch.object(sys, "platform", "linux"), mock.patch.object(ctypes, "CDLL", return_value=_FailingLibc()):
+            with self.assertRaises(unittest.SkipTest):
+                self.test_live_renameat2_toctou_race()
+
+        with mock.patch.object(sys, "platform", "linux"), mock.patch.object(ctypes, "CDLL", return_value=_MissingLibc()):
+            with self.assertRaises(unittest.SkipTest):
+                self.test_live_renameat2_toctou_race()
+
+        with mock.patch.object(sys, "platform", "darwin"):
+            with self.assertRaises(unittest.SkipTest):
+                self.test_live_renameat2_toctou_race()
+
+    def test_deleted_cwd_hardlink_and_concurrency_stress(self) -> None:
+        _require_real_tmpdir_or_skip(self)
         # 1. Deleted CWD fail-closed
         with tempfile.TemporaryDirectory(prefix="s38_cwd_") as tmp:
             doomed = Path(tmp) / "doomed"
@@ -838,59 +1020,7 @@ class Test98KernelRacesAndConcurrencyStress(unittest.TestCase):
             finally:
                 os.chdir(old_cwd)
 
-        # 2. Live >= 500 concurrent renameat2(RENAME_EXCHANGE) swaps across 550 R/W cycles
-        libc = ctypes.CDLL(None, use_errno=True)
-        renameat2 = getattr(libc, "renameat2", None)
-        if renameat2 is not None:
-            AT_FDCWD = -100
-            RENAME_EXCHANGE = 2
-            with tempfile.TemporaryDirectory(prefix="s38_toctou_") as tmp:
-                td = Path(tmp)
-                canary_dir = td / "canary"
-                canary_dir.mkdir(mode=0o700)
-                canary_file = canary_dir / "data.json"
-                canary_file.write_bytes(b"CANARY_DO_NOT_LEAK_OR_CLOBBER\n")
-                safe_dir = td / "slot_a"
-                safe_dir.mkdir(mode=0o700)
-                (safe_dir / "data.json").write_bytes(b"SAFE_PAYLOAD\n")
-                sym_slot = td / "slot_b"
-                sym_slot.symlink_to(canary_dir)
-
-                stop_ev = threading.Event()
-                swaps = [0]
-                p_a = os.fsencode(str(safe_dir))
-                p_b = os.fsencode(str(sym_slot))
-
-                def _swapper() -> None:
-                    while not stop_ev.is_set() or swaps[0] < 600:
-                        if renameat2(AT_FDCWD, p_a, AT_FDCWD, p_b, RENAME_EXCHANGE) == 0:
-                            swaps[0] += 1
-                        if stop_ev.is_set() and swaps[0] >= 600:
-                            break
-
-                t = threading.Thread(target=_swapper)
-                t.start()
-                try:
-                    target = safe_dir / "data.json"
-                    for i in range(550):
-                        try:
-                            got = audit.read_regular_bytes_capped(target)
-                            self.assertNotIn(b"CANARY", got)
-                        except oracle.SilqBoundaryError as exc:
-                            self.assertIn(exc.code, ("SYMLINK_FORBIDDEN", "PATH_STAT_ERROR", "FILE_READ_ERROR", "FILE_IO_ERROR"))
-                        try:
-                            audit.write_regular_file_bytes(target, f"SAFE_WRITE_{i}\n".encode("ascii"))
-                        except oracle.SilqBoundaryError as exc:
-                            self.assertIn(exc.code, ("SYMLINK_FORBIDDEN", "PATH_STAT_ERROR", "FILE_WRITE_ERROR", "FILE_IO_ERROR"))
-                finally:
-                    stop_ev.set()
-                    t.join(timeout=5)
-
-                self.assertGreaterEqual(swaps[0], 500)
-                self.assertEqual(canary_file.read_bytes(), b"CANARY_DO_NOT_LEAK_OR_CLOBBER\n")
-                self.assertEqual([p.name for p in safe_dir.glob(".s38_silq_tmp_*")], [])
-
-        # 3. Live >= 420 concurrent os.link / os.unlink hardlink race + 16T/80T writer burst + EEXIST/fstat guards
+        # 2. Live >= 420 concurrent os.link / os.unlink hardlink race + 16T/80T writer burst + EEXIST/fstat guards
         with tempfile.TemporaryDirectory(prefix="s38_conc_") as tmp:
             td = Path(tmp)
             victim = td / "victim.json"
@@ -909,7 +1039,7 @@ class Test98KernelRacesAndConcurrencyStress(unittest.TestCase):
                     except OSError:
                         pass
 
-            th = threading.Thread(target=_hl_racer)
+            th = threading.Thread(target=_hl_racer, daemon=True)
             th.start()
             try:
                 for i in range(420):
@@ -1026,23 +1156,24 @@ class Test98KernelRacesAndConcurrencyStress(unittest.TestCase):
 
 
 class Test99EndToEndPillarsAndCLI(unittest.TestCase):
-    """End-to-end verification of all 4 Portal 36 mathematical pillars and CLI roundtrip."""
+    """End-to-end verification of all 4 Track S38 exact pillars and CLI roundtrip."""
 
     def test_end_to_end_and_cli_roundtrip(self) -> None:
         cert = oracle.build_standalone_certificate()
         p = cert["payload"]
         self.assertTrue(p["all_verified"])
         self.assertEqual(p["oracle_class"], "exact")
-        self.assertEqual(p["novelty_classification"], "N1")
+        self.assertEqual(p["novelty_classification"], "N0")
+        self.assertEqual(len(p["literature_anchors_n0"]), 5)
 
-        # Pillar 1
+        # Pillar 1 (exact 9 gates: X, Y, Z, H, S, T, CNOT, CZ, CCX)
         p1 = p["pillar1_cyclotomic_clifford_t"]
         self.assertTrue(p1["pillar_verified"])
-        self.assertEqual(len(p1["gate_certifications"]), 9)
+        self.assertEqual([g["gate"] for g in p1["gate_certifications"]], ["X", "Y", "Z", "H", "S", "T", "CNOT", "CZ", "CCX"])
         self.assertEqual(len(p1["group_relations_verified"]), 14)
 
         # Pillar 2
-        p2 = p["pillar2_silq_static_typechecker"]
+        p2 = p["pillar2_toy_silq_ir_checker"]
         self.assertTrue(p2["pillar_verified"])
         self.assertEqual(p2["valid_program_count"], 6)
         self.assertEqual(p2["must_fail_program_count"], 7)
@@ -1058,14 +1189,16 @@ class Test99EndToEndPillarsAndCLI(unittest.TestCase):
         self.assertEqual(p3["toffoli_grover_dropped_garbage"]["purity_Tr_rho_sq"], "5/8")
 
         # Pillar 4
-        p4 = p["pillar4_landauer_nested_simulation"]
+        p4 = p["pillar4_landauer_and_dense_sizes"]
         self.assertTrue(p4["pillar_verified"])
+        self.assertTrue(p4["generators_unitary"])
         self.assertEqual(p4["irreversible_and_2_to_1"]["two_pow_N_H_X_given_Y"], 27)
         self.assertEqual(p4["reversible_toffoli_3_to_3"]["two_pow_N_H_X_given_Y"], 1)
-        self.assertEqual(p4["nested_simulation_table_n1_to_n20"][19]["hilbert_dim_2n"], 1048576)
-        self.assertEqual(p4["nested_simulation_table_n1_to_n20"][19]["cyclotomic_q_components_4x2n"], 4194304)
+        self.assertEqual(p4["dense_statevector_size_table_n1_to_n20"][19]["hilbert_dim_2n"], 1048576)
+        self.assertEqual(p4["dense_statevector_size_table_n1_to_n20"][19]["cyclotomic_q_components_4x2n"], 4194304)
 
         # CLI roundtrip (default, --standalone, --write, --check, '=' syntax)
+        _require_real_tmpdir_or_skip(self)
         with tempfile.TemporaryDirectory(prefix="s38_cli_") as tmp:
             cp1 = Path(tmp) / "c1.json"
             cp2 = Path(tmp) / "c2.json"

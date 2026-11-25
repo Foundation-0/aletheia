@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Track S38 (Portal 36): Zone-B Hardened CLI, Deterministic Replay & Secondary Algebraic Auditor.
+"""Track S38: Zone-B Hardened CLI, Deterministic Replay & Secondary Algebraic Auditor.
 
 Zero external dependencies, zero AST floats, zero float() calls, zero bare
 asserts, zero .isdigit(), zero mathematical RNG (secrets.token_hex(8) used
@@ -76,7 +76,10 @@ _EXPECTED_BORN_VECTORS: dict[str, list[list[str]]] = {
 }
 _EXPECTED_RING_REPR = "a + b*sqrt(2) + i*(c + d*sqrt(2)), (a,b,c,d) in D^4"
 _EXPECTED_LITERATURE_ANCHORS = [
-    "Bichsel, Baader, Gehr, Vechev (PLDI 2020): Silq High-Level Quantum Language",
+    "Kliuchnikov, Maslov, Mosca (QIC 2013): Exact synthesis of single-qubit Clifford+T unitaries over Z[1/sqrt(2), i]",
+    "Giles, Selinger (Phys. Rev. A 2013): Exact synthesis of multiqubit Clifford+T circuits over Z[1/sqrt(2), i]",
+    "Bichsel, Baader, Gehr, Vechev (PLDI 2020): Silq High-Level Quantum Language (silq-lang/silq)",
+    "Gottesman (1998); Aaronson, Gottesman (Phys. Rev. A 2004): Stabilizer formalism and polynomial-space Clifford simulation (Gottesman-Knill)",
     "Landauer (IBM J. Res. Dev. 1961): Irreversibility and Heat Generation",
 ]
 _EXPECTED_VALID_PROGRAMS: dict[str, tuple[str, list[str], list[str]]] = {
@@ -196,9 +199,9 @@ _P4_KEYS = frozenset({
     "irreversible_and_2_to_1",
     "irreversible_reset_1_to_1",
     "reversible_toffoli_3_to_3",
-    "nested_simulation_table_n1_to_n20",
+    "dense_statevector_size_table_n1_to_n20",
     "overhead_strictly_increasing_from_n2",
-    "algebraic_group_isomorphic_l0_l2",
+    "generators_unitary",
     "pillar_verified",
 })
 _P4_AND_KEYS = frozenset({
@@ -532,8 +535,8 @@ def secondary_audit_payload(payload: Any) -> dict[str, Any]:
         )):
             raise SilqBoundaryError("AUDIT_P1_NONUNITARY", "non-unitary negative control and pillar flag must hold")
 
-        # Pillar 2: Executable Silq static type-checker
-        p2 = _require_exact_dict(payload["pillar2_silq_static_typechecker"], _P2_KEYS, "AUDIT_SCHEMA_ERROR", "pillar2")
+        # Pillar 2: Toy 7-op dictionary IR modelled on Silq annotations
+        p2 = _require_exact_dict(payload["pillar2_toy_silq_ir_checker"], _P2_KEYS, "AUDIT_SCHEMA_ERROR", "pillar2")
         vprogs = p2["valid_programs"]
         fprogs = p2["must_fail_programs"]
         if (require_int(p2["valid_program_count"], "valid_program_count"), len(vprogs)) != (6, 6):
@@ -604,8 +607,8 @@ def secondary_audit_payload(payload: Any) -> dict[str, Any]:
         )):
             raise SilqBoundaryError("AUDIT_P3_FLAGS", "Pillar 3 purity drop and pillar flag must be True")
 
-        # Pillar 4: Landauer erasure vs reversible Toffoli & nested-simulation table
-        p4 = _require_exact_dict(payload["pillar4_landauer_nested_simulation"], _P4_KEYS, "AUDIT_SCHEMA_ERROR", "pillar4")
+        # Pillar 4: Landauer erasure vs reversible Toffoli & dense state-vector size table
+        p4 = _require_exact_dict(payload["pillar4_landauer_and_dense_sizes"], _P4_KEYS, "AUDIT_SCHEMA_ERROR", "pillar4")
         and_s = p4["irreversible_and_2_to_1"]
         if not all((
             type(and_s) is dict,
@@ -654,9 +657,9 @@ def secondary_audit_payload(payload: Any) -> dict[str, Any]:
             {k: require_int(v, "ccx.fib") for k, v in ccx_s["fiber_sizes"].items()} == {str(k): 1 for k in range(8)},
         )):
             raise SilqBoundaryError("AUDIT_P4_TOFFOLI", "Toffoli reversible bijection witness mismatch")
-        tbl = p4["nested_simulation_table_n1_to_n20"]
+        tbl = p4["dense_statevector_size_table_n1_to_n20"]
         if [require_int(r["n_qubits"], "n_qubits") for r in tbl] != list(range(1, 21)):
-            raise SilqBoundaryError("AUDIT_P4_SIM_N", "nested simulation table must cover exact n=1..20")
+            raise SilqBoundaryError("AUDIT_P4_SIM_N", "dense state-vector size table must cover exact n=1..20")
         for r in tbl:
             nq = r["n_qubits"]
             ov = Fraction(1 << nq, nq)
@@ -669,13 +672,13 @@ def secondary_audit_payload(payload: Any) -> dict[str, Any]:
                 parse_exact_rational(r["overhead_2n_over_n"], "ov") == ov,
                 r["overhead_decimal_trunc2"] == format_decimal_trunc(ov, places=2),
             )):
-                raise SilqBoundaryError("AUDIT_P4_SIM_SCALING", "nested simulation scaling mismatch")
+                raise SilqBoundaryError("AUDIT_P4_SIM_SCALING", "dense state-vector size row mismatch")
         if not all((
             require_bool(p4["overhead_strictly_increasing_from_n2"], "p4.inc"),
-            require_bool(p4["algebraic_group_isomorphic_l0_l2"], "p4.iso"),
+            require_bool(p4["generators_unitary"], "p4.gen"),
             require_bool(p4["pillar_verified"], "p4.verified"),
         )):
-            raise SilqBoundaryError("AUDIT_P4_ISO", "Pillar 4 scaling and shared unitary-law flags must be True")
+            raise SilqBoundaryError("AUDIT_P4_ISO", "Pillar 4 scaling and generator-unitarity flags must be True")
     except SilqBoundaryError:
         raise
     except (KeyError, TypeError, AttributeError) as exc:
@@ -687,7 +690,7 @@ def secondary_audit_payload(payload: Any) -> dict[str, Any]:
         "gates_checked": len(gcerts),
         "valid_silq_programs_checked": len(vprogs),
         "must_fail_silq_programs_checked": len(fprogs),
-        "nested_simulation_rows_checked": len(tbl),
+        "dense_size_rows_checked": len(tbl),
     }
 
 

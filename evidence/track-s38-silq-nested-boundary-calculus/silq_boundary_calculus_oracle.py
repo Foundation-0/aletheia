@@ -1,20 +1,22 @@
 #!/usr/bin/env python3
-"""Track S38 (Portal 36): Nested Simulation & Silq Boundary-Typing Calculus.
+"""Track S38: Exact Z[1/sqrt(2), i] Clifford+T Arithmetic, Silq-Inspired Toy IR, Partial-Trace Witnesses & Landauer Accounting.
 
 Pure Python 3 standard library over exact Z / Q / D[i, sqrt(2)].
 Zero external dependencies, zero AST floats, zero float() calls, zero bare
 asserts, zero .isdigit()/.isnumeric()/.isdecimal(), zero RNG calls.
 
-Formalizes Portal 36 (Level 0 Continuum -> Level 1 Simulated !T Determinism ->
-Level 2 silq-lang/silq Boundary Compiler) across four mathematical pillars:
+Implements four exact pure-Z/Q verification components (all mathematical
+ingredients are known prior art, novelty default N0):
   P1: Exact dyadic cyclotomic ring D[i, sqrt(2)] = Z[1/2, sqrt(2), i] Clifford+T
-      unitary engine, group relations, and exact Born probability conservation.
-  P2: Executable static core silq-lang/silq type-checker enforcing !T vs linear T,
-      const, qfree, lifted, mfree, forget, and measure laws.
-  P3: Exact uncomputation vs dropped-garbage entanglement & Portal 35 partial-trace
-      theorem (rho_O = Tr_H rho_OH, purity Tr(rho_O^2) in Q, linear entropy S_L).
-  P4: Exact Landauer erasure vs reversible Toffoli bijection accounting (Landauer
-      1961, N0) and Level-0 / Level-1 / Level-2 nested-simulation complexity gap.
+      unitary engine (X, Y, Z, H, S, T, CNOT, CZ, CCX), 14 group relations, and
+      4 Born probability witnesses (Kliuchnikov-Maslov-Mosca 2013; Giles-Selinger 2013).
+  P2: Toy 7-operation dictionary IR modelled on Silq annotations (!B, B, const,
+      qfree, lifted, mfree, forget, measure; Bichsel et al., PLDI 2020).
+  P3: Two exact partial-trace purity witnesses comparing explicit ancilla
+      uncomputation vs retained ancillae (rho_O = Tr_H(|Psi><Psi|), Tr(rho_O^2) in Q).
+  P4: Exact pure-Z Landauer preimage-fiber erasure accounting (AND, ERASE, CCX;
+      Landauer 1961) and dense state-vector / density-matrix size tabulation for
+      n = 1..20 (not a general simulation lower bound; Gottesman-Knill).
 """
 from __future__ import annotations
 
@@ -37,12 +39,13 @@ MAX_FORMAT_BITS = 4096
 
 _HEX_LOWER = frozenset("0123456789abcdef")
 _ASCII_DIGITS = frozenset("0123456789")
+_VALID_NOVELTY_TIERS = frozenset({"N0", "N1", "N2"})
 _CERT_KEYS = frozenset({"schema", "track_id", "payload_sha256", "certificate_sha256", "payload"})
 _PILLAR_KEYS = (
     "pillar1_cyclotomic_clifford_t",
-    "pillar2_silq_static_typechecker",
+    "pillar2_toy_silq_ir_checker",
     "pillar3_uncomputation_partial_trace",
-    "pillar4_landauer_nested_simulation",
+    "pillar4_landauer_and_dense_sizes",
 )
 _PAYLOAD_KEYS = frozenset({
     "oracle_class",
@@ -67,7 +70,6 @@ _ALLOWED_BOOL_KEYS = frozenset({
     "X2_eq_I",
     "Y2_eq_I",
     "Z2_eq_I",
-    "algebraic_group_isomorphic_l0_l2",
     "all_born_nonneg",
     "all_dyadic",
     "all_gates_unitary_and_dyadic",
@@ -78,6 +80,7 @@ _ALLOWED_BOOL_KEYS = frozenset({
     "all_witnesses_unit_norm",
     "born_sum_is_one",
     "erasure_bracket_verified",
+    "generators_unitary",
     "hermitian",
     "interference_destroyed",
     "interference_preserved",
@@ -717,7 +720,7 @@ def build_pillar1_cyclotomic() -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# Pillar 2: Executable Static silq-lang/silq Core Type-Checker
+# Pillar 2: Toy 7-Op Dictionary IR Modelled on Silq Annotations
 # ---------------------------------------------------------------------------
 
 _VALID_TYPES = frozenset({"!B", "B"})
@@ -748,7 +751,7 @@ def _require_ident(raw: Any, label: str) -> str:
 
 
 def typecheck_silq_program(prog: Any) -> dict[str, Any]:
-    """Static Silq core type-checker enforcing !T vs T, const, qfree, lifted, mfree, forget, measure."""
+    """Check a 7-op toy dictionary IR modelled on Silq annotations (!B, B, const, qfree, lifted, mfree, forget, measure)."""
     if type(prog) is not dict:
         raise SilqBoundaryError("INVALID_PROGRAM", "program must be strict dict")
     name = _require_ident(prog.get("name"), "program.name")
@@ -899,8 +902,8 @@ def typecheck_silq_program(prog: Any) -> dict[str, Any]:
                 return _reject("UNBOUND_OR_DEAD_VAR", f"dead or unbound wire in {gate}")
             if any(env[w]["type"] != "B" for w in all_wires):
                 return _reject("TYPE_MISMATCH", f"unitary gate {gate} requires quantum B wires")
-            if any(env[w]["const"] for w in all_wires):
-                return _reject("CONST_MODIFICATION_FORBIDDEN", f"cannot apply unitary {gate} to const parameter")
+            if env[tgt]["const"]:
+                return _reject("CONST_MODIFICATION_FORBIDDEN", f"cannot apply unitary {gate} to const target {tgt}")
             if gate in _UNITARY_NON_DIAG_GATES:
                 _taint_dependents(tgt)
 
@@ -1200,7 +1203,7 @@ def build_pillar2_silq_typechecker() -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# Pillar 3: Exact Uncomputation vs Garbage Entanglement & Partial-Trace Theorem
+# Pillar 3: Exact Partial-Trace Purity Witnesses (Uncomputed vs. Retained Ancillae)
 # ---------------------------------------------------------------------------
 
 def partial_trace_state(
@@ -1286,7 +1289,7 @@ def build_pillar3_uncomputation_partial_trace() -> dict[str, Any]:
     s_oracle = apply_gate_state(s_oracle, 2, gates["CNOT"], [0, 1])
     s_oracle = apply_gate_state(s_oracle, 2, gates["Z"], [1])
 
-    # Witness A: Silq forget(H) = CNOT(0, 1), then interference H(0)
+    # Witness A: Explicit manual uncompute CNOT(0, 1) (outside Pillar 2's lifted_and-only checker), then interference H(0)
     s_clean = apply_gate_state(s_oracle, 2, gates["CNOT"], [0, 1])
     s_clean = apply_gate_state(s_clean, 2, gates["H"], [0])
     dj_clean = density_matrix_purity(partial_trace_state(s_clean, 2, [0]))
@@ -1324,7 +1327,7 @@ def build_pillar3_uncomputation_partial_trace() -> dict[str, Any]:
     s_toff_mark = apply_gate_state(s_toff_mark, 3, gates["CCX"], [0, 1, 2])
     s_toff_mark = apply_gate_state(s_toff_mark, 3, gates["Z"], [2])
 
-    # Witness A2: With Silq forget(tmp) = CCX(0, 1, 2) + Grover diffusion -> P(|11>) = 1, purity = 1
+    # Witness A2: Explicit CCX(0, 1, 2) uncompute (matching Pillar 2's toffoli_lifted_auto_uncompute) + Grover diffusion -> P(|11>) = 1, purity = 1
     s_grover_clean = apply_gate_state(s_toff_mark, 3, gates["CCX"], [0, 1, 2])
     s_grover_clean = _apply_grover_2q_diffusion(s_grover_clean)
     grover_clean = density_matrix_purity(partial_trace_state(s_grover_clean, 3, [0, 1]))
@@ -1378,7 +1381,7 @@ def build_pillar3_uncomputation_partial_trace() -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# Pillar 4: Landauer Erasure vs Reversibility & Nested-Simulation Gap
+# Pillar 4: Landauer Erasure vs Reversibility & Dense State-Vector Size Table
 # ---------------------------------------------------------------------------
 
 def analyze_classical_gate_erasure(
@@ -1420,8 +1423,13 @@ def analyze_classical_gate_erasure(
     }
 
 
-def build_nested_simulation_table(max_qubits: int = 20) -> list[dict[str, Any]]:
-    """Certify exact Level-0/Level-2 algebraic dim vs Level-1 classical state-vector overhead for n=1..max_qubits."""
+def build_dense_statevector_size_table(max_qubits: int = 20) -> list[dict[str, Any]]:
+    """Tabulate dense state-vector (2^n, 4*2^n) and density-matrix (4^n) sizes for n=1..max_qubits.
+
+    Note: This tabulates dense representation size only and does not claim a general classical
+    simulation lower bound (Clifford circuits are classically simulable in polynomial space
+    via the Gottesman-Knill theorem).
+    """
     n_max = require_int(max_qubits, "max_qubits", lo=2, hi=24)
     rows: list[dict[str, Any]] = []
     for n in range(1, n_max + 1):
@@ -1440,7 +1448,7 @@ def build_nested_simulation_table(max_qubits: int = 20) -> list[dict[str, Any]]:
     return rows
 
 
-def build_pillar4_landauer_nested_simulation() -> dict[str, Any]:
+def build_pillar4_landauer_and_dense_sizes() -> dict[str, Any]:
     # Classical irreversible AND: (a, b) -> a & b
     and_table = [((x >> 1) & (x & 1)) for x in range(4)]
     and_stats = analyze_classical_gate_erasure(2, 1, and_table)
@@ -1461,14 +1469,14 @@ def build_pillar4_landauer_nested_simulation() -> dict[str, Any]:
     ccx_table = [((x & 6) | ((x & 1) ^ (((x >> 2) & 1) & ((x >> 1) & 1)))) for x in range(8)]
     ccx_stats = analyze_classical_gate_erasure(3, 3, ccx_table)
 
-    # Exact Level-0 / Level-1 / Level-2 separation table n=1..20
-    sim_table = build_nested_simulation_table(20)
+    # Dense state-vector & density-matrix size table for n=1..20 (representation sizes only)
+    sim_table = build_dense_statevector_size_table(20)
     overheads = [parse_exact_rational(r["overhead_2n_over_n"]) for r in sim_table]
     strictly_inc_n2 = all(overheads[i] < overheads[i + 1] for i in range(1, len(overheads) - 1))
 
-    # Algebraic isomorphism witness: Level-0 unitary group and Level-2 Silq mfree Clifford+T share U^dagger U = I
+    # Exact unitarity check on the 4 Clifford+T/Toffoli generator matrices (H, T, CNOT, CCX)
     gates = _canonical_gates()
-    l0_l2_iso = all(is_unitary_cyc(gates[k]) for k in ("H", "T", "CNOT", "CCX"))
+    generators_unitary = all(is_unitary_cyc(gates[k]) for k in ("H", "T", "CNOT", "CCX"))
 
     verified = all((
         not and_stats["is_bijection"],
@@ -1485,16 +1493,16 @@ def build_pillar4_landauer_nested_simulation() -> dict[str, Any]:
         sim_table[19]["hilbert_dim_2n"] == 1048576,
         sim_table[19]["cyclotomic_q_components_4x2n"] == 4194304,
         strictly_inc_n2,
-        l0_l2_iso,
+        generators_unitary,
     ))
 
     return {
         "irreversible_and_2_to_1": and_stats,
         "irreversible_reset_1_to_1": erase_stats,
         "reversible_toffoli_3_to_3": ccx_stats,
-        "nested_simulation_table_n1_to_n20": sim_table,
+        "dense_statevector_size_table_n1_to_n20": sim_table,
         "overhead_strictly_increasing_from_n2": strictly_inc_n2,
-        "algebraic_group_isomorphic_l0_l2": l0_l2_iso,
+        "generators_unitary": generators_unitary,
         "pillar_verified": verified,
     }
 
@@ -1507,7 +1515,7 @@ def build_standalone_certificate() -> dict[str, Any]:
     p1 = build_pillar1_cyclotomic()
     p2 = build_pillar2_silq_typechecker()
     p3 = build_pillar3_uncomputation_partial_trace()
-    p4 = build_pillar4_landauer_nested_simulation()
+    p4 = build_pillar4_landauer_and_dense_sizes()
 
     all_ok = all((
         p1["pillar_verified"],
@@ -1518,17 +1526,20 @@ def build_standalone_certificate() -> dict[str, Any]:
 
     payload: dict[str, Any] = {
         "oracle_class": "exact",
-        "novelty_classification": "N1",
+        "novelty_classification": "N0",
         "literature_anchors_n0": [
-            "Bichsel, Baader, Gehr, Vechev (PLDI 2020): Silq High-Level Quantum Language",
+            "Kliuchnikov, Maslov, Mosca (QIC 2013): Exact synthesis of single-qubit Clifford+T unitaries over Z[1/sqrt(2), i]",
+            "Giles, Selinger (Phys. Rev. A 2013): Exact synthesis of multiqubit Clifford+T circuits over Z[1/sqrt(2), i]",
+            "Bichsel, Baader, Gehr, Vechev (PLDI 2020): Silq High-Level Quantum Language (silq-lang/silq)",
+            "Gottesman (1998); Aaronson, Gottesman (Phys. Rev. A 2004): Stabilizer formalism and polynomial-space Clifford simulation (Gottesman-Knill)",
             "Landauer (IBM J. Res. Dev. 1961): Irreversibility and Heat Generation",
         ],
         "zero_floats_exact_arithmetic": True,
         "all_verified": all_ok,
         "pillar1_cyclotomic_clifford_t": p1,
-        "pillar2_silq_static_typechecker": p2,
+        "pillar2_toy_silq_ir_checker": p2,
         "pillar3_uncomputation_partial_trace": p3,
-        "pillar4_landauer_nested_simulation": p4,
+        "pillar4_landauer_and_dense_sizes": p4,
     }
     payload_sha = sha256_hex(canonical_json_bytes(payload))
     cert_body = {
@@ -1559,7 +1570,7 @@ _PILLAR_KEYSETS: dict[str, frozenset[str]] = {
         "must_fail_non_unitary_rejected",
         "pillar_verified",
     }),
-    "pillar2_silq_static_typechecker": frozenset({
+    "pillar2_toy_silq_ir_checker": frozenset({
         "valid_program_count",
         "valid_programs",
         "all_valid_accepted",
@@ -1576,13 +1587,13 @@ _PILLAR_KEYSETS: dict[str, frozenset[str]] = {
         "purity_strictly_dropped",
         "pillar_verified",
     }),
-    "pillar4_landauer_nested_simulation": frozenset({
+    "pillar4_landauer_and_dense_sizes": frozenset({
         "irreversible_and_2_to_1",
         "irreversible_reset_1_to_1",
         "reversible_toffoli_3_to_3",
-        "nested_simulation_table_n1_to_n20",
+        "dense_statevector_size_table_n1_to_n20",
         "overhead_strictly_increasing_from_n2",
-        "algebraic_group_isomorphic_l0_l2",
+        "generators_unitary",
         "pillar_verified",
     }),
 }
@@ -1594,15 +1605,15 @@ def _validate_payload_structure(payload: dict[str, Any]) -> None:
         raise SilqBoundaryError("INVALID_PAYLOAD_KEYS", "payload top-level keys mismatch")
     if payload["oracle_class"] != "exact":
         raise SilqBoundaryError("INVALID_PAYLOAD_META", "oracle_class must be 'exact'")
-    if payload["novelty_classification"] != "N1":
-        raise SilqBoundaryError("INVALID_PAYLOAD_META", "novelty_classification must be 'N1'")
+    if type(payload["novelty_classification"]) is not str or payload["novelty_classification"] not in _VALID_NOVELTY_TIERS:
+        raise SilqBoundaryError("INVALID_PAYLOAD_META", "novelty_classification must be 'N0', 'N1', or 'N2'")
     if payload["zero_floats_exact_arithmetic"] is not True:
         raise SilqBoundaryError("INVALID_PAYLOAD_META", "zero_floats_exact_arithmetic must be True")
     if payload["all_verified"] is not True:
         raise SilqBoundaryError("INVALID_PAYLOAD_META", "all_verified must be True")
     anchors = payload["literature_anchors_n0"]
-    if type(anchors) is not list or len(anchors) != 2:
-        raise SilqBoundaryError("INVALID_PAYLOAD_META", "literature_anchors_n0 must be 2-element list")
+    if type(anchors) is not list or len(anchors) != 5:
+        raise SilqBoundaryError("INVALID_PAYLOAD_META", "literature_anchors_n0 must be 5-element list")
     for pkey in _PILLAR_KEYS:
         pdict = payload[pkey]
         if type(pdict) is not dict:
@@ -1633,7 +1644,7 @@ def _validate_payload_structure(payload: dict[str, Any]) -> None:
 
 
 def validate_certificate_payload(cert: Any, full_replay: bool = True) -> dict[str, Any]:
-    """Zone-B hardened in-memory certificate validator (callable directly by S19c fuzzer)."""
+    """Zone-B hardened in-memory certificate validator."""
     require_bool(full_replay, "full_replay")
     validate_json_tree_iterative(cert)
     if type(cert) is not dict:
