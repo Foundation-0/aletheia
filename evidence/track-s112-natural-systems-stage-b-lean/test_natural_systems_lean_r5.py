@@ -600,10 +600,12 @@ class Test05ExhaustiveLeafSweepAndEnvelope(unittest.TestCase):
 
 class Test06CLIAndPins(unittest.TestCase):
     def test_12_external_pins_and_tamper(self) -> None:
-        if (TRACK_DIR.parent / oracle.EXTERNAL_STAGE_B_PINS[0][1]).is_file():
-            pins = ver.verify_external_pins()
-            self.assertEqual(pins["status"], "PINS_OK")
-            self.assertEqual(pins["external"], 4)
+        # The 4 Stage-B pins are NOT shipped anywhere: the verifier must report
+        # them loudly as PINS_UNVERIFIABLE (never silently skip, never PINS_OK).
+        pins = ver.verify_external_pins()
+        self.assertEqual(pins["status"], "PINS_UNVERIFIABLE")
+        self.assertEqual(pins["external"], 0)
+        self.assertEqual(pins["unverifiable"], 4)
         with tempfile.TemporaryDirectory(prefix="s112_pins_") as td:
             root = Path(td)
             sample = root / "pin.md"
@@ -646,13 +648,18 @@ class Test06CLIAndPins(unittest.TestCase):
         self.assertEqual(rc, 0)
         self.assertEqual(json.loads(out)["status"], "OK")
 
-        if (TRACK_DIR.parent / oracle.EXTERNAL_STAGE_B_PINS[0][1]).is_file():
-            rc, out, _ = _run_cli(["--verify-pins"])
-            self.assertEqual(rc, 0)
-            self.assertIn("PINS_OK external=4", out)
-            rc, out, _ = _run_cli(["--verify-pins", "--json"])
-            self.assertEqual(rc, 0)
-            self.assertEqual(json.loads(out)["external"], 4)
+        rc, out, _ = _run_cli(["--verify-pins"])
+        self.assertEqual(rc, 0)
+        self.assertIn("PINS_UNVERIFIABLE", out)
+        self.assertIn("unverifiable=4", out)
+        rc, out, _ = _run_cli(["--verify-pins", "--json"])
+        self.assertEqual(rc, 0)
+        self.assertEqual(json.loads(out)["status"], "PINS_UNVERIFIABLE")
+        self.assertEqual(json.loads(out)["unverifiable"], 4)
+        # S102 MaleCNS cross-check: payload constants must equal the sha256-pinned
+        # S102 certificate values (fail-closed, SEC_P1_DALE_S102).
+        s102 = ver.s102_malecns_crosscheck()
+        self.assertEqual((s102["e"], s102["i"], s102["total"], s102["cx"]), (36739597, 23661623, 60401220, -428494))
 
         with tempfile.TemporaryDirectory(prefix="s112_cli_") as td:
             d = Path(td)

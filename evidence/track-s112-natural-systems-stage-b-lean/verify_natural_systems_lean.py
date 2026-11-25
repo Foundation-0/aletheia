@@ -468,6 +468,15 @@ def _independent_semantics(p: dict[str, Any]) -> None:
     )
     ml = p1["malecns_and_lif_lyapunov"]
     require_ok(ml["malecns_e_synapses"] + ml["malecns_i_synapses"] == ml["malecns_total_synapses"], "SEC_P1_DALE", "Dale sum")
+    s102 = s102_malecns_crosscheck()
+    require_ok(
+        ml["malecns_e_synapses"] == s102["e"]
+        and ml["malecns_i_synapses"] == s102["i"]
+        and ml["malecns_total_synapses"] == s102["total"]
+        and ml["malecns_cx_net_balance"] == s102["cx"],
+        "SEC_P1_DALE_S102",
+        "MaleCNS constants must equal the sha256-pinned S102 certificate values",
+    )
     require_ok(ml["lif_2step_nonzero_count"] + 1 == ml["lif_grid_states"], "SEC_P1_LIF_CNT", "LIF nonzero count")
     require_ok(ml["lif_2step_min_drop_nonzero"] > 0, "SEC_P1_LIF_DROP", "LIF strict 2-step drop")
 
@@ -688,13 +697,44 @@ def verify_certificate_file(cert_path: Path, *, full_replay: bool = True) -> dic
 def verify_external_pins(root_dir: Path | None = None) -> dict[str, Any]:
     base = TRACK_DIR.parent if root_dir is None else root_dir
     checked: list[dict[str, str]] = []
+    unverifiable: list[dict[str, str]] = []
     for pid, rel, expected_sha in oracle.EXTERNAL_STAGE_B_PINS:
         p = base / rel
+        if not p.is_file():
+            # Fail-loud, never silent: a pin whose file is absent is reported as
+            # unverifiable instead of being skipped (review ruling: pins that
+            # resolve nowhere are flagged, not silently dropped).
+            unverifiable.append({"id": pid, "path": rel, "sha256": expected_sha})
+            continue
         raw = read_regular_bytes_capped(p, pid)
         actual = oracle.sha256_hex(raw)
         require_ok(actual == expected_sha, "PIN_SHA_MISMATCH", f"{pid}: SHA mismatch")
         checked.append({"id": pid, "sha256": actual})
+    if unverifiable:
+        return {
+            "status": "PINS_UNVERIFIABLE",
+            "external": len(checked),
+            "unverifiable": len(unverifiable),
+            "pins": checked,
+            "unverifiable_pins": unverifiable,
+        }
     return {"status": "PINS_OK", "external": len(checked), "pins": checked}
+
+
+S102_CERT_REL = "track-s102-drosophila-malecns-connectome/s102_malecns_connectome_certificate.json"
+S102_CERT_SHA256 = "5238ce3f81099bd93145600b728d8af490a753447e089babf7ce035deb3bd945"
+
+
+def s102_malecns_crosscheck() -> dict[str, int]:
+    """Read the S102 MaleCNS certificate (sha256-pinned) and return its E/I/total/CX values."""
+    p = TRACK_DIR.parent / S102_CERT_REL
+    raw = read_regular_bytes_capped(p, "S102_CERT")
+    require_ok(oracle.sha256_hex(raw) == S102_CERT_SHA256, "S102_CERT_SHA_MISMATCH", "S102 certificate SHA-256 drifted")
+    cert = json.loads(raw)
+    share = cert["payload"]["pillar1_whole_cns_topology"]["dale_exc_share_of_signed_q"]
+    e_s, t_s = (int(x) for x in share.split("/"))
+    cx = cert["payload"]["pillar2_cx_attractor_and_supergraph"]["supergraph_8x8"]["biological_sign_witnesses"]["central_complex_self_net"]
+    return {"e": e_s, "i": t_s - e_s, "total": t_s, "cx": int(cx)}
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -743,7 +783,10 @@ def main(argv: list[str] | None = None) -> int:
         if as_json:
             sys.stdout.write(json.dumps(res, sort_keys=True) + "\n")
         elif mode == "--verify-pins":
-            sys.stdout.write(f"PINS_OK external={res['external']}\n")
+            if res["status"] == "PINS_UNVERIFIABLE":
+                sys.stdout.write(f"PINS_UNVERIFIABLE external={res['external']} unverifiable={res['unverifiable']}\n")
+            else:
+                sys.stdout.write(f"PINS_OK external={res['external']}\n")
         elif mode == "--verify-lean":
             sys.stdout.write(f"LEAN_OK theorems={res['theorems_verified']} sha256={res['lean_source_sha256']}\n")
         else:

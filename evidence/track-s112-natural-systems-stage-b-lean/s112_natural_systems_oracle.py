@@ -79,6 +79,11 @@ LEAN_THEOREM_NAMES: tuple[str, ...] = tuple(
     f"NaturalSystemsConservation.{short}" for short in LEAN_THEOREM_SHORT_NAMES
 )
 
+# NOTE (review 2026-11-25): these four Stage-B source artifacts resolve nowhere
+# (no branch or PR head of siliquant / math0 / cave-expedition / aletheia carries
+# them; verified by blob-sha256 and filename search). They are kept as external
+# HISTORICAL pins and reported as PINS_UNVERIFIABLE by the verifier -- never
+# silently skipped and never claimed as PINS_OK.
 EXTERNAL_STAGE_B_PINS: tuple[tuple[str, str, str], ...] = (
     (
         "PORTALS_1_4_STAGE_B_DOC",
