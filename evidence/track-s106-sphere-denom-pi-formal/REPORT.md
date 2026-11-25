@@ -1,6 +1,6 @@
 # Track S106 Phase 1A — Hypersphere Geometry, Denominator-$\pi$ Equal-Sphere-Fraction `EQ(S^{d-1})`, EM/Hodge Splitting, & Paired `H2b` Physics Benchmarks
 
-**Author:** `@claude-architect` · **Protocol:** `PREREG-SPHERE-PI-FORCES-V1` (SHA-256 `ac3e62116bc4841320d2c713787c23568beed1ae738bf9b284b7f0c2a118d72a`, locked prior to execution) · **Scope:** Phase 1A formal + analytical physics track (`formal_and_physics/`), strictly CPU-only, `0` GPU touch, `0` external downloads, `0` GitHub pushes, `0` IEEE-754 floats (`int`/`Fraction`/`Decimal` `prec=30` only), `PYTHONDONTWRITEBYTECODE=1`.
+**Author:** `@claude-architect` · **Protocol:** `PREREG-SPHERE-PI-FORCES-V1` (SHA-256 `ac3e62116bc4841320d2c713787c23568beed1ae738bf9b284b7f0c2a118d72a` recorded in the oracle; the prereg file itself is NOT shipped in this PR and no repo@sha is named, so the hash is an unverifiable external-historical pin — the "locked prior to execution" claim is not independently checkable) · **Scope:** Phase 1A formal + analytical physics track (`formal_and_physics/`), strictly CPU-only, `0` GPU touch, `0` external downloads, `0` GitHub pushes, `0` IEEE-754 floats (`int`/`Fraction`/`Decimal` `prec=30` only), `PYTHONDONTWRITEBYTECODE=1`.
 
 **Novelty (Law 4):** **`N1`** (`n2_claims = 0`). Archimedes' Hat-Box projection on $S^2$, Hopf's $S^3$ fibration, Zador's ball second moment $G(B^d)$, Fock–Moser $SO(4)$ Hydrogen/Kepler regularization, Gauss–Legendre quadrature, Fibonacci lattices, Halton QMC, and the 600-cell (`2I`) spherical 11-design are classical prior art. Track S106 Phase 1A contributes:
 1. A self-contained, zero-import pure-`Init` `Lean 4.36.0` formalization (`34/34` named `#print axioms` theorems, `0` `Classical.choice`, `0` `sorryAx`, `0` warnings) covering $\mathbb{Q}[\pi]$ graded-period cancellation, a universal proof that $B^{2k}$ strictly beats the $2k$-cube in Zador moment across all even dimensions $d = 2k \ge 2$ using only $\pi > 314/100$, arbitrary-dimension cleared-denominator EM/Hodge orthogonal splitting & radial-rescaling invariance over $\mathbb{Z}^d$, exact Hopf `EQ(S^3)` linear and quadratic midpoint moment laws, exact Hopf Fibration $\pi: S^3 \to S^2$ norm and $U(1)$ fiber-phase invariance (`EXP-Q06` formal companion), and universal $2^B$ slot-waste obstructions for exceptional spherical designs divisible by 3 or 5.
@@ -112,23 +112,23 @@ Zero imports, zero Mathlib, zero `sorry`, zero warnings, `rc = 0` under scrubbed
 All post-last-edit verification gates passed **`100.0%`** (CPU-only, `0` GPU touch, `PYTHONDONTWRITEBYTECODE=1`):
 
 - **Live Lean `4.36.0` (`SphereDenomPiOperators.lean`):** `34/34` named `#print axioms` theorems verified live under scrubbed allowlist `lean --stdin` (`3 [] + 2 [propext] + 29 [propext, Quot.sound]`, `0` `Classical.choice`, `0` `sorryAx`, `0` warnings, `0 B` stderr, `18/18` static Lean 4 pre-filter rules `0` findings, live poisoned `Init.olean` hijack blocked).
-- **Canonical Certificate (`s106_formal_physics_certificate.json`, `0o600`):** `payload_sha256 = f1248b8722342f0856a394c86ee60a5e00f945404663431aa791aa52beb1e749`, `certificate_sha256 = af42a3077b0a64b953d0eed937c07d7fedfe98ff59777b36490e26f7ca62af05`, `--standalone | cmp` `EXACT`, `--verify-pins` `PINS_OK external=2`.
+- **Canonical Certificate (`s106_formal_physics_certificate.json`, `0o644` (git 100644)):** `payload_sha256 = f1248b8722342f0856a394c86ee60a5e00f945404663431aa791aa52beb1e749`, `certificate_sha256 = af42a3077b0a64b953d0eed937c07d7fedfe98ff59777b36490e26f7ca62af05`, `--standalone | cmp` `EXACT`, `--verify-pins` NOT reproducible (pinned files not shipped, no repo@sha).
 - **Exhaustive Scalar-Leaf Re-Signed Tamper Sweep (`690` payload leaves):** `690/690` rejected on `SEC`, `690/690` rejected on `FR0`, and `690/690` rejected on `FR1` (`2,070/2,070 = 100.0%`, `0` bypasses, `0` crashes, `caller_immutable = True`, plus `>4,300`-digit integer DoS rejected with typed error).
 - **Direct 4-Surface v2.1 `zone_b_fuzzer` (zero wrappers):** **`82/82 PASS`** (`CLI 25/25`, `FR1 19/19`, `FR0 19/19`, `SEC 19/19`; `bypasses = 0`, `crashes = 0`).
 - **Official `aletheia-fast-mutate` (`--guards require_ok --workers 2 --timeout 180 --max-mutants 0`):** **`167/167 KILLED = 100.0%`** across all 3 executable `.py` targets (`s106_physics_denom_pi_bench.py` `16/16`, `s106_sphere_denom_pi_oracle.py` `26/26`, `verify_s106_sphere_denom_pi.py` `125/125`; `survived = 0`, `truncated = False ×3`, `null_mutant = passed ×3`).
 - **Whole-File AST `BoolOp` (`OP_SWAP + SUBCOND_DEL` across all 3 `.py` files):** **`19/19 KILLED = 100.0%`** (`0` survivors; `0` `BoolOp` nodes in bench/oracle, `19/19` killed in verifier).
-- **Multi-Env `-I` & Read-Only Directory Parity (`0` Skips):** **`15/15 OK ×6`** (`-I -B`, `-I -O -B`, `-I -B -W error`, `PYTHONHASHSEED=42`, `env -i HOME=/nonexistent`, RO-dir), `--check ×6` matching `af42a307...`, `--standalone | cmp EXACT`, `--verify-pins PINS_OK external=2`, `TMP_LEFTOVER = 0`, `PYC_OR_LAKE = 0`.
+- **Multi-Env `-I` & Read-Only Directory Parity (`0` Skips):** **`15/15 OK ×6`** (`-I -B`, `-I -O -B`, `-I -B -W error`, `PYTHONHASHSEED=42`, `env -i HOME=/nonexistent`, RO-dir), `--check ×6` matching `af42a307...`, `--standalone | cmp EXACT`, `--verify-pins` not reproducible (files not shipped), `TMP_LEFTOVER = 0`, `PYC_OR_LAKE = 0`.
 - **Dual `aletheia audit-check` (`aletheia-fix-lean-gates-v2` & `aletheia-fast-mutate`, `--strict-ancestors --safety-scan --lean-audit --scripts verify_s106_sphere_denom_pi.py test_s106_sphere_denom_pi_r5.py`):** **`PASS ×2`** (`files_scanned = 9`, `r4 = 2/2`, `lean_findings = 0`, `safety_findings = 0`, `bare_assert = 0`, `leaks = 0`, `crlf = 0`, `pycache = 0`).
 
 ## 8. Frozen Companion Manifest
 
 | File | Lines | Bytes | Mode | SHA-256 |
 |---|---:|---:|---:|---|
-| `SphereDenomPiOperators.lean` | 765 | 31,902 | `0o644` | `3184a96268417396b9583bdecfca941a0b2489f57a5eac7f47939e73cab4908d` |
-| `lakefile.toml` | 5 | 122 | `0o644` | `46e7baa5d7019b638f5c00391c7b0965a407504b87a8892c02e27e87899e54ff` |
-| `lean-toolchain` | 1 | 25 | `0o644` | `582a63f8f9c5128067b688778c1051cf1464c3ca9d57b9325025c051c29b774a` |
-| `s106_physics_denom_pi_bench.py` | 707 | 28,767 | `0o644` | `066222ce732f3b69ce254f8ab03ea2b0bdb9b1c65e7db43ee8c4ddcc6a7099da` |
-| `s106_sphere_denom_pi_oracle.py` | 462 | 19,659 | `0o644` | `c02a3741380aef8ab035613e22b187c3db689a3ac672100b65fe3319b2abf047` |
-| `verify_s106_sphere_denom_pi.py` | 604 | 28,543 | `0o644` | `e506052a2a7f53902ad1c3e2e6f7ce03e2d0b2e2fbbf11831364d56a4fae89c0` |
-| `test_s106_sphere_denom_pi_r5.py` | 723 | 40,780 | `0o644` | `17f6c28d0b918e0235adf33c4f92e1d93870bae8024cde57315376728a92554d` |
-| `s106_formal_physics_certificate.json` | 1 | 20,592 | `0o600` | `bb19e74ca41ad1cb388d3862961ec648ce52df8009cc8fba74d5e94983d6101e` |
+| `SphereDenomPiOperators.lean` | `765` | `31,902` | `0o644` | `3184a96268417396b9583bdecfca941a0b2489f57a5eac7f47939e73cab4908d` |
+| `lakefile.toml` | `5` | `122` | `0o644` | `46e7baa5d7019b638f5c00391c7b0965a407504b87a8892c02e27e87899e54ff` |
+| `lean-toolchain` | `1` | `25` | `0o644` | `582a63f8f9c5128067b688778c1051cf1464c3ca9d57b9325025c051c29b774a` |
+| `s106_physics_denom_pi_bench.py` | `720` | `29,370` | `0o644` | `230b76208e6a9f1cbceeffae8d4ed555438380c06fcf7c316a8a77cabd3ecafb` |
+| `s106_sphere_denom_pi_oracle.py` | `464` | `19,841` | `0o644` | `c105f9453e3f7cdafc12558c2e0b340a4f88826fa605dfb87d099cf5dadaf325` |
+| `verify_s106_sphere_denom_pi.py` | `615` | `28,958` | `0o644` | `7804407397177b57fc9e4edf0d7a303350ef91238c011623661394c9aed0b8d1` |
+| `test_s106_sphere_denom_pi_r5.py` | `723` | `40,780` | `0o644` | `17f6c28d0b918e0235adf33c4f92e1d93870bae8024cde57315376728a92554d` |
+| `s106_formal_physics_certificate.json` | `1` | `20,592` | `0o644` | `bb19e74ca41ad1cb388d3862961ec648ce52df8009cc8fba74d5e94983d6101e` |

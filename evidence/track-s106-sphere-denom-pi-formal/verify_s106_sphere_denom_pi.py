@@ -449,7 +449,18 @@ def _independent_semantics(p: dict[str, Any]) -> None:
     require_ok(cw["index_W_E8_over_W_D8"] * cw["W_B8"] == 2 * cw["W_E8"], "SEC_WE8_INDEX", "index*W(B_8)=2W(E_8)")
     p5 = p["pillar5_h2b_physics_benchmarks"]
     gr = p5["grading"]
-    require_ok(gr["verdict"] == "PARTIAL", "SEC_H2B_VERDICT", "H2b verdict must be honest PARTIAL")
+    expected_verdict = (
+        "FULL"
+        if (
+            gr["eq_beats_unweighted_numpi_ge_3x"]
+            and gr["eq_beats_unweighted_cartesian_ge_3x"]
+            and gr["fibonacci_equal_area_beats_sinweight_flux_ge_3x"]
+            and gr["hopf_eq_s3_1s2s2p_exact_zero_all_n"]
+            and gr["tensor_eq_beats_jacobian_weighted_numpi_ge_3x"]
+        )
+        else "PARTIAL"
+    )
+    require_ok(gr["verdict"] == expected_verdict, "SEC_H2B_VERDICT", "H2b verdict must be derived from the gate flags")
     require_ok(gr["eq_beats_unweighted_numpi_ge_3x"] is True, "SEC_H2B_UNW", "EQ beats unweighted NumPi >=3x")
     require_ok(gr["tensor_eq_beats_jacobian_weighted_numpi_ge_3x"] is False, "SEC_H2B_JAC", "tensor EQ vs JacWeight falsified")
     require_ok(gr["hopf_eq_s3_1s2s2p_exact_zero_all_n"] is True, "SEC_H2B_HOPF0", "Hopf 1s2s2p exact zero")

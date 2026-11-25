@@ -681,7 +681,20 @@ def run_h2b_benchmarks() -> dict[str, Any]:
             "poisson_rms": d_fmt_sci(res_600["poisson_rms"]),
         },
         "grading": {
-            "verdict": "PARTIAL",
+            # Derived from the gate flags below, not a literal: FULL iff EQ beats EVERY
+            # baseline incl. Jacobian-weighted grids; the tensor-product obstruction
+            # (tensor_eq_beats_jac_weighted_3x False) correctly caps this at PARTIAL.
+            "verdict": (
+                "FULL"
+                if (
+                    eq_beats_unweighted_3x
+                    and eq_beats_cartesian_3x
+                    and fib_beats_sinweight_flux_3x
+                    and hopf_1s2s2p_exact_all_n
+                    and tensor_eq_beats_jac_weighted_3x
+                )
+                else "PARTIAL"
+            ),
             "eq_beats_unweighted_numpi_ge_3x": eq_beats_unweighted_3x,
             "eq_beats_unweighted_cartesian_ge_3x": eq_beats_cartesian_3x,
             "tensor_eq_beats_jacobian_weighted_numpi_ge_3x": tensor_eq_beats_jac_weighted_3x,
