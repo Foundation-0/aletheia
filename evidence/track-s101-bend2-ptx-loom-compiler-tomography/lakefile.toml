@@ -1,0 +1,6 @@
+name = "track_s101_compiler_loom_tomography"
+version = "0.1.0"
+defaultTargets = ["CompilerAndLoomTomography"]
+
+[[lean_lib]]
+name = "CompilerAndLoomTomography"
