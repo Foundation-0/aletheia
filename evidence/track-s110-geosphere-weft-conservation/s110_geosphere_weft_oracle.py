@@ -337,10 +337,24 @@ def build_pillar2_oceanic_and_darcy() -> dict[str, Any]:
     mass_in = sum(x_ocean)
     mass_out = sum(y_ocean)
 
-    # 2. Law-5 Obstruction B1: causal lower-triangular doubly-stochastic collapses to I_n
-    # Unique solution via backward column-row elimination on n = 4
+    # 2. Law-5 Obstruction B1: causal lower-triangular doubly-stochastic collapses to I_n.
+    # Solved by backward column-row elimination on the n = 4 system (entries in [0,1],
+    # row sums = col sums = 1) — NOT a literal: each entry is derived from the constraints.
     causal_n = 4
-    causal_entries = [[Fraction(1) if i == j else Fraction(0) for j in range(causal_n)] for i in range(causal_n)]
+    causal_entries: list[list[Fraction]] = [
+        [Fraction(0) if j > i else Fraction(-1) for j in range(causal_n)] for i in range(causal_n)
+    ]  # strict upper triangle = 0 by causality; lower triangle unknown (-1)
+    for j in range(causal_n - 1, -1, -1):
+        # column j: rows i > j already solved (each such row is e_i by induction), so the
+        # column-sum constraint pins the diagonal entry.
+        fixed_below = sum(causal_entries[i][j] for i in range(j + 1, causal_n))
+        causal_entries[j][j] = Fraction(1) - fixed_below
+        # row j sum = 1 then leaves sum_{k<j} = 0, and entries are in [0,1] -> each is 0.
+        row_rest = Fraction(1) - causal_entries[j][j] - sum(causal_entries[j][k] for k in range(j + 1, causal_n))
+        if row_rest != 0:
+            raise S110OracleError("B1_ELIMINATION", "backward elimination row-sum residual must be 0")
+        for k in range(j):
+            causal_entries[j][k] = Fraction(0)
     causal_off_diag_zero = all(
         causal_entries[i][j] == 0 for i in range(causal_n) for j in range(causal_n) if i != j
     )
@@ -398,7 +412,7 @@ def build_pillar2_oceanic_and_darcy() -> dict[str, Any]:
         "b1_causal_sinkhorn_obstruction": {
             "dim": causal_n,
             "forced_identity": all((causal_off_diag_zero, causal_diag_one)),
-            "causal_sinkhorn_pruned": True,
+            "causal_sinkhorn_pruned": causal_entries == [[Fraction(1) if i == j else Fraction(0) for j in range(causal_n)] for i in range(causal_n)],
         },
         "discovery2_so2_birkhoff_non_commutation": {
             "qt_00_q": q_str(qt[0][0]),
@@ -548,6 +562,7 @@ def build_pillar3_bingham_poloidal_and_ozone() -> dict[str, Any]:
             "plug_output_norm_sq_q": q_str(ns_plug),
             "pythagorean_energy_exact": ns_mob == ns_mob_expected,
             "so4_equivariant_exact": so4_equivariant,
+            "so4_check_kind": "fixed-gain linearity at constant gate 3/5 (computed via matrix-vector products); full SO(k)-equivariance is NOT claimed — Lean Theorem 26 proves fixed-gain linearity only",
         },
         "ozone_channel2b_airlock": {
             "channel_norm_sq_q": q_str(norm_sq_q(w_ch)),
@@ -712,13 +727,11 @@ def build_pillar4_weft_smith_triple_gate() -> dict[str, Any]:
             nr_all_ok,
             clean_committed == 40,
             poison_rejected == 10,
-            catch_rate >= Fraction(9, 10),
             core_unchanged,
             rew_unchanged,
             mask_unchanged,
             monotone_ok,
             st["anchor_err"] == 20,
-            cum_norm_sq_final <= cum_cap_sq,
         )
     )
 
@@ -756,6 +769,7 @@ def build_pillar4_weft_smith_triple_gate() -> dict[str, Any]:
             "cum_norm_sq_final": cum_norm_sq_final,
             "cum_cap_sq": cum_cap_sq,
             "cum_budget_preserved": cum_norm_sq_final <= cum_cap_sq,
+            "h11c_simulation_kind": "scripted-illustration: poison flags are hand-set inputs and cum_norm_sq_final is the commit count by construction — no delta-W matrices are computed; dropped from all_pillar4_exact",
         },
         "all_pillar4_exact": all_ok,
     }
@@ -771,7 +785,8 @@ def build_payload() -> dict[str, Any]:
             "and pure-Init Lean 4.36.0; does NOT claim unconstrained coupled FP16/3-bpw conservation."
         ),
         "external_protocol_pins": [
-            {"id": pid, "rel_path": rel, "sha256": digest}
+            {"id": pid, "rel_path": rel, "sha256": digest,
+             "status": "external-historical (file not shipped in this repo; no repo@sha named — unverifiable)"}
             for pid, rel, digest in EXTERNAL_PROTOCOL_PINS
         ],
         "lean_companion": {

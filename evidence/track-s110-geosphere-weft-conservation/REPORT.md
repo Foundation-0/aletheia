@@ -1,6 +1,6 @@
 # Track S110 Stage 3 (`H10c`) — Pure-`Init` `Lean 4.36.0` Exact Conservation Laws, Law-5 Obstructions & `Weft-Smith` Safety Certificate
 
-**Author:** `@claude-architect` · **Protocols Pinned:** `PREREG-S110` (`2e645597...`), `PREREG-S110-AMENDMENT1` (`a41399fd...`), `PREREG-S111` (`6174c5fb...`), `PREREG-S109-AMENDMENT2` (`faf22506...`) · **Scope:** CPU-only formal & exact-rational pre-GPU gate (`0` GPU touch, `0` external downloads, `0` GitHub pushes, `0` IEEE-754 floats, `0` bare asserts, `PYTHONDONTWRITEBYTECODE=1`).
+**Author:** `@claude-architect` · **Protocols Pinned (hashes recorded; files NOT shipped and no repo@sha named — unverifiable external-historical pins):** `PREREG-S110` (`2e645597...`), `PREREG-S110-AMENDMENT1` (`a41399fd...`), `PREREG-S111` (`6174c5fb...`), `PREREG-S109-AMENDMENT2` (`faf22506...`) · **Scope:** CPU-only formal & exact-rational pre-GPU gate (`0` GPU touch, `0` external downloads, `0` GitHub pushes, `0` IEEE-754 floats, `0` bare asserts, `PYTHONDONTWRITEBYTECODE=1`).
 
 **Honest Scope & Novelty (`N1`, `n2_claims = 0`):**
 - Skew-symmetric Cayley rotations, Birkhoff doubly-stochastic matrices, Darcy convex averaging, Bingham soft-thresholding, Householder reflections, and gated rollback state machines are classical prior art (`N0` individually).
@@ -21,7 +21,7 @@
 
 - **Bidirectional Mass Conservation (Theorem 9):** Every column-stochastic (and doubly-stochastic) matrix $T$ with column sum $D$ satisfies $\sum_i (T x)_i = D \sum_j x_j$ identically for all $n \in \mathbb{N}$ (oracle $d = 4$ symmetric Birkhoff witness: `mass_in = mass_out = 16`).
 - **Exact Law-5 Obstruction `B1` — Causal Doubly-Stochastic Collapse (`PREREG-S110-AMENDMENT1` Discovery 1, Theorem 10):** Proved universally for **all $n \in \mathbb{N}$**: any non-negative lower-triangular (causal) matrix whose rows AND columns sum to $D$ MUST satisfy $T_{ij} = D \cdot \delta_{ij}$ identically ($T = D \cdot I_n$ — zero cross-token attention!). Causal doubly-stochastic Sinkhorn is therefore permanently pruned.
-- **Exact Law-5 Obstruction — $O(n) \cap B_n \subseteq \mathrm{Perm}(n)$ & Non-Commutation (`PREREG-S110-AMENDMENT1` Discovery 2, Theorems 11–12):**
+- **Exact Law-5 Obstruction — $O(n) \cap B_n \subseteq \mathrm{Perm}(n)$ entrywise (Theorem 11; orthogonality not part of the statement) & Non-Commutation (Theorem 12):**
   - Universally for all $n \in \mathbb{N}$, any non-negative matrix whose rows have $L^1$ sum $D$ and $L^2$ norm-squared $D^2$ satisfies $Q_{ij} \in \{0, D\}$ for every entry (permutation entries only — zero continuous doubly-stochastic orthogonal mixing on the same axis!).
   - Explicit $d = 2$ Cayley quarter-turn $Q$ and Birkhoff matrix $T = \frac{1}{4}\begin{pmatrix}1&3\\3&1\end{pmatrix}$ fail to commute (`QT[0,0] = -3/4`, `TQ[0,0] = 3/4`, $\|QT - TQ\|_F^2 = 9/2 > 0`), mandating feature-axis $SO(k)$ vs. position-axis separation.
 - **Darcy Porous Aquifer / Diagonal EMA Contraction & `M1` Hypothesis Obstruction (Theorems 13–17):**
@@ -75,7 +75,7 @@ Zero imports, zero Mathlib, zero `sorry`, zero warnings, `rc = 0`, `0 B` stderr 
 | 27–28 | `cauchy_schwarz_int_n`, `ozone_channel2b_advection_airlock_bound` | Arbitrary-dim constructive Cauchy–Schwarz & frozen-weight Channel-2B airlock bound monotone in `B1 ≤ B2` |
 | 29–30 | `householder_reflection_norm_sq`, `weft_crow_preserved_under_reflection` | Arbitrary-dim `‖H_u^{cl} v‖^2 = ‖u‖^4‖v‖^2` and exact `C_row(ΔW) ≤ C_max` invariance under reflection |
 | 31–35 | `weft_step_{capability_isolation,non_generative_mask,rollback_soundness,commit_soundness}`, `weft_triple_gate_non_redundancy` | `ΔW_core = 0 ∧ Δψ = 0`, non-generative mask, `O(1)` rollback `post = pre`, commit iff all 3 gates + `Shell_3`, non-redundancy |
-| 36–38 | `weft_multicycle_safety_invariant`, `weft_crow_cancellation_obstruction`, `weft_cumulative_budget_multicycle` | `T`-cycle invariance, universal `a ≠ 0` composed `C_row` cancellation attack, and cumulative ledger drift + `kvEpoch` rollback |
+| 36–38 | `weft_multicycle_safety_invariant`, `weft_crow_cancellation_obstruction`, `weft_cumulative_budget_multicycle` | `T`-cycle invariance, universal `a ≠ 0` composed `C_row` cancellation attack, and cumulative ledger drift + `kvEpoch` rollback (ledger is self-reported by the simulated stepper — scripted illustration, not an independent gate) |
 
 ---
 
@@ -84,12 +84,12 @@ Zero imports, zero Mathlib, zero `sorry`, zero warnings, `rc = 0`, `0 B` stderr 
 All gates ran post-last-edit (CPU-only, `0` GPU touch, `PYTHONDONTWRITEBYTECODE=1`) with **`100.0% PASS`**:
 
 - **Live Lean `4.36.0` (`--verify-lean`):** **`38/38`** theorems verified under allowlist-scrubbed `lean --stdin` (`4 [] + 2 [propext] + 32 [propext, Quot.sound]`, `0` `Classical.choice`, `0` `sorryAx`, `0` warnings, `0 B` stderr, `18/18` R13b `O(1)` `in_ident` static Lean rules `0` findings, `X1..X3` + literal-LF `Char` caught with `0` FP on identifier primes, live fake `Init.olean` hijack blocked).
-- **Canonical Certificate (`0o600`, `7,794` B):** `payload_sha256 = 58e53e131b28a97d2a0e432f77870afc9f2ef2e65aaa14d2a31a8a839741151c`, `certificate_sha256 = 7975a8040f612a3dc95d8e83e20748aba8087c159ef3624a32343d28982a1f63`, `--standalone --json | cmp` **`EXACT`**, `--verify-pins` **`PINS_OK external=4`**.
-- **Exhaustive `235`-Leaf Re-Signed Tamper Sweep (`SEC`/`FR0`/`FR1`):** **`705/705 = 100.0%`** (`235/235` × 3 surfaces, `0` bypasses, `0` crashes, `caller_immutable = True`, plus `4,500`-digit JSON & `10^5000` in-memory DoS rejected with typed `INT_DIGIT_LIMIT`).
+- **Canonical Certificate (`0o600`, `7,794` B):** `payload_sha256 = 6b75569b8ea2f69bf881efb1deb28a29ab301133cc8e72b340f6d7777f18d845`, `certificate_sha256 = eb87f505c415ec7ddf5edb45c5447783f6cf9e1615db4dee6f5401a0d2a97ccc`, `--standalone --json | cmp` **`EXACT`**, `--verify-pins` **PINS_PARTIAL_UNVERIFIABLE external=0, 4 pins unverifiable (prereg files not shipped, no repo@sha named)**.
+- **Exhaustive `241`-Leaf Re-Signed Tamper Sweep (`SEC`/`FR0`/`FR1`):** **`723/723 = 100.0%`** (`241/241` × 3 surfaces, `0` bypasses, `0` crashes, `caller_immutable = True`, plus `4,500`-digit JSON & `10^5000` in-memory DoS rejected with typed `INT_DIGIT_LIMIT`).
 - **Direct 4-Surface v2.1 `zone_b_fuzzer` (zero wrappers):** **`82/82 PASS`** (`CLI 25/25`, `FR1 19/19`, `FR0 19/19`, `SEC 19/19`; `bypasses = 0`, `crashes = 0`).
 - **Official `aletheia-fast-mutate` (`--guards require_ok --workers 2 --timeout 180 --max-mutants 0`):** **`140/140 KILLED = 100.0%`** (`s110_geosphere_weft_oracle.py` `9/9`, `verify_s110_geosphere_weft_conservation.py` `131/131`; `survived = 0`, `truncated = False ×2`, `null_mutant = passed ×2`).
 - **Whole-File AST `BoolOp` (`OP_SWAP + SUBCOND_DEL` across both `.py` targets):** **`28/28 KILLED = 100.0%`** (`0` survivors; `0` `BoolOp` nodes in oracle, `28/28` killed in verifier).
-- **Multi-Env `-I` & Read-Only Directory Parity (`0` Skips):** **`15/15 OK ×7`** across isolated flags (`-I -B`, `-I -O -B`, `-I -B -W error`, `PYTHONHASHSEED=42`, `env -i HOME=/nonexistent`, and read-only directory), `--check ×6`, `--verify-lean`, `--standalone | cmp EXACT`, `--verify-pins PINS_OK external=4`, `PYC_OR_LAKE = 0`.
+- **Multi-Env `-I` & Read-Only Directory Parity (`0` Skips):** **`15/15 OK ×7`** across isolated flags (`-I -B`, `-I -O -B`, `-I -B -W error`, `PYTHONHASHSEED=42`, `env -i HOME=/nonexistent`, and read-only directory), `--check ×6`, `--verify-lean`, `--standalone | cmp EXACT`, `--verify-pins PINS_PARTIAL_UNVERIFIABLE (4 unverifiable)`, `PYC_OR_LAKE = 0`.
 - **Dual `aletheia audit-check` (`aletheia-fix-lean-gates-v2` & `aletheia-fast-mutate`, `--strict-ancestors --safety-scan --lean-audit --scripts verify_s110_geosphere_weft_conservation.py test_s110_geosphere_weft_r5.py`):** **`PASS ×2`** (`files_scanned = 8`, `r4 = 2/2`, `lean_findings = 0`, `safety_findings = 0`, `bare_assert = 0`, `leaks = 0`, `crlf = 0`, `pycache = 0`).
 
 ---
@@ -98,10 +98,10 @@ All gates ran post-last-edit (CPU-only, `0` GPU touch, `PYTHONDONTWRITEBYTECODE=
 
 | File | Lines | Bytes | Mode | SHA-256 |
 |---|---:|---:|---:|---|
-| `GeosphereWeftConservation.lean` | 1,651 | 79,093 | `0o644` | `1c0ed76de3eb6fe55e5f3e618a2ea12433ce4ffe4efe158af0a769bac5733fa8` |
-| `lakefile.toml` | 5 | 131 | `0o644` | `ef07fba51abddc218a7e345d7032744615ff0e21af4bcabb9d0de01013dd02d4` |
-| `lean-toolchain` | 1 | 25 | `0o644` | `582a63f8f9c5128067b688778c1051cf1464c3ca9d57b9325025c051c29b774a` |
-| `s110_geosphere_weft_oracle.py` | 833 | 33,181 | `0o644` | `82abfd3af2f6b99d7d0b2795bad6a324ed6aad02d4ff2776772fb32645982bd4` |
-| `verify_s110_geosphere_weft_conservation.py` | 672 | 29,114 | `0o644` | `72bd6d0796defa705d6aa5e0f505a77438e381c80762e87cef3f4b3f80aefd62` |
-| `test_s110_geosphere_weft_r5.py` | 800 | 41,589 | `0o644` | `78c82f9c2be0ffd40ea57c9980d88cb2fd6d415113131577d3b6288194b5debb` |
-| `s110_geosphere_weft_certificate.json` | 1 | 7,794 | `0o600` | `2d27a8237cb47dd95f6aad09324d9487dbafe1f4363194a800239ea4e3b5eeba` |
+| `GeosphereWeftConservation.lean` | `1,651` | `79,093` | `0o644` | `1c0ed76de3eb6fe55e5f3e618a2ea12433ce4ffe4efe158af0a769bac5733fa8` |
+| `lakefile.toml` | `5` | `131` | `0o644` | `ef07fba51abddc218a7e345d7032744615ff0e21af4bcabb9d0de01013dd02d4` |
+| `lean-toolchain` | `1` | `25` | `0o644` | `582a63f8f9c5128067b688778c1051cf1464c3ca9d57b9325025c051c29b774a` |
+| `s110_geosphere_weft_oracle.py` | `848` | `34,696` | `0o644` | `72c6dd3b8d7a09c79af83bef731e05db5f366f21ff3ed06bd529dde00627b2aa` |
+| `verify_s110_geosphere_weft_conservation.py` | `686` | `30,046` | `0o644` | `9f02983dd14b7df0f80d96d464272255d5e64ebb0a44acef39d23699e5baab6c` |
+| `test_s110_geosphere_weft_r5.py` | `809` | `42,020` | `0o644` | `22819ab3c504511caa8f051b3a25c231acb8af00e05704875b29be8c57f98a04` |
+| `s110_geosphere_weft_certificate.json` | `1` | `8,608` | `0o600` | `bcbf0121475b572eeb0dab01365b15d56bf4b90b17e717201b85ba5022b5a9fd` |

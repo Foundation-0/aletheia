@@ -571,7 +571,7 @@ class Test05ExhaustiveLeafSweepAndEnvelope(unittest.TestCase):
     def test_11_exhaustive_235_leaf_resigned_sweep_all_3_surfaces(self) -> None:
         leaves: list = []
         _walk_leaves(FROZEN_CERT["payload"], [], leaves)
-        self.assertEqual(len(leaves), 235)
+        self.assertEqual(len(leaves), 241)
         for path, orig in leaves:
             c = copy.deepcopy(FROZEN_CERT)
             _set_path(c["payload"], path, _tamper_scalar(orig))
@@ -590,10 +590,15 @@ class Test05ExhaustiveLeafSweepAndEnvelope(unittest.TestCase):
 
 class Test06CLIAndPins(unittest.TestCase):
     def test_12_external_pins_and_tamper(self) -> None:
+        # No silent skip: pins are either re-hashed (files shipped) or reported unverifiable.
+        pins = ver.verify_external_pins()
         if (TRACK_DIR.parent / oracle.EXTERNAL_PROTOCOL_PINS[0][1]).is_file():
-            pins = ver.verify_external_pins()
             self.assertEqual(pins["status"], "PINS_OK")
             self.assertEqual(pins["external"], 4)
+        else:
+            self.assertEqual(pins["status"], "PINS_PARTIAL_UNVERIFIABLE")
+            self.assertEqual(len(pins["unverifiable"]), 4)
+            self.assertEqual(pins["external"], 0)
         with tempfile.TemporaryDirectory(prefix="s110_pins_") as td:
             root = Path(td)
             sample = root / "pin.md"
@@ -636,13 +641,17 @@ class Test06CLIAndPins(unittest.TestCase):
         self.assertEqual(rc, 0)
         self.assertEqual(json.loads(out)["status"], "OK")
 
+        rc, out, _ = _run_cli(["--verify-pins"])
+        self.assertEqual(rc, 0)
+        rc, out, _ = _run_cli(["--verify-pins", "--json"])
+        self.assertEqual(rc, 0)
+        pj = json.loads(out)
         if (TRACK_DIR.parent / oracle.EXTERNAL_PROTOCOL_PINS[0][1]).is_file():
-            rc, out, _ = _run_cli(["--verify-pins"])
-            self.assertEqual(rc, 0)
-            self.assertIn("PINS_OK external=4", out)
-            rc, out, _ = _run_cli(["--verify-pins", "--json"])
-            self.assertEqual(rc, 0)
-            self.assertEqual(json.loads(out)["external"], 4)
+            self.assertEqual(pj["status"], "PINS_OK")
+            self.assertEqual(pj["external"], 4)
+        else:
+            self.assertEqual(pj["status"], "PINS_PARTIAL_UNVERIFIABLE")
+            self.assertEqual(len(pj["unverifiable"]), 4)
 
         with tempfile.TemporaryDirectory(prefix="s110_cli_") as td:
             d = Path(td)

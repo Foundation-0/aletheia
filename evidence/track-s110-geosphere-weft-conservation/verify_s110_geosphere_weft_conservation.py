@@ -486,7 +486,8 @@ def _independent_semantics(p: dict[str, Any]) -> None:
     )
     pol = p3["discovery3_poloidal_bingham_S_YH"]
     require_ok(parse_capped_rational(pol["pol_tor_dot_q"], "poldot") == 0, "SEC_P3_ORTH", "Pol/Tor orth")
-    require_ok(pol["so4_equivariant_exact"] is True, "SEC_P3_EQUIV", "SO4 equivariance")
+    require_ok(pol["so4_equivariant_exact"] is True, "SEC_P3_EQUIV", "SO4 fixed-gain linearity")
+    require_ok(pol["so4_check_kind"].startswith("fixed-gain linearity"), "SEC_P3_EQUIV_KIND", "SO4 check kind must be honestly labelled")
     oz = p3["ozone_channel2b_airlock"]
     adv = parse_capped_rational(oz["advection_sq_q"], "adv")
     b1 = parse_capped_rational(oz["bound_b1_q"], "b1")
@@ -521,6 +522,7 @@ def _independent_semantics(p: dict[str, Any]) -> None:
     )
     require_ok(sim["anchor_err_final"] <= sim["anchor_err_initial"], "SEC_P4_MONO", "anchor monotone")
     require_ok(sim["cum_norm_sq_final"] <= sim["cum_cap_sq"], "SEC_P4_CUM", "cumulative drift cap")
+    require_ok(sim["h11c_simulation_kind"].startswith("scripted-illustration"), "SEC_P4_SIMKIND", "H11c simulation must be labelled scripted-illustration")
 
 
 def secondary_audit_payload(payload: Any) -> dict[str, Any]:
@@ -600,15 +602,27 @@ def verify_certificate_file(cert_path: Path, *, full_replay: bool = True) -> dic
 
 
 def verify_external_pins(root_dir: Path | None = None) -> dict[str, Any]:
+    """Re-hash shipped prereg pins when present; pins whose files are not shipped are
+    reported as unverifiable external-historical pins (never silently skipped)."""
     base = TRACK_DIR.parent if root_dir is None else root_dir
     checked: list[dict[str, str]] = []
+    unverifiable: list[dict[str, str]] = []
     for pid, rel, expected_sha in oracle.EXTERNAL_PROTOCOL_PINS:
         p = base / rel
+        if not p.is_file():
+            unverifiable.append({"id": pid, "rel_path": rel, "sha256": expected_sha,
+                                 "status": "external-historical (file not shipped; no repo@sha named)"})
+            continue
         raw = read_regular_bytes_capped(p, pid)
         actual = oracle.sha256_hex(raw)
         require_ok(actual == expected_sha, "PIN_SHA_MISMATCH", f"{pid}: SHA mismatch")
         checked.append({"id": pid, "sha256": actual})
-    return {"status": "PINS_OK", "external": len(checked), "pins": checked}
+    return {
+        "status": "PINS_OK" if not unverifiable else "PINS_PARTIAL_UNVERIFIABLE",
+        "external": len(checked),
+        "unverifiable": unverifiable,
+        "pins": checked,
+    }
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -657,7 +671,7 @@ def main(argv: list[str] | None = None) -> int:
         if as_json:
             sys.stdout.write(json.dumps(res, sort_keys=True) + "\n")
         elif mode == "--verify-pins":
-            sys.stdout.write(f"PINS_OK external={res['external']}\n")
+            sys.stdout.write(f"{res['status']} external={res['external']} unverifiable={len(res.get('unverifiable', []))}\n")
         elif mode == "--verify-lean":
             sys.stdout.write(f"LEAN_OK theorems={res['theorems_verified']} sha256={res['lean_source_sha256']}\n")
         else:
