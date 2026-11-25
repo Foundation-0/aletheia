@@ -84,7 +84,7 @@ EXPECTED_ANCHOR_SHA256 = "8e09f6f981941f77a5e9778d92336f225fad1f31d8cffa5a4c51f1
 EXPECTED_LEAN_SOURCE_SHA256 = "81922b3cf483fc42a51e37e3403448db5bbf51987e0158d82ddaee6ed12a1d29"
 EXPECTED_TOOLCHAIN_SHA256 = "582a63f8f9c5128067b688778c1051cf1464c3ca9d57b9325025c051c29b774a"
 EXPECTED_LAKEFILE_SHA256 = "bf19267efb49a34c164dcb6e3d08794276fb955f662f6532e6ab058b3353735c"
-EXPECTED_PAYLOAD_SHA256 = "27cf2e39de0384167ff2d98b1a2c1de7e69e6c3d3c6be7d8155a934c21c0cc3b"
+EXPECTED_PAYLOAD_SHA256 = "fdca21bcf527fb6aaf03eba30c68f61127cb531be7d78caadb9b6f6dd2f827b3"
 
 _P1_KEYS = frozenset({"anchor_sha256", "upstream_commit_sha", "upstream_best_json_sha256", "exact_q_witnesses", "live_300_puzzle_summary"})
 _P1_WITNESS_KEYS = frozenset({"planar_tusi_couple", "s76_elliptic_curl", "law5_nonnormal_destabilization"})

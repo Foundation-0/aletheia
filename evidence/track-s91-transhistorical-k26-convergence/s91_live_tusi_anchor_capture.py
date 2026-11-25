@@ -160,6 +160,7 @@ def main() -> int:
     cx_records: list[dict[str, Any]] = []
 
     tusi_im_max = 0.0
+    tusi_cx_cnt = 0
     tusi_nn_dev_max = 0.0
     pyth_fro_err_max = 0.0
     bendixson_viol_max = 0.0
@@ -189,6 +190,9 @@ def main() -> int:
         is_cx = abs(float(lam0.imag)) > 1e-10
 
         eigs_t_c = np.linalg.eigvals(t_mat)
+        lam0_t = eigs_t_c[int(np.argmax(np.abs(eigs_t_c)))]
+        if abs(float(lam0_t.imag)) > 1e-10:
+            tusi_cx_cnt += 1
         tusi_im_max = max(tusi_im_max, float(np.max(np.abs(eigs_t_c.imag))))
         eigs_t = np.linalg.eigvalsh(t_mat)
         rho_t = float(np.max(np.abs(eigs_t)))
@@ -296,7 +300,7 @@ def main() -> int:
         "tusi_dual_loop_300_puzzles": {
             "raw_complex_dominant_count": len(pi_raw_cx),
             "raw_real_dominant_count": len(pi_raw_re),
-            "tusi_complex_dominant_count": 0,
+            "tusi_complex_dominant_count": tusi_cx_cnt,
             "tusi_max_abs_imag_sci": _sci_str(tusi_im_max, 6),
             "tusi_max_normality_dev_sci": _sci_str(tusi_nn_dev_max, 6),
             "pythagorean_fro_max_err_sci": _sci_str(pyth_fro_err_max, 6),
