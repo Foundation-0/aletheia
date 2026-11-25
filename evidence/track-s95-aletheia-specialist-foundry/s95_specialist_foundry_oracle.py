@@ -41,7 +41,7 @@ LAKEFILE_SHA256 = "4a379e6c951cbb4aa677557368d49d80735fdc65d9c398b981708ff67a40d
 TOOLCHAIN_SHA256 = "582a63f8f9c5128067b688778c1051cf1464c3ca9d57b9325025c051c29b774a"
 
 INKLING2_CONFIG_SHA256 = "a7a349601f0984c4abf999c480ef775d8567d21f5f84b4e8a3e035b44f288dc2"
-TRACK_S96_CERT_SHA256 = "5de85fe677a714f1af93722a7034947d13bd3938519d17a94508e1a008cfdd44"
+TRACK_S96_CERT_SHA256 = "2491f96992a6c4dbad7de801f4daf2fbc2ea2455466cc43b0bb51246399b5e91"
 
 LEAN_THEOREMS: tuple[str, ...] = (
     "SpecialistFoundryCerts.oracle_gate_zero_false_accept",
@@ -626,13 +626,40 @@ def _build_pillar3_law3_routing_and_law4_failures() -> dict[str, Any]:
     # Total held-out evaluations across all 4 specialist gates: 48 + 60 + 24 + 25 = 157
     total_eval_calls = 48 + 60 + 24 + 25
     base_gate_passed = 0
-    winner_gate_passed = 48 + 60 + 5 + 25  # 138/157 pass strict Law-3 deterministic gates
+    # Winners selected exactly as the independent verifier does, from the frozen raw arms.
+    sc_win = max(ADAPTER_KINDS, key=lambda k: (SCRIBE_ARMS_RAW[k]["exact_all7_ok"], SCRIBE_ARMS_RAW[k]["hygiene_tp"] - SCRIBE_ARMS_RAW[k]["hygiene_fp"], -SCRIBE_ARMS_RAW[k]["base_nll_after_x10000"]))
+    wv_win = max(ADAPTER_KINDS, key=lambda k: (WEAVER_ARMS_RAW[k]["pathway_class_ok"] + WEAVER_ARMS_RAW[k]["cs03_tp"], WEAVER_ARMS_RAW[k]["exact_all5_ok"], -WEAVER_ARMS_RAW[k]["base_nll_after_x10000"]))
+    pv_win = max(ADAPTER_KINDS, key=lambda k: (PROVER_ARMS_RAW[k]["live_lean_kernel_pass"] + PROVER_ARMS_RAW[k]["exact_escape_class_ok"], PROVER_ARMS_RAW[k]["live_lean_kernel_pass"], -PROVER_ARMS_RAW[k]["base_nll_after_x10000"]))
+    # Schema-valid gate passes (strict JSON / kernel / audit parse): 138/157 — NOT exact correctness.
+    winner_gate_passed = (
+        SCRIBE_ARMS_RAW[sc_win]["strict_json_ok"]
+        + WEAVER_ARMS_RAW[wv_win]["strict_json_ok"]
+        + PROVER_ARMS_RAW[pv_win]["live_lean_kernel_pass"]
+        + PROVER_ARMS_RAW[pv_win]["audit_strict_json_ok"]
+    )
+    # Exactly-correct outputs across all four gates: 112/157 (Weaver winner is 34/60 exact, not 60/60).
+    winner_exact_correct = (
+        SCRIBE_ARMS_RAW[sc_win]["exact_all7_ok"]
+        + WEAVER_ARMS_RAW[wv_win]["exact_all5_ok"]
+        + PROVER_ARMS_RAW[pv_win]["live_lean_kernel_pass"]
+        + PROVER_ARMS_RAW[pv_win]["exact_escape_class_ok"]
+    )
+    # Zero false accepts is DERIVED from the winners' fp counts, never hardcoded.
+    zero_false_accept = (
+        SCRIBE_ARMS_RAW[sc_win]["hygiene_fp"] == 0
+        and WEAVER_ARMS_RAW[wv_win]["cs03_fp"] == 0
+        and PROVER_ARMS_RAW[pv_win]["escape_fp"] == 0
+    )
     winner_exact_deterministic_tasks = 48 + 25 + 5  # 78/97 on Scribe(48) + ProverAudit(25) + ProverTactics(24)
     deterministic_tasks_total = 48 + 25 + 24
     gate_pass_q = Fraction(winner_gate_passed, total_eval_calls)
     det_exact_q = Fraction(winner_exact_deterministic_tasks, deterministic_tasks_total)
+    exact_correct_q = Fraction(winner_exact_correct, total_eval_calls)
     return {
-        "law3_zero_false_accept_enforced": True,
+        "law3_zero_false_accept_enforced": zero_false_accept,
+        "winner_exact_correct_total": winner_exact_correct,
+        "winner_exact_correct_rate_q": fmt_q(exact_correct_q),
+        "winner_exact_correct_rate_dec4": fmt_dec(exact_correct_q, 4),
         "total_heldout_eval_calls": total_eval_calls,
         "base_zero_shot_gate_passed": base_gate_passed,
         "winner_law3_gate_passed": winner_gate_passed,

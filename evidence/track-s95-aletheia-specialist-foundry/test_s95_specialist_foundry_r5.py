@@ -592,7 +592,7 @@ class TestFieldCompleteSecondaryAudit(unittest.TestCase):
             v.verify_certificate_dict(c_seed, full_replay=True)
         self.assertEqual(c_rep.exception.code, "REPLAY_MISMATCH")
 
-    def test_14_exhaustive_476_leaf_resigned_sweep(self) -> None:
+    def test_14_exhaustive_479_leaf_resigned_sweep(self) -> None:
         base = s95.build_certificate()
 
         def _iter_leaves(obj: Any, path: tuple[Any, ...] = ()):
@@ -606,7 +606,7 @@ class TestFieldCompleteSecondaryAudit(unittest.TestCase):
                 yield path, obj
 
         leaves = list(_iter_leaves(base["payload"]))
-        self.assertEqual(len(leaves), 476)
+        self.assertEqual(len(leaves), 479)
         for path, val in leaves:
             c2 = copy.deepcopy(base)
             cur: Any = c2["payload"]

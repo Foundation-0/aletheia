@@ -64,7 +64,7 @@ MAX_JSON_BYTES = 1_048_576
 MAX_JSON_DEPTH = 64
 MAX_INT_DIGITS = 1000
 _MAX_INT_BITS = (10 ** MAX_INT_DIGITS - 1).bit_length()
-EXPECTED_PAYLOAD_SHA256 = "18fce09c589a915aa04e61c0cfec64600aa57dbf2f7781683d72604f5d5ad7c8"
+EXPECTED_PAYLOAD_SHA256 = "52085dabc282c94ae77d4d715fa32c64d3d9b26187d5b30fcbf2515b8d8c6afb"
 _HEX_LOWER = frozenset("0123456789abcdef")
 _ASCII_DIGITS = frozenset("0123456789")
 _ALLOWED_LEAN_AXIOMS = frozenset({"propext", "Quot.sound"})
@@ -257,6 +257,9 @@ _P3_KEYS = frozenset(
         "winner_deterministic_exact_passed",
         "winner_deterministic_exact_rate_q",
         "winner_deterministic_exact_rate_dec4",
+        "winner_exact_correct_total",
+        "winner_exact_correct_rate_q",
+        "winner_exact_correct_rate_dec4",
         "law4_honest_failure_modes",
     }
 )
@@ -1254,20 +1257,26 @@ def _audit_pillar2(p2: Any, exp_params: int, base_nll_0: int) -> dict[str, int]:
         "win_gate": sc_arms[exp_sc_win]["strict_json_ok"] + wv_arms[exp_wv_win]["strict_json_ok"] + pv_arms[exp_pv_win]["live_lean_kernel_pass"] + pv_arms[exp_pv_win]["audit_strict_json_ok"],
         "det_total": sc_tot + pv_atot + pv_ttot,
         "det_exact": sc_arms[exp_sc_win]["exact_all7_ok"] + pv_arms[exp_pv_win]["exact_escape_class_ok"] + pv_arms[exp_pv_win]["live_lean_kernel_pass"],
+        "exact_correct": sc_arms[exp_sc_win]["exact_all7_ok"] + wv_arms[exp_wv_win]["exact_all5_ok"] + pv_arms[exp_pv_win]["live_lean_kernel_pass"] + pv_arms[exp_pv_win]["exact_escape_class_ok"],
+        "winner_fp_sum": sc_arms[exp_sc_win]["hygiene_fp"] + wv_arms[exp_wv_win]["cs03_fp"] + pv_arms[exp_pv_win]["escape_fp"],
     }
 
 
 def _audit_pillar3(p3: Any, p2_totals: dict[str, int]) -> None:
     d = _require_dict_keys(p3, _P3_KEYS, "BAD_P3_KEYS")
     require_ok(d["law3_zero_false_accept_enforced"] is True, "BAD_P3_ZERO_FA", "zero false accept must be true")
+    # The flag must be DERIVED from the winners' fp counts: a planted false accept must fail.
+    require_ok(p2_totals["winner_fp_sum"] == 0, "P3_ZERO_FA_FP_SUM", "winner fp counts must sum to 0")
     for dk, pk in (
         ("total_heldout_eval_calls", "total_eval"),
         ("base_zero_shot_gate_passed", "base_passed"),
         ("winner_law3_gate_passed", "win_gate"),
         ("deterministic_exact_tasks_total", "det_total"),
         ("winner_deterministic_exact_passed", "det_exact"),
+        ("winner_exact_correct_total", "exact_correct"),
     ):
         require_ok(d[dk] == p2_totals[pk], "P3_TOTALS_MISMATCH", dk)
+    _req_q_dec4(d["winner_exact_correct_rate_q"], d["winner_exact_correct_rate_dec4"], Fraction(d["winner_exact_correct_total"], d["total_heldout_eval_calls"]), "P3_EXACT_RATE", "winner_exact_correct")
     _req_q_dec4(d["winner_law3_gate_pass_rate_q"], d["winner_law3_gate_pass_rate_dec4"], Fraction(p2_totals["win_gate"], p2_totals["total_eval"]), "P3_RATES_MISMATCH", "p3_gp")
     _req_q_dec4(d["winner_deterministic_exact_rate_q"], d["winner_deterministic_exact_rate_dec4"], Fraction(p2_totals["det_exact"], p2_totals["det_total"]), "P3_RATES_MISMATCH", "p3_de")
     fms = d["law4_honest_failure_modes"]
