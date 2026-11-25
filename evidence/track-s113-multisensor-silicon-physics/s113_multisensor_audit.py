@@ -514,8 +514,24 @@ def _verify_prereg_verdict_rules(payload: dict[str, Any]) -> None:
         v_h1 = str(h1.get("verdict", ""))
         require_ok(vsum.get("H1") == v_h1, "VERDICT_SUMMARY_MISMATCH", "H1 verdict_summary mismatch")
         min_p = float(h1["min_holm_p"])
+        # Verdict must be one of the preregistered outcome names (no free-text CONFIRMED*).
+        H1_VERDICTS = {"FALSIFIED", "CONFIRMED_H1_EMI", "CONFIRMED_H1_CHASSIS_PIEZO",
+                       "CONFIRMED_H1_VRM_AIRBORNE_PIEZO", "CONFIRMED_AIRBORNE_ACOUSTIC", "CONFIRMED_MIXED_FAST_COUPLING"}
+        H1_TAU_BANDS = {"CONFIRMED_H1_EMI": (0.0, 2.0), "CONFIRMED_H1_CHASSIS_PIEZO": (5.0, 80.0),
+                        "CONFIRMED_H1_VRM_AIRBORNE_PIEZO": (80.0, 500.0), "CONFIRMED_AIRBORNE_ACOUSTIC": (100.0, 500.0)}
+        require_ok(v_h1 in H1_VERDICTS, "H1_VERDICT_NOT_ENUMERATED", f"H1 verdict {v_h1!r} not in preregistered outcome set")
+        # The reported gate is the PREREGISTERED N=500 surrogate gate.
+        require_ok(h1.get("n_surrogates") == 500 or "posthoc_n2000_exploratory" in h1,
+                   "H1_N_NOT_PREREG", "H1 module must carry the preregistered N=500 gate (N=2000 only as posthoc_exploratory)")
         if v_h1.startswith("CONFIRMED"):
             require_ok(min_p < 0.005 and h1.get("passes_null_gate") is True, "H1_GATE_SPOOF", "H1 confirmed despite failing p_Holm < 0.005")
+            require_ok(float(h1.get("prbs7_p", 1.0)) < 0.005, "H1_LAG_NOT_MEASURED",
+                       "CONFIRMED requires a measured stimulus-to-audio lag (prbs7_p < 0.005)")
+            band = H1_TAU_BANDS.get(v_h1)
+            if band is not None:
+                tau = float(h1["hf_6_22khz_max_abs_tau_us"])
+                require_ok(band[0] <= tau <= band[1], "H1_TAU_BAND_MISMATCH",
+                           f"mechanism {v_h1} requires max |tau| in {band} us, got {tau}")
         else:
             require_ok(v_h1 == "FALSIFIED" and min_p >= 0.005, "H1_FALSE_NEGATIVE", "H1 falsified despite passing gate")
 
@@ -626,6 +642,8 @@ def verify_certificate_dict(cert: dict[str, Any]) -> dict[str, Any]:
 
     mods = payload.get("modules", {})
     require_ok(isinstance(mods, dict) and len(mods) >= 1, "EMPTY_MODULES", "No hypothesis modules in certificate")
+    require_ok(payload.get("n_surrogates") == 500 or isinstance(payload.get("prereg_deviation_note"), str),
+               "PREREG_N_MISMATCH", "payload n_surrogates deviates from preregistered N=500 without a recorded deviation note")
 
     if "H5" in mods:
         h5 = mods["H5"]
@@ -710,7 +728,17 @@ def verify_blind_receipt_dict(receipt: dict[str, Any], prereg_md_path: Path | No
 
     require_ok(receipt.get("total_surviving_anomalies") == recounted_total, "BLIND_TOTAL_MISMATCH", "total_surviving_anomalies mismatch")
     require_ok(counts_by_lens == recounted_lenses, "BLIND_LENS_COUNTS_MISMATCH", "counts_by_lens mismatch")
-    return {"ok": True, "total_surviving_anomalies": recounted_total, "phases": len(phases)}
+    # Rows rejected by the lens-family Holm correction must sit in holm_rejected with
+    # replicated_anomaly=false and p_holm >= 0.005 (raw p may NOT be labelled Holm).
+    rejected = receipt.get("holm_rejected", [])
+    require_ok(isinstance(rejected, list), "BLIND_BAD_REJECTED", "holm_rejected must be a list")
+    for row in rejected:
+        require_ok(isinstance(row, dict) and row.get("replicated_anomaly") is False, "BLIND_REJECTED_FLAG", "holm_rejected row must have replicated_anomaly=false")
+        p_holm = float(row.get("half2_p_holm", 1.0))
+        require_ok(p_holm >= 0.005, "BLIND_REJECTED_PASSES", f"holm_rejected row actually passes the gate: {p_holm}")
+        require_ok(p_holm != float(row.get("half2_p_surr", row.get("half2_p_shift", 1.0))) or row.get("holm_family_size", 1) == 1,
+                   "BLIND_RAW_P_AS_HOLM", "raw surrogate p stored as half2_p_holm in a multi-member family")
+    return {"ok": True, "total_surviving_anomalies": recounted_total, "holm_rejected": len(rejected), "phases": len(phases)}
 
 
 def main(argv: list[str] | tuple[str, ...] | None = None) -> int:

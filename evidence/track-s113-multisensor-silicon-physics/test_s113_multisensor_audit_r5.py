@@ -66,24 +66,24 @@ class TestS113MultisensorAuditR5(unittest.TestCase):
         res = audit.verify_certificate_dict(cert)
         _ensure(res["ok"] is True, "Live certificate failed verification")
         _ensure(
-            res["payload_sha256"] == "0ea122458a73ef1a97b3b7471d252a9679e7fb885d14178ae4f2c30754fa0845",
+            res["payload_sha256"] == "c9b1950b4a7f7f639c81f121299607a616719d1121fbd3f009839145a7fedfc7",
             f"Unexpected payload_sha256: {res['payload_sha256']}",
         )
         _ensure(
-            res["certificate_sha256"] == "b18744a69571acf501a25fd2340082804bf0d390d2012495d4a2b571fe39d3d5",
+            res["certificate_sha256"] == "90398e173f82e9719d9104908df466a2817d51caf4d1ca83d1000d510ca89c6c",
             f"Unexpected certificate_sha256: {res['certificate_sha256']}",
         )
 
         blind = audit.load_strict_json_file(blind_path)
         bres = audit.verify_blind_receipt_dict(blind, prereg_path if prereg_path.is_file() else None)
-        _ensure(bres["ok"] is True and bres["total_surviving_anomalies"] == 193, f"Unexpected blind result: {bres}")
+        _ensure(bres["ok"] is True and bres["total_surviving_anomalies"] == 174 and bres.get("holm_rejected") == 19, f"Unexpected blind result: {bres}")
 
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
             rc = audit.main(["--check", str(cert_path), "--json"])
         _ensure(rc == 0, f"CLI --check exited {rc}")
         parsed = json.loads(buf.getvalue())
-        _ensure(parsed["ok"] is True and parsed["blind_surviving_anomalies"] == 193, f"CLI output mismatch: {parsed}")
+        _ensure(parsed["ok"] is True and parsed["blind_surviving_anomalies"] == 174, f"CLI output mismatch: {parsed}")
 
     def test_02_pure_q_schur_krein_haynsworth_dark_mode_and_k4_hodge1(self) -> None:
         # 1) Indefinite 3x3 matrix with zero diagonal requiring 2x2 off-diagonal Bunch-Kaufman pivot -> (1, 1, 1)
@@ -261,12 +261,13 @@ class TestS113MultisensorAuditR5(unittest.TestCase):
             return
         has_dsp = (importlib.util.find_spec("numpy") is not None) and (importlib.util.find_spec("scipy") is not None)
         if not has_dsp:
-            # Stdlib-only CI environment: verify both DSP test files exist and AST-parse cleanly
+            # Stdlib-only CI environment: verify both DSP test files exist and AST-parse cleanly,
+            # but report a SKIP (not a pass) since the DSP suites themselves did not run.
             for name in ("test_s113_r5.py", "test_s113_blind_anomaly_hunter.py"):
                 p = dsp_dir / name
                 _ensure(p.is_file(), f"Missing {name}")
                 ast.parse(p.read_text(encoding="utf-8"), filename=name)
-            return
+            self.skipTest("numpy/scipy unavailable: DSP suites not executed (files AST-parsed only)")
 
         if str(dsp_dir) not in sys.path:
             sys.path.insert(0, str(dsp_dir))

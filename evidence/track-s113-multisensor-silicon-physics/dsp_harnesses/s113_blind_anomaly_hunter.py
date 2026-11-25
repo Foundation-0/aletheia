@@ -65,6 +65,27 @@ def wait_for_capture_quiet(max_wait_s: float = 120.0) -> bool:
     return True
 
 
+def _apply_lens_family_holm(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Apply Holm-Bonferroni across each lens family (all phases pooled per lens) and
+    return only rows surviving p_Holm < 0.005. Raw surrogate p is never reported as Holm."""
+    fams: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        fams.setdefault(str(row.get("lens", "")), []).append(row)
+    surviving: list[dict[str, Any]] = []
+    for lens, members in fams.items():
+        pvals = [float(m.get("half2_p_surr", m.get("half2_p_shift", m.get("rep2_p", 1.0)))) for m in members]
+        adj = holm_bonferroni(pvals)
+        for m, a in zip(members, adj):
+            m["half2_p_holm"] = round(a, 6)
+            m["holm_family"] = lens
+            m["holm_family_size"] = len(members)
+            if a < 0.005 and m.get("replicated_anomaly"):
+                surviving.append(m)
+            else:
+                m["replicated_anomaly"] = False
+    return surviving
+
+
 def holm_bonferroni(pvals: list[float]) -> list[float]:
     """Exact step-down Holm-Bonferroni family-wise error rate adjustment."""
     m = len(pvals)
@@ -873,6 +894,8 @@ def _analyze_2d_stack_blind(
             "half2_locked_excess_kurtosis": round(obs_k2, 4),
             "half2_random_px_mean_kurtosis": round(muk, 4),
             "half2_p_surr": round(pk, 6),
+            # raw p only here; lens-family Holm-Bonferroni is applied in main()'s post-pass
+            # (never store raw p as half2_p_holm in a multi-member family)
             "half2_p_holm": round(pk, 6),
             "half2_z_surr": round(zk, 2),
             "n_surrogates_confirm": n_confirm,
@@ -911,6 +934,7 @@ def _analyze_2d_stack_blind(
             "half2_sub_obs": round(obs_sub, 6),
             "half2_surr_mean": round(mub, 6),
             "half2_p_surr": round(pb, 6),
+            # raw p only here; lens-family Holm-Bonferroni is applied in main()'s post-pass
             "half2_p_holm": round(pb, 6),
             "half2_z_surr": round(zb, 2),
             "n_surrogates_confirm": n_confirm,
@@ -2188,6 +2212,10 @@ def main() -> int:
         if args.polite:
             wait_for_capture_quiet(args.max_wait_s)
         res = analyze_phase(track_dir, ph, polite=args.polite, max_wait_s=args.max_wait_s)
+        # Re-apply lens-family Holm over the phase's survivors so multi-member families
+        # (e.g. A4 telegraph pixels / bursts) get a real Holm correction, not raw p.
+        res["all_surviving_anomalies"] = _apply_lens_family_holm(res["all_surviving_anomalies"])
+        res["n_surviving_anomalies"] = len(res["all_surviving_anomalies"])
         summary["phases_analyzed"].append(ph.upper())
         summary["anomalies_by_phase"][ph.upper()] = res["all_surviving_anomalies"]
         summary["total_surviving_anomalies"] += res["n_surviving_anomalies"]

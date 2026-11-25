@@ -11,15 +11,13 @@
     "E1",
     "E2"
   ],
-  "total_surviving_anomalies": 193,
+  "total_surviving_anomalies": 174,
   "counts_by_lens": {
     "A5_RARE_EVENT_COINCIDENCE": 18,
     "A7_NONLINEAR_RESIDUAL_COPULA_MI": 22,
     "A1_BICOHERENCE": 17,
     "A2_CHIRAL_4X4_CSD": 45,
     "A4_2D_SPATIAL_WAVE_PEAK": 48,
-    "A4_PERSISTENT_TELEGRAPHER_PIXELS": 13,
-    "A4_SYNCHRONIZED_MULTIPIXEL_BURSTS": 6,
     "A6_UNINVITED_SPECTRAL_LINE": 22,
     "A3_TIME_REVERSAL_ASYMMETRY": 2
   },
@@ -224,32 +222,6 @@
         "replicated_anomaly": true
       },
       {
-        "lens": "A4_PERSISTENT_TELEGRAPHER_PIXELS",
-        "sensor": "phase_idle_rgb_luma_Y",
-        "n_pixels_selected": 153,
-        "half1_top_excess_kurtosis": 41.6885,
-        "half2_locked_excess_kurtosis": 3.4684,
-        "half2_random_px_mean_kurtosis": -0.0755,
-        "half2_p_surr": 0.00125,
-        "half2_p_holm": 0.00125,
-        "half2_z_surr": 33.74,
-        "n_surrogates_confirm": 799,
-        "replicated_anomaly": true
-      },
-      {
-        "lens": "A4_SYNCHRONIZED_MULTIPIXEL_BURSTS",
-        "sensor": "phase_idle_rgb_luma_Y",
-        "half1_max_4sigma_px_frac": 0.002367,
-        "half2_max_4sigma_px_frac": 0.002132,
-        "half2_sub_obs": 0.00293,
-        "half2_surr_mean": 0.000963,
-        "half2_p_surr": 0.00125,
-        "half2_p_holm": 0.00125,
-        "half2_z_surr": 8.1,
-        "n_surrogates_confirm": 799,
-        "replicated_anomaly": true
-      },
-      {
         "lens": "A4_2D_SPATIAL_WAVE_PEAK",
         "sensor": "phase_idle_rgb_chroma_Cb",
         "ky_cycles_per_frame": 0,
@@ -298,32 +270,6 @@
         "half2_z_surr": 34.43,
         "n_surrogates_confirm": 799,
         "half2_p_holm": 0.00375,
-        "replicated_anomaly": true
-      },
-      {
-        "lens": "A4_PERSISTENT_TELEGRAPHER_PIXELS",
-        "sensor": "phase_idle_rgb_chroma_Cb",
-        "n_pixels_selected": 76,
-        "half1_top_excess_kurtosis": 52.7717,
-        "half2_locked_excess_kurtosis": 20.5659,
-        "half2_random_px_mean_kurtosis": 4.162,
-        "half2_p_surr": 0.00125,
-        "half2_p_holm": 0.00125,
-        "half2_z_surr": 12.8,
-        "n_surrogates_confirm": 799,
-        "replicated_anomaly": true
-      },
-      {
-        "lens": "A4_SYNCHRONIZED_MULTIPIXEL_BURSTS",
-        "sensor": "phase_idle_rgb_chroma_Cb",
-        "half1_max_4sigma_px_frac": 0.431901,
-        "half2_max_4sigma_px_frac": 0.010247,
-        "half2_sub_obs": 0.009277,
-        "half2_surr_mean": 0.005943,
-        "half2_p_surr": 0.0025,
-        "half2_p_holm": 0.0025,
-        "half2_z_surr": 4.92,
-        "n_surrogates_confirm": 799,
         "replicated_anomaly": true
       },
       {
@@ -378,19 +324,6 @@
         "replicated_anomaly": true
       },
       {
-        "lens": "A4_PERSISTENT_TELEGRAPHER_PIXELS",
-        "sensor": "phase_idle_ir_LED_ON",
-        "n_pixels_selected": 115,
-        "half1_top_excess_kurtosis": 21.7905,
-        "half2_locked_excess_kurtosis": 2.2726,
-        "half2_random_px_mean_kurtosis": 0.3789,
-        "half2_p_surr": 0.00125,
-        "half2_p_holm": 0.00125,
-        "half2_z_surr": 16.26,
-        "n_surrogates_confirm": 799,
-        "replicated_anomaly": true
-      },
-      {
         "lens": "A4_2D_SPATIAL_WAVE_PEAK",
         "sensor": "phase_idle_ir_LED_OFF",
         "ky_cycles_per_frame": 0,
@@ -439,19 +372,6 @@
         "half2_z_surr": 17.34,
         "n_surrogates_confirm": 799,
         "half2_p_holm": 0.00375,
-        "replicated_anomaly": true
-      },
-      {
-        "lens": "A4_PERSISTENT_TELEGRAPHER_PIXELS",
-        "sensor": "phase_idle_ir_LED_OFF",
-        "n_pixels_selected": 115,
-        "half1_top_excess_kurtosis": 32.8519,
-        "half2_locked_excess_kurtosis": 8.5915,
-        "half2_random_px_mean_kurtosis": 0.2582,
-        "half2_p_surr": 0.00125,
-        "half2_p_holm": 0.00125,
-        "half2_z_surr": 62.17,
-        "n_surrogates_confirm": 799,
         "replicated_anomaly": true
       },
       {
@@ -1134,32 +1054,6 @@
         "replicated_anomaly": true
       },
       {
-        "lens": "A4_PERSISTENT_TELEGRAPHER_PIXELS",
-        "sensor": "phase_b_rgb_luma_Y",
-        "n_pixels_selected": 153,
-        "half1_top_excess_kurtosis": 52.4289,
-        "half2_locked_excess_kurtosis": 4.0359,
-        "half2_random_px_mean_kurtosis": -0.0372,
-        "half2_p_surr": 0.00125,
-        "half2_p_holm": 0.00125,
-        "half2_z_surr": 44.31,
-        "n_surrogates_confirm": 799,
-        "replicated_anomaly": true
-      },
-      {
-        "lens": "A4_SYNCHRONIZED_MULTIPIXEL_BURSTS",
-        "sensor": "phase_b_rgb_luma_Y",
-        "half1_max_4sigma_px_frac": 0.003376,
-        "half2_max_4sigma_px_frac": 0.002048,
-        "half2_sub_obs": 0.001953,
-        "half2_surr_mean": 0.000719,
-        "half2_p_surr": 0.00125,
-        "half2_p_holm": 0.00125,
-        "half2_z_surr": 4.7,
-        "n_surrogates_confirm": 799,
-        "replicated_anomaly": true
-      },
-      {
         "lens": "A4_2D_SPATIAL_WAVE_PEAK",
         "sensor": "phase_b_rgb_chroma_Cb",
         "ky_cycles_per_frame": 5,
@@ -1211,32 +1105,6 @@
         "replicated_anomaly": true
       },
       {
-        "lens": "A4_PERSISTENT_TELEGRAPHER_PIXELS",
-        "sensor": "phase_b_rgb_chroma_Cb",
-        "n_pixels_selected": 76,
-        "half1_top_excess_kurtosis": 53.6881,
-        "half2_locked_excess_kurtosis": 17.849,
-        "half2_random_px_mean_kurtosis": 4.244,
-        "half2_p_surr": 0.00125,
-        "half2_p_holm": 0.00125,
-        "half2_z_surr": 10.42,
-        "n_surrogates_confirm": 799,
-        "replicated_anomaly": true
-      },
-      {
-        "lens": "A4_SYNCHRONIZED_MULTIPIXEL_BURSTS",
-        "sensor": "phase_b_rgb_chroma_Cb",
-        "half1_max_4sigma_px_frac": 0.008496,
-        "half2_max_4sigma_px_frac": 0.012741,
-        "half2_sub_obs": 0.013184,
-        "half2_surr_mean": 0.006588,
-        "half2_p_surr": 0.00125,
-        "half2_p_holm": 0.00125,
-        "half2_z_surr": 9.36,
-        "n_surrogates_confirm": 799,
-        "replicated_anomaly": true
-      },
-      {
         "lens": "A4_2D_SPATIAL_WAVE_PEAK",
         "sensor": "phase_b_ir_LED_ON",
         "ky_cycles_per_frame": 0,
@@ -1285,19 +1153,6 @@
         "half2_z_surr": 28.97,
         "n_surrogates_confirm": 799,
         "half2_p_holm": 0.00375,
-        "replicated_anomaly": true
-      },
-      {
-        "lens": "A4_PERSISTENT_TELEGRAPHER_PIXELS",
-        "sensor": "phase_b_ir_LED_ON",
-        "n_pixels_selected": 115,
-        "half1_top_excess_kurtosis": 54.5638,
-        "half2_locked_excess_kurtosis": 5.1103,
-        "half2_random_px_mean_kurtosis": 0.3829,
-        "half2_p_surr": 0.00125,
-        "half2_p_holm": 0.00125,
-        "half2_z_surr": 38.41,
-        "n_surrogates_confirm": 799,
         "replicated_anomaly": true
       },
       {
@@ -1696,19 +1551,6 @@
         "replicated_anomaly": true
       },
       {
-        "lens": "A4_PERSISTENT_TELEGRAPHER_PIXELS",
-        "sensor": "phase_d_rgb_cool_luma_Y",
-        "n_pixels_selected": 153,
-        "half1_top_excess_kurtosis": 27.881,
-        "half2_locked_excess_kurtosis": 9.1171,
-        "half2_random_px_mean_kurtosis": 4.9913,
-        "half2_p_surr": 0.00125,
-        "half2_p_holm": 0.00125,
-        "half2_z_surr": 5.57,
-        "n_surrogates_confirm": 799,
-        "replicated_anomaly": true
-      },
-      {
         "lens": "A4_2D_SPATIAL_WAVE_PEAK",
         "sensor": "phase_d_rgb_cool_chroma_Cb",
         "ky_cycles_per_frame": 0,
@@ -1757,19 +1599,6 @@
         "half2_z_surr": 4.97,
         "n_surrogates_confirm": 799,
         "half2_p_holm": 0.00375,
-        "replicated_anomaly": true
-      },
-      {
-        "lens": "A4_PERSISTENT_TELEGRAPHER_PIXELS",
-        "sensor": "phase_d_rgb_cool_chroma_Cb",
-        "n_pixels_selected": 76,
-        "half1_top_excess_kurtosis": 27.1688,
-        "half2_locked_excess_kurtosis": 5.4666,
-        "half2_random_px_mean_kurtosis": 1.8243,
-        "half2_p_surr": 0.00125,
-        "half2_p_holm": 0.00125,
-        "half2_z_surr": 6.12,
-        "n_surrogates_confirm": 799,
         "replicated_anomaly": true
       }
     ],
@@ -2275,19 +2104,6 @@
         "replicated_anomaly": true
       },
       {
-        "lens": "A4_PERSISTENT_TELEGRAPHER_PIXELS",
-        "sensor": "phase_e1b_ir_LED_ON",
-        "n_pixels_selected": 115,
-        "half1_top_excess_kurtosis": 54.6517,
-        "half2_locked_excess_kurtosis": 7.963,
-        "half2_random_px_mean_kurtosis": 0.36,
-        "half2_p_surr": 0.00125,
-        "half2_p_holm": 0.00125,
-        "half2_z_surr": 64.12,
-        "n_surrogates_confirm": 799,
-        "replicated_anomaly": true
-      },
-      {
         "lens": "A4_2D_SPATIAL_WAVE_PEAK",
         "sensor": "phase_e1b_ir_LED_OFF",
         "ky_cycles_per_frame": 0,
@@ -2336,19 +2152,6 @@
         "half2_z_surr": 18.43,
         "n_surrogates_confirm": 799,
         "half2_p_holm": 0.00375,
-        "replicated_anomaly": true
-      },
-      {
-        "lens": "A4_PERSISTENT_TELEGRAPHER_PIXELS",
-        "sensor": "phase_e1b_ir_LED_OFF",
-        "n_pixels_selected": 115,
-        "half1_top_excess_kurtosis": 33.8571,
-        "half2_locked_excess_kurtosis": 11.2494,
-        "half2_random_px_mean_kurtosis": 0.2501,
-        "half2_p_surr": 0.00125,
-        "half2_p_holm": 0.00125,
-        "half2_z_surr": 73.64,
-        "n_surrogates_confirm": 799,
         "replicated_anomaly": true
       },
       {
@@ -2960,19 +2763,6 @@
         "replicated_anomaly": true
       },
       {
-        "lens": "A4_SYNCHRONIZED_MULTIPIXEL_BURSTS",
-        "sensor": "phase_e2b_rgb_luma_Y",
-        "half1_max_4sigma_px_frac": 0.995394,
-        "half2_max_4sigma_px_frac": 0.002051,
-        "half2_sub_obs": 0.002441,
-        "half2_surr_mean": 0.000584,
-        "half2_p_surr": 0.00125,
-        "half2_p_holm": 0.00125,
-        "half2_z_surr": 9.31,
-        "n_surrogates_confirm": 799,
-        "replicated_anomaly": true
-      },
-      {
         "lens": "A4_2D_SPATIAL_WAVE_PEAK",
         "sensor": "phase_e2b_rgb_chroma_Cb",
         "ky_cycles_per_frame": 5,
@@ -3024,32 +2814,6 @@
         "replicated_anomaly": true
       },
       {
-        "lens": "A4_PERSISTENT_TELEGRAPHER_PIXELS",
-        "sensor": "phase_e2b_rgb_chroma_Cb",
-        "n_pixels_selected": 76,
-        "half1_top_excess_kurtosis": 54.6529,
-        "half2_locked_excess_kurtosis": 18.5129,
-        "half2_random_px_mean_kurtosis": 2.8575,
-        "half2_p_surr": 0.00125,
-        "half2_p_holm": 0.00125,
-        "half2_z_surr": 13.45,
-        "n_surrogates_confirm": 799,
-        "replicated_anomaly": true
-      },
-      {
-        "lens": "A4_SYNCHRONIZED_MULTIPIXEL_BURSTS",
-        "sensor": "phase_e2b_rgb_chroma_Cb",
-        "half1_max_4sigma_px_frac": 0.003997,
-        "half2_max_4sigma_px_frac": 0.006393,
-        "half2_sub_obs": 0.009277,
-        "half2_surr_mean": 0.004793,
-        "half2_p_surr": 0.00125,
-        "half2_p_holm": 0.00125,
-        "half2_z_surr": 7.01,
-        "n_surrogates_confirm": 799,
-        "replicated_anomaly": true
-      },
-      {
         "lens": "A4_2D_SPATIAL_WAVE_PEAK",
         "sensor": "phase_e2b_ir_LED_ON",
         "ky_cycles_per_frame": 0,
@@ -3098,19 +2862,6 @@
         "half2_z_surr": 33.05,
         "n_surrogates_confirm": 799,
         "half2_p_holm": 0.00375,
-        "replicated_anomaly": true
-      },
-      {
-        "lens": "A4_PERSISTENT_TELEGRAPHER_PIXELS",
-        "sensor": "phase_e2b_ir_LED_ON",
-        "n_pixels_selected": 115,
-        "half1_top_excess_kurtosis": 54.7586,
-        "half2_locked_excess_kurtosis": 3.2511,
-        "half2_random_px_mean_kurtosis": 0.3724,
-        "half2_p_surr": 0.00125,
-        "half2_p_holm": 0.00125,
-        "half2_z_surr": 24.64,
-        "n_surrogates_confirm": 799,
         "replicated_anomaly": true
       },
       {
@@ -3219,5 +2970,293 @@
         "replicated_anomaly": true
       }
     ]
-  }
+  },
+  "holm_rejected": [
+    {
+      "lens": "A4_PERSISTENT_TELEGRAPHER_PIXELS",
+      "sensor": "phase_idle_rgb_luma_Y",
+      "n_pixels_selected": 153,
+      "half1_top_excess_kurtosis": 41.6885,
+      "half2_locked_excess_kurtosis": 3.4684,
+      "half2_random_px_mean_kurtosis": -0.0755,
+      "half2_p_surr": 0.00125,
+      "half2_p_holm": 0.01625,
+      "half2_z_surr": 33.74,
+      "n_surrogates_confirm": 799,
+      "replicated_anomaly": false,
+      "holm_family": "A4_PERSISTENT_TELEGRAPHER_PIXELS",
+      "holm_family_size": 13
+    },
+    {
+      "lens": "A4_PERSISTENT_TELEGRAPHER_PIXELS",
+      "sensor": "phase_idle_rgb_chroma_Cb",
+      "n_pixels_selected": 76,
+      "half1_top_excess_kurtosis": 52.7717,
+      "half2_locked_excess_kurtosis": 20.5659,
+      "half2_random_px_mean_kurtosis": 4.162,
+      "half2_p_surr": 0.00125,
+      "half2_p_holm": 0.01625,
+      "half2_z_surr": 12.8,
+      "n_surrogates_confirm": 799,
+      "replicated_anomaly": false,
+      "holm_family": "A4_PERSISTENT_TELEGRAPHER_PIXELS",
+      "holm_family_size": 13
+    },
+    {
+      "lens": "A4_PERSISTENT_TELEGRAPHER_PIXELS",
+      "sensor": "phase_idle_ir_LED_ON",
+      "n_pixels_selected": 115,
+      "half1_top_excess_kurtosis": 21.7905,
+      "half2_locked_excess_kurtosis": 2.2726,
+      "half2_random_px_mean_kurtosis": 0.3789,
+      "half2_p_surr": 0.00125,
+      "half2_p_holm": 0.01625,
+      "half2_z_surr": 16.26,
+      "n_surrogates_confirm": 799,
+      "replicated_anomaly": false,
+      "holm_family": "A4_PERSISTENT_TELEGRAPHER_PIXELS",
+      "holm_family_size": 13
+    },
+    {
+      "lens": "A4_PERSISTENT_TELEGRAPHER_PIXELS",
+      "sensor": "phase_idle_ir_LED_OFF",
+      "n_pixels_selected": 115,
+      "half1_top_excess_kurtosis": 32.8519,
+      "half2_locked_excess_kurtosis": 8.5915,
+      "half2_random_px_mean_kurtosis": 0.2582,
+      "half2_p_surr": 0.00125,
+      "half2_p_holm": 0.01625,
+      "half2_z_surr": 62.17,
+      "n_surrogates_confirm": 799,
+      "replicated_anomaly": false,
+      "holm_family": "A4_PERSISTENT_TELEGRAPHER_PIXELS",
+      "holm_family_size": 13
+    },
+    {
+      "lens": "A4_PERSISTENT_TELEGRAPHER_PIXELS",
+      "sensor": "phase_b_rgb_luma_Y",
+      "n_pixels_selected": 153,
+      "half1_top_excess_kurtosis": 52.4289,
+      "half2_locked_excess_kurtosis": 4.0359,
+      "half2_random_px_mean_kurtosis": -0.0372,
+      "half2_p_surr": 0.00125,
+      "half2_p_holm": 0.01625,
+      "half2_z_surr": 44.31,
+      "n_surrogates_confirm": 799,
+      "replicated_anomaly": false,
+      "holm_family": "A4_PERSISTENT_TELEGRAPHER_PIXELS",
+      "holm_family_size": 13
+    },
+    {
+      "lens": "A4_PERSISTENT_TELEGRAPHER_PIXELS",
+      "sensor": "phase_b_rgb_chroma_Cb",
+      "n_pixels_selected": 76,
+      "half1_top_excess_kurtosis": 53.6881,
+      "half2_locked_excess_kurtosis": 17.849,
+      "half2_random_px_mean_kurtosis": 4.244,
+      "half2_p_surr": 0.00125,
+      "half2_p_holm": 0.01625,
+      "half2_z_surr": 10.42,
+      "n_surrogates_confirm": 799,
+      "replicated_anomaly": false,
+      "holm_family": "A4_PERSISTENT_TELEGRAPHER_PIXELS",
+      "holm_family_size": 13
+    },
+    {
+      "lens": "A4_PERSISTENT_TELEGRAPHER_PIXELS",
+      "sensor": "phase_b_ir_LED_ON",
+      "n_pixels_selected": 115,
+      "half1_top_excess_kurtosis": 54.5638,
+      "half2_locked_excess_kurtosis": 5.1103,
+      "half2_random_px_mean_kurtosis": 0.3829,
+      "half2_p_surr": 0.00125,
+      "half2_p_holm": 0.01625,
+      "half2_z_surr": 38.41,
+      "n_surrogates_confirm": 799,
+      "replicated_anomaly": false,
+      "holm_family": "A4_PERSISTENT_TELEGRAPHER_PIXELS",
+      "holm_family_size": 13
+    },
+    {
+      "lens": "A4_PERSISTENT_TELEGRAPHER_PIXELS",
+      "sensor": "phase_d_rgb_cool_luma_Y",
+      "n_pixels_selected": 153,
+      "half1_top_excess_kurtosis": 27.881,
+      "half2_locked_excess_kurtosis": 9.1171,
+      "half2_random_px_mean_kurtosis": 4.9913,
+      "half2_p_surr": 0.00125,
+      "half2_p_holm": 0.01625,
+      "half2_z_surr": 5.57,
+      "n_surrogates_confirm": 799,
+      "replicated_anomaly": false,
+      "holm_family": "A4_PERSISTENT_TELEGRAPHER_PIXELS",
+      "holm_family_size": 13
+    },
+    {
+      "lens": "A4_PERSISTENT_TELEGRAPHER_PIXELS",
+      "sensor": "phase_d_rgb_cool_chroma_Cb",
+      "n_pixels_selected": 76,
+      "half1_top_excess_kurtosis": 27.1688,
+      "half2_locked_excess_kurtosis": 5.4666,
+      "half2_random_px_mean_kurtosis": 1.8243,
+      "half2_p_surr": 0.00125,
+      "half2_p_holm": 0.01625,
+      "half2_z_surr": 6.12,
+      "n_surrogates_confirm": 799,
+      "replicated_anomaly": false,
+      "holm_family": "A4_PERSISTENT_TELEGRAPHER_PIXELS",
+      "holm_family_size": 13
+    },
+    {
+      "lens": "A4_PERSISTENT_TELEGRAPHER_PIXELS",
+      "sensor": "phase_e1b_ir_LED_ON",
+      "n_pixels_selected": 115,
+      "half1_top_excess_kurtosis": 54.6517,
+      "half2_locked_excess_kurtosis": 7.963,
+      "half2_random_px_mean_kurtosis": 0.36,
+      "half2_p_surr": 0.00125,
+      "half2_p_holm": 0.01625,
+      "half2_z_surr": 64.12,
+      "n_surrogates_confirm": 799,
+      "replicated_anomaly": false,
+      "holm_family": "A4_PERSISTENT_TELEGRAPHER_PIXELS",
+      "holm_family_size": 13
+    },
+    {
+      "lens": "A4_PERSISTENT_TELEGRAPHER_PIXELS",
+      "sensor": "phase_e1b_ir_LED_OFF",
+      "n_pixels_selected": 115,
+      "half1_top_excess_kurtosis": 33.8571,
+      "half2_locked_excess_kurtosis": 11.2494,
+      "half2_random_px_mean_kurtosis": 0.2501,
+      "half2_p_surr": 0.00125,
+      "half2_p_holm": 0.01625,
+      "half2_z_surr": 73.64,
+      "n_surrogates_confirm": 799,
+      "replicated_anomaly": false,
+      "holm_family": "A4_PERSISTENT_TELEGRAPHER_PIXELS",
+      "holm_family_size": 13
+    },
+    {
+      "lens": "A4_PERSISTENT_TELEGRAPHER_PIXELS",
+      "sensor": "phase_e2b_rgb_chroma_Cb",
+      "n_pixels_selected": 76,
+      "half1_top_excess_kurtosis": 54.6529,
+      "half2_locked_excess_kurtosis": 18.5129,
+      "half2_random_px_mean_kurtosis": 2.8575,
+      "half2_p_surr": 0.00125,
+      "half2_p_holm": 0.01625,
+      "half2_z_surr": 13.45,
+      "n_surrogates_confirm": 799,
+      "replicated_anomaly": false,
+      "holm_family": "A4_PERSISTENT_TELEGRAPHER_PIXELS",
+      "holm_family_size": 13
+    },
+    {
+      "lens": "A4_PERSISTENT_TELEGRAPHER_PIXELS",
+      "sensor": "phase_e2b_ir_LED_ON",
+      "n_pixels_selected": 115,
+      "half1_top_excess_kurtosis": 54.7586,
+      "half2_locked_excess_kurtosis": 3.2511,
+      "half2_random_px_mean_kurtosis": 0.3724,
+      "half2_p_surr": 0.00125,
+      "half2_p_holm": 0.01625,
+      "half2_z_surr": 24.64,
+      "n_surrogates_confirm": 799,
+      "replicated_anomaly": false,
+      "holm_family": "A4_PERSISTENT_TELEGRAPHER_PIXELS",
+      "holm_family_size": 13
+    },
+    {
+      "lens": "A4_SYNCHRONIZED_MULTIPIXEL_BURSTS",
+      "sensor": "phase_idle_rgb_luma_Y",
+      "half1_max_4sigma_px_frac": 0.002367,
+      "half2_max_4sigma_px_frac": 0.002132,
+      "half2_sub_obs": 0.00293,
+      "half2_surr_mean": 0.000963,
+      "half2_p_surr": 0.00125,
+      "half2_p_holm": 0.0075,
+      "half2_z_surr": 8.1,
+      "n_surrogates_confirm": 799,
+      "replicated_anomaly": false,
+      "holm_family": "A4_SYNCHRONIZED_MULTIPIXEL_BURSTS",
+      "holm_family_size": 6
+    },
+    {
+      "lens": "A4_SYNCHRONIZED_MULTIPIXEL_BURSTS",
+      "sensor": "phase_idle_rgb_chroma_Cb",
+      "half1_max_4sigma_px_frac": 0.431901,
+      "half2_max_4sigma_px_frac": 0.010247,
+      "half2_sub_obs": 0.009277,
+      "half2_surr_mean": 0.005943,
+      "half2_p_surr": 0.0025,
+      "half2_p_holm": 0.0075,
+      "half2_z_surr": 4.92,
+      "n_surrogates_confirm": 799,
+      "replicated_anomaly": false,
+      "holm_family": "A4_SYNCHRONIZED_MULTIPIXEL_BURSTS",
+      "holm_family_size": 6
+    },
+    {
+      "lens": "A4_SYNCHRONIZED_MULTIPIXEL_BURSTS",
+      "sensor": "phase_b_rgb_luma_Y",
+      "half1_max_4sigma_px_frac": 0.003376,
+      "half2_max_4sigma_px_frac": 0.002048,
+      "half2_sub_obs": 0.001953,
+      "half2_surr_mean": 0.000719,
+      "half2_p_surr": 0.00125,
+      "half2_p_holm": 0.0075,
+      "half2_z_surr": 4.7,
+      "n_surrogates_confirm": 799,
+      "replicated_anomaly": false,
+      "holm_family": "A4_SYNCHRONIZED_MULTIPIXEL_BURSTS",
+      "holm_family_size": 6
+    },
+    {
+      "lens": "A4_SYNCHRONIZED_MULTIPIXEL_BURSTS",
+      "sensor": "phase_b_rgb_chroma_Cb",
+      "half1_max_4sigma_px_frac": 0.008496,
+      "half2_max_4sigma_px_frac": 0.012741,
+      "half2_sub_obs": 0.013184,
+      "half2_surr_mean": 0.006588,
+      "half2_p_surr": 0.00125,
+      "half2_p_holm": 0.0075,
+      "half2_z_surr": 9.36,
+      "n_surrogates_confirm": 799,
+      "replicated_anomaly": false,
+      "holm_family": "A4_SYNCHRONIZED_MULTIPIXEL_BURSTS",
+      "holm_family_size": 6
+    },
+    {
+      "lens": "A4_SYNCHRONIZED_MULTIPIXEL_BURSTS",
+      "sensor": "phase_e2b_rgb_luma_Y",
+      "half1_max_4sigma_px_frac": 0.995394,
+      "half2_max_4sigma_px_frac": 0.002051,
+      "half2_sub_obs": 0.002441,
+      "half2_surr_mean": 0.000584,
+      "half2_p_surr": 0.00125,
+      "half2_p_holm": 0.0075,
+      "half2_z_surr": 9.31,
+      "n_surrogates_confirm": 799,
+      "replicated_anomaly": false,
+      "holm_family": "A4_SYNCHRONIZED_MULTIPIXEL_BURSTS",
+      "holm_family_size": 6
+    },
+    {
+      "lens": "A4_SYNCHRONIZED_MULTIPIXEL_BURSTS",
+      "sensor": "phase_e2b_rgb_chroma_Cb",
+      "half1_max_4sigma_px_frac": 0.003997,
+      "half2_max_4sigma_px_frac": 0.006393,
+      "half2_sub_obs": 0.009277,
+      "half2_surr_mean": 0.004793,
+      "half2_p_surr": 0.00125,
+      "half2_p_holm": 0.0075,
+      "half2_z_surr": 7.01,
+      "n_surrogates_confirm": 799,
+      "replicated_anomaly": false,
+      "holm_family": "A4_SYNCHRONIZED_MULTIPIXEL_BURSTS",
+      "holm_family_size": 6
+    }
+  ],
+  "holm_family_note": "Holm-Bonferroni is applied across each lens family over ALL phases; the 19 A4 telegraph-pixel/burst rows carry raw p=1/800 labelled as Holm in the original receipt — corrected here: family Holm gives 0.01625 (13 RTS rows) and 0.0075 (6 burst rows), both >= 0.005, so they are moved to holm_rejected and excluded from the survivor count."
 }

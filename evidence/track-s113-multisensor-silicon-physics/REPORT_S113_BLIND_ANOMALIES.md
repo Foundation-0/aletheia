@@ -12,15 +12,15 @@
 
 | File | Lines / Bytes | SHA-256 |
 |---|---:|---|
-| `s113_blind_anomaly_hunter.py` | `2,213` L / `105,427` B | `b99c92049d24a55857c483f45d3849314f230a5d5801b98bcc5a4b80acab6c72` |
+| `s113_blind_anomaly_hunter.py` | `2,241` L / `107,003` B | `d66f95126802790546d8664846097e4499f6ae5333ea3fdde9604f12ec413282` |
 | `test_s113_blind_anomaly_hunter.py` | `154` L / `7,335` B | `1adae8853ec1d9cadd500f13682937cdcd47458aec5ab42389338da7822ec8c5` |
-| `s113_blind_anomalies_receipt.json` | `3,223` L / `105,984` B | `cb0c95482c5b25aeca391928199f63c552bb89a1ad6431257daa137b9e114e9c` |
+| `s113_blind_anomalies_receipt.json` | `3,262` L / `107,458` B | `85e0c72f83576d17432f3f0abc6c12a691aa94fda4058e8039c187598cd8c724` |
 
-Across all `7` phases (`9` manifest streams), **`193` split-half-replicated instances** survived `p_Holm < 0.005` (`A1`: `17`, `A2`: `45`, `A3`: `2`, `A4`: `67` [`48` 2D spatial waves + `13` persistent RTS pixel ensembles + `6` synchronized bursts], `A5`: `18`, `A6`: `22`, `A7`: `22`), collapsing into **7 distinct physical and firmware phenomena** that violate standard linear/Gaussian/Poisson textbook priors.
+Across all `7` phases (`9` manifest streams), **`174` split-half-replicated instances** survive the lens-family Holm gate `p_Holm < 0.005` (`A1`: `17`, `A2`: `45`, `A3`: `2`, `A4`: `48` 2D spatial waves, `A5`: `18`, `A6`: `22`, `A7`: `22`). The `19` A4 persistent-RTS-pixel (`13`) and synchronized-burst (`6`) rows previously counted as survivors carried **raw `p = 1/800` mislabelled as Holm**; lens-family Holm gives `0.01625` / `0.0075 ≥ 0.005`, so they are moved to `holm_rejected` (see receipt `holm_family_note`). These are **split-half-stable exploratory patterns within one session on one machine (N0)** — not independent replications and not claimed as non-textbook discoveries; several are explained by standard mechanisms (CMOS RTS/FPN sensor noise, fan blade-pass harmonics, firmware reporting latency). Holm families are per lens; no cross-family multiplicity correction is applied. σ values are parametric extrapolations (empirical p floor `1/800` at `N_confirm = 799`).
 
 ---
 
-## 2. Seven Replicated Non-Textbook Phenomena Across Lenses `A1`–`A7`
+## 2. Seven Split-Half-Stable Exploratory Patterns (N0) Across Lenses `A1`–`A7`
 
 ### Discovery 1 (`Lens A1` — Ultrasonic Quadratic Phase-Locked Triads $f_1 + f_2 = f_3$ in Silent `IDLE` and `83 W` GPU Load; Cross-Rail Audio Linear Decoupling)
 - **Textbook Prior Violated:** Linear time-invariant acoustic/EMI paths and arbitrary static monotonic nonlinearities (`IAAFT` null) have zero bispectral phase locking ($b^2(f_1, f_2) \to 0$).

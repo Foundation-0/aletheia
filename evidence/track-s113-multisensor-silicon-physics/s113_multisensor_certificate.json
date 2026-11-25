@@ -1,5 +1,5 @@
 {
-  "certificate_sha256": "b18744a69571acf501a25fd2340082804bf0d390d2012495d4a2b571fe39d3d5",
+  "certificate_sha256": "90398e173f82e9719d9104908df466a2817d51caf4d1ca83d1000d510ca89c6c",
   "payload": {
     "confirmatory_phases": {
       "E1": {
@@ -1263,8 +1263,8 @@
             "tau_wls_us": 13.1531
           }
         },
-        "min_holm_p": 0.0029985,
-        "n_surrogates": 2000,
+        "min_holm_p": 0.011976,
+        "n_surrogates": 500,
         "passes_null_gate": true,
         "popen_startup_slack_ms": 74.532,
         "prbs7_folded_edge_rise_10_90_ms": 999.0,
@@ -1338,7 +1338,13 @@
         "rapl_to_hf_lag_ms": 3130.0,
         "rapl_to_lf_corr": 0.0756,
         "rapl_to_lf_lag_ms": 2040.0,
-        "verdict": "CONFIRMED_H1_VRM_AIRBORNE_PIEZO"
+        "verdict": "FALSIFIED",
+        "posthoc_n2000_exploratory": {
+          "n_surrogates": 2000,
+          "min_holm_p": 0.0029985,
+          "verdict": "CONFIRMED_H1_VRM_AIRBORNE_PIEZO",
+          "status": "POST-HOC N0 exploratory only: surrogate count raised 500->2000 after data; mechanism category not among preregistered outcomes; stimulus-to-audio lag NOT measured (prbs7_p=0.9545)"
+        }
       },
       "H2": {
         "chance_balanced_accuracy": 0.2,
@@ -1731,22 +1737,23 @@
         "verdict": "FALSIFIED"
       }
     },
-    "n_surrogates": 2000,
+    "n_surrogates": 500,
     "prereg_protocol": "PREREG-S113",
     "raw_av_staged_count": 0,
     "seed": 20261125,
     "track": "S113",
     "verdict_summary": {
-      "H1": "CONFIRMED_H1_VRM_AIRBORNE_PIEZO",
+      "H1": "FALSIFIED",
       "H2": "FALSIFIED",
       "H3": "FALSIFIED",
       "H3_E1b_IR_1009HZ_OOS": "FALSIFIED_NOISE_FLUCTUATION",
       "H4": "FALSIFIED",
       "H4_E1c_LINEAR_GAMMA100": "FALSIFIED",
       "H5": "FALSIFIED"
-    }
+    },
+    "prereg_deviation_note": "H1 surrogate-count deviation N=500 -> N=2000 recorded here; the preregistered gate (N=500, Holm across the 6 frequencies) gives min Holm p = 6 x 0.001996 = 0.011976 >= 0.005, so H1 is FALSIFIED as preregistered; the N=2000 CONFIRMED_H1_VRM_AIRBORNE_PIEZO result is kept only as post-hoc N0 exploratory."
   },
-  "payload_sha256": "0ea122458a73ef1a97b3b7471d252a9679e7fb885d14178ae4f2c30754fa0845",
+  "payload_sha256": "c9b1950b4a7f7f639c81f121299607a616719d1121fbd3f009839145a7fedfc7",
   "prereg_id": "PREREG-S113",
   "schema": "aletheia.track_s113.multisensor_silicon_certificate.v1"
 }

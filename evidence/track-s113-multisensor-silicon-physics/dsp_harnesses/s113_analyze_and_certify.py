@@ -857,7 +857,16 @@ def analyze_h1_mechanism(
     holm_pvals = holm_bonferroni(present_pvals) if present_pvals else {}
     for k, cstat in carrier_stats.items():
         cstat["p_holm"] = holm_pvals.get(k, 1.0)
-    min_holm_p = min(holm_pvals.values()) if holm_pvals else 1.0
+    min_holm_p_posthoc = min(holm_pvals.values()) if holm_pvals else 1.0
+
+    # PREREG-S113 fixes the H1 kill gate at N=500 surrogates (Holm across the 6 frequencies).
+    # The REPORTED gate/verdict is evaluated at the preregistered N=500 (raw_pvals_500);
+    # any larger surrogate run is post-hoc exploratory only and is recorded as such.
+    present_pvals_500 = {k: v for k, v in raw_pvals_500.items() if carrier_stats[k].get("present")}
+    holm_pvals_500 = holm_bonferroni(present_pvals_500) if present_pvals_500 else {}
+    for k, cstat in carrier_stats.items():
+        cstat["p_holm_n500"] = round(holm_pvals_500.get(k, 1.0), 8)
+    min_holm_p = min(holm_pvals_500.values()) if holm_pvals_500 else 1.0
 
     # 2. PRBS-7 impulse response latency, edge rise sharpness, and circular-shift p-value
     chip_ms = float(manifest.get("prbs7_chip_ms", 10.0))
@@ -1070,8 +1079,14 @@ def analyze_h1_mechanism(
         "hypothesis": "S113-H1",
         "verdict": verdict,
         "passes_null_gate": bool(passes_null_gate),
-        "n_surrogates": int(n_surrogates),
+        "n_surrogates": 500,
         "min_holm_p": round(min_holm_p, 8),
+        "prereg_n_surrogates": 500,
+        "posthoc_n2000_exploratory": {
+            "n_surrogates": int(n_surrogates),
+            "min_holm_p": round(min_holm_p_posthoc, 8),
+            "status": "POST-HOC N0 exploratory only: preregistered gate is N=500; the N=2000 run is not a preregistered outcome",
+        },
         "prbs7_p": round(prbs_p, 8),
         "prbs7_peak_z": round(prbs_peak_z, 4),
         "prbs7_lag_clock_anchored_ms": round(prbs_lag_ms, 4),
