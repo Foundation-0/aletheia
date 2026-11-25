@@ -12,6 +12,7 @@ import shutil
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 _HERE = pathlib.Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
@@ -171,6 +172,41 @@ class TestS106Phase3R5(unittest.TestCase):
             # Clean copy still passes
             res = v3.verify_phase3_dir(d)
             self.assertTrue(res["ok"])
+
+    def test_07_amendment_flags_require_full_sha256(self) -> None:
+        # Not supplied -> loudly UNVERIFIABLE_NOT_SHIPPED (never silently VERIFIED).
+        res = v3.verify_phase3_dir(_HERE)
+        self.assertEqual(res["amendment_status"], "UNVERIFIABLE_NOT_SHIPPED")
+        with tempfile.TemporaryDirectory(prefix="s106_p3_t7_") as td:
+            d = self._copy(td)
+            # Wrong bytes -> AMENDMENT_FILE_SHA_MISMATCH.
+            bad = pathlib.Path(td) / "amend1.md"
+            bad.write_bytes(b"not the amendment")
+            with self.assertRaises(v3.S106Phase3Error) as ctx:
+                v3.verify_phase3_dir(d, amendment1_path=bad)
+            self.assertEqual(ctx.exception.code, "AMENDMENT_FILE_SHA_MISMATCH")
+            # Full 64-hex equality: a file matching the pinned full sha passes...
+            good1 = pathlib.Path(td) / "amend1_good.md"
+            good1.write_bytes(b"amendment one bytes")
+            good2 = pathlib.Path(td) / "amend2_good.md"
+            good2.write_bytes(b"amendment two bytes")
+            with mock.patch.object(v3, "AMEND1_SHA256", hashlib.sha256(b"amendment one bytes").hexdigest()), \
+                 mock.patch.object(v3, "AMEND2_SHA256", hashlib.sha256(b"amendment two bytes").hexdigest()), \
+                 mock.patch.object(v3, "_verify_one", return_value={"verdicts": {}, "arms": 0}):
+                res2 = v3.verify_phase3_dir(d, amendment1_path=good1, amendment2_path=good2)
+                self.assertEqual(res2["amendment_status"], "VERIFIED")
+                # ...while a one-byte-different near miss fails (the old 16-hex prefix check
+                # could not distinguish these; the full-sha check does).
+                near = pathlib.Path(td) / "amend1_near.md"
+                near.write_bytes(b"amendment one bytes!")
+                with self.assertRaises(v3.S106Phase3Error) as ctx2:
+                    v3.verify_phase3_dir(d, amendment1_path=near, amendment2_path=good2)
+                self.assertEqual(ctx2.exception.code, "AMENDMENT_FILE_SHA_MISMATCH")
+            # CLI surface: --amendment1/2 flags wired through.
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                rc = v3.main(["--dir", str(d), "--json", "--amendment1", str(bad)])
+            self.assertEqual(rc, 1)
 
     def test_05_hygiene(self) -> None:
         bad = ("/" + "home/", "~" + "/", "/" + "dev/" + "null", "4" + "-mode")

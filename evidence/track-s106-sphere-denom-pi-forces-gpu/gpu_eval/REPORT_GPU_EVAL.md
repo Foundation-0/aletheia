@@ -164,6 +164,8 @@ On `Qwen/Qwen2.5-3B`, every static `SphereMap` arm exploded to `WikiKL = 15.6..2
 
 ## 5. Frozen Artifact Manifest (`gpu_eval/` — `9` Sibling Files + `REPORT_GPU_EVAL.md` = `10` Files)
 
+> **R5 mutation kill rate (this head):** `aletheia mutate --guards require_ok raise --max-mutants 0` on `verify_s106_gpu_eval.py` kills **26/53 (49.1%)**; null mutant passes. `prereg_status=UNVERIFIABLE_NOT_SHIPPED` appears only in the verifier JSON unless the prereg file is supplied — it is disclosed in prose at the top of this report.
+
 *Note: the Phase-2 numbers in §1–§4 were produced by the pre-edit `s106_phase2_blind_gauntlet.py` (`f066f28b…`, `54,421` B); the head version differs by a comment-only hampack-baseline label.*
 
 | File | Lines | Bytes | Mode | SHA-256 (Full 64-Hex) | Role |
@@ -173,7 +175,7 @@ On `Qwen/Qwen2.5-3B`, every static `SphereMap` arm exploded to `WikiKL = 15.6..2
 | `s106_blind_gauntlet_results.json` | `1` | `85,198` | `0o644` (git 100644) | `ec49d4a76008e1ab968d68d7923e6e9ec7ddd2e18ae8b29917f43adc310a742b` | Canonical Phase 2 results receipt (`117/117` arms, `result_sha256=dab0b4fd...`)
 | `s106_frozen_pilot_params.json` | `1` | `44,105` | `0o644` (git 100644) | `b075337a70367408f23f4be5188b1f0c2c73e2ce61dd11b6d94637857bb836ef` | Immutable Phase 1B locked constants (inner `pilot_params_sha256=26a40bee...`)
 | `s106_phase1b_pilot_lock.py` | `523` | `22,329` | `0o644` (git 100644) | `137c6a72be373df3348d95d2c7b46746246ba2a377ff1278196cfcd03198065e` | Phase 1B parameter-lock runner (strictly synthetic Gaussian + Qwen/Qwen2.5-0.5B)
-| `s106_phase2_blind_gauntlet.py` | `1,202` | `54,479` | `0o644` (git 100644) | `8c459a3cb95705f79024502417b19eceae256f005f685364d837d4605e3b78a8` | `8c459a3cb95705f79024502417b19eceae256f005f685364d837d4605e3b78a8` |
+| `s106_phase2_blind_gauntlet.py` | `1,202` | `54,479` | `0o644` (git 100644) | `8c459a3cb95705f79024502417b19eceae256f005f685364d837d4605e3b78a8` | Phase 2 blind gauntlet runner (3 held-out models, locked pilot params) |
 | `s106_quant_ops.py` | `816` | `33,725` | `0o644` (git 100644) | `9eebf4843f294f7dd279d45668ab58cb4759807362f1c726e5af9a1e74848144` | Exact-bpw GPU/CPU operator library (SphereMap, E8, A16, A16^8, Power-0.7, Hodge, EQ(S^3), EQ(S^7), Yukawa/Coulomb)
-| `test_s106_gpu_eval_r5.py` | `232` | `12,032` | `0o644` (git 100644) | `9bf14438a53c652bb0c3a122e6ccc033f86516e8639cb4be665a1a52aebf7020` | `9bf14438a53c652bb0c3a122e6ccc033f86516e8639cb4be665a1a52aebf7020` |
-| `verify_s106_gpu_eval.py` | `491` | `23,881` | `0o644` (git 100644) | `e52babd09766386305213f3e53d5bc5c24913d3ef0f055938dd6e8ec66979655` | `e52babd09766386305213f3e53d5bc5c24913d3ef0f055938dd6e8ec66979655` |
+| `test_s106_gpu_eval_r5.py` | `232` | `12,032` | `0o644` (git 100644) | `9bf14438a53c652bb0c3a122e6ccc033f86516e8639cb4be665a1a52aebf7020` | Pure-stdlib R5 adversarial + hygiene test suite |
+| `verify_s106_gpu_eval.py` | `491` | `23,881` | `0o644` (git 100644) | `e52babd09766386305213f3e53d5bc5c24913d3ef0f055938dd6e8ec66979655` | Phase 2 integrity + literal locked kill-gate verdict verifier |

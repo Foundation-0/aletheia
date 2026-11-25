@@ -28,8 +28,8 @@ import sys
 from typing import Any
 
 PREREG_SHA256 = "ac3e62116bc4841320d2c713787c23568beed1ae738bf9b284b7f0c2a118d72a"
-AMEND1_PREFIX = "c83910a0e1a98e2a"
-AMEND2_PREFIX = "b676cc556c9bbfa0"
+AMEND1_SHA256 = "c83910a0e1a98e2afe473e5b15109fcbaf8e16bf85a08188b10fbdecfd75a05f"
+AMEND2_SHA256 = "b676cc556c9bbfa0849c29c3326ebd13e8f43e9c65960ddb5eb508fdead21d85"
 HELD_OUT = ("HuggingFaceTB/SmolLM2-360M", "Qwen/Qwen2.5-1.5B", "Qwen/Qwen2.5-3B")
 MAX_BYTES = 8 * 1024 * 1024
 
@@ -214,7 +214,7 @@ def regrade_h6(res: dict[str, Any]) -> dict[str, str]:
     return {"H6a": h6a, "H6b_part1": h6b1, "H6b_part2": h6b2, "H6c": h6c}
 
 
-def _verify_one(d: pathlib.Path, proto_name: str, res_name: str, receipt_name: str, amend_key: str, prefix: str,
+def _verify_one(d: pathlib.Path, proto_name: str, res_name: str, receipt_name: str, amend_key: str, amend_sha: str,
                 regrade) -> dict[str, Any]:
     proto_raw = _read(d / proto_name, proto_name)
     proto = _load(proto_raw, proto_name)
@@ -222,7 +222,7 @@ def _verify_one(d: pathlib.Path, proto_name: str, res_name: str, receipt_name: s
     res = _load(res_raw, res_name)
     if proto.get("parent_preregistration_sha256") != PREREG_SHA256 or res.get("preregistration_sha256") != PREREG_SHA256:
         raise S106Phase3Error("PREREG_MISMATCH", res_name)
-    if not str(res.get(amend_key, "")).startswith(prefix) or proto.get(amend_key) != res.get(amend_key):
+    if not hmac.compare_digest(str(res.get(amend_key, "")), amend_sha) or proto.get(amend_key) != res.get(amend_key):
         raise S106Phase3Error("AMENDMENT_MISMATCH", res_name)
     if not hmac.compare_digest(str(res.get("protocol_file_sha256", "")), hashlib.sha256(proto_raw).hexdigest()):
         raise S106Phase3Error("PROTOCOL_LINK_MISMATCH", res_name)
@@ -255,18 +255,19 @@ def _verify_one(d: pathlib.Path, proto_name: str, res_name: str, receipt_name: s
 def verify_phase3_dir(d: pathlib.Path, amendment1_path: pathlib.Path | None = None,
                      amendment2_path: pathlib.Path | None = None) -> dict[str, Any]:
     h5 = _verify_one(d, "h5_locked_protocol.json", "s106_h5_results.json", "mlos_zone_b_h5_receipt.json",
-                     "amendment1_sha256", AMEND1_PREFIX, regrade_h5)
+                     "amendment1_sha256", AMEND1_SHA256, regrade_h5)
     h6 = _verify_one(d, "h6_locked_protocol.json", "s106_h6_results.json", "mlos_zone_b_h6_receipt.json",
-                     "amendment2_sha256", AMEND2_PREFIX, regrade_h6)
-    # Real amendment check: when the amendment markdowns are supplied, their SHA-256 must
-    # match the pinned prefixes; otherwise the status is loudly UNVERIFIABLE_NOT_SHIPPED.
+                     "amendment2_sha256", AMEND2_SHA256, regrade_h6)
+    # Real amendment check: when the amendment markdowns are supplied, their full SHA-256
+    # must equal the pinned 64-hex constants (a 16-hex prefix match no longer suffices);
+    # otherwise the status is loudly UNVERIFIABLE_NOT_SHIPPED.
     status = "VERIFIED"
-    for path, prefix in ((amendment1_path, AMEND1_PREFIX), (amendment2_path, AMEND2_PREFIX)):
+    for path, sha in ((amendment1_path, AMEND1_SHA256), (amendment2_path, AMEND2_SHA256)):
         if path is None:
             status = "UNVERIFIABLE_NOT_SHIPPED"
             continue
         raw = _read(path, "amendment")
-        if not hashlib.sha256(raw).hexdigest().startswith(prefix):
+        if not hmac.compare_digest(hashlib.sha256(raw).hexdigest(), sha):
             raise S106Phase3Error("AMENDMENT_FILE_SHA_MISMATCH", str(path))
     return {"ok": True, "h5": h5, "h6": h6, "amendment_status": status}
 

@@ -3,13 +3,15 @@
 - **Parent Preregistration SHA-256:** `ac3e62116bc4841320d2c713787c23568beed1ae738bf9b284b7f0c2a118d72a` — **UNVERIFIABLE (file not shipped in any reachable repo)**
 - **Amendment 1 (`H5`) SHA-256:** `c83910a0e1a98e2afe473e5b15109fcbaf8e16bf85a08188b10fbdecfd75a05f` — **UNVERIFIABLE (not shipped)** (`h5_locked_protocol.json` locked `2026-11-25T13:37:02Z`, `mlos_zone_b_h5_receipt.json` `clean_hardware_run=true`, `anomalies=[]`, `1534369.0 ms`, `57°C -> 67°C`, `compute_vram_mib: 0 -> 0`)
 - **Amendment 2 (`H6`) SHA-256:** `b676cc556c9bbfa0849c29c3326ebd13e8f43e9c65960ddb5eb508fdead21d85` — **UNVERIFIABLE (not shipped)** (`h6_locked_protocol.json` locked `2026-11-25T14:09:23Z`, `mlos_zone_b_h6_receipt.json` `clean_hardware_run=true`, `anomalies=[]`, `1106793.1 ms`, `53°C -> 71°C`, `compute_vram_mib: 0 -> 0`)
+- **Verifier status fields:** `verify_s106_phase3.py --json` reports `amendment_status=UNVERIFIABLE_NOT_SHIPPED` unless the amendment markdowns are supplied via `--amendment1/2`, in which case their **full** SHA-256 must equal the pinned 64-hex constants (`AMENDMENT_FILE_SHA_MISMATCH` otherwise; previously a 16-hex prefix match sufficed).
+- **Post-run receipt rewrite (disclosed):** the H5/H6 Zone-B receipts (`mlos_zone_b_h5/h6_receipt.json`) were re-signed after the runs to add the `bound_file_sha256` results-binding link; the verifier checks that binding, and the raw run-time receipt bytes are therefore not the shipped bytes.
 - **Isolation & Integrity:** Executed exclusively in sibling dir `gpu_eval_phase3_h5_h6/` (leaving audited Phase-2 `gpu_eval/` 100% untouched); `74/74` LLM arms (`48` H5 + `26` H6) + `4/4` matched-param `10,818,432`-param micro-LMs completed with **`0` syndrome errors, `0` out-of-ball groups, `0` non-block diffs, `WEIGHTS=0`, `0` GitHub pushes**.
 
 ---
 
 ## 1. Literal Locked-Rule Verdicts
 
-| Hypothesis | Locked Verdict | Exact Blind Held-Out Summary |
+| Hypothesis | Locked Verdict | Exact Held-Out Summary (Phase 3 is NOT blind on these models) |
 | :--- | :---: | :--- |
 | **`H5a` (Zero-Extra-Bit `Flow-SphereMap`)** | **`FALSIFIED`** | **Exact Law-5 Algebraic Obstruction Discovered:** Right-multiplying $W$ by any positive diagonal $D_{\text{flow}}$ before Sinkhorn L2 whitening is **gauge-annihilated** by Sinkhorn's column normalization step: $D_r^{-1} (W D_{\text{flow}}) (D_c D_{\text{flow}})^{-1} \equiv D_r^{-1} W D_c^{-1}$ identically for exact real-valued Sinkhorn — in the shipped FP16 implementation, up to FP16 scale rounding and finite-iteration Sinkhorn (CPU control: 0.04–0.29% relative). Across `3/3` models × `3/3` configs, `static`, `flownoise`, `flowreal`, and `flownull` match in weight SNR to 3 decimal places (`15.385` / `15.378` / `14.985 dB`) with `< 1.5%` FP16 rounding jitter. |
 | **`H5b` (Depth-Time Cone & Bit Schedule)** | **`FALSIFIED`** | Q1/Q4 causal perturbation amplification passes `>= 2.0×` on `1/3` models (`SmolLM2`: **`2.226×`**, `Qwen1.5B`: `1.454×`, `Qwen3B`: `0.895×`). Matched-`bpw` (`2.9989` vs `2.9990`) Q1-heavy schedule (`3.5/3.0/2.5 bpw`) passes `>= 8%` KL on `1/3` models — **producing a huge `-16.4% Wiki / -55.4% Python` KL cut on `Qwen2.5-3B` (`0.433/0.319` vs `0.518/0.716`, while reversed `Q1 @ 2.5b` explodes `10×` to `4.188/4.236`!)** because Layers 1–5 carry `Qwen3B`'s extreme column outliers. |
@@ -20,7 +22,7 @@
 
 ---
 
-## 2. Amendment 1 (`H5a` + `H5b`) Blind Held-Out Table
+## 2. Amendment 1 (`H5a` + `H5b`) Held-Out Table (not blind: H5b was motivated by Phase-2 Qwen3B outliers)
 
 | Model | `E_8 3b` WikiKL (Static / FlowNoise) | `A_16 3b` WikiKL (Static / FlowNoise) | `H5b` Cone Q1/Q4 | `p128` Uniform `3b` (Wiki / Py) | `p128` Depth `3.5/3.0/2.5` (Wiki / Py) | `p128` Reverse `2.5/3.0/3.5` (Wiki / Py) |
 | :--- | :---: | :---: | ---: | :---: | :---: | :---: |
@@ -32,7 +34,7 @@
 
 ---
 
-## 3. Amendment 2 (`H6a` + `H6b`) Blind Held-Out Table
+## 3. Amendment 2 (`H6a` + `H6b`) Held-Out Table (not blind)
 
 | Model | `flat_3b` (Wiki / Py) | `polar_3b` (Wiki / Py) | `equatorial_3b` (Wiki / Py) | `floworder_3b` (Wiki / Py) | `H6b-1` Hopf vs `EQ(S^3)` dB (Equiv.) |
 | :--- | :---: | :---: | :---: | :---: | :---: |
@@ -55,6 +57,8 @@
 
 ## 5. Frozen Artifact Manifest (`gpu_eval_phase3_h5_h6/` — `10` Sibling Files + `REPORT_PHASE3_H5_H6.md` = `11` Files)
 
+> **R5 mutation kill rate (this head):** `aletheia mutate --guards require_ok raise --max-mutants 0` on `verify_s106_phase3.py` kills **19/40 (47.5%)** (18/39 at the reviewed head `efdc334`); null mutant passes.
+
 | File | Lines | Bytes | Mode | SHA-256 (Full 64-Hex) | Role |
 | :--- | ---: | ---: | :---: | :--- | :--- |
 | `h5_locked_protocol.json` | `1` | `2,250` | `0o644` (git 100644) | `546c14f449f693452144e1f1417d62043d47c0127aba7bad872716611ea82edd` | Runtime-emitted H5 protocol constants (locked at run start, inside the receipt window — NOT a pre-registration) & grading rules |
@@ -65,5 +69,5 @@
 | `s106_h5_results.json` | `1` | `31,727` | `0o644` (git 100644) | `0acb1c3e4fd7d7e6675a636e61dd31d102c4ec4b0d5e7f229217875253db0a9b` | Canonical H5 results (`48/48` arms, `result_sha256=676b4674...`) |
 | `s106_h6_hypersphere_arrangement_eval.py` | `558` | `29,946` | `0o644` (git 100644) | `639529b2019234f9722a4ed1d2715a03bf02bb7c77b02e725c77c571f1504d85` | Amendment 2 (H6a/H6b/H6c) held-out + micro-LM evaluator |
 | `s106_h6_results.json` | `1` | `17,711` | `0o644` (git 100644) | `f8b6e2a163f88c95d518a51a2f94af02acd24fcb450ede55a9742f6de2664fc4` | Canonical H6 results (`26/26` arms + `4` micro-LMs, `result_sha256=5ab86f4b...`) |
-| `test_s106_phase3_r5.py` | `189` | `9,824` | `0o644` (git 100644) | `fc1286b7e9d04cf1720b9f67a6d36c086d4a3dae46c41ce7f0357c20f48f7a4d` | Pure-stdlib R5 adversarial + hygiene test suite (6/6 tests, 0 bare asserts) |
-| `verify_s106_phase3.py` | `296` | `14,482` | `0o644` (git 100644) | `5069283b940ca0025f7d9cb242b3e8f3edba17a25003410fed7db4897070bf04` | Pure-stdlib integrity, receipt re-sign + bound-link, and literal locked-rule verdict verifier |
+| `test_s106_phase3_r5.py` | `225` | `12,160` | `0o644` (git 100644) | `0e83813d96e2a457348bcd0fea72e1c8679e101b0539ecde7d40b3269565d4e0` | Pure-stdlib R5 adversarial + hygiene test suite (7/7 tests incl. test_07 full-sha amendment flags, 0 bare asserts) |
+| `verify_s106_phase3.py` | `297` | `14,660` | `0o644` (git 100644) | `2c7862199284307c687b203709d7981f5d297ff53ddadc420fe24c84c29e0694` | Pure-stdlib integrity, receipt re-sign + bound-link, and literal locked-rule verdict verifier; amendment files now compared by FULL sha256 (not 16-hex prefix) |
