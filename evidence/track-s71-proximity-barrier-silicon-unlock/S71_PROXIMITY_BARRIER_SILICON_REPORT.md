@@ -149,9 +149,9 @@ We transpose the competing-potential barrier directly onto a native `AVX-512` VN
 | `ProximityBarrierSilicon.lean` | `372` | `17,245` | `0o644` | `870c915e53903220a2b98a5a4857839f8673960f8161550c21f30200e43386e8` |
 | `s71_proximity_bench.c` | `863` | `34,346` | `0o644` | `91299eabe27ec33696eb18d5c64d920968790a5337e84d6bf372a1e91fd832c9` |
 | `s71_run_live.py` | `168` | `6,001` | `0o644` | `894ad7be0560628df5cf660c6ee9b6816d4dfce37b12d51654a31a20293d9255` |
-| `s71_empirical_results.json` | `479` | `12,010` | `0o644` | `7e9ae73dc229427c3b97d0c627670c1363a1f2ba50b32fa6ea8685962d134aa7` |
+| `s71_empirical_results.json` | `479` | `12,181` | `0o644` | `9e47b98d1fb3895d9f58b21116eaaa3f626e8eb327a27cbe46561832b7072dbd` |
 | `mlos_zone_b_receipt.json` | `93` | `2,645` | `0o644` (`0o600` on `--write`) | `f726207c40ae5112a6816c55d9f61327a008562c0c98ec43908d82ba565b6ef3` |
-| `s71_proximity_oracle.py` | `460` | `19,901` | `0o644` | `5c2a63b5cabff8d83bce3bb2228c92080eec0c43fa276577290a4cf6d47a91a6` |
-| `s71_proximity_audit.py` | `1,033` | `43,711` | `0o644` | `547ec0374f15e8b046c8365f026fd81caa7194d4443e9f9d11d1773452eca58a` |
-| `s71_proximity_certificate.json` | `1` | `2,982` | `0o644` (`0o600` on `--write`) | `4a26aac70e79eb8ede80f62f90c06a5e6683c19fc8ce885ad51c4af39be158bd` |
-| `test_s71_proximity_r5.py` | `1,076` | `66,123` | `0o644` | `6b496a6dd5f6143065edbd6d617781741aeda838fb220685078bacdd9610ad29` |
+| `s71_proximity_oracle.py` | `460` | `19,901` | `0o644` | `5aeaa82ce66ea9f810cc6c228fa36f5f6d2df0e2f2f3cc7d9f3a2492f9d296f7` |
+| `s71_proximity_audit.py` | `1,029` | `43,443` | `0o644` | `25603408c38cf52aa5a11d787ac60370e9fcc2951b20bb4b9a7758c2538403dd` |
+| `s71_proximity_certificate.json` | `1` | `2,982` | `0o644` (`0o600` on `--write`) | `3dac1612ce372716c65a83a6e1a16f38d9020603f219d83e77c04b21f45ebf9c` |
+| `test_s71_proximity_r5.py` | `1,108` | `68,696` | `0o644` | `74ead8c79956655ee11929a3e13908e809a565c0d32a31bbc27e67f0adeb1e1a` |
