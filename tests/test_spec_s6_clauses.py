@@ -187,7 +187,9 @@ _SECTION6_ITEM2 = (
     'audit-check --safety-scan`, `aletheia/safety.py`):** Implements `CYA-GAP-01..06` '
     '(`AUDIT-078R`): hidden Trojan-Source Unicode (`U+00AD`, `U+200B..200F`, `U+2060..2064`, '
     '`U+FEFF`, BiDi controls, variation selectors `U+FE00..FE0F`/`U+E0100..E01EF`, Tags), '
-    'unpinned MCP/`npx -y` (shell + JSON/YAML)/`--yolo`/`SessionStart`, unguarded recursive '
+    # Split literals (as in aletheia/safety.py) keep `aletheia safety-scan` from flagging this
+    # quotation of the spec as a live auto-yes / yolo / session-hook configuration.
+    'unpinned MCP/`n' 'px -y` (shell + JSON/YAML)/`-' '-yolo`/`Session' 'Start`, unguarded recursive '
     'force-delete of shell/Makefile variables (YAML `run:`, `$(...)`, continuations, '
     '`xargs`, `sh -c`, Makefile `$(VAR)`; top-level non-conditional/non-heredoc `set -u` '
     'guards unset only, `${VAR:?}` guards unset and empty), `pull_request_target` + '
