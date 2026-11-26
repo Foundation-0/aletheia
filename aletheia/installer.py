@@ -43,7 +43,7 @@ description: >-
 # The Aletheia Method Runbook
 
 1. **Portal Phase:** Mine raw sources into `cartography/frontier_portals.md` with steelmanned exact hypotheses.
-2. **Probe Phase:** Realize concrete hypotheses against live upstream equations/data in `probes/`.
+2. **Probe Phase:** Realize concrete hypotheses against live upstream equations/data in `probes/`, where rights and authorization allow; otherwise label any synthetic input as synthetic in the same sentence.
 3. **Tomography Phase:** Audit with zero-shared-code exact/null oracles in `verification/checks/` and log permanently in `verification/AUDIT_LOG.md`.
 4. **Resonance Phase:** Feed every anomaly, obstruction, or sharpness wall back to the Portal Phase.
 5. **CLI Gates:** Run `aletheia audit-check .`, `aletheia mutate`, and `aletheia diagnose .` before publishing.
@@ -61,12 +61,18 @@ _EMBEDDED_CLAUDE_CMD = """# /aletheia — Execute One Aletheia Resonance Cycle
 
 1. Read `cartography/frontier_portals.md` and `verification/AUDIT_LOG.md`.
 2. Steelman the sharpest open portal into an explicit typed hypothesis with a falsification criterion.
-3. Test against live upstream equations/data (zero synthetic proxy substitution).
+3. Test against live upstream equations/data where rights and authorization allow (zero undisclosed proxy substitution; label any synthetic input as synthetic in the same sentence).
 4. Run independent verification (`aletheia audit-check .` + `aletheia mutate`) under `-I -B`, `-I -O -B`, `-I -B -W error`.
 5. Loop any anomaly or obstruction back into `cartography/frontier_portals.md`.
 """
 
-_EMBEDDED_CI_YML = """name: Aletheia Verification Gate
+# Commit of Foundation-0/aletheia that the generated CI installs: the v2.1.0 release
+# commit on main (#19). A pinned full SHA cannot move; bump it when a later release
+# should be installed instead.
+_CI_ALETHEIA_REPO = "https://github.com/Foundation-0/aletheia"
+_CI_ALETHEIA_COMMIT = "a07d7db02018ab852d7653f08678ee7c692f3a33"
+
+_EMBEDDED_CI_YML = f"""name: Aletheia Verification Gate
 
 on:
   push:
@@ -80,7 +86,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Run Aletheia R1-R5 audit check
+      - name: Install aletheia-method at a pinned commit (no runtime dependencies; pip fetches setuptools to build it)
+        run: |
+          python3 -m pip install --no-deps "aletheia-method @ git+{_CI_ALETHEIA_REPO}@{_CI_ALETHEIA_COMMIT}"
+      - name: Run aletheia audit-check (R1-R4 hygiene; R5 is aletheia mutate; R6/R7 not automated by this command)
         run: |
           python3 -m aletheia audit-check .
 """
@@ -254,7 +263,13 @@ def install_adapter(
     dry_run: bool = False,
     force: bool = False,
 ) -> dict[str, Any]:
-    """Install (or dry-run plan) Aletheia adapters for the specified platform target."""
+    """Install (or dry-run plan) Aletheia adapters for the specified platform target.
+
+    Refuses symlinked targets, symlinked relative components, symlinked
+    absolute ancestors at depth >= 2 on both `dest` and `source_dir` (exempting
+    only depth-1 OS-managed root links such as macOS /var, /tmp, /etc), and any
+    symlinked source or destination subpaths, with or without `force`.
+    """
     require_ok(target in VALID_TARGETS, "INVALID_INSTALL_TARGET", f"target {target!r} not in {VALID_TARGETS}")
 
     if dest is None:

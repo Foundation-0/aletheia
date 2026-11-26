@@ -1599,7 +1599,9 @@ class TestAletheiaCLI(unittest.TestCase):
                 write_lf_text(path, head + f"| AUDIT-001 | 2026-11-20 | a | t | {gates} | exact | N2 | VERIFIED | {evidence} |\n")
                 res = validate_audit_log_markdown(path)
                 _req(res["valid"], f"row rejected: {res['errors']}")
-                return [w["code"] for w in res["warnings"]]
+                # This test covers the G9 prior-art note only; the G10/outside-ruling novelty status
+                # (N2_NOVELTY_NOT_SHOWN) has its own tests in test_outside_rulings_novelty.py.
+                return [w["code"] for w in res["warnings"] if w["code"] != "N2_NOVELTY_NOT_SHOWN"]
 
         # Ordinary words are not a prior-art note.
         for text in ("confirmed by the verifier", "goes beyond the sketch", "Confirmed beyond doubt"):
@@ -1984,6 +1986,153 @@ class TestAletheiaCLI(unittest.TestCase):
              "identical typed Ring-0 sections rejected")
         _req(check_ring0_lock({"oracle": "exact", "lr": 1}, {"oracle": "exact", "lr": True}),
              "non Ring-0 section must stay mutable")
+
+    def test_39_mutator_null_mutant_control_refuses_byte_pin_kills(self) -> None:
+        """A test command that only pins the target's bytes must not yield R5 kills.
+
+        Every mutant is written back through ast.unparse, so a sha256 pin on the target fails for every
+        mutant without exercising any guard. Before the null-mutant control this reported PASS with a
+        100% kill rate. Idea from cave-expedition's outside mutation harness
+        (verification/outside/checks/twoloop_stack/mutate_stack_guards.py), which counts a kill only
+        when the mutant's own named control fails.
+        """
+        import hashlib
+
+        from aletheia.mutator import null_mutant_source
+
+        with tempfile.TemporaryDirectory(prefix="aletheia_t_null_") as td:
+            root = Path(td)
+            src = (
+                '"""Toy verifier with two guards."""\n\n\n'
+                "def accept(x):\n"
+                "    if not isinstance(x, int):\n"
+                '        raise ValueError("not int")\n'
+                "    if x < 0:\n"
+                '        raise ValueError("negative")\n'
+                "    return True\n"
+            )
+            write_lf_text(root / "verifier.py", src)
+            _req(null_mutant_source(src) != src, "fixture must not already be in ast.unparse form")
+            digest = hashlib.sha256(src.encode("utf-8")).hexdigest()
+            write_lf_text(
+                root / "test_pin.py",
+                "import hashlib, sys\n"
+                'got = hashlib.sha256(open("verifier.py", "rb").read()).hexdigest()\n'
+                f'if got != "{digest}":\n'
+                '    sys.exit("PIN MISMATCH")\n',
+            )
+            # 1. Pin-only test command: refused, never PASS.
+            try:
+                run_mutation_suite(root / "verifier.py", "python3 test_pin.py", work_root=root, max_mutants=0)
+                raise AssertionError("pin-only test command was accepted as an R5 kill suite")
+            except AletheiaError as exc:
+                _req(exc.code == "NULL_MUTANT_KILLED", f"wrong code for pin-only suite: {exc.code}")
+                _req("--test-cmd" in exc.message and "PIN MISMATCH" in exc.message,
+                     f"message must point at --test-cmd and carry the failing output: {exc.message}")
+            rc, out, _ = _run_cli([
+                "mutate", str(root / "verifier.py"), "--work-root", str(root),
+                "--test-cmd", "python3 test_pin.py", "--max-mutants", "0", "--json",
+            ])
+            j = json.loads(out)
+            _req(rc == 2 and j["status"] == "ERROR" and j["code"] == "NULL_MUTANT_KILLED",
+                 f"CLI must exit 2 with NULL_MUTANT_KILLED: rc={rc} out={out}")
+
+            # 2. A behavioural test command keeps working and reports the control.
+            write_lf_text(
+                root / "test_behaviour.py",
+                "import verifier\n"
+                "verifier.accept(0)\n"
+                "for bad in (-1, 1.5):\n"
+                "    try:\n"
+                "        verifier.accept(bad)\n"
+                "    except ValueError:\n"
+                "        continue\n"
+                "    raise SystemExit(f'accepted {bad!r}')\n",
+            )
+            ok = run_mutation_suite(root / "verifier.py", "python3 test_behaviour.py", work_root=root,
+                                    max_mutants=0, add_cwd=True)
+            _req(ok["passed"] and ok["null_mutant"] == "passed" and ok["killed"] == ok["total_mutants"] == 3,
+                 f"behavioural suite should pass with the control: {ok}")
+
+            # 3. A null mutant that hangs is refused with its own code.
+            write_lf_text(
+                root / "test_hang.py",
+                "import hashlib, time\n"
+                'got = hashlib.sha256(open("verifier.py", "rb").read()).hexdigest()\n'
+                f'if got != "{digest}":\n'
+                "    time.sleep(60)\n",
+            )
+            try:
+                run_mutation_suite(root / "verifier.py", "python3 test_hang.py", work_root=root,
+                                   max_mutants=0, timeout=2)
+                raise AssertionError("hanging null mutant was not refused")
+            except AletheiaError as exc:
+                _req(exc.code == "NULL_MUTANT_TIMEOUT", f"wrong code for hanging null mutant: {exc.code}")
+
+    def test_40_mutator_own_refusal_sites_have_named_controls(self) -> None:
+        """One control per refusal site of aletheia/mutator.py that no test reached.
+
+        At a07d7db, `aletheia mutate aletheia/mutator.py --max-mutants 0 --add-cwd --work-root .
+        --test-cmd "python3 -B -m unittest discover -s tests"` killed 3 of 21 sites. Each check below
+        expects the exact refusal code, so a deleted or loosened guard either returns without error
+        or fails with a different exception.
+        """
+        import ast
+
+        from aletheia.mutator import MutantSite, _parse_extra_guards, _prepare_cmd, apply_single_mutation
+
+        def code_of(fn) -> str:
+            try:
+                fn()
+            except AletheiaError as exc:
+                return exc.code
+            return "NO_ERROR"
+
+        # _parse_extra_guards: polarity must be require/reject and the name non-empty.
+        _req(code_of(lambda: _parse_extra_guards(["need:bogus"])) == "INVALID_GUARD_SPEC", "bad polarity accepted")
+        _req(code_of(lambda: _parse_extra_guards([":require"])) == "INVALID_GUARD_SPEC", "empty guard name accepted")
+        # _prepare_cmd: an empty test command is refused by code.
+        _req(code_of(lambda: _prepare_cmd("", "t.py")) == "EMPTY_TEST_CMD", "empty test command accepted")
+        _req(code_of(lambda: _prepare_cmd("   ", "t.py")) == "EMPTY_TEST_CMD", "blank test command accepted")
+
+        # apply_single_mutation: a site must point at an in-range node of the kind it names.
+        src = "def f(x):\n    if x < 0:\n        raise ValueError(x)\n    check(x == 'a')\n    return x\n"
+        nodes = list(ast.walk(ast.parse(src)))
+        if_idx = next(i for i, n in enumerate(nodes) if isinstance(n, ast.If))
+        call_idx = next(i for i, n in enumerate(nodes) if isinstance(n, ast.Call) and getattr(n.func, "id", "") == "check")
+
+        def site(kind: str, idx: int, extra: int = -1) -> MutantSite:
+            return MutantSite("M999", kind, 1, 0, idx, "orig", "mut", extra)
+
+        for kind, idx, extra, want in (
+            ("guard_if_reject", -1, -1, "MUTANT_INDEX_OOB"),
+            ("guard_if_reject", len(nodes), -1, "MUTANT_INDEX_OOB"),
+            ("guard_if_reject", 0, -1, "MUTANT_NODE_TYPE"),
+            ("guard_if_reject", call_idx, -1, "MUTANT_NODE_TYPE"),
+            ("boundary_cmp", call_idx, 0, "MUTANT_NODE_TYPE"),
+            ("guard_require_call", if_idx, -1, "MUTANT_NODE_TYPE"),
+            ("guard_reject_call", if_idx, -1, "MUTANT_NODE_TYPE"),
+            ("boundary_cmp_require", if_idx, 0, "MUTANT_NODE_TYPE"),
+            ("boundary_const_require", if_idx, 0, "MUTANT_NODE_TYPE"),
+            ("boundary_const_require", call_idx, 0, "MUTANT_NODE_TYPE"),
+            ("no_such_kind", if_idx, -1, "UNKNOWN_MUTANT_KIND"),
+        ):
+            got = code_of(lambda: apply_single_mutation(src, site(kind, idx, extra)))
+            _req(got == want, f"{kind} at node {idx}: expected {want}, got {got}")
+
+        # run_mutation_suite: missing target, target outside work_root, and a target with no guards.
+        with tempfile.TemporaryDirectory(prefix="aletheia_t_mutrefuse_") as td:
+            root = Path(td)
+            (root / "a").mkdir()
+            (root / "b").mkdir()
+            write_lf_text(root / "a" / "g.py", "def f(x):\n    if x < 0:\n        raise ValueError(x)\n    return x\n")
+            write_lf_text(root / "a" / "plain.py", "def f(x):\n    return x\n")
+            _req(code_of(lambda: run_mutation_suite(root / "a" / "missing.py", "python3 -c pass")) == "TARGET_SCRIPT_NOT_FOUND",
+                 "missing target not refused by code")
+            _req(code_of(lambda: run_mutation_suite(root / "a" / "g.py", "python3 -c pass", work_root=root / "b"))
+                 == "TARGET_OUTSIDE_WORKROOT", "target outside work_root not refused by code")
+            _req(code_of(lambda: run_mutation_suite(root / "a" / "plain.py", "python3 -c pass")) == "NO_MUTANTS_DISCOVERED",
+                 "target without guards not refused by code")
 
 
 if __name__ == "__main__":

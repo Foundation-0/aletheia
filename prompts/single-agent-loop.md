@@ -23,7 +23,7 @@ To prevent confirmation bias and premature dismissal, strictly separate each res
 ## Phase 3 — `[TOMOGRAPHY]` Independent Adversarial Audit
 - Shift strictly into adversarial verifier mode ($\mathcal{G}_{\mathrm{obs}}$) — ideally in a fresh context window or isolated subagent call.
 - Build a **zero-shared-code** clean-room check in `verification/checks/check_NNN_*.py`.
-- Attack the Phase 2 claim from independent bases: degenerate/boundary inputs, alternative metrics, twin uncoupled/shuffled/IAAFT nulls, unseen seeds, R1–R5 mutations (`python3 -m aletheia mutate`), and full-text prior-art verification.
+- Attack the Phase 2 claim from independent bases: degenerate/boundary inputs, alternative metrics, twin uncoupled/shuffled/IAAFT nulls, unseen seeds, R5 refusal-site mutations (`python3 -m aletheia mutate`), R6/R7 pinned-and-measured checks, and full-text prior-art verification.
 - Append the honest verdict (`VERIFIED` / `PARTIAL/FRAGILE` / `FALSIFIED`), oracle class, novelty (`N0`/`N1`/`N2`), and explicit scope caveats permanently to `verification/AUDIT_LOG.md`.
 
 ## Phase 4 — `[RESONANCE]` Portal Re-Entry

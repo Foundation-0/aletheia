@@ -10,7 +10,7 @@ Apply **The Aletheia Method** (*Portal-Driven Resonance & Adversarial Tomography
    - `exact` claims: pure `int` / `Fraction` / exact algebraic fields / `SymPy` / kernel-checked Lean 4 (never float tolerances or unverified solver flags).
    - `sampled` claims: logged seeds, sample-disjoint holdouts, matched adversarial nulls (IAAFT, twin uncoupled systems, shuffled/decoy controls), unseen-seed replay, and pre-adaptation latch reporting.
    - `anchor` claims: live execution of untouched upstream reference code.
-   - R1–R5 & R4 parity: zero bare `assert`s on validation paths; bit-identical results across `python3 -I -B`, `python3 -I -O -B`, and `python3 -I -B -W error`.
+   - R1–R7 & R4 parity: zero bare `assert`s on validation paths; bit-identical results across `python3 -I -B`, `python3 -I -O -B`, and `python3 -I -B -W error`; R6: the gate owner pins the check list and thresholds before any submission; R7: every compared value is recomputed from the bytes, never taken from a submitter-declared field (`spec/LAWS_AND_GATES.md` §4).
 4. **Honest Novelty & Scope Accounting (`N0`/`N1`/`N2`):** Default every finding to `N0` until checked against full-text prior art and live peer PRs. Log every `VERIFIED`, `PARTIAL/FRAGILE`, and `FALSIFIED` audit permanently in `verification/AUDIT_LOG.md`. Never inflate Draft PRs to merged or `uncompiled_source` to machine-checked.
 5. **Exact-Operator Cross-Pollination:** Zero language smuggling. Cross-domain bridges require explicit typed objects, executable maps/identities, quantitative closure defects, or provable obstructions—and obstructions are elevated into theorems or branch triggers.
 
@@ -19,7 +19,7 @@ Apply **The Aletheia Method** (*Portal-Driven Resonance & Adversarial Tomography
 Run four strictly separated phases per research cycle:
 1. **Portal Phase:** Write 3–5 steelmanned exact hypotheses into `cartography/frontier_portals.md`.
 2. **Probe Phase:** Build a deterministic, zero-bare-assert script in `probes/` against the *real* upstream equations/data (zero proxy substitution).
-3. **Tomography Phase:** Write a clean-room script in `verification/checks/check_NNN_*.py` with zero shared imports, test R1–R5 + edge cases + nulls + full-text prior art, and log the verdict in `verification/AUDIT_LOG.md`.
+3. **Tomography Phase:** Write a clean-room script in `verification/checks/check_NNN_*.py` with zero shared imports, test R1–R7 + edge cases + nulls + full-text prior art, and log the verdict in `verification/AUDIT_LOG.md`.
 4. **Resonance Phase:** Re-enter raw portals with every anomaly, counterexample, or sharpness wall before moving on.
 
 ## CLI & Publishing Gates

@@ -3,7 +3,8 @@ Command-line interface for The Aletheia Method (`aletheia` / `python3 -m alethei
 
 Subcommands:
   - init         Scaffold a non-colliding Aletheia research workspace
-  - audit-check  Run automated R1-R5 hygiene, AST, 3-mode R4 parity, Lean 4, prereg & AUDIT_LOG checks
+  - audit-check  Run automated R1-R4 hygiene, AST, 3-mode R4 parity, Lean 4, prereg & AUDIT_LOG checks
+                 (R5 is `mutate`; R6/R7 not automated by this command)
   - mutate       Run generic AST refusal-site mutation testing (R5, incl. dict-verdict & accumulator checkers)
   - diagnose     Run quantitative 12-pattern Anti-Cave relapse diagnostics (CS-01..CS-12)
   - handoff      Generate or validate portable `aletheia.compute_handoff.v1` manifests
@@ -108,7 +109,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_init.add_argument("--json", action="store_true", help="Emit JSON output")
 
     # 2. audit-check
-    p_aud = sub.add_parser("audit-check", help="Run automated R1-R5 hygiene, AST, R4 parity, Lean 4, prereg & AUDIT_LOG checks")
+    p_aud = sub.add_parser("audit-check", help="Run automated R1-R4 hygiene, AST, R4 parity, Lean 4, prereg & AUDIT_LOG checks (R5 is `aletheia mutate`; R6/R7 not automated by this command)")
     p_aud.add_argument("path", type=Path, help="Directory or file to audit")
     p_aud.add_argument("--scripts", nargs="*", default=[], type=Path, help="Verifier scripts to run across 3 R4 modes")
     p_aud.add_argument("--audit-log", type=Path, default=None, help="Explicit path to AUDIT_LOG.md")
@@ -127,6 +128,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_aud.add_argument("--safety-scan", action="store_true", help="Run CYA-GAP-01..05 deterministic agent safety-surface scan")
     p_aud.add_argument("--include-host-hygiene", action="store_true", help="Include CYA-GAP-06 host-hygiene rules when using --safety-scan")
     p_aud.add_argument("--allow-symlinks", action="store_true", help="Downgrade SYMLINK_DIR, SYMLINK_OUTSIDE_ROOT and BROKEN_SYMLINK path findings to non-fatal (default: fail closed). NON_REGULAR_FILE and UNREADABLE_FILE stay fatal")
+    p_aud.add_argument("--outside-rulings", type=Path, default=None, help="outside_observer.rulings.v1 JSON (e.g. cave-expedition verification/outside/rulings.json): a VERIFIED N2 row that it does not name and that lists no G10 gets novelty status NOT_SHOWN")
+    p_aud.add_argument("--strict-novelty", action="store_true", help="Treat N2_NOVELTY_NOT_SHOWN (VERIFIED N2 row with no G10 and no outside ruling) as an error")
     p_aud.add_argument("--timeout", type=int, default=120, help="Per-mode script timeout in seconds")
     p_aud.add_argument("--json", action="store_true", help="Emit JSON output")
 
@@ -139,6 +142,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_mut.add_argument("--guards", action="extend", nargs="+", default=[], help="Extra guard function names (e.g. need or fail_if:reject)")
     p_mut.add_argument("--max-mutants", type=int, default=100, help="Maximum mutant sites to execute (0 = all; truncating yields NOT_SHOWN)")
     p_mut.add_argument("--timeout", type=int, default=30, help="Per-mutant test timeout in seconds")
+    p_mut.add_argument("--workers", type=int, default=1, help="Parallel worker slots (default: 1; >1 uses private 0o700 /dev/shm snaps on Linux with tempdir fallback; N workers replicate work_root N times into RAM-backed /dev/shm or the tempdir, so pick N to fit available RAM/tmpfs)")
     p_mut.add_argument("--no-boundaries", action="store_true", help="Only mutate if/require guard deletion (skip boundary flips)")
     p_mut.add_argument("--json", action="store_true", help="Emit JSON output")
 
@@ -244,6 +248,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 safety_scan=args.safety_scan,
                 include_host_hygiene=args.include_host_hygiene,
                 allow_symlinks=args.allow_symlinks,
+                outside_rulings=args.outside_rulings,
+                strict_novelty=args.strict_novelty,
             )
             _emit(res, as_json)
             return 0 if res["passed"] else 1
@@ -258,6 +264,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 include_boundaries=not args.no_boundaries,
                 add_cwd=args.add_cwd,
                 extra_guards=args.guards,
+                workers=args.workers,
             )
             _emit(res, as_json)
             return 0 if res["passed"] else 1

@@ -836,9 +836,10 @@ def _decode_text_bytes(raw: bytes) -> str | None:
                 return decoded
         return None
     try:
-        return raw.decode("utf-8")
+        decoded = raw.decode("utf-8")
     except UnicodeDecodeError:
         return None
+    return decoded
 
 
 class _JsonObjectPairs:

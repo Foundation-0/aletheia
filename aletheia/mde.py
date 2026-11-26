@@ -421,6 +421,68 @@ def verify_lineage_dag_file(path: Path) -> dict[str, Any]:
 # SYM-2P/2.0-rcp Checksummed Wire Packet Codec (`Moissanite-Labs/abios`)
 # ---------------------------------------------------------------------------
 
+_V2_ROLE_CODES = frozenset(V2_ROLES.values())
+_V2_ACT_CODES = frozenset(V2_ACTS.values())
+_V2_STATE_CODES = frozenset(V2_STATES.values())
+_V2_RQ_CODES = frozenset(V2_RQS.values())
+_CANON_NONNEG_INT_RE = re.compile(r"\A(?:0|[1-9][0-9]{0,15})\Z", re.ASCII)
+MAX_SYM2_SEXPR_DEPTH = 64
+MAX_SYM2_BODY_LEN = 4096
+
+
+def _reject_lone_surrogates(text: str) -> None:
+    for ch in text:
+        cp = ord(ch)
+        require_ok(not (0xD800 <= cp <= 0xDFFF), "LONE_SURROGATE", f"lone UTF-16 surrogate U+{cp:04X} is forbidden")
+
+
+def _parse_sym2_uint_field(
+    token: str,
+    field_name: str,
+    *,
+    min_val: int = 0,
+    max_val: int = ZONE_CANON_LIMIT,
+) -> int:
+    require_ok(
+        _CANON_NONNEG_INT_RE.match(token) is not None,
+        "INVALID_SYM2_RCP_INT",
+        f"SYM-2P field {field_name} must be canonical ASCII non-negative int, got {token!r}",
+    )
+    val = int(token)
+    require_ok(
+        min_val <= val <= max_val,
+        "INVALID_SYM2_RCP_RANGE",
+        f"SYM-2P field {field_name}={val} out of range [{min_val}, {max_val}]",
+    )
+    return val
+
+
+def _validate_sym2_body_sexpr(body: str) -> None:
+    require_ok(
+        type(body) is str and 2 <= len(body) <= MAX_SYM2_BODY_LEN,
+        "INVALID_V2_BODY",
+        "v2 BODY must be non-empty S-expression string within length cap",
+    )
+    _reject_lone_surrogates(body)
+    depth = 0
+    for ch in body:
+        cp = ord(ch)
+        require_ok(
+            ch != "|" and cp >= 0x20 and cp != 0x7F,
+            "INVALID_V2_BODY",
+            "v2 BODY cannot contain '|', control chars, or DEL",
+        )
+        if ch == "(":
+            depth += 1
+            require_ok(depth <= MAX_SYM2_SEXPR_DEPTH, "INVALID_V2_BODY", "v2 BODY nesting depth exceeded")
+        elif ch == ")":
+            depth -= 1
+            require_ok(depth >= 0, "INVALID_V2_BODY", "v2 BODY has unmatched ')'")
+        else:
+            require_ok(depth > 0, "INVALID_V2_BODY", "v2 BODY tokens must lie inside S-expression parens")
+    require_ok(depth == 0, "INVALID_V2_BODY", "v2 BODY has unclosed '('")
+
+
 def encode_sym2_rcp_line(
     *,
     pid: str,
@@ -436,10 +498,22 @@ def encode_sym2_rcp_line(
     base: str = "",
     exp: int = 0,
 ) -> str:
-    require_ok(sender_role in V2_ROLES and recip_role in V2_ROLES, "INVALID_V2_ROLE", "unknown v2 role")
-    require_ok(act in V2_ACTS and state in V2_STATES and rq in V2_RQS, "INVALID_V2_CODE", "unknown v2 act/state/rq")
+    require_ok(type(pid) is str and _ID_RE.match(pid) is not None, "INVALID_V2_PID", "invalid v2 pid")
+    require_ok(type(tk) is str and _ID_RE.match(tk) is not None, "INVALID_V2_TK", "invalid v2 tk")
+    require_ok(
+        type(sender_role) is str and sender_role in V2_ROLES and type(recip_role) is str and recip_role in V2_ROLES,
+        "INVALID_V2_ROLE",
+        "unknown v2 role",
+    )
+    require_ok(
+        type(act) is str and act in V2_ACTS and type(state) is str and state in V2_STATES and type(rq) is str and rq in V2_RQS,
+        "INVALID_V2_CODE",
+        "unknown v2 act/state/rq",
+    )
     require_ok(type(cf) is int and 0 <= cf <= 100 and type(cv) is int and 0 <= cv <= 100, "INVALID_V2_SCORE", "cf/cv out of 0..100")
-    require_ok("|" not in body_sexpr, "INVALID_V2_BODY", "v2 BODY cannot contain '|'")
+    _validate_sym2_body_sexpr(body_sexpr)
+    require_ok(type(base) is str and (base == "" or _ID_RE.match(base) is not None), "INVALID_V2_BASE", "invalid v2 base")
+    require_ok(type(exp) is int and 0 <= exp <= ZONE_CANON_LIMIT, "INVALID_V2_EXP", "invalid v2 exp")
     bare = "|".join([
         "2", pid, tk, str(V2_ROLES[sender_role]), str(V2_ROLES[recip_role]),
         str(V2_ACTS[act]), str(V2_STATES[state]), str(cf), str(cv),
@@ -450,13 +524,35 @@ def encode_sym2_rcp_line(
 
 
 def verify_sym2_rcp_line(line: str) -> bool:
+    require_ok(type(line) is str, "INVALID_SYM2_RCP_TYPE", "SYM-2P line must be str")
+    require_ok("\r" not in line and "\n" not in line, "INVALID_SYM2_RCP_LINE", "SYM-2P line must be single-line")
     parts = line.split("|")
     require_ok(len(parts) == 14 and parts[0] == "2", "INVALID_SYM2_RCP_SHAPE", "expected 14-field v2-rcp line")
     bare = "|".join(parts[:13])
     chk = parts[13]
     require_ok(_HEX16_RE.match(chk) is not None, "INVALID_SYM2_RCP_SUM_FORMAT", "SUM must be 16 lowercase hex")
+    _reject_lone_surrogates(bare)
     expected = hashlib.sha256(bare.encode("utf-8")).hexdigest()[:16]
     require_ok(hmac.compare_digest(chk, expected), "SYM2_RCP_CHECKSUM_MISMATCH", f"checksum {chk} != {expected}")
+    _ver, pid, tk, sender_s, recip_s, act_s, state_s, cf_s, cv_s, body_s, rq_s, base_s, exp_s = parts[:13]
+    require_ok(_ID_RE.match(pid) is not None, "INVALID_V2_PID", f"invalid SYM-2P pid {pid!r}")
+    require_ok(_ID_RE.match(tk) is not None, "INVALID_V2_TK", f"invalid SYM-2P tk {tk!r}")
+    sender_c = _parse_sym2_uint_field(sender_s, "sender_role")
+    recip_c = _parse_sym2_uint_field(recip_s, "recip_role")
+    require_ok(sender_c in _V2_ROLE_CODES and recip_c in _V2_ROLE_CODES, "INVALID_V2_ROLE", "unknown v2 role code")
+    act_c = _parse_sym2_uint_field(act_s, "act")
+    state_c = _parse_sym2_uint_field(state_s, "state")
+    rq_c = _parse_sym2_uint_field(rq_s, "rq")
+    require_ok(
+        act_c in _V2_ACT_CODES and state_c in _V2_STATE_CODES and rq_c in _V2_RQ_CODES,
+        "INVALID_V2_CODE",
+        "unknown v2 act/state/rq code",
+    )
+    _parse_sym2_uint_field(cf_s, "cf", min_val=0, max_val=100)
+    _parse_sym2_uint_field(cv_s, "cv", min_val=0, max_val=100)
+    _validate_sym2_body_sexpr(body_s)
+    require_ok(base_s == "" or _ID_RE.match(base_s) is not None, "INVALID_V2_BASE", f"invalid SYM-2P base {base_s!r}")
+    _parse_sym2_uint_field(exp_s, "exp", min_val=0, max_val=ZONE_CANON_LIMIT)
     return True
 
 
