@@ -12,7 +12,7 @@ Self-contained empirical evidence bundle pairing two frozen bare-metal NVIDIA Ge
 
 ## 1. Honest Literal Locked-Rule Scorecard (`H1`–`H6c`)
 
-| Hypothesis | Phase | Literal Locked-Rule Verdict | Key Blind Held-Out Measurement |
+| Hypothesis | Phase | Literal Locked-Rule Verdict | Key Held-Out Measurement (Phase 2 blind; Phase 3 H5/H6 NOT blind on the held-out models) |
 | :--- | :---: | :---: | :--- |
 | **`H1`** (Static `SphereMap` vs per-128 `A_16` @ `3.0 bpw`) | Phase 2 | **`FALSIFIED`** | Loses end-to-end KL to per-128 `A_16` on `3/3` models (WikiKL `1.014`/`0.567`/`15.735` vs `0.437`/`0.311`/`0.518`); `H1-P2` Spearman $\rho \le 0.332 < 0.60$. |
 | **`H2a`** (Denominator-$\pi$ `EQ(S^3)` vs `Num-pi` / k-means / `Cart-LM`) | Phase 2 | **`FALSIFIED`** | Kill gate fires (`2.0 bpw` KL loses to `Cart-LM + SphereMap` on `3/3`). Sub-claims that held: `+2.195..+2.206 dB` over Numerator-$\pi$ at `2.5 bpw`, `+0.027..+0.031 dB` over 20-iter k-means with `0` codebook bytes, and `1.355×` faster GPU decode than a **reference re-implementation** of `A_16` hampack bit-unpacking (not siliquant's kernel; `2.529` vs `1.866 Gw/s`). |
