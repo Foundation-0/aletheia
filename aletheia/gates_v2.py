@@ -18,7 +18,14 @@ from __future__ import annotations
 from fractions import Fraction
 import hashlib
 import json
+import math
 from typing import Any, Callable
+
+from .strict_io import AletheiaError
+
+MAX_CONTAINER_DEPTH = 64
+MAX_RATIONAL_DIGITS = 1000
+_ASCII_DIGITS = frozenset("0123456789")
 
 
 PINNED_RULE_KEYS = frozenset(
@@ -155,12 +162,12 @@ OWN_TERMS_SYMBOL_KEYS = frozenset(
 
 
 def _is_strict_int(value: object) -> bool:
-    return isinstance(value, int) and not isinstance(value, bool)
+    return type(value) is int
 
 
 def _is_clean_ascii(value: object) -> bool:
     return (
-        isinstance(value, str)
+        type(value) is str
         and len(value) > 0
         and value == value.strip()
         and all(32 <= ord(ch) <= 126 for ch in value)
@@ -169,7 +176,7 @@ def _is_clean_ascii(value: object) -> bool:
 
 def _is_lower_hex(value: object, expected_len: int) -> bool:
     return (
-        isinstance(value, str)
+        type(value) is str
         and len(value) == expected_len
         and all(ch in "0123456789abcdef" for ch in value)
     )
@@ -180,19 +187,32 @@ def _fmt_q(value: Fraction) -> str:
 
 
 def _verify_no_floats(obj: object) -> None:
-    if isinstance(obj, float):
-        raise ValueError("FLOAT_FORBIDDEN")
-    if isinstance(obj, dict):
-        for k, v in obj.items():
-            _verify_no_floats(k)
-            _verify_no_floats(v)
-    elif isinstance(obj, (list, tuple)):
-        for item in obj:
-            _verify_no_floats(item)
+    """Reject any float in a nested dict/list/tuple, walking at most MAX_CONTAINER_DEPTH levels.
+
+    Error precedence (both outcomes reject the input): an item deeper than MAX_CONTAINER_DEPTH
+    raises AletheiaError("MAX_DEPTH_EXCEEDED") when it is reached, before its type is examined,
+    so a float nested more than 64 levels deep reports MAX_DEPTH_EXCEEDED, not FLOAT_FORBIDDEN.
+    The walk is depth-first and stops at the first violation, so an input holding both a shallow
+    float and an over-deep branch reports whichever of the two the walk reaches first.
+    """
+    stack: list[tuple[object, int]] = [(obj, 0)]
+    while stack:
+        item, depth = stack.pop()
+        if depth > MAX_CONTAINER_DEPTH:
+            raise AletheiaError("MAX_DEPTH_EXCEEDED", f"container nesting depth exceeds {MAX_CONTAINER_DEPTH}")
+        if isinstance(item, float):
+            raise ValueError("FLOAT_FORBIDDEN")
+        if isinstance(item, dict):
+            for k, v in item.items():
+                stack.append((k, depth + 1))
+                stack.append((v, depth + 1))
+        elif isinstance(item, (list, tuple)):
+            for sub in item:
+                stack.append((sub, depth + 1))
 
 
 def _parse_exact_rational(value: object) -> Fraction:
-    if isinstance(value, Fraction):
+    if type(value) is Fraction:
         return value
     if _is_strict_int(value):
         return Fraction(value, 1)
@@ -204,17 +224,27 @@ def _parse_exact_rational(value: object) -> Fraction:
     num_s = parts[0]
     neg = num_s.startswith("-")
     digits = num_s[1:] if neg else num_s
-    if not digits or not digits.isdigit():
+    if not digits or len(digits) > MAX_RATIONAL_DIGITS or any(ch not in _ASCII_DIGITS for ch in digits):
         raise ValueError("RATIONAL_INVALID_NUMERATOR")
+    if len(digits) > 1 and digits[0] == "0":
+        raise ValueError("RATIONAL_LEADING_ZERO")
+    if neg and digits == "0":
+        raise ValueError("RATIONAL_NEGATIVE_ZERO")
     num = -int(digits) if neg else int(digits)
     if len(parts) == 1:
         return Fraction(num, 1)
     den_s = parts[1]
-    if not den_s or not den_s.isdigit():
+    if not den_s or len(den_s) > MAX_RATIONAL_DIGITS or any(ch not in _ASCII_DIGITS for ch in den_s):
         raise ValueError("RATIONAL_INVALID_DENOMINATOR")
+    if len(den_s) > 1 and den_s[0] == "0":
+        raise ValueError("RATIONAL_LEADING_ZERO")
     den = int(den_s)
     if den <= 0:
         raise ValueError("RATIONAL_NONPOSITIVE_DENOMINATOR")
+    if den == 1:
+        raise ValueError("RATIONAL_UNIT_DENOMINATOR")
+    if math.gcd(abs(num), den) != 1:
+        raise ValueError("RATIONAL_NOT_REDUCED")
     return Fraction(num, den)
 
 
@@ -291,8 +321,11 @@ def _parse_strict_json_bytes(raw: bytes) -> dict[str, Any]:
         )
     except json.JSONDecodeError as exc:
         raise ValueError("PAYLOAD_INVALID_JSON") from exc
+    except RecursionError as exc:
+        raise AletheiaError("MAX_DEPTH_EXCEEDED", f"container nesting depth exceeds {MAX_CONTAINER_DEPTH}") from exc
     if not isinstance(parsed, dict):
         raise ValueError("PAYLOAD_ROOT_NOT_OBJECT")
+    _verify_no_floats(parsed)
     return parsed
 
 
@@ -1374,7 +1407,7 @@ def run_v2_gates_self_test() -> dict[str, Any]:
         {
             "net_id": "net_quant",
             "axis": "quantization",
-            "observed_score": "4/10",
+            "observed_score": "2/5",
             "observed_p_value": "1/100",
             "iid_null_score": "1/20",
             "spectrum_null_score": "1/10",

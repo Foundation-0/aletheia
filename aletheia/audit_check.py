@@ -692,8 +692,33 @@ _LEAN4_HARD_LINE_RULES: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"(?<!\.)\bunsafe\b"), "LEAN4_UNSAFE"),
     (re.compile(r"\bnative_decide\b"), "LEAN4_NATIVE_DECIDE"),
     (re.compile(r"\bsorryAx\b"), "LEAN4_SORRY_AX"),
+    (re.compile(r"\bLean\.Meta\.mkSorry\b|\bmkSorry\b"), "LEAN4_MK_SORRY"),
     (re.compile(r"\bLean\.ofReduceBool\b|\bofReduceBool\b"), "LEAN4_OF_REDUCE_BOOL"),
+    (re.compile(r"\bLean\.ofReduceNat\b|\bofReduceNat\b"), "LEAN4_OF_REDUCE_NAT"),
     (re.compile(r"\bLean\.trustCompiler\b|\btrustCompiler\b"), "LEAN4_TRUST_COMPILER"),
+    # `panic!` policy: every standalone `panic!` / `unreachable!` is flagged `LEAN4_DBG_FFI_ESCAPE`,
+    # whether glued to its string (`panic!"msg"`) or spaced (`panic! "msg"`, `panic! (e)`). This is
+    # deliberate: verified sources have no reason to call the impure panic path. There is no
+    # "0 FP on panic!" exemption; the lexer's `panic!"` special case in `_strip_lean4_with_report`
+    # only suppresses the extra `LEAN4_UNKNOWN_BANG_STRING` lex issue, so `panic!"..."` yields this
+    # single finding and its argument is lexed as a plain (non-interpolated) string.
+    (
+        re.compile(
+            r"\b(?:dbgTrace|dbgTraceVal|dbgTraceIfShared|dbgSleep|dbgStackTrace|"
+            r"panicCore|panicWithPosWithDecl)\b"
+            r"|(?<!\.)\b(?:dbg_trace|dbg_sleep|dbg_stack_trace)(?![\w'.!?])"
+            r"|(?<!\.)\b(?:panic|unreachable)!(?![\w'!?])"
+        ),
+        "LEAN4_DBG_FFI_ESCAPE",
+    ),
+    (
+        re.compile(
+            r"(?<!\.)\b(?:macro|macro_rules|elab|elab_rules|syntax|declare_syntax_cat|"
+            r"notation|infix|infixl|infixr|prefix|postfix)(?![\w'.!?])"
+            r"|\binterpolatedStr\b"
+        ),
+        "LEAN4_META_SYNTAX_ESCAPE",
+    ),
 )
 
 # Declaration-scoped `partial` across single or multiple lines (zero FP on dot-projections like `SmoothShell.partial`)
@@ -701,9 +726,198 @@ _LEAN4_PARTIAL_DECL_RE = re.compile(
     r"(?<!\.)\bpartial\s+(?:def|instance|abbrev)\b", flags=re.DOTALL
 )
 
-# Multiline skipKernelTC check (catches `set_option\n debug.skipKernelTC\n true` and bare `debug.skipKernelTC`)
+# Declaration-scoped `opaque` across single or multiple lines (zero FP on `.opaque` projections / `def opaque : ...`)
+_LEAN4_OPAQUE_DECL_RE = re.compile(
+    r"(?<!\.)\bopaque\s+[A-Za-z_][A-Za-z0-9_.']*", flags=re.DOTALL
+)
+
+# Lean 4.15+ `decide` native-evaluation trust escapes: `+native`, `(native := <non-false>)`,
+# `(config := <expr>)` (fail-closed outside plain `{ ... }` record literals with only `false`/`Bool.false`
+# `native`), French-guillemet escaped identifiers (`«native»`, `«config»`), and bound `DecideConfig` records.
+_LEAN4_GUILLEMET_IDENT_RE = re.compile(r"«([A-Za-z_][A-Za-z0-9_']*)»")
+_LEAN4_DECIDE_KW_RE = re.compile(r"\bdecide\b")
+_LEAN4_FLAG_TOK_RE = re.compile(r"[+-][A-Za-z0-9_]+")
+_LEAN4_OPT_PREFIX_RE = re.compile(r"\s*([A-Za-z0-9_]+)\s*:=")
+_LEAN4_CONFIG_NATIVE_RE = re.compile(r"\bnative\b(?:\s*:=\s*([^},]*))?")
+_LEAN4_CONFIG_AFTER_COMMA_RE = re.compile(r",\s*(?:\Z|[A-Za-z_][A-Za-z0-9_']*\s*:=)")
+_LEAN4_CONFIG_WITH_RE = re.compile(r"\bwith\b")
+_LEAN4_DECIDE_CONFIG_BIND_RE = re.compile(
+    r"\b(?:DecideConfig|Decide\.Config)\b[ \t)]*:=\s*(?:\(\s*)*\{[^}{]*\bnative\s*:=\s*([^}{,]*)(?:,[^}{]*)?\}"
+    r"|\{[^}{]*\bnative\s*:=\s*([^}{,]*)(?:,[^}{]*)?\}\s*:\s*(?:[A-Za-z_][A-Za-z0-9_]*\.)*(?:DecideConfig|Decide\.Config)\b"
+    r"|\{[^}{]*\bnative\s*:=\s*([^}{,:]*)(?:,[^}{]*)?:\s*(?:[A-Za-z_][A-Za-z0-9_]*\.)*(?:DecideConfig|Decide\.Config)\b[^}{]*\}",
+    flags=re.DOTALL,
+)
+
+
+def _is_lean4_native_rhs_false_span(text: str, lo: int, hi: int) -> bool:
+    while True:
+        while lo != hi and text[lo].isspace():
+            lo += 1
+        while hi != lo and text[hi - 1].isspace():
+            hi -= 1
+        if hi - lo >= 7 and text[lo] == "(" and text[hi - 1] == ")":
+            lo += 1
+            hi -= 1
+            continue
+        break
+    rem = text[lo:hi] if hi - lo <= 10 else ""
+    return rem in ("false", "Bool.false")
+
+
+def _is_lean4_native_rhs_false(rhs: str) -> bool:
+    return _is_lean4_native_rhs_false_span(rhs, 0, len(rhs))
+
+
+def _is_lean4_safe_config_span(
+    text: str,
+    lo: int,
+    hi: int,
+    match_rparen: dict[int, int],
+) -> bool:
+    while True:
+        while lo != hi and text[lo].isspace():
+            lo += 1
+        while hi != lo and text[hi - 1].isspace():
+            hi -= 1
+        if match_rparen.get(lo) == hi - 1:
+            lo += 1
+            hi -= 1
+            continue
+        break
+    if text[lo : lo + 1] != "{" or text[hi - 1 : hi] != "}":
+        return False
+    body_lo = lo + 1
+    body_hi = hi - 1
+    if text.find("{", body_lo, body_hi) != -1 or text.find("}", body_lo, body_hi) != -1:
+        return False
+    if _LEAN4_CONFIG_WITH_RE.search(text, body_lo, body_hi) is not None:
+        return False
+    for m_nv in _LEAN4_CONFIG_NATIVE_RE.finditer(text, body_lo, body_hi):
+        if not _is_lean4_native_rhs_false_span(text, m_nv.start(1), m_nv.end(1)):
+            return False
+        sep = m_nv.end()
+        if sep != body_hi and not _LEAN4_CONFIG_AFTER_COMMA_RE.match(text, sep, body_hi):
+            return False
+    return True
+
+
+def _scan_lean4_decide_native(cleaned: str) -> list[tuple[int, int]]:
+    """Single-pass O(n) balanced-paren scanner for Lean 4 `decide` native-evaluation escapes."""
+    if "decide" not in cleaned:
+        return []
+    n = len(cleaned)
+    match_rparen: dict[int, int] = {}
+    paren_stack: list[int] = []
+    for idx, ch in enumerate(cleaned):
+        if ch == "(":
+            paren_stack.append(idx)
+        elif ch == ")" and paren_stack:
+            match_rparen[paren_stack.pop()] = idx
+
+    spans: list[tuple[int, int]] = []
+    for m_dec in _LEAN4_DECIDE_KW_RE.finditer(cleaned):
+        start = m_dec.start()
+        pos = m_dec.end()
+        native_hit = False
+        while True:
+            ws = pos
+            while ws != n and cleaned[ws].isspace():
+                ws += 1
+            if ws == n:
+                break
+            ch = cleaned[ws]
+            if ch in "+-":
+                m_flag = _LEAN4_FLAG_TOK_RE.match(cleaned, ws)
+                if m_flag is None:
+                    break
+                if m_flag.group(0) == "+native":
+                    native_hit = True
+                pos = m_flag.end()
+                continue
+            if ch == "(":
+                close_idx = match_rparen.get(ws)
+                if close_idx is None:
+                    break
+                m_pfx = _LEAN4_OPT_PREFIX_RE.match(cleaned, ws + 1, close_idx)
+                if m_pfx is None:
+                    break
+                opt_key = m_pfx.group(1)
+                rhs_lo = m_pfx.end()
+                if opt_key == "native":
+                    if not _is_lean4_native_rhs_false_span(cleaned, rhs_lo, close_idx):
+                        native_hit = True
+                elif opt_key == "config":
+                    if not _is_lean4_safe_config_span(cleaned, rhs_lo, close_idx, match_rparen):
+                        native_hit = True
+                pos = close_idx + 1
+                continue
+            break
+        if native_hit:
+            spans.append((start, pos))
+    return spans
+
+
+def _lean4_match_enables_native(m_obj: re.Match[str]) -> bool:
+    return any(grp is not None and not _is_lean4_native_rhs_false(grp) for grp in m_obj.groups())
+_LEAN4_HEX_DIGITS = frozenset("0123456789abcdefABCDEF")
+# Exact Lean 4.36.0 `Lean.isIdFirst` (`Char.isAlpha || '_' || Lean.isLetterLike`) and
+# `Lean.isIdRest` (`isIdFirst || digits || Lean.isSubScriptAlnum || "'!?"`) character sets:
+# includes all 96 non-`isalnum()` `Lean.isLetterLike` symbols (`™`, `℘`, `϶`, `᾽`, `U+1D49D`),
+# excludes non-identifier `isalnum()` tokens (`λ`, `Π`, `Σ`), and separates digit-led numeric
+# literals (`1`, `0x1a`) from identifiers.
+_LEAN4_ID_FIRST_CHARS: frozenset[str] = frozenset(
+    chr(cp)
+    for lo, hi in (
+        (65, 90), (95, 95), (97, 122),
+        (192, 214), (216, 246), (248, 383),
+        (913, 927), (929, 930), (932, 937),
+        (945, 954), (956, 969),
+        (970, 1019), (7936, 8190),
+        (8448, 8527), (119964, 120223),
+    )
+    for cp in range(lo, hi + 1)
+)
+_LEAN4_ID_SUBSCRIPT_AND_DIGITS: frozenset[str] = frozenset(
+    chr(cp)
+    for lo, hi in ((48, 57), (7522, 7530), (8320, 8329), (8336, 8348), (11388, 11388))
+    for cp in range(lo, hi + 1)
+)
+_LEAN4_WORD_CONT_CHARS: frozenset[str] = _LEAN4_ID_FIRST_CHARS | _LEAN4_ID_SUBSCRIPT_AND_DIGITS
+_LEAN4_ID_REST_CHARS: frozenset[str] = _LEAN4_WORD_CONT_CHARS | frozenset("'!?")
+_LEAN4_PANIC_PREV_CHARS: frozenset[str] = _LEAN4_ID_REST_CHARS | frozenset(".")
+_LEAN4_DEC_NUM_CHARS: frozenset[str] = frozenset("0123456789_")
+_LEAN4_BIN_NUM_CHARS: frozenset[str] = frozenset("01_")
+_LEAN4_OCT_NUM_CHARS: frozenset[str] = frozenset("01234567_")
+_LEAN4_HEX_NUM_CHARS: frozenset[str] = _LEAN4_HEX_DIGITS | frozenset("_")
+_LEAN4_SIMPLE_GUILLEMET_INNER_RE = re.compile(r"\A[A-Za-z_][A-Za-z0-9_']*\Z")
+_LEAN4_INTERP_BANG_WORDS = frozenset(
+    ("s", "f", "m", "v", "println", "reportIssue", "reportDbgIssue", "reportEMatchIssue")
+)
+_LEAN4_INTERP_KEYWORDS = frozenset(("dbg_trace", "throwError"))
+_LEAN4_TRACE_BRACK_WORDS = frozenset(("trace", "trace_goal"))
+_LEAN4_SYNTAX_QUOTE_KEYWORDS = frozenset(
+    ("notation", "prefix", "infix", "infixl", "infixr", "postfix")
+)
+
+# Multiline sorry-injection / kernel-skip option check (`debug.skipKernelTC`, `debug.byAsSorry`, `debug.proofAsSorry`, `debug.terminalTacticsAsSorry`)
 _LEAN4_SKIP_KERNEL_TC_RE = re.compile(
-    r"\bdebug\s*\.\s*skipKernelTC\b", flags=re.DOTALL
+    r"\bdebug\s*\.\s*(?:skipKernelTC|byAsSorry|proofAsSorry|terminalTacticsAsSorry)\b",
+    flags=re.DOTALL,
+)
+
+# Output-spoofing / early-exit / module-initializer commands (`#eval`, `#eval!`, `#reduce`, `#guard_msgs`, non-`axioms` `#print`, `#exit`, `run_cmd`, `run_meta`, `initialize`, `builtin_initialize`)
+_LEAN4_PRINT_AXIOMS_KW_BLOCK = (
+    "def|theorem|lemma|axiom|inductive|structure|class|instance|opaque|abbrev|example|"
+    "namespace|section|end|open|variable|universe|import|set_option|attribute|"
+    "local|scoped|private|protected|noncomputable|partial|unsafe|meta|where|by|in|let|have"
+)
+_LEAN4_EVAL_SPOOF_RE = re.compile(
+    r"#(?:eval!?(?![\w'!?])|reduce(?![\w'!?])|exit(?![\w'!?])|guard_msgs(?![\w'!?])|"
+    r"print(?![\w'!?])(?!\s+axioms[ \t]+(?!(?:"
+    + _LEAN4_PRINT_AXIOMS_KW_BLOCK
+    + r")(?![\w'!?]))[A-Za-z_]))"
+    r"|(?<!\.)\b(?:run_cmd|run_meta|initialize|builtin_initialize)\b",
+    flags=re.DOTALL,
 )
 
 # Lean 4.22 module-aware import regex (supports single-line & multiline `public\n import Foo`)
@@ -711,13 +925,57 @@ _LEAN4_IMPORT_FULL_RE = re.compile(
     r"(?:^|\n)[ \t]*(?:(?:public|private|meta)\s+)*import\s+([A-Za-z0-9_.]+)", flags=re.DOTALL
 )
 
-# Unsound attribute trust escapes vs kernel-proved `@[csimp]` compiler rewrite notice
-_LEAN4_HARD_ATTR_RE = re.compile(
-    r"@\[[^\]]*\b(extern|implemented_by)\b[^\]]*\]", flags=re.DOTALL
+# Unsound attribute trust escapes (`@[...]` and post-declaration `attribute [...]`) vs `@[csimp]`/`attribute [csimp]`
+_LEAN4_ATTR_OPEN_RE = re.compile(r"(?:@|(?<!\.)\battribute\s*)\[", flags=re.DOTALL)
+_LEAN4_HARD_ATTR_KW_RE = re.compile(
+    r"\b(extern|implemented_by|export|init|builtin_init|"
+    r"term_elab|command_elab|tactic|macro|macro_rules|"
+    r"builtin_term_elab|builtin_command_elab|builtin_tactic|builtin_macro|builtin_macro_rules)\b"
 )
-_LEAN4_CSIMP_ATTR_RE = re.compile(
-    r"@\[[^\]]*\b(csimp)\b[^\]]*\]", flags=re.DOTALL
-)
+_LEAN4_CSIMP_ATTR_KW_RE = re.compile(r"\b(csimp)\b")
+
+
+def _iter_lean4_attr_blocks(cleaned: str) -> list[tuple[int, int, int]]:
+    """Return `(attr_start, body_lo, body_hi)` for every `@[...]` or `attribute [...]` block in O(n)."""
+    match_rbrack: dict[int, int] = {}
+    brack_stack: list[int] = []
+    for idx, ch in enumerate(cleaned):
+        if ch == "[":
+            brack_stack.append(idx)
+        elif ch == "]" and brack_stack:
+            match_rbrack[brack_stack.pop()] = idx
+    blocks: list[tuple[int, int, int]] = []
+    for m_open in _LEAN4_ATTR_OPEN_RE.finditer(cleaned):
+        lb = m_open.end() - 1
+        rb = match_rbrack.get(lb)
+        if rb is not None:
+            blocks.append((m_open.start(), lb + 1, rb))
+    return blocks
+
+
+def _match_lean4_char_literal_end(source: str, i: int, n: int) -> int | None:
+    """Return end index of a Lean 4 Char literal starting at `source[i] == "'"`, or None."""
+    if i + 2 < n and source[i + 1] not in ("\\", "'") and source[i + 2] == "'":
+        return i + 3
+    if i + 3 < n and source[i + 1] == "\\":
+        if source[i + 3] == "'" and source[i + 2] != "\n":
+            return i + 4
+        esc = source[i + 2]
+        if (
+            esc == "x"
+            and i + 5 < n
+            and source[i + 5] == "'"
+            and all(c in _LEAN4_HEX_DIGITS for c in source[i + 3 : i + 5])
+        ):
+            return i + 6
+        if (
+            esc == "u"
+            and i + 7 < n
+            and source[i + 7] == "'"
+            and all(c in _LEAN4_HEX_DIGITS for c in source[i + 3 : i + 7])
+        ):
+            return i + 8
+    return None
 
 # Anti-vacuity notices (DeepMind formal-conjectures STATEMENTS.md & ExistsImplicationLinter)
 _LEAN4_VACUOUS_THM_RE = re.compile(
@@ -728,18 +986,26 @@ _LEAN4_EXISTS_IMP_RE = re.compile(r"∃[^,\n]+,\s*(?!.*(?:∀|∧))[^,\n]*(?:→
 
 def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
     """
-    Char-literal-safe, raw-string-safe (`r#"..."#`), and nested-block-comment-safe Lean 4
-    stripper preserving line count. Reports one finding per block comment or string still
-    open at end of file so callers treat unterminated escapes as failed audits (R1).
+    Char-literal-safe, raw-string-safe (`r"..."` and `r#"..."#`), interpolated-string-safe
+    (`s!"{...}"` / `m!"{...}"`), and nested-block-comment-safe Lean 4 stripper preserving
+    line count. Reports one finding per block comment or string still open at end of file
+    so callers treat unterminated escapes as failed audits (R1).
     """
     out: list[str] = []
     i = 0
     n = len(source)
     depth = 0
     in_str = False
-    raw_hashes = 0
+    in_interp = False
+    in_ident = False
+    pending_interp = False
+    trace_brack = 0
+    in_syntax_header = False
+    syntax_quote_reported = False
+    interp_stack: list[list[int]] = []
+    raw_hashes = -1
     opened_at = 0
-    unterminated: list[dict[str, Any]] = []
+    lex_issues: list[tuple[int, str]] = []
     while i < n:
         ch = source[i]
         nxt = source[i + 1] if i + 1 < n else ""
@@ -756,19 +1022,22 @@ def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
                 out.append("\n" if ch == "\n" else " ")
                 i += 1
             continue
-        if raw_hashes > 0:
+        if raw_hashes >= 0:
             close_seq = '"' + ("#" * raw_hashes)
             if source.startswith(close_seq, i):
                 out.append(" " * len(close_seq))
                 i += len(close_seq)
-                raw_hashes = 0
+                raw_hashes = -1
             else:
                 out.append("\n" if ch == "\n" else " ")
                 i += 1
             continue
         if in_str:
-            if ch == "\\" and i + 1 < n:
-                out.append("  ")
+            if ch == "\\":
+                if nxt == '"' and in_syntax_header and not syntax_quote_reported:
+                    syntax_quote_reported = True
+                    lex_issues.append((i, "LEAN4_SYNTAX_QUOTE_TOKEN"))
+                out.append(" \n" if nxt == "\n" else "  ")
                 i += 2
             elif ch == '"':
                 in_str = False
@@ -778,56 +1047,220 @@ def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
                 out.append("\n" if ch == "\n" else " ")
                 i += 1
             continue
+        if in_interp:
+            if ch == "\\":
+                out.append(" \n" if nxt == "\n" else "  ")
+                i += 2
+            elif ch == "{":
+                interp_stack.append([1, opened_at])
+                in_interp = False
+                out.append(" ")
+                i += 1
+            elif ch == '"':
+                in_interp = False
+                out.append(" ")
+                i += 1
+            else:
+                out.append("\n" if ch == "\n" else " ")
+                i += 1
+            continue
         if ch == "/" and nxt == "-":
+            in_ident = False
             depth = 1
             opened_at = i
             out.append("  ")
             i += 2
-        elif ch == "-" and nxt == "-":
+            continue
+        if ch == "-" and nxt == "-":
+            in_ident = False
             while i < n and source[i] != "\n":
                 out.append(" ")
                 i += 1
-        elif ch == "r" and nxt == "#" and (i == 0 or not (source[i - 1].isalnum() or source[i - 1] == "_")):
-            j = i + 1
-            while j < n and source[j] == "#":
-                j += 1
-            if j < n and source[j] == '"':
-                raw_hashes = j - (i + 1)
-                opened_at = i
-                out.append(" " * (j - i + 1))
-                i = j + 1
-            else:
+            continue
+        if ch.isspace():
+            in_ident = False
+            out.append(ch)
+            i += 1
+            continue
+        if ch != '"':
+            pending_interp = False
+        if ch != "[" and trace_brack == 1:
+            trace_brack = 0
+        if interp_stack:
+            if ch == "{":
+                in_ident = False
+                interp_stack[-1][0] += 1
                 out.append(ch)
                 i += 1
+                continue
+            if ch == "}":
+                in_ident = False
+                interp_stack[-1][0] -= 1
+                out.append(ch)
+                i += 1
+                if interp_stack[-1][0] == 0:
+                    _, opened_at = interp_stack.pop()
+                    in_interp = True
+                continue
+        if ch == "[" and trace_brack >= 1:
+            in_ident = False
+            trace_brack += 1
+            out.append(ch)
+            i += 1
+        elif ch == "]" and trace_brack >= 2:
+            in_ident = False
+            trace_brack -= 1
+            if trace_brack == 1:
+                trace_brack = 0
+                pending_interp = True
+            out.append(ch)
+            i += 1
+        elif ch == "=" and nxt == ">":
+            in_ident = False
+            in_syntax_header = False
+            out.append("=>")
+            i += 2
         elif ch == '"':
-            in_str = True
+            if pending_interp:
+                in_interp = True
+                pending_interp = False
+            else:
+                if in_ident and source[i - 1] == "!":
+                    # Standalone `panic!"` takes a plain string, so it is not an unknown bang-string.
+                    # This does not exempt `panic!` itself: `_LEAN4_HARD_LINE_RULES` still reports it
+                    # as `LEAN4_DBG_FFI_ESCAPE` (see the `panic!` policy comment there).
+                    is_panic = (
+                        i >= 6
+                        and source[i - 6 : i] == "panic!"
+                        and (i == 6 or source[i - 7] not in _LEAN4_PANIC_PREV_CHARS)
+                    )
+                    if not is_panic:
+                        lex_issues.append((i, "LEAN4_UNKNOWN_BANG_STRING"))
+                in_str = True
+                syntax_quote_reported = False
+            in_ident = False
             opened_at = i
             out.append(" ")
             i += 1
-        elif ch == "'":
-            # Lean 4 char literals ('"', '\n', 'a') without disturbing identifier primes x'
-            if i + 2 < n and source[i + 1] != "\\" and source[i + 2] == "'":
-                out.append("   ")
-                i += 3
-            elif i + 3 < n and source[i + 1] == "\\" and source[i + 3] == "'":
-                out.append("    ")
-                i += 4
+        elif ch == "«":
+            in_ident = False
+            end_g = source.find("»", i + 1)
+            if end_g == -1:
+                lex_issues.append((i, "LEAN4_UNTERMINATED_IDENT"))
+                out.append("\n" * source.count("\n", i))
+                break
+            inner = source[i + 1 : end_g]
+            # Simple ASCII `«ident»` is kept so `audit_lean4_source` can normalize it to `ident`
+            # (fail-closed: `«sorry»` is then reported even as a declaration name).
+            if _LEAN4_SIMPLE_GUILLEMET_INNER_RE.match(inner) is not None and inner != "axioms":
+                out.append(source[i : end_g + 1])
+            else:
+                out.append(" " + "".join("\n" if c == "\n" else " " for c in inner) + " ")
+            i = end_g + 1
+        elif ch == "'" and not in_ident:
+            # Lean 4 char literals ('"', '<LF>', '\n', '\x27', '\u0027') without disturbing identifier primes x'
+            char_end = _match_lean4_char_literal_end(source, i, n)
+            if char_end is not None:
+                out.append(" \n " if source[i + 1] == "\n" else " " * (char_end - i))
+                i = char_end
             else:
                 out.append(ch)
                 i += 1
         else:
+            if not in_ident and "0" <= ch <= "9":
+                num_end = i + 1
+                if ch == "0" and nxt in "xXbBoO":
+                    num_end += 1
+                    base_chars = (
+                        _LEAN4_HEX_NUM_CHARS
+                        if nxt in "xX"
+                        else (_LEAN4_BIN_NUM_CHARS if nxt in "bB" else _LEAN4_OCT_NUM_CHARS)
+                    )
+                    while num_end < n and source[num_end] in base_chars:
+                        num_end += 1
+                else:
+                    while num_end < n and source[num_end] in _LEAN4_DEC_NUM_CHARS:
+                        num_end += 1
+                    has_dot = False
+                    if num_end < n and source[num_end] == "." and num_end + 1 < n and "0" <= source[num_end + 1] <= "9":
+                        has_dot = True
+                        num_end += 2
+                        while num_end < n and source[num_end] in _LEAN4_DEC_NUM_CHARS:
+                            num_end += 1
+                    exp_start = num_end + 1 if (not has_dot and num_end < n and source[num_end] == ".") else num_end
+                    if exp_start < n and source[exp_start] in "eE":
+                        exp_pos = exp_start + 1
+                        if exp_pos < n and source[exp_pos] in "+-":
+                            exp_pos += 1
+                        if exp_pos < n and "0" <= source[exp_pos] <= "9":
+                            while exp_pos < n and source[exp_pos] in _LEAN4_DEC_NUM_CHARS:
+                                exp_pos += 1
+                            num_end = exp_pos
+                out.append(" " * (num_end - i))
+                i = num_end
+                continue
+            ident_prev = in_ident or (i > 0 and source[i - 1] == ".")
+            if ch == "r" and not ident_prev:
+                j = i + 1
+                while j < n and source[j] == "#":
+                    j += 1
+                if j < n and source[j] == '"':
+                    in_ident = False
+                    raw_hashes = j - (i + 1)
+                    opened_at = i
+                    out.append(" " * (j - i + 1))
+                    i = j + 1
+                    continue
+            if ch.isascii() and ch.isalpha() and not ident_prev:
+                w_end = i + 1
+                while w_end < n and source[w_end] in _LEAN4_WORD_CONT_CHARS:
+                    w_end += 1
+                word = source[i:w_end]
+                if word == "Macro" and source.startswith(".trace", w_end):
+                    end_mt = w_end + 6
+                    if end_mt == n or source[end_mt] not in _LEAN4_ID_REST_CHARS:
+                        if trace_brack == 0:
+                            trace_brack = 1
+                        in_ident = True
+                        out.append(source[i:end_mt])
+                        i = end_mt
+                        continue
+                next_ch = source[w_end] if w_end < n else ""
+                if next_ch == "!" and word in _LEAN4_INTERP_BANG_WORDS:
+                    after_bang = source[w_end + 1] if w_end + 1 < n else ""
+                    if after_bang not in _LEAN4_ID_REST_CHARS:
+                        pending_interp = True
+                        in_ident = True
+                        out.append(source[i : w_end + 1])
+                        i = w_end + 1
+                        continue
+                if next_ch not in ".'!?":
+                    if word in _LEAN4_INTERP_KEYWORDS:
+                        pending_interp = True
+                    elif word in _LEAN4_TRACE_BRACK_WORDS and trace_brack == 0:
+                        trace_brack = 1
+                    elif word in _LEAN4_SYNTAX_QUOTE_KEYWORDS:
+                        in_syntax_header = True
+                in_ident = True
+                out.append(word)
+                i = w_end
+                continue
+            in_ident = (ch in _LEAN4_ID_REST_CHARS) if in_ident else (ch in _LEAN4_ID_FIRST_CHARS)
             out.append(ch)
             i += 1
-    if depth > 0 or in_str or raw_hashes > 0:
-        lineno = source.count("\n", 0, opened_at) + 1
-        excerpt = source.splitlines()[lineno - 1].strip()[:100]
-        unterminated.append(
-            {
-                "line": lineno,
-                "code": "LEAN4_UNTERMINATED_COMMENT" if depth > 0 else "LEAN4_UNTERMINATED_STRING",
-                "excerpt": excerpt,
-            }
-        )
+    unclosed_open = depth > 0 or in_str or in_interp or raw_hashes >= 0
+    if unclosed_open or interp_stack:
+        err_at = opened_at if unclosed_open else interp_stack[-1][1]
+        lex_issues.append((err_at, "LEAN4_UNTERMINATED_COMMENT" if depth > 0 else "LEAN4_UNTERMINATED_STRING"))
+    unterminated: list[dict[str, Any]] = []
+    if lex_issues:
+        lines = source.splitlines()
+        cur_line = 1
+        cur_pos = 0
+        for pos, code in sorted(lex_issues):
+            cur_line += source.count("\n", cur_pos, pos)
+            cur_pos = pos
+            unterminated.append({"line": cur_line, "code": code, "excerpt": lines[cur_line - 1].strip()[:100]})
     return "".join(out), unterminated
 
 
@@ -853,8 +1286,18 @@ def audit_lean4_source(
         kernel-proved `@[csimp]` rewrites + `ExistsImplication` / vacuous signatures as notices
       - Parses Lean 4.22 `(public|private|meta)? import` with optional `allow_project_imports`
         and `forbidden_import_prefixes` (enforcing Spec -/-> Proof isolation)
+    Fail-closed choices that can flag legal Lean (by design, documented):
+      - Guillemet identifiers are normalized, so `def «sorry» : Nat := 1` reports `LEAN4_SORRY`.
+      - Every `panic!` / `unreachable!` reports `LEAN4_DBG_FFI_ESCAPE`, glued (`panic!"m"`) or spaced.
+      - `syntax` / `macro` / `notation` and friends report `LEAN4_META_SYNTAX_ESCAPE` wholesale.
     """
     cleaned, unterminated = _strip_lean4_with_report(source)
+    # Guillemet normalization (`«native»` -> `native`) so escaped keywords cannot dodge the rules.
+    # Known fail-closed false positive: a legal escaped identifier that spells a forbidden token,
+    # such as `def «sorry» : Nat := 1` or `«admit»`, is reported (`LEAN4_SORRY` / `LEAN4_ADMIT`).
+    # This is kept on purpose: telling a declaration name apart from a use of the term would need
+    # name resolution, which a static scan cannot do, so the scan rejects rather than guesses.
+    cleaned = _LEAN4_GUILLEMET_IDENT_RE.sub(r"\1", cleaned)
     findings: list[dict[str, Any]] = list(unterminated)
     notices: list[dict[str, Any]] = []
     imports: list[str] = []
@@ -886,14 +1329,17 @@ def audit_lean4_source(
             )
 
     # Full-buffer Lean 4.22 module-aware import scan (handles multiline `public\n import Foo`)
+    imp_line, imp_pos = 1, 0
     for m_imp in _LEAN4_IMPORT_FULL_RE.finditer(cleaned):
         mod = m_imp.group(1)
-        lineno = cleaned[: m_imp.start(1)].count("\n") + 1
+        pos_m = m_imp.start(1)
+        imp_line += cleaned.count("\n", imp_pos, pos_m)
+        imp_pos = pos_m
         imports.append(mod)
         for pref in forbidden_import_prefixes:
             if mod == pref or mod.startswith(pref + "."):
                 findings.append(
-                    {"line": lineno, "code": "LEAN4_FORBIDDEN_CHALLENGE_IMPORT", "excerpt": mod}
+                    {"line": imp_line, "code": "LEAN4_FORBIDDEN_CHALLENGE_IMPORT", "excerpt": mod}
                 )
         if not allow_non_init_imports:
             root_pkg = mod.split(".")[0]
@@ -901,27 +1347,80 @@ def audit_lean4_source(
                 mod == p or mod.startswith(p + ".") for p in allow_project_imports
             )
             if root_pkg not in ("Init", "Std") and not is_allowed_proj:
-                findings.append({"line": lineno, "code": "LEAN4_NON_INIT_IMPORT", "excerpt": mod})
+                findings.append({"line": imp_line, "code": "LEAN4_NON_INIT_IMPORT", "excerpt": mod})
 
     # Multiline declaration-scoped `partial` check (`partial\n def ...`, zero FP on `.partial`)
+    part_line, part_pos = 1, 0
     for m_part in _LEAN4_PARTIAL_DECL_RE.finditer(cleaned):
-        lineno = cleaned[: m_part.start()].count("\n") + 1
-        findings.append({"line": lineno, "code": "LEAN4_PARTIAL", "excerpt": " ".join(m_part.group(0).split())[:100]})
+        pos_m = m_part.start()
+        part_line += cleaned.count("\n", part_pos, pos_m)
+        part_pos = pos_m
+        findings.append({"line": part_line, "code": "LEAN4_PARTIAL", "excerpt": " ".join(m_part.group(0).split())[:100]})
 
-    # Multiline debug.skipKernelTC check
+    # Multiline declaration-scoped `opaque` check (`opaque\n foo ...`, zero FP on `.opaque` / `def opaque : ...`)
+    opaq_line, opaq_pos = 1, 0
+    for m_opaq in _LEAN4_OPAQUE_DECL_RE.finditer(cleaned):
+        pos_m = m_opaq.start()
+        opaq_line += cleaned.count("\n", opaq_pos, pos_m)
+        opaq_pos = pos_m
+        findings.append({"line": opaq_line, "code": "LEAN4_OPAQUE", "excerpt": " ".join(m_opaq.group(0).split())[:100]})
+
+    # Lean 4.15+ `decide +native`, `(native := <non-false>)`, `(config := { native := <non-false> })`, & bound DecideConfig
+    decide_spans = _scan_lean4_decide_native(cleaned)
+    dec_line = 1
+    dec_pos = 0
+    for ds, de in decide_spans:
+        dec_line += cleaned.count("\n", dec_pos, ds)
+        dec_pos = ds
+        findings.append(
+            {
+                "line": dec_line,
+                "code": "LEAN4_DECIDE_NATIVE",
+                "excerpt": " ".join(cleaned[ds : min(de, ds + 200)].split())[:100],
+            }
+        )
+    dc_line, dc_pos = 1, 0
+    for m_dc in _LEAN4_DECIDE_CONFIG_BIND_RE.finditer(cleaned):
+        if any(m_dc.start() in range(ds, de) for ds, de in decide_spans):
+            continue
+        if not _lean4_match_enables_native(m_dc):
+            continue
+        pos_m = m_dc.start()
+        dc_line += cleaned.count("\n", dc_pos, pos_m)
+        dc_pos = pos_m
+        findings.append(
+            {"line": dc_line, "code": "LEAN4_DECIDE_NATIVE", "excerpt": " ".join(m_dc.group(0).split())[:100]}
+        )
+
+    # Multiline debug.{skipKernelTC, byAsSorry, proofAsSorry, terminalTacticsAsSorry} check
+    sk_line, sk_pos = 1, 0
     for m_sk in _LEAN4_SKIP_KERNEL_TC_RE.finditer(cleaned):
-        lineno = cleaned[: m_sk.start()].count("\n") + 1
-        findings.append({"line": lineno, "code": "LEAN4_SKIP_KERNEL_TC", "excerpt": "debug.skipKernelTC"})
+        pos_m = m_sk.start()
+        sk_line += cleaned.count("\n", sk_pos, pos_m)
+        sk_pos = pos_m
+        findings.append(
+            {"line": sk_line, "code": "LEAN4_SKIP_KERNEL_TC", "excerpt": " ".join(m_sk.group(0).split())[:100]}
+        )
 
-    # Multiline attribute trust-escape check: @[ ... extern | implemented_by ... ]
-    for m_attr in _LEAN4_HARD_ATTR_RE.finditer(cleaned):
-        lineno = cleaned[: m_attr.start()].count("\n") + 1
-        findings.append({"line": lineno, "code": "LEAN4_ATTR_TRUST_ESCAPE", "excerpt": m_attr.group(1)})
+    # Output-spoofing / early-exit commands (#eval, #eval!, #reduce, #guard_msgs, non-axioms #print, #exit)
+    ev_line, ev_pos = 1, 0
+    for m_ev in _LEAN4_EVAL_SPOOF_RE.finditer(cleaned):
+        pos_m = m_ev.start()
+        ev_line += cleaned.count("\n", ev_pos, pos_m)
+        ev_pos = pos_m
+        findings.append({"line": ev_line, "code": "LEAN4_EVAL_SPOOF", "excerpt": m_ev.group(0)})
 
-    # Kernel-proved @[csimp] rewrite notice
-    for m_cs in _LEAN4_CSIMP_ATTR_RE.finditer(cleaned):
-        lineno = cleaned[: m_cs.start()].count("\n") + 1
-        notices.append({"line": lineno, "code": "LEAN4_CSIMP_REWRITE_NOTICE", "excerpt": m_cs.group(1)})
+    # Multiline attribute trust-escape and csimp notice check: `@[...]` and post-declaration `attribute [...]`
+    attr_line, attr_pos = 1, 0
+    for attr_start, b_lo, b_hi in _iter_lean4_attr_blocks(cleaned):
+        attr_line += cleaned.count("\n", attr_pos, attr_start)
+        attr_pos = attr_start
+        m_attr = _LEAN4_HARD_ATTR_KW_RE.search(cleaned, b_lo, b_hi)
+        if m_attr is not None:
+            findings.append({"line": attr_line, "code": "LEAN4_ATTR_TRUST_ESCAPE", "excerpt": m_attr.group(1)})
+        m_cs = _LEAN4_CSIMP_ATTR_KW_RE.search(cleaned, b_lo, b_hi)
+        if m_cs is not None:
+            notices.append({"line": attr_line, "code": "LEAN4_CSIMP_REWRITE_NOTICE", "excerpt": m_cs.group(1)})
 
     return {"clean": len(findings) == 0, "findings": findings, "notices": notices, "imports": imports}
 
@@ -1652,6 +2151,17 @@ def run_audit_check(
             "SAFETY_MAX_BYTES_WITHOUT_SCAN",
             "safety_max_file_bytes / --safety-max-file-bytes requires --safety-scan",
         )
+    try:
+        raw_st = os.lstat(target_path)
+    except FileNotFoundError as exc:
+        raise AletheiaError("TARGET_NOT_FOUND", f"target path does not exist: {target_path}") from exc
+    except OSError as exc:
+        raise AletheiaError("TARGET_UNREADABLE", f"cannot stat target path ({_err_detail(exc)}): {target_path}") from exc
+    require_ok(
+        not (stat.S_ISLNK(raw_st.st_mode) and not allow_symlinks),
+        "TARGET_IS_SYMLINK",
+        f"target path is a symlink (pass --allow-symlinks to follow): {target_path}",
+    )
     root = target_path.resolve()
     require_ok(root.exists(), "TARGET_NOT_FOUND", f"target path does not exist: {root}")
     root_mode = os.stat(root).st_mode
@@ -1660,6 +2170,15 @@ def run_audit_check(
         "TARGET_NOT_REGULAR",
         f"target is not a regular file or directory (FIFO, socket, or device?): {root}",
     )
+    if stat.S_ISDIR(root_mode):
+        try:
+            with os.scandir(root):
+                pass
+        except OSError as exc:
+            raise AletheiaError(
+                "TARGET_UNREADABLE",
+                f"cannot read target directory ({_err_detail(exc)}): {root}",
+            ) from exc
 
     crlf_files: list[str] = []
     pycache_entries: list[Path] = []
