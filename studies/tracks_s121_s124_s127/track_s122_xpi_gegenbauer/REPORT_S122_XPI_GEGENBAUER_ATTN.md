@@ -1,0 +1,56 @@
+# `Track S122` (`EXP-Q26c`) — `Portal x/π` Spherical Multipoles × Pari–Agrawal–Kim *Simplicity Bias in Attention*
+
+- **Track / Queue ID:** `Track S122` / `EXP-Q26c` (`Wave-11 Portal x/π Network`)
+- **Pure-$\mathbb{Q}$ Exact Oracle:** `verify_xpi_gegenbauer_attention.py` (`certificate_sha256`: `16d2d039358dcdee1e1a85e9211603c48a3a1a808c1ba2129d95f3b15fd04ba3`, `float_ops_used: 0`, `53/53 = 100.0%` `aletheia mutate`)
+- **Matched CPU Micro-Benchmark:** `bench_gegenbauer_vs_monomial_attn.py` (`result_sha256`: `674c204da0a030e1cb6cc890dfa882f433d3c99b71f47de131de1b47182184b0` [wallclock-invariant], `elapsed_seconds: 95.084` under concurrent load / `76.961` idle, `OPENBLAS_NUM_THREADS=1`, `CUDA_VISIBLE_DEVICES=""`, `37/37 = 100.0%` `aletheia mutate`)
+- **Literal Law-4 Verdict:** **`PARTIAL`** (`Exact-Q Theorem 1 & Theorem 2 = 100% PROVEN`; `Gate 1 Zero-NaN = PASS`, `Gate 2a 2D Regression & Simplicity Bias = PASS`, `Gate 2b High-Gain g_0=3 Parameter-Crush Immunity = PASS`, `Gate 3 4×4 Saddle-Escaped Lookup = PASS`, `Gate 4 8×8 65-Token Single-CPU-Thread Saddle Escape = FAIL` at `50.98%` across all arms incl. `Softmax`)
+
+---
+
+## 1. Exact-$\mathbb{Q}$ Operator Proofs (`verify_xpi_gegenbauer_attention.py`, `0` Floats)
+
+### 1.1 Theorem 1 — Exact $g$-Independent Spherical Denominator Projection & $239\times$ Monomial Slack Elimination
+For L2-normalized queries/keys $\hat{\mathbf{q}}, \hat{\mathbf{k}}_i \in S^{d-1}$ with cosine $u_i = \hat{\mathbf{q}}^\top \hat{\mathbf{k}}_i \in [-1, 1]$ and learned positive score multiplier $g = e^\gamma > 0$:
+
+1. **Unified Chebyshev / Normalized Gegenbauer Recurrence over $\mathbb{Q}[u]$:**
+   $$\tilde{C}_0^{(\alpha)}(u) = 1, \qquad \tilde{C}_1^{(\alpha)}(u) = u, \qquad (r + 2\alpha - 1)\tilde{C}_r^{(\alpha)}(u) = 2(r + \alpha - 1)u\tilde{C}_{r-1}^{(\alpha)}(u) - (r - 1)\tilde{C}_{r-2}^{(\alpha)}(u) \quad (r \ge 2),$$
+   unifying $\alpha = 0$ (Chebyshev $T_r(u)$ on $S^1$) with $\alpha = \frac{d-2}{2} > 0$ ($S^{d-1}$ zonal harmonics: $\alpha = 1/2$ Legendre on $S^2$, $\alpha = 1$ on $S^3 \cong SU(2)$, $\alpha = 3$ on $S^7$, $\alpha = 15$ on $S^{31}$ for width-$32$ QK-norm). Because $\tilde{C}_1^{(\alpha)}(u) \equiv u$ identically, linear initialization ($a_1 = 1, a_{r\ne 1} = 0, b_{r\ge 1} = 0$) recovers exact signed linear attention $A(\mathbf{q}) = \frac{1}{n}\sum_{i=1}^n (g u_i)\mathbf{v}_i$ (`30/30` exact checks across $g \in \{1/4, 1, 2, 4, 8, 16\}$).
+2. **Unconditional Zero-Float Supremum Proof $|\tilde{C}_r^{(\alpha)}(u)| \le 1$:**
+   - On the rational stereographic circle $u = \frac{1-t^2}{1+t^2}$, $1 - T_r(u)^2 = s_r(t)^2 \ge 0$ (`54/54` exact De Moivre identities + `9/9` $T_r(-1) = (-1)^r$).
+   - For all $\alpha > 0$, $\tilde{C}_r^{(\alpha)}(u) \equiv \sum_{k=0}^{\lfloor r/2\rfloor} w_{r,k}^{(\alpha)} T_{r-2k}(u)$ holds as an **exact polynomial identity in $\mathbb{Q}[u]$** with strictly positive rational weights $w_{r,k}^{(\alpha)} > 0$ summing to $1/1$ (`45/45` polynomial identities across $r=0..8$ and `5` sphere dimensions).
+   - Therefore $\sum_{r=1}^P |b_r| \le \rho < 1 \implies 1 - \rho \le H_{\mathrm{xpi}}(u) \le 1 + \rho$ and $n(1-\rho) \le D(\mathbf{q}) \le n(1+\rho)$ **for ALL $g > 0$**.
+3. **Conformal North-Pole Möbius Spherical Boost $\psi_g^{\mathrm{sharp}}(u)$:**
+   $$\psi_g^{\mathrm{sharp}}(u) = \frac{(1+g)u + (1-g)}{(1-g)u + (1+g)} = 1 - \frac{2g(1-u)}{(1+u) + g(1-u)}, \qquad 1 - \big(\psi_g^{\mathrm{sharp}}(u)\big)^2 = \frac{4g(1-u^2)}{\big((1+u) + g(1-u)\big)^2} \ge 0.$$
+   Certified across `102/102` `(u, g)` pairs: maps $[-1, 1] \to [-1, 1]$ bijectively over $\mathbb{Q}(u, g)$ with explicit rational inverse $\psi_{1/g}^{\mathrm{sharp}}\big(\psi_g^{\mathrm{sharp}}(u)\big) \equiv u$ (`102/102` inverse checks) and zero `exp`/`tanh` transcendentals inside the map, satisfies $\psi_1^{\mathrm{sharp}}(u) \equiv u$ (exact linear init at $g_0 = 1$), sharpens north-pole resolution with symbolically verified derivative $\left.\frac{d}{du}\psi_g^{\mathrm{sharp}}\right|_{u=1} = \lim_{h\to 0}\frac{\psi_g^{\mathrm{sharp}}(1) - \psi_g^{\mathrm{sharp}}(1-h)}{h} = g$ and south-pole derivative $\left.\frac{d}{du}\psi_g^{\mathrm{sharp}}\right|_{u=-1} = \frac{1}{g}$ via exact polynomial quotient cancellation of $h$ in $\mathbb{Q}(g)[h]$ (`6/6` gains), and keeps $|\tilde{C}_r^{(\alpha)}(\psi_g^{\mathrm{sharp}}(u))| \le 1$ so $\sum_{r=1}^P |b_r| \le \rho$ remains $100\%$ $g$-independent.
+4. **Two Exact Pathologies of Pari–Agrawal–Kim Raw-Monomial Projection ($m = \sum_{r=1}^8 |b_r| g^r \le \rho$):**
+   - **Exponential $g^{-r}$ Parameter Collapse:** At $\rho = 1/2$, raw $|b_8|$ is capped at **`1/512`** ($g = 2$) and **`1/131,072`** ($g = 4$).
+   - **Intrinsic $239\times$ / $280\times$ Function-Space Triangle-Inequality Slack Even at $g = 1$:** $H(u) = 1 + \rho T_7(u)$ has constant term $1$ ($T_7(0) = 0$) and true supremum deviation $\|H - 1\|_\infty = \rho$, admitted with **`0` shrinkage** under Chebyshev projection ($m_{\mathrm{Cheb}} = \rho$), whereas $T_7(u) = 64u^7 - 112u^5 + 56u^3 - 7u$ has monomial $\ell_1$ norm **`239/1`**, causing raw-monomial projection to shrink valid multipole $\ell=7$ by **`1/239`** (and zero-constant degree-8 $p_8(u) = \frac{1}{2}(T_8(u) - T_4(u))$ by **`1/280`**); moreover $\langle u^6, u^8\rangle_{L^2}^2 / (\|u^6\|^2\|u^8\|^2) = \mathbf{221/225 = 98.22\%}$ vs **`0/1`** off-diagonal Legendre inner products (`56/56` exact zeros).
+
+### 1.2 Theorem 2 — Exact `Portal x/π` Mellin–Sphere–Heat–Zador–`BRIDGE_12` Identities
+- **Mellin–Sphere–Heat (`12/12` even $s = 2k, k = 1..12$ + null-cone $S^2$):** $\frac{2}{\omega_{2k-1}} = \frac{(k-1)!}{\pi^k} \equiv \left.\pi^{-s/2}\Gamma(s/2)\right|_{s=2k}$, linking $(4\pi\alpha_H t)^{-k}$ directly to $\frac{2}{\omega_{2k-1}} \cdot \frac{1}{4^k (k-1)!}$, with celestial $S^2$ area $\omega_2 = 4\pi$.
+- **Unit-Radius Ball Second Moment vs. Euclidean Unit-Volume Zador Factor in $\mathbb{Q}[\pi, \pi^{-1}]$:**
+  - The **dimensionless unit-radius ball normalized second moment** is $\frac{\mathbb{E}[\|x\|^2]}{d R^2} = \frac{1}{d+2} \in \mathbb{Q}$ (`{"2": "1/4", "4": "1/6", "8": "1/10", "16": "1/18", "24": "1/26"}`), where $V_d = \operatorname{Vol}(B^d(1)) \ne 1$ cancels between numerator and denominator integrals on the same ball $B^d(R)$.
+  - By contrast, the **Euclidean unit-volume ($\operatorname{Vol}(B^d) = 1$) Zador quantizer factor** is $G(B^d) = \frac{1}{d+2}V_d^{-2/d} = \frac{\Gamma(d/2 + 1)^{2/d}}{(d+2)\pi}$ (e.g. $G(B^2) = \frac{1}{4\pi}$ at $d=2$), whose $d$-th power for even $d = 2k$ in exact $\mathbb{Q}[\pi, \pi^{-1}]$ is **`G(B^{2k})^{2k} = (k!)^2 / ((2k+2)^{2k} \pi^{2k})`** (`pi_power = -2k != 0`: `1/16 * pi^{-2}`, `1/324 * pi^{-4}`, `9/1562500 * pi^{-8}` for $d = 2, 4, 8$; verified constructively across `5/5` even dimensions $d \in \{2,4,8,16,24\}$), whereas $\pi$ cancels **strictly in `ball-unit` ($V_d$-rescaled) coordinates** $V_d^{2/d}G(B^d) \equiv \frac{1}{d+2}$ ($V_{2k}^2 G(B^{2k})^{2k} \equiv (2k+2)^{-2k}\pi^0$).
+- **Constructive 2D Abelian Cauchy/Joukowski Circulation vs. 3D Non-Abelian `BRIDGE_12`:** Evaluating complex velocity $W'(z) = V_\infty(1 - a^2/z^2) + \frac{i\Gamma}{2\pi z}$ at $z = \pm i a$ and polar surface speed $v(\theta) = 2V_\infty\sin\theta + \frac{\Gamma}{2\pi a}$ at $\theta = \pm \pi/2$ in $\mathbb{Q}[\pi^{-1}]$ proves $v(\pi/2)^2 - v(-\pi/2)^2 = \left(2V_\infty + \frac{\Gamma}{2\pi a}\right)^2 - \left(-2V_\infty + \frac{\Gamma}{2\pi a}\right)^2 \equiv \frac{4 V_\infty \Gamma}{\pi a} > 0$ (`["0/1", "4/1", "0/1"]` at $V_\infty = \Gamma = a = 1$), while planar $SO(2, \mathbb{Q})$ rotations commute ($[R_{3,4,5}, R_{5,12,13}] = 0_{2\times 2}$); in 3D $SO(3, \mathbb{Q})$, $[U_{\mathrm{cyc}}, \rho(G_\beta)] \ne 0_{3\times 3}$, and `BRIDGE_12` ($G_3 = \mathrm{diag}(3,1,1), L = \mathrm{diag}(3/5,6/5,3/5)$) is order-blind under isotropic $I_3$ ($n_-(UL) = 1 = n_-(LU)$) but separates operator order under $G_3$ (**$n_-(UL) = 1 \ne 2 = n_-(LU)$**).
+
+---
+
+## 2. Matched CPU Empirical Micro-Benchmark (`bench_gegenbauer_vs_monomial_attn.py`)
+
+All runs use Pari–Agrawal–Kim's exact **`27,079`-parameter** (`Linear-Fixed`, `Softmax-Fixed`) / **`27,198`-parameter** (`+119` scalars across all $P=8$ polynomial arms) `6`-block + readout architecture, identical pre-generated mini-batch streams per seed `{0, 1, 2}`, identical step counts, and shared LR grid `{0.00565685, 0.01131371}` (`0` `NaN` runs across all `Portal x/π` runs):
+
+| Benchmark Regime (`Seeds = {0, 1, 2}`, $\rho = 0.5$) | `Linear-Fixed` (`27,079`) | `Softmax-Fixed` (`27,079`) | `Poly-Monomial` (`27,198`) | `Poly-XPi-Gegenbauer` (`27,198`) | `Poly-XPi-MöbiusGegenbauer` (`27,198`) |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **In-Context 2D Linear Regression MSE** (`85 × 48`, lower is better) | `0.038011` | `0.293350` | `0.033336` | **`0.033017` (`#1`)** | `0.033561` |
+| **`4×4` Shuffled Grid Lookup Acc** (`225 × 64`, higher is better) | `63.57%` | `77.73%` | `85.51%` | *(see `high_g` / `reg`)* | **`87.37%` (`#1`, `100.0%` Seed 1)** |
+| **`8×8` `65`-Token Lookup Saddle Probe** (`6 × 32`, seed `0`) | `50.98%` | `50.98%` | `50.98%` | — | `50.98%` |
+| **Simplicity Bias Init Control** ($\rho = 1.8, \text{lr} = 0.008$, Linear vs $T_8$ MSE) | — | — | — | **`0.032326` vs `0.338403` (`10.47×` win, `3/3` seeds)** | — |
+| **High-Gain $g_0 = 3.0$ Stress Test** ($\gamma_0 = \ln 3$, MSE / `max |b_8|`) | — | — | `0.303718` (`|b_8| = 0.000178`) | **`0.247656` (`-18.5%`, `|b_8| = 0.103596` = `582×` uncrushed!)** | — |
+
+### Honest Law-4 Interpretation (`PARTIAL`)
+1. **Confirmed Advantages of `Portal x/π` Spherical Multipoles:**
+   - **2D Regression (`#1` 3-Seed Mean):** `Poly-XPi-Gegenbauer` achieved the lowest 3-seed mean MSE (`0.033017` vs `Poly-Monomial` `0.033336`, `Linear-Fixed` `0.038011`, `Softmax-Fixed` `0.293350` [`8.88×`], and $T_8$ softmax-Taylor init `0.032326` vs `0.338403` [`10.47×` simplicity-bias advantage across `3/3` seeds]; per-seed breakdown is recorded in `s122_xpi_gegenbauer_results.json`).
+   - **High-Gain $g_0 = 3.0$ Parameter-Crush Immunity:** Raw-monomial denominator projection crushed learned `max |b_8|` down to **`0.000178`** (`582×` smaller than `Poly-XPi-Gegenbauer`'s **`0.103596`**), improving high-gain MSE from `0.303718` (`Poly-Monomial`) to `0.247656` (`Poly-XPi`, `-18.5%`; both remain higher than default $g_0 = 1.0$ `0.033017`).
+   - **Tractable Retrieval Saddle Escape (`4×4` Shuffled Lookup):** Conformal north-pole Möbius boost + Gegenbauer harmonics (`Poly-XPi-MöbiusGegenbauer`) achieved **`87.37%`** 3-seed mean accuracy (`99.51%` Seed 0, `100.00%` Seed 1, `62.60%` Seed 2), outperforming `Poly-Monomial` (`85.51%`), `Softmax-Fixed` (`77.73%`), and `Linear-Fixed` (`63.57%`).
+2. **Explicit Single-CPU-Thread Boundary (`Gate 4 = FAIL` -> `PARTIAL`):**
+   - On full `8×8` (`K = 64` shuffled records, `65` tokens), initial uniform attention dilutes key gradient SNR as $O(1/K^2) = 1/4,096$ (`16×` weaker than `4×4`'s $1/256$). Under the single-CPU-thread diagnostic probe (`6 × 32 = 192` sequences on seed `0` vs Pari–Agrawal–Kim's `1.024 × 10^7` GPU sequences), **all** arms including `Softmax-Fixed` remain at the `50.98%` majority-class saddle (`max_g = 1.018–1.030`). Full `8×8` saddle escape is queued for GPU batch `1,024 × 10,000` evaluation alongside `HoloSphere` `V_ring` (`EXP-Q25c`).

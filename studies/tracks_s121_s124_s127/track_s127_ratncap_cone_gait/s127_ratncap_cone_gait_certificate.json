@@ -1,0 +1,136 @@
+{
+  "certificate_sha256": "dd1aeb8309fa259ffeb5947eb0419dd152ccd9aa4f05e52e02d332cf569f4e06",
+  "payload": {
+    "all_passed": true,
+    "g1_antagonistic_cone_linearization": {
+      "antagonistic_midpoint_defect": "0/1",
+      "bijection_exact_matches": 8,
+      "cone_samples_tested": 8,
+      "convex_hull_matches": 8,
+      "elastic_braking_negative": true,
+      "elastic_cycle_zero": true,
+      "elastic_dw_cycle": "0/1",
+      "elastic_dw_return": "3/4",
+      "elastic_dw_store": "-3/4",
+      "elastic_k_eff": "6/1",
+      "elastic_q_eq": "5/12",
+      "elastic_return_positive": true,
+      "gate": "G1_W15_OBS_3_ANTAGONISTIC_CONE_LINEARIZATION",
+      "passed": true,
+      "position_stiffness_defect_formula_exact": true,
+      "position_stiffness_hessian_det": "-1/1",
+      "position_stiffness_hessian_inertia": [
+        1,
+        1,
+        0
+      ],
+      "position_stiffness_midpoint_defect": "-1/1",
+      "positive_stiffness_matches": 8,
+      "torque_identity_matches": 32
+    },
+    "g2_commissural_gait_bifurcation": {
+      "gait_1d_critical": {
+        "bound_krein_neg": 0,
+        "bound_stable": false,
+        "curv_bound": "0/1",
+        "curv_trot": "0/1",
+        "k_crit": "1/4",
+        "k_v0": "1/4",
+        "trot_krein_neg": 0,
+        "trot_stable": false
+      },
+      "gait_1d_intact": {
+        "bound_krein_neg": 1,
+        "bound_stable": false,
+        "curv_bound": "-3/1",
+        "curv_trot": "3/1",
+        "k_crit": "1/4",
+        "k_v0": "1/1",
+        "trot_krein_neg": 0,
+        "trot_stable": true
+      },
+      "gait_1d_v0_knockout": {
+        "bound_krein_neg": 0,
+        "bound_stable": true,
+        "curv_bound": "1/1",
+        "curv_trot": "-1/1",
+        "k_crit": "1/4",
+        "k_v0": "0/1",
+        "trot_krein_neg": 1,
+        "trot_stable": false
+      },
+      "gait_1d_v3_ablated": {
+        "bound_krein_neg": 1,
+        "bound_stable": false,
+        "curv_bound": "-4/1",
+        "curv_trot": "4/1",
+        "k_crit": "0/1",
+        "k_v0": "1/1",
+        "trot_krein_neg": 0,
+        "trot_stable": true
+      },
+      "gate": "G2_W15_OBS_4_COMMISSURAL_V0_V3_GAIT_BIFURCATION",
+      "k_crit_1d": "1/4",
+      "k_crit_4d_with_diag": "3/16",
+      "passed": true,
+      "t4_inertia_bound_at_crit": [
+        2,
+        0,
+        1
+      ],
+      "t4_inertia_bound_intact": [
+        1,
+        2,
+        0
+      ],
+      "t4_inertia_bound_v0_ko": [
+        3,
+        0,
+        0
+      ],
+      "t4_inertia_trot_at_crit": [
+        2,
+        0,
+        1
+      ],
+      "t4_inertia_trot_intact": [
+        3,
+        0,
+        0
+      ],
+      "t4_inertia_trot_v0_ko": [
+        1,
+        2,
+        0
+      ],
+      "t4_inertia_trot_v3_ko": [
+        3,
+        0,
+        0
+      ],
+      "t4_trot_trace_intact": "45/4",
+      "t4_trot_trace_v3_ko": "57/4",
+      "t4_v3_ablation_trace_gain": "3/1",
+      "v3_ablation_curv_gain_1d": "1/1",
+      "w_v0": "4/1",
+      "w_v3": "1/1"
+    },
+    "g3_holosphere_antagonistic_gate": {
+      "cone_equivalence_matches": 5,
+      "contraction_exact_matches": 5,
+      "coord_convex_hull_matches": 5,
+      "gate": "G3_HOLOSPHERE_ANTAGONISTIC_DUAL_POLE_GATE",
+      "gate_pairs_tested": 5,
+      "non_expansive_matches": 5,
+      "passed": true,
+      "unconstrained_escapes_unit_ball": true,
+      "unconstrained_expansion_ratio_sq": "9/4",
+      "unconstrained_lam_eff": "-3/2",
+      "unconstrained_x1_norm_sq": "457/100",
+      "unit_ball_invariant_matches": 5
+    },
+    "prereg_w15_sha256": "6c938ddb41b912f01dba3ccb58e3f8cb54ebe60f93f6bc0eaec134bc93f189a0",
+    "schema": "aletheia.s127.ratncap_antagonistic_cone_gait.v1"
+  },
+  "payload_sha256": "88267036a7033df53117670110e2fd25a9ff91c6da92c64ea5201eb86b880de3"
+}
