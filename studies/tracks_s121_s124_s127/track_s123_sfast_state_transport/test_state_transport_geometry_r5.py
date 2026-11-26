@@ -41,12 +41,21 @@ class TestStateTransportGeometryR5(unittest.TestCase):
         self.assertEqual(by_r["rho_128x"]["full_holosphere_ratio_10_questions"], "320/19")
         self.assertTrue(by_r["rho_128x"]["o1_beats_kv_at_T"])
 
-        # Exact boundary hs_full_b == sfast_pure_bytes (aux == 0) and T=4 < T*=8 -> o1_beats_kv_at_T is False
+        # Exact boundary hs_full_b == sfast_pure_bytes (aux == 0) and T=4 < T*=8 -> o1_beats_kv_at_T is False and passed is False!
         t1_edge = mod.verify_t1_kv_vs_sfast_bandwidth(
             batch=1, n_layers=2, n_heads=4, d_head=8, t_eval=4, holosphere_full_state_bytes=2048
         )
         self.assertFalse(t1_edge["by_kvzip_ratio"]["rho_1x"]["o1_beats_kv_at_T"])
+        self.assertFalse(t1_edge["passed"])
         self.assertEqual(t1_edge["aux_su2_vring_bytes"], 0)
+
+        # Exact crossover T == T* (ratio_full == 1 -> o1_beats_kv_at_T is False -> passed MUST be False!)
+        t1_eq1 = mod.verify_t1_kv_vs_sfast_bandwidth(
+            batch=1, n_layers=2, n_heads=4, d_head=8, t_eval=8, holosphere_full_state_bytes=2048
+        )
+        self.assertEqual(t1_eq1["exact_ratio_uncompressed"], "1/1")
+        self.assertFalse(t1_eq1["by_kvzip_ratio"]["rho_1x"]["o1_beats_kv_at_T"])
+        self.assertFalse(t1_eq1["passed"])
 
         # Exact positive-int boundaries (1 and MAX_INT_ABS accepted; 0, MAX+1, bool, float rejected)
         self.assertEqual(mod.check_pos_int(1, "min"), 1)
@@ -296,6 +305,33 @@ class TestStateTransportGeometryR5(unittest.TestCase):
             with redirect_stderr(eb_miss):
                 self.assertEqual(mod.main(["--check", str(Path(td) / "missing.json")]), 2)
             self.assertIn("CERT_LOAD_FAIL", eb_miss.getvalue())
+
+            # Item 1: Missing or tampered PREREG-W12 / PREREG-W14 files must fail closed
+            pr_sub = Path(td) / "prereg_sub"
+            pr_sub.mkdir()
+            with self.assertRaises(mod.StateTransportError) as cm_mp:
+                mod.verify_prereg_locks(pr_sub)
+            self.assertEqual(cm_mp.exception.code, "MISSING_PREREG")
+
+            src_pr = HERE.parent / "preregistrations"
+            (pr_sub / mod.PREREG_W12_FILENAME).write_bytes((src_pr / mod.PREREG_W12_FILENAME).read_bytes())
+            with self.assertRaises(mod.StateTransportError) as cm_mp2:
+                mod.verify_prereg_locks(pr_sub)
+            self.assertEqual(cm_mp2.exception.code, "MISSING_PREREG")
+
+            (pr_sub / mod.PREREG_W14_FILENAME).write_bytes((src_pr / mod.PREREG_W14_FILENAME).read_bytes())
+            self.assertEqual(mod.verify_prereg_locks(pr_sub)["prereg_w12_sha256"], mod.PREREG_W12_SHA256)
+
+            (pr_sub / mod.PREREG_W12_FILENAME).write_text("bad\n", encoding="utf-8")
+            with self.assertRaises(mod.StateTransportError) as cm_bw12:
+                mod.verify_prereg_locks(pr_sub)
+            self.assertEqual(cm_bw12.exception.code, "PREREG_W12_MISMATCH")
+
+            (pr_sub / mod.PREREG_W12_FILENAME).write_bytes((src_pr / mod.PREREG_W12_FILENAME).read_bytes())
+            (pr_sub / mod.PREREG_W14_FILENAME).write_text("bad\n", encoding="utf-8")
+            with self.assertRaises(mod.StateTransportError) as cm_bw14:
+                mod.verify_prereg_locks(pr_sub)
+            self.assertEqual(cm_bw14.exception.code, "PREREG_W14_MISMATCH")
 
 
 if __name__ == "__main__":

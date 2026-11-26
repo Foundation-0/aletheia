@@ -26,7 +26,7 @@ from aletheia.audit_check import run_audit_check
 PINNED_S121_PAYLOAD_SHA256 = "373ff4d100e0ad7f6e71160b5bc557fb51ad52165f1d907a4fd3f95d3a35142f"
 PINNED_S122_CERT_SHA256 = "16d2d039358dcdee1e1a85e9211603c48a3a1a808c1ba2129d95f3b15fd04ba3"
 PINNED_S123_CERT_SHA256 = "00022833acb4cdee03074af058860ff02bdd133b8a7bb493eff1ac46707abdbf"
-PINNED_S124_CERT_SHA256 = "024edcdc7d153c9d254be3365ae24b7d6492eb1a7f9d59d64b18f27ef03dc091"
+PINNED_S124_CERT_SHA256 = "7e0724b4bff0e7567bec4285f7e0996027e7aac10d05ecf8da57cb5a04a5b6e9"
 PINNED_S127_CERT_SHA256 = "dd1aeb8309fa259ffeb5947eb0419dd152ccd9aa4f05e52e02d332cf569f4e06"
 
 
@@ -72,7 +72,14 @@ class TestWave11To15VerifiedStudies(unittest.TestCase):
 
         p_self = _run_py(track, ["run_w11_live_loopcd_platosphere.py", "--selftest-stdlib", "--json"])
         self_data = json.loads(p_self.stdout)
-        _req(self_data.get("passed") is True, f"S121 stdlib selftest failed: {self_data}")
+        _req(
+            self_data.get("passed") is True
+            and self_data.get("prereg_source") == "disk_verified"
+            and self_data.get("zone_b_bundle_verified") is True,
+            f"S121 stdlib selftest or disk prereg/Zone-B binding failed: {self_data}",
+        )
+        p_zb = _run_py(track, ["run_w11_live_loopcd_platosphere.py", "--check-zone-b", "--json"])
+        _req(json.loads(p_zb.stdout).get("passed") is True, f"S121 --check-zone-b failed: {p_zb.stdout}")
 
         _run_py(track, ["test_loopcd_sphere_geometry_r5.py"])
         _run_py(track, ["test_w11_live_loopcd_platosphere_r5.py"])
@@ -84,6 +91,12 @@ class TestWave11To15VerifiedStudies(unittest.TestCase):
         _req(
             cert.get("certificate_sha256") == PINNED_S122_CERT_SHA256,
             f"S122 certificate_sha256 mismatch: {cert.get('certificate_sha256')!r}",
+        )
+        p_bchk = _run_py(track, ["bench_gegenbauer_vs_monomial_attn.py", "--check"])
+        bchk = json.loads(p_bchk.stdout)
+        _req(
+            bchk.get("status") == "PASS" and bchk.get("verdict") == "PARTIAL",
+            f"S122 bench --check failed: {bchk}",
         )
 
         _run_py(track, ["test_xpi_gegenbauer_attention_r5.py"])

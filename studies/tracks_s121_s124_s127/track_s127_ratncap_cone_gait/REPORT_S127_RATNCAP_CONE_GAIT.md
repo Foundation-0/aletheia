@@ -1,10 +1,10 @@
 # Track S127 (`EXP-Q31a` / `PREREG-W15`): Pure-$\mathbb{Q}$ Certification of `Rat NCAP` Antagonistic Cone Linearization, Commissural `V0/V3` `⦺` Gait Bifurcation & `HoloSphere` Dual-Pole Gate Transfer
 
 - **Track:** `track-s127-ratncap-antagonistic-cone-gait` (`EXP-Q31a`, Wave-15 Portal 152)
-- **Locked Preregistration:** `PREREG-W15` (`SHA-256 = 6c938ddb41b912f01dba3ccb58e3f8cb54ebe60f93f6bc0eaec134bc93f189a0`)
+- **Locked Preregistration:** `PREREG-W15` (`../preregistrations/PREREG_WAVE15_TENSORFOLD_RATNCAP_PSYCHOSCRIPT.md`, `SHA-256 = 6c938ddb41b912f01dba3ccb58e3f8cb54ebe60f93f6bc0eaec134bc93f189a0`)
 - **Primary Source:** `rat-ncap/rat-ncap @ 4a561eecdb` & Bhattasali, Cui, Pinto, & Lindsay, *"Neural Circuit Architectural Priors for Rat Locomotion"* (`arXiv:2611.23364v1`, NeurIPS 2026, CC BY 4.0 paper / MIT code / Apache-2.0 Rat body).
 - **Novelty Classification (Law 4):** `N1` (exact coordinate-free pure-$\mathbb{Q}$ algebraic certification + $T^4/S^1$ exact rational Krein-inertia proof + explicit `HoloSphere` dual-pole contractive gate transfer; classical foundations in Shadmehr 1993, Ekeberg 1993, Dickinson et al. 2000, Bellardita & Kiehn 2015, and Danner et al. 2017 are explicitly credited).
-- **Hardening & Verification (`100.0%`):** Strictly CPU-only (`CUDA_VISIBLE_DEVICES=""`, `OPENBLAS_NUM_THREADS=1`), `0` float literals in AST, `0` bare `assert`s, `49/49 = 100.0%` `aletheia mutate --max-mutants 0`, `10/10 = 100.0%` exhaustive AST `BoolOp` sweep, `3`-mode `-I` parity (`certificate_sha256 = dd1aeb8309fa259ffeb5947eb0419dd152ccd9aa4f05e52e02d332cf569f4e06`), fail-closed `validate_certificate_payload()` enforced on both `--write` and `--check` (verified against in-memory monkeypatch attacks), dual `aletheia audit-check PASS`, `PYC=0, ELF=0, WEIGHTS=0`.
+- **Hardening & Verification (`100.0%`):** Strictly CPU-only (`CUDA_VISIBLE_DEVICES=""`, `OPENBLAS_NUM_THREADS=1`), `0` float literals in AST, `0` bare `assert`s, `51/51 = 100.0%` `aletheia mutate --max-mutants 0`, `10/10 = 100.0%` exhaustive AST `BoolOp` sweep, `3`-mode `-I` parity (`certificate_sha256 = dd1aeb8309fa259ffeb5947eb0419dd152ccd9aa4f05e52e02d332cf569f4e06`), fail-closed `validate_certificate_payload()` enforced on both `--write` and `--check` (verified against in-memory monkeypatch attacks), dual `aletheia audit-check PASS`, `PYC=0, ELF=0, WEIGHTS=0`.
 
 ---
 
@@ -67,6 +67,6 @@ Replacing unconstrained multiplicative gating with nonnegative antagonistic pole
 
 | File | SHA-256 |
 | :--- | :--- |
-| `verify_ratncap_cone_gait.py` | `94e4197a353d3cc567b6f27d2e93439ae290137a20af88a72cbe62ddafd5317d` |
-| `test_ratncap_cone_gait_r5.py` | `809b080147d7be5c6335fca61527be3c3d516064c6bba92f9bb84cd784cf5851` |
+| `verify_ratncap_cone_gait.py` | `a2cabfa25e638edda3a08a3001fb28fa9e0863569ce1fff32cd4b32a632e63ba` |
+| `test_ratncap_cone_gait_r5.py` | `10d90a9f4e390f2b8fae9512f1e5f865d311cd5b3fb7d458cd46886e06c30a98` |
 | `s127_ratncap_cone_gait_certificate.json` | `15ea0d8b755a390488d4a8ea87ef48f782fdacdf320179751fe72fd53c480793` |

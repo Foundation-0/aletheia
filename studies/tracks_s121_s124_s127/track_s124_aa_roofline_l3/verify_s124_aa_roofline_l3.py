@@ -2,8 +2,9 @@
 """Wave-14 (EXP-Q30a / Track S124): Pure-Q A/A Noise-Floor, Looped-Roofline & HoloSphere-V3 L3 Ceiling Oracle.
 
 Strictly Python standard library ONLY: zero IEEE-754 floats, zero float literals in AST,
-zero bare asserts, zero RNG, zero third-party dependencies. Locked to PREREG-W14
-(`SHA-256: 871900e5d6c860ac159f43ca6b4767e7c128d0b4f7748edf788d56e9cb535d3e`).
+zero bare asserts, zero RNG, zero third-party dependencies. Locked to sanitized in-tree PREREG-W14
+(`SHA-256: 4994ae816d852856cfb4c32713c1ca8aea08a2be4abf1f8186d3bd531f0d604d`; original pre-sanitization
+lock `SHA-256: 871900e5d6c860ac159f43ca6b4767e7c128d0b4f7748edf788d56e9cb535d3e`).
 
 Proves and certifies over exact Q (`fractions.Fraction`):
   - G1 (`W14-OBS-3`, `sybil-solutions/inference-optimisation-skill` PR #11 & PR #9):
@@ -48,8 +49,9 @@ from typing import Any, Mapping, Sequence
 
 SCHEMA_VERSION = "aletheia.track_s124.aa_roofline_l3_oracle.v1"
 CERT_FILENAME = "s124_aa_roofline_l3_certificate.json"
-PREREG_W14_REL = Path("notes") / "portals_wave14_2026_11_26" / "PREREG_WAVE14_INF_OPT_BAREMETAL.md"
-PREREG_W14_SHA256 = "871900e5d6c860ac159f43ca6b4767e7c128d0b4f7748edf788d56e9cb535d3e"
+PREREG_W14_REL = Path("preregistrations") / "PREREG_WAVE14_INF_OPT_BAREMETAL.md"
+PREREG_W14_ORIGINAL_LOCK_SHA256 = "871900e5d6c860ac159f43ca6b4767e7c128d0b4f7748edf788d56e9cb535d3e"
+PREREG_W14_SHA256 = "4994ae816d852856cfb4c32713c1ca8aea08a2be4abf1f8186d3bd531f0d604d"
 
 MIN_AA_CALIBRATION_RUNS = 10
 MIN_INDEPENDENT_TRIPLES = 3
@@ -490,11 +492,66 @@ def verify_prereg_w14_file(prereg_path: Path) -> str:
     return digest
 
 
+def _g1_gate_ok(g1: Mapping[str, Any]) -> bool:
+    cp = g1["combinatorial_proof"]
+    return (
+        cp["single_triple_false_win_prob_q"] == "1/3"
+        and cp["min_independent_triples_for_alpha"] == 3
+        and cp["m_triple_false_win_prob_q"] == "1/27"
+        and g1["pr11_calibrated_floor"]["max_false_win_rel_margin_q"] == "77/5000"
+        and g1["sub_floor_1pct_candidate_rejected"] is True
+        and g1["zero_false_win_jitter_candidate_rejected"] is True
+        and g1["genuine_25pct_candidate_accepted"] is True
+    )
+
+
+def _g2_gate_ok(g2: Mapping[str, Any]) -> bool:
+    return (
+        g2["pr22_inkling2_mini_visits"]["physical_layers"] == 24
+        and g2["pr22_inkling2_mini_visits"]["logical_layer_visits"] == 48
+        and g2["pr22_inkling2_mini_visits"]["decode_overstatement_ratio_q"] == "2/1"
+        and g2["pr22_inkling2_mini_visits"]["prefill_sparse_phys_vs_dense_visit_ratio_q"] == "4/1"
+        and g2["pr12_loop_aware_moe_vram_roi"]["boundary_mb_per_tok_per_gb_q"] == "125/2"
+        and g2["pr12_loop_aware_moe_vram_roi"]["core_mb_per_tok_per_gb_q"] == "375/2"
+        and g2["pr12_loop_aware_moe_vram_roi"]["core_vs_boundary_roi_ratio_q"] == "3/1"
+        and g2["pr12_loop_aware_moe_vram_roi"]["core_share_of_active_traffic_q"] == "1032/1427"
+        and g2["pr13_batched_single_read_draft"]["true_aggregate_ceiling_tok_s_q"] == "640/1"
+        and g2["pr13_batched_single_read_draft"]["buggy_aggregate_ceiling_tok_s_q"] == "400/1"
+        and g2["pr13_batched_single_read_draft"]["relative_underestimate_q"] == "3/8"
+    )
+
+
+def _g3_gate_ok(g3: Mapping[str, Any]) -> bool:
+    return (
+        g3["safetensors_file_bytes"] == 8_963_044
+        and g3["tensor_payload_bytes"] == 8_948_868
+        and g3["input_embedding_bytes"] == 0
+        and g3["persistent_o1_state_bytes"] == 262_144
+        and g3["kv_bytes_per_token"] == 0
+        and g3["resident_total_bytes"] == 9_225_188
+        and g3["fits_in_24mib_l3"] is True
+        and g3["hugepages_2mib_needed_holosphere_v3"] == 5
+        and g3["i9_l3_vs_ddr4_bandwidth_lift_q"] == "160/21"
+        and Fraction(g3["live_v3_46468_over_gddr6_tied_q"]) > Fraction(1)
+        and Fraction(g3["live_v3_46468_over_l2_tied_q"]) < Fraction(1)
+        and g3["i9_1c_practical_fma_compute_ceiling_tok_s_q"] == "33600000000/15234817"
+        and g3["i9_1c_l3_is_compute_bound"] is True
+    )
+
+
+def compute_s124_gate_verdicts(g1: Mapping[str, Any], g2: Mapping[str, Any], g3: Mapping[str, Any]) -> dict[str, str]:
+    """Derive G1/G2/G3 Law-4 verdicts directly from gate predicate results."""
+    return {
+        "G1": "CONFIRMED" if _g1_gate_ok(g1) else "FALSIFIED",
+        "G2": "CONFIRMED" if _g2_gate_ok(g2) else "FALSIFIED",
+        "G3": "CONFIRMED" if _g3_gate_ok(g3) else "FALSIFIED",
+    }
+
+
 def build_s124_certificate(prereg_path: Path | None = None) -> dict[str, Any]:
     here = Path(__file__).resolve().parent
-    default_prereg = here.parent / PREREG_W14_REL
-    target_prereg = prereg_path if prereg_path is not None else (default_prereg if default_prereg.is_file() else None)
-    prereg_sha = verify_prereg_w14_file(target_prereg) if target_prereg is not None else PREREG_W14_SHA256
+    target_prereg = prereg_path if prereg_path is not None else (here.parent / PREREG_W14_REL)
+    prereg_sha = verify_prereg_w14_file(target_prereg)
 
     g1_aa = prove_aa_triple_false_win_q(ALPHA_SIGNIFICANCE_DEFAULT)
     # 12-run realistic A/A calibration ledger (max false-win margin = 154/10000 = 77/5000 = 1.54%, matching PR #11!)
@@ -569,29 +626,32 @@ def build_s124_certificate(prereg_path: Path | None = None) -> dict[str, Any]:
     )
 
     g3_hsv3 = holosphere_v3_l3_and_roofline_q()
+    g1_sec: dict[str, Any] = {
+        "combinatorial_proof": g1_aa,
+        "pr11_calibrated_floor": g1_floor,
+        "sub_floor_1pct_candidate_rejected": g1_noise_reject["accepted"] is False,
+        "zero_false_win_jitter_candidate_rejected": (
+            g1_zero_fw_jitter["accepted"] is False
+            and Fraction(g1_zero_fw_jitter["required_rel_margin_q"]) > Fraction(0)
+        ),
+        "genuine_25pct_candidate_accepted": g1_real_accept["accepted"] is True,
+    }
+    g2_sec: dict[str, Any] = {
+        "pr22_inkling2_mini_visits": g2_pr22,
+        "pr12_loop_aware_moe_vram_roi": g2_pr12,
+        "pr13_batched_single_read_draft": g2_pr13,
+    }
 
     payload: dict[str, Any] = {
         "schema": SCHEMA_VERSION,
         "track": "S124",
         "experiment": "EXP-Q30a",
+        "preregistration_original_lock_sha256": PREREG_W14_ORIGINAL_LOCK_SHA256,
         "preregistration_sha256": prereg_sha,
         "float_ops_used": 0,
-        "verdicts": {"G1": "CONFIRMED", "G2": "CONFIRMED", "G3": "CONFIRMED"},
-        "g1_aa_illusion_and_mirage_gate": {
-            "combinatorial_proof": g1_aa,
-            "pr11_calibrated_floor": g1_floor,
-            "sub_floor_1pct_candidate_rejected": g1_noise_reject["accepted"] is False,
-            "zero_false_win_jitter_candidate_rejected": (
-                g1_zero_fw_jitter["accepted"] is False
-                and Fraction(g1_zero_fw_jitter["required_rel_margin_q"]) > Fraction(0)
-            ),
-            "genuine_25pct_candidate_accepted": g1_real_accept["accepted"] is True,
-        },
-        "g2_looped_and_batched_draft_rooflines": {
-            "pr22_inkling2_mini_visits": g2_pr22,
-            "pr12_loop_aware_moe_vram_roi": g2_pr12,
-            "pr13_batched_single_read_draft": g2_pr13,
-        },
+        "verdicts": compute_s124_gate_verdicts(g1_sec, g2_sec, g3_hsv3),
+        "g1_aa_illusion_and_mirage_gate": g1_sec,
+        "g2_looped_and_batched_draft_rooflines": g2_sec,
         "g3_holosphere_v3_15m_l3_roofline": g3_hsv3,
     }
     canon = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
@@ -605,7 +665,8 @@ def validate_s124_certificate(cert: Mapping[str, Any]) -> None:
         isinstance(cert, Mapping)
         and cert.get("schema") == SCHEMA_VERSION
         and cert.get("float_ops_used") == 0
-        and cert.get("preregistration_sha256") == PREREG_W14_SHA256,
+        and cert.get("preregistration_sha256") == PREREG_W14_SHA256
+        and cert.get("preregistration_original_lock_sha256") == PREREG_W14_ORIGINAL_LOCK_SHA256,
         "BAD_CERT_HEADER",
         "invalid S124 certificate header or preregistration SHA",
     )
@@ -616,53 +677,19 @@ def validate_s124_certificate(cert: Mapping[str, Any]) -> None:
     require_ok(recomputed == rec_sha, "CERT_SHA_MISMATCH", "certificate_sha256 mismatch")
 
     g1 = cert["g1_aa_illusion_and_mirage_gate"]
-    cp = g1["combinatorial_proof"]
-    require_ok(
-        cp["single_triple_false_win_prob_q"] == "1/3"
-        and cp["min_independent_triples_for_alpha"] == 3
-        and cp["m_triple_false_win_prob_q"] == "1/27"
-        and g1["pr11_calibrated_floor"]["max_false_win_rel_margin_q"] == "77/5000"
-        and g1["sub_floor_1pct_candidate_rejected"] is True
-        and g1["zero_false_win_jitter_candidate_rejected"] is True
-        and g1["genuine_25pct_candidate_accepted"] is True,
-        "G1_CERT_INVALID",
-        "G1 A/A illusion or gate invariants failed",
-    )
+    require_ok(_g1_gate_ok(g1), "G1_CERT_INVALID", "G1 A/A illusion or gate invariants failed")
 
     g2 = cert["g2_looped_and_batched_draft_rooflines"]
-    require_ok(
-        g2["pr22_inkling2_mini_visits"]["physical_layers"] == 24
-        and g2["pr22_inkling2_mini_visits"]["logical_layer_visits"] == 48
-        and g2["pr22_inkling2_mini_visits"]["decode_overstatement_ratio_q"] == "2/1"
-        and g2["pr22_inkling2_mini_visits"]["prefill_sparse_phys_vs_dense_visit_ratio_q"] == "4/1"
-        and g2["pr12_loop_aware_moe_vram_roi"]["boundary_mb_per_tok_per_gb_q"] == "125/2"
-        and g2["pr12_loop_aware_moe_vram_roi"]["core_mb_per_tok_per_gb_q"] == "375/2"
-        and g2["pr12_loop_aware_moe_vram_roi"]["core_vs_boundary_roi_ratio_q"] == "3/1"
-        and g2["pr12_loop_aware_moe_vram_roi"]["core_share_of_active_traffic_q"] == "1032/1427"
-        and g2["pr13_batched_single_read_draft"]["true_aggregate_ceiling_tok_s_q"] == "640/1"
-        and g2["pr13_batched_single_read_draft"]["buggy_aggregate_ceiling_tok_s_q"] == "400/1"
-        and g2["pr13_batched_single_read_draft"]["relative_underestimate_q"] == "3/8",
-        "G2_CERT_INVALID",
-        "G2 looped-visit or batched-draft roofline invariants failed",
-    )
+    require_ok(_g2_gate_ok(g2), "G2_CERT_INVALID", "G2 looped-visit or batched-draft roofline invariants failed")
 
     g3 = cert["g3_holosphere_v3_15m_l3_roofline"]
+    require_ok(_g3_gate_ok(g3), "G3_CERT_INVALID", "G3 HoloSphere-V3 L3 & sm_86 roofline invariants failed")
+
+    derived_verdicts = compute_s124_gate_verdicts(g1, g2, g3)
     require_ok(
-        g3["safetensors_file_bytes"] == 8_963_044
-        and g3["tensor_payload_bytes"] == 8_948_868
-        and g3["input_embedding_bytes"] == 0
-        and g3["persistent_o1_state_bytes"] == 262_144
-        and g3["kv_bytes_per_token"] == 0
-        and g3["resident_total_bytes"] == 9_225_188
-        and g3["fits_in_24mib_l3"] is True
-        and g3["hugepages_2mib_needed_holosphere_v3"] == 5
-        and g3["i9_l3_vs_ddr4_bandwidth_lift_q"] == "160/21"
-        and Fraction(g3["live_v3_46468_over_gddr6_tied_q"]) > Fraction(1)
-        and Fraction(g3["live_v3_46468_over_l2_tied_q"]) < Fraction(1)
-        and g3["i9_1c_practical_fma_compute_ceiling_tok_s_q"] == "33600000000/15234817"
-        and g3["i9_1c_l3_is_compute_bound"] is True,
-        "G3_CERT_INVALID",
-        "G3 HoloSphere-V3 L3 & sm_86 roofline invariants failed",
+        cert.get("verdicts") == derived_verdicts and derived_verdicts == {"G1": "CONFIRMED", "G2": "CONFIRMED", "G3": "CONFIRMED"},
+        "VERDICT_CERT_INVALID",
+        "S124 verdicts do not match derived gate results",
     )
 
 

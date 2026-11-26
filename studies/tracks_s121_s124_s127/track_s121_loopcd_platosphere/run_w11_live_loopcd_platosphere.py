@@ -290,29 +290,105 @@ def build_subject_disjoint_fact_splits(
 
 def _resolve_prereg_sha256(*, require_file: bool) -> Tuple[str, str]:
     """Verify pinned PREREG SHA-256 on disk when present; allow pinned standalone selftest when isolated."""
-    prereg_p = _expedition_root() / "notes" / "portals_wave11_2026_11_25" / PREREG_FILENAME
-    if prereg_p.is_file():
-        actual = _sha256_file(prereg_p)
-        require_ok(hmac.compare_digest(actual, PINNED_PREREG_SHA256), "PREREG_HASH_MISMATCH", f"Unexpected PREREG hash {actual}")
-        return actual, "disk_verified"
+    bundle_p = Path(__file__).resolve().parent.parent / "preregistrations" / PREREG_FILENAME
+    legacy_p = _expedition_root() / "notes" / "portals_wave11_2026_11_25" / PREREG_FILENAME
+    for prereg_p in (bundle_p, legacy_p):
+        if prereg_p.is_file():
+            actual = _sha256_file(prereg_p)
+            require_ok(hmac.compare_digest(actual, PINNED_PREREG_SHA256), "PREREG_HASH_MISMATCH", f"Unexpected PREREG hash {actual}")
+            return actual, "disk_verified"
     require_ok(not require_file, "PREREG_MISSING", PREREG_FILENAME)
     return PINNED_PREREG_SHA256, "pinned_standalone"
+
+
+def verify_w11_zone_b_bundle(track_dir: Optional[Path] = None) -> Dict[str, Any]:
+    """Fail-closed verification of bound S121 Zone-B receipt, live results payload, profile, and preregistration."""
+    tdir = track_dir if track_dir is not None else Path(__file__).resolve().parent
+    prereg_p = tdir.parent / "preregistrations" / PREREG_FILENAME
+    results_p = tdir / "w11_live_loopcd_platosphere_results.json"
+    receipt_p = tdir / "mlos_zone_b_w11_loopcd_platosphere.json"
+    profile_p = tdir / "ux582hs-rtx3080-8gb.toml"
+
+    require_ok(prereg_p.is_file(), "ZONEB_PREREG_MISSING", PREREG_FILENAME)
+    prereg_sha = _sha256_file(prereg_p)
+    require_ok(hmac.compare_digest(prereg_sha, PINNED_PREREG_SHA256), "PREREG_HASH_MISMATCH", prereg_sha)
+
+    require_ok(results_p.is_file() and receipt_p.is_file() and profile_p.is_file(), "ZONEB_FILE_MISSING", "missing companion Zone-B file")
+    results_file_sha = _sha256_file(results_p)
+    profile_sha = _sha256_file(profile_p)
+
+    results_obj = json.loads(results_p.read_text(encoding="utf-8"))
+    rec_payload_sha = results_obj.get("payload_sha256")
+    require_ok(type(rec_payload_sha) is str and len(rec_payload_sha) == 64, "RESULTS_SHA_MISSING", "missing payload_sha256")
+    results_body = {k: v for k, v in results_obj.items() if k != "payload_sha256"}
+    exp_results_sha = hashlib.sha256(_canonical_json_bytes(results_body)).hexdigest()
+    require_ok(hmac.compare_digest(rec_payload_sha, exp_results_sha), "RESULTS_SHA_MISMATCH", exp_results_sha)
+    require_ok(results_obj.get("prereg_sha256") == PINNED_PREREG_SHA256, "RESULTS_PREREG_MISMATCH", "results prereg_sha256 mismatch")
+
+    receipt_obj = json.loads(receipt_p.read_text(encoding="utf-8"))
+    rec_sha = receipt_obj.get("receipt_sha256")
+    require_ok(type(rec_sha) is str and len(rec_sha) == 64, "RECEIPT_SHA_MISSING", "missing receipt_sha256")
+    receipt_body = {k: v for k, v in receipt_obj.items() if k != "receipt_sha256"}
+    exp_rec_sha = hashlib.sha256(json.dumps(receipt_body, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("ascii")).hexdigest()
+    require_ok(hmac.compare_digest(rec_sha, exp_rec_sha), "RECEIPT_SHA_MISMATCH", exp_rec_sha)
+
+    require_ok(
+        receipt_obj.get("bound_results_file") == "w11_live_loopcd_platosphere_results.json"
+        and receipt_obj.get("bound_results_payload_sha256") == rec_payload_sha
+        and receipt_obj.get("bound_results_file_sha256") == results_file_sha
+        and receipt_obj.get("bound_prereg_sha256") == PINNED_PREREG_SHA256
+        and receipt_obj.get("bound_profile_file") == "ux582hs-rtx3080-8gb.toml"
+        and receipt_obj.get("profile_sha256") == profile_sha
+        and receipt_obj.get("energy_power_status") == "UNCONTROLLED_LAPTOP_TELEMETRY_NOT_AN_ENERGY_CLAIM",
+        "RECEIPT_BINDING_MISMATCH",
+        "Zone-B receipt binding fields do not match on-disk results/profile/prereg",
+    )
+    return {
+        "passed": True,
+        "prereg_sha256": prereg_sha,
+        "profile_sha256": profile_sha,
+        "results_payload_sha256": rec_payload_sha,
+        "results_file_sha256": results_file_sha,
+        "receipt_sha256": rec_sha,
+    }
 
 
 def run_stdlib_selftest() -> Dict[str, Any]:
     """Pure-stdlib verification of PREREG lock & subject-disjoint 148-fact suite (works in standalone snapshots)."""
     prereg_sha, prereg_src = _resolve_prereg_sha256(require_file=False)
+    here = Path(__file__).resolve().parent
+    zb_present = (here / "mlos_zone_b_w11_loopcd_platosphere.json").is_file()
+    zb_verified = False
+    if zb_present:
+        zb = verify_w11_zone_b_bundle(here)
+        zb_verified = bool(zb["passed"])
     splits = build_subject_disjoint_fact_splits(20261125)
+    tr_s = {s for _, s, _ in splits["train"]}
+    va_s = {s for _, s, _ in splits["val"]}
+    te_s = {s for _, s, _ in splits["test"]}
+    subj_disjoint_ok = (
+        len(RAW_FACTS) >= 120
+        and sum(len(v) for v in splits.values()) == len(RAW_FACTS)
+        and len(tr_s & va_s) == 0
+        and len(tr_s & te_s) == 0
+        and len(va_s & te_s) == 0
+    )
+    all_ok = (
+        subj_disjoint_ok
+        and hmac.compare_digest(prereg_sha, PINNED_PREREG_SHA256)
+        and (zb_verified if zb_present else True)
+    )
     payload: Dict[str, Any] = {
         "schema": SCHEMA_W11_SELFTEST,
         "prereg_filename": PREREG_FILENAME,
         "prereg_sha256": prereg_sha,
         "prereg_source": prereg_src,
+        "zone_b_bundle_verified": zb_verified,
         "total_unique_facts": len(RAW_FACTS),
         "split_counts": {k: len(v) for k, v in splits.items()},
         "relations": sorted({r for r, _, _ in RAW_FACTS}),
-        "subject_disjoint_pass": True,
-        "passed": True,
+        "subject_disjoint_pass": subj_disjoint_ok,
+        "passed": all_ok,
     }
     payload["payload_sha256"] = hashlib.sha256(_canonical_json_bytes(payload)).hexdigest()
     return payload
@@ -1269,6 +1345,7 @@ def run_all_wave11_live_probes(
 def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="Wave-11 Live RTX 3080 Probes: LoopCD/Strang + Plato's Key/SphereMap")
     parser.add_argument("--selftest-stdlib", action="store_true")
+    parser.add_argument("--check-zone-b", action="store_true")
     parser.add_argument("--run-gpu", action="store_true")
     parser.add_argument("--ckpt", type=Path, default=None)
     parser.add_argument("--eval-bin", type=Path, default=None)
@@ -1279,6 +1356,13 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     if args.run_gpu:
         require_ok(args.ckpt is not None and args.eval_bin is not None and args.out_json is not None, "BAD_ARGS", "Need --ckpt, --eval-bin, --out-json")
         res = run_all_wave11_live_probes(ckpt_path=args.ckpt, eval_bin_path=args.eval_bin, out_json=args.out_json)
+    elif args.check_zone_b:
+        zb = verify_w11_zone_b_bundle()
+        if args.json:
+            sys.stdout.write(json.dumps(zb, indent=2, sort_keys=True, ensure_ascii=True, allow_nan=False) + "\n")
+        else:
+            sys.stdout.write(f"PASS S121_ZONE_B receipt_sha256={zb['receipt_sha256']}\n")
+        return 0
     else:
         res = run_stdlib_selftest()
 

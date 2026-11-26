@@ -183,6 +183,18 @@ class TestRatNCAPConeGaitR5(unittest.TestCase):
                 self.assertEqual(mod.main(["--check", str(cpath)]), 0)
             self.assertIn("PASS", out2.getvalue())
 
+            # Item 1: Missing or tampered PREREG-W15 file must fail closed
+            miss_pr = Path(td) / "missing_prereg.md"
+            with self.assertRaises(mod.RatNCAPError) as cm_pm:
+                mod.verify_prereg_w15_file(miss_pr)
+            self.assertEqual(cm_pm.exception.code, "MISSING_PREREG_W15")
+
+            bad_pr = Path(td) / "bad_prereg.md"
+            bad_pr.write_text("tampered\n", encoding="utf-8")
+            with self.assertRaises(mod.RatNCAPError) as cm_pb:
+                mod.verify_prereg_w15_file(bad_pr)
+            self.assertEqual(cm_pb.exception.code, "PREREG_W15_SHA_MISMATCH")
+
             # Tamper 1: mutate payload -> PAYLOAD_SHA_MISMATCH
             tampered = json.loads(cpath.read_text(encoding="utf-8"))
             tampered["payload"]["all_passed"] = False

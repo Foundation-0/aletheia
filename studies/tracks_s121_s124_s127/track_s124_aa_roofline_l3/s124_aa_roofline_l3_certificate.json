@@ -1,5 +1,5 @@
 {
-  "certificate_sha256": "024edcdc7d153c9d254be3365ae24b7d6492eb1a7f9d59d64b18f27ef03dc091",
+  "certificate_sha256": "7e0724b4bff0e7567bec4285f7e0996027e7aac10d05ecf8da57cb5a04a5b6e9",
   "experiment": "EXP-Q30a",
   "float_ops_used": 0,
   "g1_aa_illusion_and_mirage_gate": {
@@ -83,7 +83,8 @@
     "safetensors_header_bytes": 14176,
     "tensor_payload_bytes": 8948868
   },
-  "preregistration_sha256": "871900e5d6c860ac159f43ca6b4767e7c128d0b4f7748edf788d56e9cb535d3e",
+  "preregistration_original_lock_sha256": "871900e5d6c860ac159f43ca6b4767e7c128d0b4f7748edf788d56e9cb535d3e",
+  "preregistration_sha256": "4994ae816d852856cfb4c32713c1ca8aea08a2be4abf1f8186d3bd531f0d604d",
   "schema": "aletheia.track_s124.aa_roofline_l3_oracle.v1",
   "track": "S124",
   "verdicts": {

@@ -647,13 +647,26 @@ def validate_certificate_payload(payload: Dict[str, Any]) -> None:
     require_ok(payload["all_passed"] is True, "ALL_PASSED_INVALID", "all_passed must be True")
 
 
-def build_certificate() -> Dict[str, Any]:
+PREREG_W15_FILENAME = "PREREG_WAVE15_TENSORFOLD_RATNCAP_PSYCHOSCRIPT.md"
+
+
+def verify_prereg_w15_file(prereg_path: Optional[Path] = None) -> str:
+    """Fail-closed SHA-256 verification of in-tree PREREG-W15 file."""
+    target = prereg_path if prereg_path is not None else (Path(__file__).resolve().parent.parent / "preregistrations" / PREREG_W15_FILENAME)
+    require_ok(target.is_file(), "MISSING_PREREG_W15", PREREG_W15_FILENAME)
+    digest = hashlib.sha256(target.read_bytes()).hexdigest()
+    require_ok(hmac.compare_digest(digest, PREREG_W15_SHA256), "PREREG_W15_SHA_MISMATCH", digest)
+    return digest
+
+
+def build_certificate(prereg_path: Optional[Path] = None) -> Dict[str, Any]:
+    prereg_sha = verify_prereg_w15_file(prereg_path)
     g1 = verify_g1_antagonistic_cone_linearization()
     g2 = verify_g2_commissural_gait_bifurcation()
     g3 = verify_g3_holosphere_antagonistic_gate()
     payload: Dict[str, Any] = {
         "schema": SCHEMA_S127,
-        "prereg_w15_sha256": PREREG_W15_SHA256,
+        "prereg_w15_sha256": prereg_sha,
         "g1_antagonistic_cone_linearization": g1,
         "g2_commissural_gait_bifurcation": g2,
         "g3_holosphere_antagonistic_gate": g3,

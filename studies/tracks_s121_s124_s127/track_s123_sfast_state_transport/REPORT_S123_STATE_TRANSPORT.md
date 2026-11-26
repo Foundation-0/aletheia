@@ -1,9 +1,9 @@
 # Track S123 (`EXP-Q28a` + `EXP-Q30c` / `W14-OBS-1`): Cross-Model $O(1)$ `HoloSphere` `S_fast` Woodbury & Non-Abelian `CayleySU2` State Transport vs. $O(T)$ KV-Cache Translators
 
 - **Track:** `track-s123-speculative-state-transport` (`EXP-Q28a` Wave-12 Portal 138 + `EXP-Q30c` Wave-14 Portal 148 Addendum)
-- **Locked Preregistrations:** `PREREG-W12` (`notes/portals_wave12_2026_11_26/PREREG_WAVE12_FRONTIER_SYNTHESIS.md`) & `PREREG-W14` (`SHA-256 = 871900e5d6c860ac159f43ca6b4767e7c128d0b4f7748edf788d56e9cb535d3e`)
+- **Locked Preregistrations:** `PREREG-W12` (`../preregistrations/PREREG_WAVE12_FRONTIER_SYNTHESIS.md`, sanitized in-tree `SHA-256 = b012a39410e08f121f2beeab9f3af2e40ecab8f46ffe4ebffcfe080debdbb34e`; original pre-sanitization lock `08ce3b2a752107b17fa67c3f530b6d28706b5115fc01349f146aaf18fa74f031`) & `PREREG-W14` (`../preregistrations/PREREG_WAVE14_INF_OPT_BAREMETAL.md`, sanitized in-tree `SHA-256 = 4994ae816d852856cfb4c32713c1ca8aea08a2be4abf1f8186d3bd531f0d604d`; original pre-sanitization lock `871900e5d6c860ac159f43ca6b4767e7c128d0b4f7748edf788d56e9cb535d3e`)
 - **Novelty Classification (Law 4):** `N1` (exact pure-$\mathbb{Q}$ algebraic certification + matched 3-seed CPU cross-seed state-transport micro-benchmark contrasting $O(1)$ Woodbury/`CayleySU2` states against $O(T)$ KV translators; prior art explicitly credited below).
-- **Execution Envelope:** Strictly CPU-only (`CUDA_VISIBLE_DEVICES=""`, `OPENBLAS_NUM_THREADS=1`), `0` floats in pure-$\mathbb{Q}$ oracle AST, `51/51 = 100.0%` `aletheia mutate`, `10/10 = 100.0%` AST `BoolOp` sweep, `3`-mode `-I` parity, dual `aletheia audit-check PASS`, `PYC=0, ELF=0, WEIGHTS=0`.
+- **Execution Envelope:** Strictly CPU-only (`CUDA_VISIBLE_DEVICES=""`, `OPENBLAS_NUM_THREADS=1`), `0` floats in pure-$\mathbb{Q}$ oracle AST, `54/54 = 100.0%` `aletheia mutate`, `10/10 = 100.0%` AST `BoolOp` sweep, `3`-mode `-I` parity, dual `aletheia audit-check PASS`, `PYC=0, ELF=0, WEIGHTS=0`.
 
 ---
 
@@ -23,7 +23,7 @@
 ## 2. Part 1 — Pure-$\mathbb{Q}$ Certified Theorems (`verify_state_transport_geometry.py`, `0` Floats)
 
 - **Certificate SHA-256 (`s123_state_transport_certificate.json`):** `00022833acb4cdee03074af058860ff02bdd133b8a7bb493eff1ac46707abdbf`
-- **Mutation Hardening:** `51 / 51 = 100.0%` `aletheia mutate --max-mutants 0` + `10 / 10 = 100.0%` exhaustive AST `BoolOp` sweep (`0` float literals in AST).
+- **Mutation Hardening:** `54 / 54 = 100.0%` `aletheia mutate --max-mutants 0` + `10 / 10 = 100.0%` exhaustive AST `BoolOp` sweep (`0` float literals in AST).
 
 | Theorem | Exact Pure-$\mathbb{Q}$ Statement & Certified Witness | Key Exact Rational Quantities |
 | :--- | :--- | :--- |
@@ -81,8 +81,8 @@
 
 | File | SHA-256 |
 | :--- | :--- |
-| `verify_state_transport_geometry.py` | `c551d3adee779c0d3fe9a91a8b2574291f10b4162f6a73f7b750469f46cfb7b7` |
-| `test_state_transport_geometry_r5.py` | `30beb44ebcae42abd94c684c93b38ecb8ad5cd096e059f92d5b5545c7ae00a54` |
+| `verify_state_transport_geometry.py` | `0cbabcc03fa0c4f7286a6a9847940fee7fd60b4e5da11f3decbcd33e95686d26` |
+| `test_state_transport_geometry_r5.py` | `08c8f71bc2eff4cbb089b852f50de65bd52190fe62c9032f3ec51531fa4bdf5c` |
 | `s123_state_transport_certificate.json` | `518a2e12f8a3a3092aaa07980dda4da76ac45a654e6ac273c2baff54aa86a7bd` |
 | `bench_sfast_cross_seed_transport.py` | `6857c7c71db372638baebd95c9720b1c1c1e6fd787bd3b7c6caae7043af24088` |
 | `test_bench_sfast_transport_r5.py` | `bf0d5da814d2a5e6addc50a31c922ca827ac9040535307344db5db2ecd4c13ab` |

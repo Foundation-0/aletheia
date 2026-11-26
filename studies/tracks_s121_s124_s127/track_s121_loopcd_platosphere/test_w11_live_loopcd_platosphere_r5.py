@@ -33,10 +33,125 @@ class TestW11LiveProbesStdlib(unittest.TestCase):
         r2 = w11.run_stdlib_selftest()
         self.assertTrue(r1["passed"])
         self.assertEqual(r1["prereg_sha256"], w11.PINNED_PREREG_SHA256)
+        self.assertEqual(r1["prereg_source"], "disk_verified")
+        self.assertTrue(r1["zone_b_bundle_verified"])
         self.assertEqual(r1["total_unique_facts"], 148)
         self.assertGreaterEqual(r1["total_unique_facts"], 120)
         self.assertTrue(r1["subject_disjoint_pass"])
         self.assertEqual(r1["payload_sha256"], r2["payload_sha256"])
+
+        zb_live = w11.verify_w11_zone_b_bundle(_HERE)
+        self.assertTrue(zb_live["passed"])
+
+        # CLI --check-zone-b (text & --json)
+        buf_zb = io.StringIO()
+        with redirect_stdout(buf_zb):
+            self.assertEqual(w11.main(["--check-zone-b"]), 0)
+        self.assertIn("PASS S121_ZONE_B", buf_zb.getvalue())
+        buf_zb_j = io.StringIO()
+        with redirect_stdout(buf_zb_j):
+            self.assertEqual(w11.main(["--check-zone-b", "--json"]), 0)
+        self.assertTrue(json.loads(buf_zb_j.getvalue())["passed"])
+
+        # R5 Zone-B tamper plants (missing prereg/files, tampered results/receipt/profile/bindings)
+        with tempfile.TemporaryDirectory() as td_zb:
+            base = Path(td_zb)
+            pr_dir = base / "preregistrations"
+            tr_dir = base / "track_s121_loopcd_platosphere"
+            pr_dir.mkdir()
+            tr_dir.mkdir()
+
+            def _reset_zb() -> None:
+                shutil.copyfile(_HERE.parent / "preregistrations" / w11.PREREG_FILENAME, pr_dir / w11.PREREG_FILENAME)
+                for fn in ("w11_live_loopcd_platosphere_results.json", "mlos_zone_b_w11_loopcd_platosphere.json", "ux582hs-rtx3080-8gb.toml"):
+                    shutil.copyfile(_HERE / fn, tr_dir / fn)
+
+            def _resign_rec(obj: dict[str, object]) -> dict[str, object]:
+                body = {k: v for k, v in obj.items() if k != "receipt_sha256"}
+                out = dict(body)
+                out["receipt_sha256"] = hashlib.sha256(
+                    json.dumps(body, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("ascii")
+                ).hexdigest()
+                return out
+
+            _reset_zb()
+            self.assertTrue(w11.verify_w11_zone_b_bundle(tr_dir)["passed"])
+
+            (pr_dir / w11.PREREG_FILENAME).unlink()
+            with self.assertRaises(w11.Wave11ProbeError) as cm_z1:
+                w11.verify_w11_zone_b_bundle(tr_dir)
+            self.assertEqual(cm_z1.exception.code, "ZONEB_PREREG_MISSING")
+
+            (pr_dir / w11.PREREG_FILENAME).write_text("bad\n", encoding="utf-8")
+            with self.assertRaises(w11.Wave11ProbeError) as cm_z2:
+                w11.verify_w11_zone_b_bundle(tr_dir)
+            self.assertEqual(cm_z2.exception.code, "PREREG_HASH_MISMATCH")
+
+            for miss_fn in ("w11_live_loopcd_platosphere_results.json", "mlos_zone_b_w11_loopcd_platosphere.json", "ux582hs-rtx3080-8gb.toml"):
+                _reset_zb()
+                (tr_dir / miss_fn).unlink()
+                with self.assertRaises(w11.Wave11ProbeError) as cm_zm:
+                    w11.verify_w11_zone_b_bundle(tr_dir)
+                self.assertEqual(cm_zm.exception.code, "ZONEB_FILE_MISSING")
+
+            _reset_zb()
+            r_obj = json.loads((tr_dir / "w11_live_loopcd_platosphere_results.json").read_text(encoding="utf-8"))
+            r_obj["payload_sha256"] = "short"
+            (tr_dir / "w11_live_loopcd_platosphere_results.json").write_text(json.dumps(r_obj), encoding="utf-8")
+            with self.assertRaises(w11.Wave11ProbeError) as cm_rs1:
+                w11.verify_w11_zone_b_bundle(tr_dir)
+            self.assertEqual(cm_rs1.exception.code, "RESULTS_SHA_MISSING")
+
+            _reset_zb()
+            r_obj = json.loads((tr_dir / "w11_live_loopcd_platosphere_results.json").read_text(encoding="utf-8"))
+            r_obj["payload_sha256"] = "0" * 64
+            (tr_dir / "w11_live_loopcd_platosphere_results.json").write_text(json.dumps(r_obj), encoding="utf-8")
+            with self.assertRaises(w11.Wave11ProbeError) as cm_rs2:
+                w11.verify_w11_zone_b_bundle(tr_dir)
+            self.assertEqual(cm_rs2.exception.code, "RESULTS_SHA_MISMATCH")
+
+            _reset_zb()
+            r_obj = json.loads((tr_dir / "w11_live_loopcd_platosphere_results.json").read_text(encoding="utf-8"))
+            r_obj["prereg_sha256"] = "0" * 64
+            r_body = {k: v for k, v in r_obj.items() if k != "payload_sha256"}
+            r_obj["payload_sha256"] = hashlib.sha256(w11._canonical_json_bytes(r_body)).hexdigest()
+            (tr_dir / "w11_live_loopcd_platosphere_results.json").write_text(json.dumps(r_obj), encoding="utf-8")
+            with self.assertRaises(w11.Wave11ProbeError) as cm_rp:
+                w11.verify_w11_zone_b_bundle(tr_dir)
+            self.assertEqual(cm_rp.exception.code, "RESULTS_PREREG_MISMATCH")
+
+            _reset_zb()
+            rec_obj = json.loads((tr_dir / "mlos_zone_b_w11_loopcd_platosphere.json").read_text(encoding="utf-8"))
+            rec_obj["receipt_sha256"] = 123
+            (tr_dir / "mlos_zone_b_w11_loopcd_platosphere.json").write_text(json.dumps(rec_obj), encoding="utf-8")
+            with self.assertRaises(w11.Wave11ProbeError) as cm_rc1:
+                w11.verify_w11_zone_b_bundle(tr_dir)
+            self.assertEqual(cm_rc1.exception.code, "RECEIPT_SHA_MISSING")
+
+            _reset_zb()
+            rec_obj = json.loads((tr_dir / "mlos_zone_b_w11_loopcd_platosphere.json").read_text(encoding="utf-8"))
+            rec_obj["receipt_sha256"] = "0" * 64
+            (tr_dir / "mlos_zone_b_w11_loopcd_platosphere.json").write_text(json.dumps(rec_obj), encoding="utf-8")
+            with self.assertRaises(w11.Wave11ProbeError) as cm_rc2:
+                w11.verify_w11_zone_b_bundle(tr_dir)
+            self.assertEqual(cm_rc2.exception.code, "RECEIPT_SHA_MISMATCH")
+
+            for bad_k, bad_v in (
+                ("bound_results_file", "other.json"),
+                ("bound_results_payload_sha256", "0" * 64),
+                ("bound_results_file_sha256", "0" * 64),
+                ("bound_prereg_sha256", "0" * 64),
+                ("bound_profile_file", "other.toml"),
+                ("profile_sha256", "0" * 64),
+                ("energy_power_status", "CLAIMED_WATTS"),
+            ):
+                _reset_zb()
+                rec_obj = json.loads((tr_dir / "mlos_zone_b_w11_loopcd_platosphere.json").read_text(encoding="utf-8"))
+                rec_obj[bad_k] = bad_v
+                (tr_dir / "mlos_zone_b_w11_loopcd_platosphere.json").write_text(json.dumps(_resign_rec(rec_obj)), encoding="utf-8")
+                with self.assertRaises(w11.Wave11ProbeError) as cm_rb:
+                    w11.verify_w11_zone_b_bundle(tr_dir)
+                self.assertEqual(cm_rb.exception.code, "RECEIPT_BINDING_MISMATCH")
 
         # B3: Verify standalone isolated snapshot without sibling notes/ tree STILL passes selftest cleanly!
         with tempfile.TemporaryDirectory() as td:

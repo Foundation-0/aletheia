@@ -559,8 +559,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--check", action="store_true", help="Run fail-closed theorem verification.")
     args = parser.parse_args(argv)
 
-    cert = build_certificate()
-    validate_certificate(cert)
+    try:
+        cert = build_certificate()
+        validate_certificate(cert)
+    except LoopCDGeometryError as exc:
+        sys.stderr.write(f"FAIL S121_LOOPCD_GEOMETRY {exc}\n")
+        return 2
     if args.json:
         sys.stdout.write(json.dumps(cert, sort_keys=True, indent=2) + "\n")
     elif args.check:

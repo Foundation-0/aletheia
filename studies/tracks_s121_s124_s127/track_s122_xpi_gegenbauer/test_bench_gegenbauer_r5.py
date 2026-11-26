@@ -91,13 +91,7 @@ class TestBenchGegenbauerR5(unittest.TestCase):
         self.assertEqual(bench.grade_s122_empirical(**{**base_kw, "lkp4_xpi_mean_acc": 70.0})["verdict"], "FALSIFIED")
 
     def test_02_payload_validator_and_cli_guards(self) -> None:
-        valid = _resign(
-            {
-                "track": "S122",
-                "cs08_param_counts": {"fixed_linear_and_softmax": 27079, "polynomial_p8_all_arms": 27198},
-                "graded": {"verdict": "PARTIAL"},
-            }
-        )
+        valid = json.loads((_HERE / bench.RESULTS_FILENAME).read_text(encoding="utf-8"))
         bench.validate_results_payload(valid)
 
         self._expect_code(lambda: bench.validate_results_payload("bad"), "BAD_PAYLOAD_ROOT")  # type: ignore[arg-type]
@@ -128,25 +122,104 @@ class TestBenchGegenbauerR5(unittest.TestCase):
         bad_p2["cs08_param_counts"]["polynomial_p8_all_arms"] = 100
         self._expect_code(lambda: bench.validate_results_payload(_resign(bad_p2)), "CS08_PARAM_MISMATCH")
 
+        # Item 3 R5 Plants: re-hashed oracle cert mismatch, missing sections, seed/mean tamper, and verdict flip!
+        bad_orc = copy.deepcopy(valid)
+        bad_orc["exact_q_oracle_certificate_sha256"] = "0" * 64
+        self._expect_code(lambda: bench.validate_results_payload(_resign(bad_orc)), "ORACLE_CERT_MISMATCH")
+
+        for sec_key in (
+            "regression_2d",
+            "simplicity_bias_init_rho1p8",
+            "high_gain_g3_stress_test",
+            "lookup_4x4_saddle_escaped",
+            "lookup_8x8_single_thread_saddle_diagnostic",
+        ):
+            bad_sec = copy.deepcopy(valid)
+            bad_sec[sec_key] = None
+            self._expect_code(lambda x=bad_sec: bench.validate_results_payload(_resign(x)), "MISSING_BENCH_SECTIONS")
+
+        bad_reg_arm = copy.deepcopy(valid)
+        bad_reg_arm["regression_2d"]["linear"]["seeds"] = []
+        self._expect_code(lambda: bench.validate_results_payload(_resign(bad_reg_arm)), "BAD_REG_ARM")
+
+        bad_sc = copy.deepcopy(valid)
+        bad_sc["regression_2d"]["softmax"]["seeds"] = bad_sc["regression_2d"]["softmax"]["seeds"][:2]
+        self._expect_code(lambda: bench.validate_results_payload(_resign(bad_sc)), "SEED_COUNT_MISMATCH")
+
+        bad_sb = copy.deepcopy(valid)
+        bad_sb["simplicity_bias_init_rho1p8"]["linear_init_runs"] = []
+        self._expect_code(lambda: bench.validate_results_payload(_resign(bad_sb)), "BAD_SB_RUNS")
+        bad_sb2 = copy.deepcopy(valid)
+        bad_sb2["simplicity_bias_init_rho1p8"]["t8_softmax_init_runs"] = []
+        self._expect_code(lambda: bench.validate_results_payload(_resign(bad_sb2)), "BAD_SB_RUNS")
+
+        bad_hg = copy.deepcopy(valid)
+        bad_hg["high_gain_g3_stress_test"]["mono_runs"] = []
+        self._expect_code(lambda: bench.validate_results_payload(_resign(bad_hg)), "BAD_HG_RUNS")
+        bad_hg2 = copy.deepcopy(valid)
+        bad_hg2["high_gain_g3_stress_test"]["xpi_gegen_runs"] = []
+        self._expect_code(lambda: bench.validate_results_payload(_resign(bad_hg2)), "BAD_HG_RUNS")
+
+        bad_l4 = copy.deepcopy(valid)
+        bad_l4["lookup_4x4_saddle_escaped"]["linear"]["seeds"] = []
+        self._expect_code(lambda: bench.validate_results_payload(_resign(bad_l4)), "BAD_LKP4_ARM")
+
+        bad_l8 = copy.deepcopy(valid)
+        bad_l8["lookup_8x8_single_thread_saddle_diagnostic"]["linear"]["seed0"] = None
+        self._expect_code(lambda: bench.validate_results_payload(_resign(bad_l8)), "BAD_LKP8_ARM")
+
+        # Plant A: overwrite a seed val_mse and rehash -> SUMMARY_METRIC_MISMATCH
+        plant_mse = copy.deepcopy(valid)
+        plant_mse["regression_2d"]["poly_xpi_mobius"]["seeds"][0]["val_mse"] = 0.999999
+        self._expect_code(lambda: bench.validate_results_payload(_resign(plant_mse)), "SUMMARY_METRIC_MISMATCH")
+
+        for mut_fn in (
+            lambda d: d["simplicity_bias_init_rho1p8"].update({"linear_init_mean_mse": 0.999}),
+            lambda d: d["simplicity_bias_init_rho1p8"].update({"t8_softmax_init_mean_mse": 0.999}),
+            lambda d: d["high_gain_g3_stress_test"].update({"mono_mean_mse": 0.999}),
+            lambda d: d["high_gain_g3_stress_test"].update({"xpi_gegen_mean_mse": 0.999}),
+            lambda d: d["lookup_4x4_saddle_escaped"]["poly_xpi_mobius"].update({"mean_val_acc_pct": 12.3456}),
+            lambda d: d["lookup_8x8_single_thread_saddle_diagnostic"]["poly_xpi_mobius"].update({"mean_val_acc_pct": 99.0}),
+        ):
+            m = copy.deepcopy(valid)
+            mut_fn(m)
+            self._expect_code(lambda x=m: bench.validate_results_payload(_resign(x)), "SUMMARY_METRIC_MISMATCH")
+
+        # Plant B: flip graded.verdict PARTIAL -> CONFIRMED and rehash -> GRADED_VERDICT_MISMATCH (and --check rc=2!)
+        plant_verdict = copy.deepcopy(valid)
+        plant_verdict["graded"]["verdict"] = "CONFIRMED"
+        resigned_verdict = _resign(plant_verdict)
+        self._expect_code(lambda: bench.validate_results_payload(resigned_verdict), "GRADED_VERDICT_MISMATCH")
+
+        # Plant C: overwrite lookup_8x8 seed0 + mean_val_acc_pct to 99% while leaving verdict PARTIAL -> GRADED_VERDICT_MISMATCH
+        plant_g4 = copy.deepcopy(valid)
+        for arm in ("softmax", "poly_xpi_mobius"):
+            plant_g4["lookup_8x8_single_thread_saddle_diagnostic"][arm]["seed0"]["val_acc_pct"] = 99.0
+            plant_g4["lookup_8x8_single_thread_saddle_diagnostic"][arm]["mean_val_acc_pct"] = 99.0
+        self._expect_code(lambda: bench.validate_results_payload(_resign(plant_g4)), "GRADED_VERDICT_MISMATCH")
+
         buf_err = io.StringIO()
         with contextlib.redirect_stderr(buf_err):
             self.assertEqual(bench.main(["--write", "--check"]), 2)
 
-        # Missing results file check via temporary _HERE override
+        # Missing results file + CLI --check failure on rehashed verdict/MSE plants via temporary _HERE override
         with tempfile.TemporaryDirectory() as td:
             orig_here = bench._HERE
             try:
                 bench._HERE = Path(td)
                 with contextlib.redirect_stderr(io.StringIO()):
                     self.assertEqual(bench.main(["--check"]), 2)
+                for bad_doc in (resigned_verdict, _resign(plant_mse)):
+                    (Path(td) / bench.RESULTS_FILENAME).write_text(json.dumps(bad_doc), encoding="utf-8")
+                    with contextlib.redirect_stderr(io.StringIO()):
+                        self.assertEqual(bench.main(["--check"]), 2)
             finally:
                 bench._HERE = orig_here
 
-        if (_HERE / bench.RESULTS_FILENAME).is_file():
-            buf_out = io.StringIO()
-            with contextlib.redirect_stdout(buf_out):
-                self.assertEqual(bench.main(["--check"]), 0)
-                self.assertIn('"status": "PASS"', buf_out.getvalue())
+        buf_out = io.StringIO()
+        with contextlib.redirect_stdout(buf_out):
+            self.assertEqual(bench.main(["--check"]), 0)
+            self.assertIn('"status": "PASS"', buf_out.getvalue())
 
         orig_has_torch = bench._HAS_TORCH
         try:

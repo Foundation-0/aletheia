@@ -290,6 +290,7 @@ def verify_t1_kv_vs_sfast_bandwidth(
         }
 
     full_ratio_1x = Fraction(kv_bytes_t_eval, hs_full_b)
+    t1_passed = full_ratio_1x > Fraction(1) and all(v["o1_beats_kv_at_T"] is True for v in ratios_table.values())
     return {
         "theorem": "T1_KV_VS_SFAST_BANDWIDTH_CROSSOVER",
         "kv_bytes_per_token": kv_bytes_per_tok,
@@ -299,7 +300,7 @@ def verify_t1_kv_vs_sfast_bandwidth(
         "aux_su2_vring_bytes": aux_state_bytes,
         "exact_ratio_uncompressed": frac_str(full_ratio_1x),
         "by_kvzip_ratio": ratios_table,
-        "passed": True,
+        "passed": t1_passed,
     }
 
 
@@ -469,11 +470,28 @@ def verify_t2_woodbury_and_su2_obstruction() -> Dict[str, Any]:
         so2_b=(Fraction(5, 13), Fraction(12, 13)),
     )
 
+    t2_passed = (
+        wb["right_woodbury_equivariance_err_sq"] == "0/1"
+        and wb["prefix_handoff_suffix_err_sq"] == "0/1"
+        and wb["readout_equivariance_err_sq"] == "0/1"
+        and wb["left_woodbury_shared_gauge_err_sq"] == "0/1"
+        and wb["left_woodbury_distinct_gauge_obstruction_err_sq"] != "0/1"
+        and su2["su2_proper_det"] == "1/1"
+        and su2["su2_proper_homomorphism_err_sq"] == "0/1"
+        and su2["su2_proper_conjugation_exact"] is True
+        and su2["su2_cayley_group_law_exact"] is True
+        and su2["su2_improper_det"] == "-1/1"
+        and su2["su2_improper_order_reversal_exact"] is True
+        and su2["su2_improper_forward_err_sq"] != "0/1"
+        and su2["su2_kabsch_repaired_homomorphism_exact"] is True
+        and su2["w14_obs1_abelian_so2_commutator_err_sq"] == "0/1"
+        and su2["w14_obs1_nonabelian_su2_commutator_err_sq"] != "0/1"
+    )
     return {
         "theorem": "T2_GAUGE_INVARIANT_WOODBURY_AND_SU2_OBSTRUCTION",
         **wb,
         **su2,
-        "passed": True,
+        "passed": t2_passed,
     }
 
 
@@ -566,6 +584,13 @@ def verify_t3_query_aware_low_rank_denoising() -> Dict[str, Any]:
     jz = mat_vec(j_rot, z_perp)
     err_uncal_rot_sq = sum(((a - b) * (a - b) for a, b in zip(jz, z_perp)), Fraction(0))
 
+    t3_passed = (
+        sweep["r2"]["pythagorean_err_exact"] is True
+        and sweep["r2"]["denoise_gain_exact"] is True
+        and sweep["r2"]["query_signal_preserved"] is True
+        and sweep["r2"]["beats_full"] is True
+        and err_uncal_rot_sq == 2 * z_norm_sq
+    )
     return {
         "theorem": "T3_QUERY_AWARE_LOW_RANK_DENOISING_BOUND",
         "ambient_dim": d,
@@ -574,7 +599,7 @@ def verify_t3_query_aware_low_rank_denoising() -> Dict[str, Any]:
         "uncalibrated_nullspace_z_norm_sq": frac_str(z_norm_sq),
         "uncalibrated_nullspace_rot_err_sq": frac_str(err_uncal_rot_sq),
         "nullspace_penalty_ratio": frac_str(err_uncal_rot_sq / z_norm_sq),
-        "passed": True,
+        "passed": t3_passed,
     }
 
 
@@ -614,21 +639,49 @@ def verify_t4_ols_vs_frob_shrinkage() -> Dict[str, Any]:
         (Fraction(0), Fraction(4), Fraction(2)),
         (Fraction(0), Fraction(-4), Fraction(-2)),
     )
+    t4_res = check_ols_frob_shrinkage_q(z_a, z_b)
+    t4_passed = t4_res["cauchy_schwarz_holds"] is True and t4_res["strict_shrinkage_holds"] is True
     return {
         "theorem": "T4_OLS_VS_FROB_SHELL_SHRINKAGE",
-        **check_ols_frob_shrinkage_q(z_a, z_b),
-        "passed": True,
+        **t4_res,
+        "passed": t4_passed,
     }
 
 
-def build_certificate() -> Dict[str, Any]:
+PREREG_W12_FILENAME = "PREREG_WAVE12_FRONTIER_SYNTHESIS.md"
+PREREG_W12_ORIGINAL_LOCK_SHA256 = "08ce3b2a752107b17fa67c3f530b6d28706b5115fc01349f146aaf18fa74f031"
+PREREG_W12_SHA256 = "b012a39410e08f121f2beeab9f3af2e40ecab8f46ffe4ebffcfe080debdbb34e"
+PREREG_W14_FILENAME = "PREREG_WAVE14_INF_OPT_BAREMETAL.md"
+PREREG_W14_ORIGINAL_LOCK_SHA256 = "871900e5d6c860ac159f43ca6b4767e7c128d0b4f7748edf788d56e9cb535d3e"
+PREREG_W14_SHA256 = "4994ae816d852856cfb4c32713c1ca8aea08a2be4abf1f8186d3bd531f0d604d"
+
+
+def verify_prereg_locks(prereg_dir: Optional[Path] = None) -> Dict[str, str]:
+    """Fail-closed SHA-256 verification of in-tree PREREG-W12 and PREREG-W14 files."""
+    pdir = prereg_dir if prereg_dir is not None else (Path(__file__).resolve().parent.parent / "preregistrations")
+    w12_p = pdir / PREREG_W12_FILENAME
+    w14_p = pdir / PREREG_W14_FILENAME
+    require_ok(w12_p.is_file() and w14_p.is_file(), "MISSING_PREREG", "missing PREREG-W12 or PREREG-W14 file")
+    d12 = hashlib.sha256(w12_p.read_bytes()).hexdigest()
+    d14 = hashlib.sha256(w14_p.read_bytes()).hexdigest()
+    require_ok(hmac.compare_digest(d12, PREREG_W12_SHA256), "PREREG_W12_MISMATCH", d12)
+    require_ok(hmac.compare_digest(d14, PREREG_W14_SHA256), "PREREG_W14_MISMATCH", d14)
+    return {"prereg_w12_sha256": d12, "prereg_w14_sha256": d14}
+
+
+def build_certificate(prereg_dir: Optional[Path] = None) -> Dict[str, Any]:
+    verify_prereg_locks(prereg_dir)
+    t1 = verify_t1_kv_vs_sfast_bandwidth()
+    t2 = verify_t2_woodbury_and_su2_obstruction()
+    t3 = verify_t3_query_aware_low_rank_denoising()
+    t4 = verify_t4_ols_vs_frob_shrinkage()
     payload: Dict[str, Any] = {
         "schema": SCHEMA_ORACLE,
-        "t1_kv_vs_sfast_bandwidth": verify_t1_kv_vs_sfast_bandwidth(),
-        "t2_woodbury_and_su2_obstruction": verify_t2_woodbury_and_su2_obstruction(),
-        "t3_query_aware_low_rank_denoising": verify_t3_query_aware_low_rank_denoising(),
-        "t4_ols_vs_frob_shrinkage": verify_t4_ols_vs_frob_shrinkage(),
-        "all_passed": True,
+        "t1_kv_vs_sfast_bandwidth": t1,
+        "t2_woodbury_and_su2_obstruction": t2,
+        "t3_query_aware_low_rank_denoising": t3,
+        "t4_ols_vs_frob_shrinkage": t4,
+        "all_passed": (t1["passed"], t2["passed"], t3["passed"], t4["passed"]) == (True, True, True, True),
     }
     validate_json_tree_no_floats(payload)
     payload_sha = hashlib.sha256(_canonical_json_bytes(payload)).hexdigest()

@@ -131,6 +131,130 @@ def grade_s122_empirical(
     }
 
 
+def _regrade_from_stored_runs(payload: Mapping[str, Any]) -> dict[str, Any]:
+    """Recompute per-arm summaries and Law-4 verdict directly from stored per-seed run records."""
+    oracle_sha = xpi_oracle.build_xpi_gegenbauer_certificate()["certificate_sha256"]
+    require_ok(
+        payload.get("exact_q_oracle_certificate_sha256") == oracle_sha,
+        "ORACLE_CERT_MISMATCH",
+        "exact_q_oracle_certificate_sha256 mismatch",
+    )
+
+    reg = payload.get("regression_2d")
+    sb = payload.get("simplicity_bias_init_rho1p8")
+    hg = payload.get("high_gain_g3_stress_test")
+    lkp4 = payload.get("lookup_4x4_saddle_escaped")
+    lkp8 = payload.get("lookup_8x8_single_thread_saddle_diagnostic")
+    require_ok(
+        isinstance(reg, Mapping)
+        and isinstance(sb, Mapping)
+        and isinstance(hg, Mapping)
+        and isinstance(lkp4, Mapping)
+        and isinstance(lkp8, Mapping),
+        "MISSING_BENCH_SECTIONS",
+        "missing benchmark result sections",
+    )
+
+    reg_arms = ("linear", "softmax", "poly_mono", "poly_xpi_gegen", "poly_xpi_mobius")
+    lkp_arms = ("linear", "softmax", "poly_mono", "poly_xpi_mobius")
+    nan_runs_xpi = 0
+    n_seeds = 0
+
+    for arm in reg_arms:
+        entry = reg.get(arm)
+        require_ok(isinstance(entry, Mapping) and isinstance(entry.get("seeds"), list) and len(entry["seeds"]) >= 1, "BAD_REG_ARM", arm)
+        seeds_list = entry["seeds"]
+        if n_seeds == 0:
+            n_seeds = len(seeds_list)
+        require_ok(len(seeds_list) == n_seeds, "SEED_COUNT_MISMATCH", arm)
+        exp_mean = round(sum(float(r["val_mse"]) for r in seeds_list) / len(seeds_list), 6)
+        require_ok(entry.get("mean_val_mse") == exp_mean, "SUMMARY_METRIC_MISMATCH", f"regression_2d.{arm}.mean_val_mse")
+        if arm.startswith("poly_xpi_"):
+            for sw in entry.get("sweep", []):
+                nan_runs_xpi += sum(1 for r in sw["runs"] if bool(r["nan"]))
+
+    lin_init_runs = sb.get("linear_init_runs")
+    t8_init_runs = sb.get("t8_softmax_init_runs")
+    require_ok(
+        isinstance(lin_init_runs, list)
+        and len(lin_init_runs) == n_seeds
+        and isinstance(t8_init_runs, list)
+        and len(t8_init_runs) == n_seeds,
+        "BAD_SB_RUNS",
+        "invalid simplicity-bias runs",
+    )
+    nan_runs_xpi += sum(1 for r in lin_init_runs if bool(r["nan"])) + sum(1 for r in t8_init_runs if bool(r["nan"]))
+    exp_lin_init = round(sum(float(r["val_mse"]) for r in lin_init_runs) / n_seeds, 6)
+    non_nan_t8 = [float(r["val_mse"]) for r in t8_init_runs if not bool(r["nan"])]
+    exp_t8_init = round(sum(non_nan_t8) / max(1, len(non_nan_t8)), 6)
+    require_ok(
+        sb.get("linear_init_mean_mse") == exp_lin_init and sb.get("t8_softmax_init_mean_mse") == exp_t8_init,
+        "SUMMARY_METRIC_MISMATCH",
+        "simplicity_bias_init_rho1p8 mean mismatch",
+    )
+
+    hg_mono = hg.get("mono_runs")
+    hg_xpi = hg.get("xpi_gegen_runs")
+    require_ok(
+        isinstance(hg_mono, list) and len(hg_mono) == n_seeds and isinstance(hg_xpi, list) and len(hg_xpi) == n_seeds,
+        "BAD_HG_RUNS",
+        "invalid high-gain runs",
+    )
+    nan_runs_xpi += sum(1 for r in hg_xpi if bool(r["nan"]))
+    exp_hg_mono = None if any(bool(r["nan"]) for r in hg_mono) else round(sum(float(r["val_mse"]) for r in hg_mono) / n_seeds, 6)
+    exp_hg_xpi = round(sum(float(r["val_mse"]) for r in hg_xpi) / n_seeds, 6)
+    require_ok(
+        hg.get("mono_mean_mse") == exp_hg_mono and hg.get("xpi_gegen_mean_mse") == exp_hg_xpi,
+        "SUMMARY_METRIC_MISMATCH",
+        "high_gain_g3_stress_test mean mismatch",
+    )
+
+    for arm in lkp_arms:
+        e4 = lkp4.get(arm)
+        require_ok(isinstance(e4, Mapping) and isinstance(e4.get("seeds"), list) and len(e4["seeds"]) == n_seeds, "BAD_LKP4_ARM", arm)
+        exp_acc4 = round(sum(float(r["val_acc_pct"]) for r in e4["seeds"]) / n_seeds, 4)
+        require_ok(e4.get("mean_val_acc_pct") == exp_acc4, "SUMMARY_METRIC_MISMATCH", f"lookup_4x4.{arm}")
+        if arm.startswith("poly_xpi_"):
+            nan_runs_xpi += sum(1 for r in e4["seeds"] if bool(r["nan"]))
+
+        e8 = lkp8.get(arm)
+        require_ok(isinstance(e8, Mapping) and isinstance(e8.get("seed0"), Mapping), "BAD_LKP8_ARM", arm)
+        s0 = e8["seed0"]
+        require_ok(e8.get("mean_val_acc_pct") == s0.get("val_acc_pct"), "SUMMARY_METRIC_MISMATCH", f"lookup_8x8.{arm}")
+        if arm.startswith("poly_xpi_") and bool(s0["nan"]):
+            nan_runs_xpi += 1
+
+    xpi_reg_seeds = reg["poly_xpi_mobius"]["seeds"]
+    smx_reg_seeds = reg["softmax"]["seeds"]
+    wins_vs_smx = sum(1 for rx, rs in zip(xpi_reg_seeds, smx_reg_seeds) if (not bool(rx["nan"])) and float(rx["val_mse"]) < float(rs["val_mse"]))
+    wins_vs_t8 = sum(1 for rl, rt in zip(lin_init_runs, t8_init_runs) if (not bool(rl["nan"])) and (bool(rt["nan"]) or float(rl["val_mse"]) < float(rt["val_mse"])))
+
+    best_xpi_reg_mse = min(float(reg["poly_xpi_gegen"]["mean_val_mse"]), float(reg["poly_xpi_mobius"]["mean_val_mse"]))
+    high_g_mono_mse = float("inf") if any(bool(r["nan"]) for r in hg_mono) else sum(float(r["val_mse"]) for r in hg_mono) / n_seeds
+    high_g_xpi_mse = float("inf") if any(bool(r["nan"]) for r in hg_xpi) else sum(float(r["val_mse"]) for r in hg_xpi) / n_seeds
+    high_g_mono_b8 = max(float(r["max_abs_b8"]) for r in hg_mono)
+    high_g_xpi_b8 = max(float(r["max_abs_b8"]) for r in hg_xpi)
+
+    return grade_s122_empirical(
+        nan_runs_xpi=nan_runs_xpi,
+        reg_xpi_wins_vs_softmax=wins_vs_smx,
+        reg_xpi_wins_vs_t8_init=wins_vs_t8,
+        reg_xpi_mean_mse=best_xpi_reg_mse,
+        reg_linear_mean_mse=float(reg["linear"]["mean_val_mse"]),
+        high_g_xpi_mean_mse=float(high_g_xpi_mse),
+        high_g_mono_mean_mse=float(high_g_mono_mse),
+        high_g_xpi_max_b8=float(high_g_xpi_b8),
+        high_g_mono_max_b8=float(high_g_mono_b8),
+        lkp4_xpi_mean_acc=float(lkp4["poly_xpi_mobius"]["mean_val_acc_pct"]),
+        lkp4_mono_mean_acc=float(lkp4["poly_mono"]["mean_val_acc_pct"]),
+        lkp4_linear_mean_acc=float(lkp4["linear"]["mean_val_acc_pct"]),
+        lkp4_softmax_mean_acc=float(lkp4["softmax"]["mean_val_acc_pct"]),
+        lkp8_xpi_mean_acc=float(lkp8["poly_xpi_mobius"]["mean_val_acc_pct"]),
+        lkp8_softmax_mean_acc=float(lkp8["softmax"]["mean_val_acc_pct"]),
+        n_seeds=n_seeds,
+    )
+
+
 def validate_results_payload(payload: Mapping[str, Any]) -> None:
     """Fail-closed validator for s122_xpi_gegenbauer_results.json."""
     require_ok(isinstance(payload, Mapping) and payload.get("track") == "S122", "BAD_PAYLOAD_ROOT", "invalid S122 payload root")
@@ -148,6 +272,9 @@ def validate_results_payload(payload: Mapping[str, Any]) -> None:
         "CS08_PARAM_MISMATCH",
         "Pari-Agrawal-Kim parameter counts must be 27,079 fixed and 27,198 P=8 polynomial",
     )
+
+    regraded = _regrade_from_stored_runs(payload)
+    require_ok(payload.get("graded") == regraded, "GRADED_VERDICT_MISMATCH", "stored graded verdict disagrees with re-evaluation of seed metrics")
 
 
 if _HAS_TORCH:

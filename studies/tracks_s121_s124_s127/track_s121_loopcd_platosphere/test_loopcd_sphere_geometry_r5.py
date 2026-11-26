@@ -142,6 +142,26 @@ class TestLoopCDSphereGeometryR5(unittest.TestCase):
             self.assertEqual(rc, 0)
             self.assertIn(token, buf.getvalue())
 
+        orig_build = mod.build_certificate
+        try:
+            def _bad_build() -> dict[str, object]:
+                c = json.loads(json.dumps(orig_build()))
+                c["payload_sha256"] = "0" * 64
+                return c
+
+            mod.build_certificate = _bad_build  # type: ignore[assignment]
+            err_buf = io.StringIO()
+            old_err = sys.stderr
+            try:
+                sys.stderr = err_buf
+                rc_fail = mod.main(["--check"])
+            finally:
+                sys.stderr = old_err
+            self.assertEqual(rc_fail, 2)
+            self.assertIn("FAIL S121_LOOPCD_GEOMETRY [CERT_SHA_MISMATCH]", err_buf.getvalue())
+        finally:
+            mod.build_certificate = orig_build  # type: ignore[assignment]
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -235,7 +235,12 @@ class TestS124AARooflineL3R5(unittest.TestCase):
         s124.validate_s124_certificate(cert)
 
         self._expect_code(lambda: s124.validate_s124_certificate("bad"), "BAD_CERT_HEADER")  # type: ignore[arg-type]
-        for hdr_k, hdr_v in (("schema", "bad"), ("float_ops_used", 1), ("preregistration_sha256", "0" * 64)):
+        for hdr_k, hdr_v in (
+            ("schema", "bad"),
+            ("float_ops_used", 1),
+            ("preregistration_sha256", "0" * 64),
+            ("preregistration_original_lock_sha256", "0" * 64),
+        ):
             m = copy.deepcopy(cert)
             m[hdr_k] = hdr_v
             self._expect_code(lambda x=m: s124.validate_s124_certificate(_resign(x)), "BAD_CERT_HEADER")
@@ -302,23 +307,47 @@ class TestS124AARooflineL3R5(unittest.TestCase):
             fn(m)
             self._expect_code(lambda x=m: s124.validate_s124_certificate(_resign(x)), "G3_CERT_INVALID")
 
+        # Item 2: Dynamic verdicts derivation & re-signed verdict tamper refusal
+        bad_g1 = copy.deepcopy(cert["g1_aa_illusion_and_mirage_gate"])
+        bad_g1["genuine_25pct_candidate_accepted"] = False
+        bad_g2 = copy.deepcopy(cert["g2_looped_and_batched_draft_rooflines"])
+        bad_g2["pr22_inkling2_mini_visits"]["physical_layers"] = 12
+        bad_g3 = copy.deepcopy(cert["g3_holosphere_v3_15m_l3_roofline"])
+        bad_g3["fits_in_24mib_l3"] = False
+        self.assertEqual(
+            s124.compute_s124_gate_verdicts(bad_g1, bad_g2, bad_g3),
+            {"G1": "FALSIFIED", "G2": "FALSIFIED", "G3": "FALSIFIED"},
+        )
+        for v_key in ("G1", "G2", "G3"):
+            mv = copy.deepcopy(cert)
+            mv["verdicts"][v_key] = "FALSIFIED"
+            self._expect_code(lambda x=mv: s124.validate_s124_certificate(_resign(x)), "VERDICT_CERT_INVALID")
+
         with contextlib.redirect_stderr(io.StringIO()):
             self.assertEqual(s124.main(["--write", "--check"]), 2)
         with contextlib.redirect_stdout(io.StringIO()):
             self.assertEqual(s124.main([]), 0)
             self.assertEqual(s124.main(["--json"]), 0)
 
-        # CLI --write, --check, missing cert, and CERT_DRIFT check in temporary isolated copy
+        # CLI --write, --check, missing prereg, missing cert, and CERT_DRIFT check in temporary isolated copy
         with tempfile.TemporaryDirectory() as td:
             orig_file = s124.__file__
             try:
-                s124.__file__ = str(Path(td) / "verify_s124_aa_roofline_l3.py")
+                sub_track = Path(td) / "track_s124_aa_roofline_l3"
+                sub_track.mkdir()
+                s124.__file__ = str(sub_track / "verify_s124_aa_roofline_l3.py")
+                # Missing preregistration file on disk MUST fail closed (rc=2)!
+                with contextlib.redirect_stderr(io.StringIO()):
+                    self.assertEqual(s124.main(["--write"]), 2)
+                pr_dst = Path(td) / s124.PREREG_W14_REL
+                pr_dst.parent.mkdir(parents=True)
+                pr_dst.write_bytes((_HERE.parent / s124.PREREG_W14_REL).read_bytes())
                 with contextlib.redirect_stderr(io.StringIO()):
                     self.assertEqual(s124.main(["--check"]), 2)
                 with contextlib.redirect_stdout(io.StringIO()):
                     self.assertEqual(s124.main(["--write"]), 0)
                     self.assertEqual(s124.main(["--check"]), 0)
-                cp = Path(td) / s124.CERT_FILENAME
+                cp = sub_track / s124.CERT_FILENAME
                 drifted = copy.deepcopy(json.loads(cp.read_text(encoding="utf-8")))
                 drifted["track"] = "S999"
                 cp.write_text(json.dumps(_resign(drifted)), encoding="utf-8")

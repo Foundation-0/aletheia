@@ -2,7 +2,7 @@
 
 - **Track / Queue ID:** `Track S122` / `EXP-Q26c` (`Wave-11 Portal x/π Network`)
 - **Pure-$\mathbb{Q}$ Exact Oracle:** `verify_xpi_gegenbauer_attention.py` (`certificate_sha256`: `16d2d039358dcdee1e1a85e9211603c48a3a1a808c1ba2129d95f3b15fd04ba3`, `float_ops_used: 0`, `53/53 = 100.0%` `aletheia mutate`)
-- **Matched CPU Micro-Benchmark:** `bench_gegenbauer_vs_monomial_attn.py` (`result_sha256`: `674c204da0a030e1cb6cc890dfa882f433d3c99b71f47de131de1b47182184b0` [wallclock-invariant], `elapsed_seconds: 95.084` under concurrent load / `76.961` idle, `OPENBLAS_NUM_THREADS=1`, `CUDA_VISIBLE_DEVICES=""`, `17/17 = 100.0%` `aletheia mutate`)
+- **Matched CPU Micro-Benchmark:** `bench_gegenbauer_vs_monomial_attn.py` (`result_sha256`: `674c204da0a030e1cb6cc890dfa882f433d3c99b71f47de131de1b47182184b0` [wallclock-invariant], `elapsed_seconds: 95.084` under concurrent load / `76.961` idle, `OPENBLAS_NUM_THREADS=1`, `CUDA_VISIBLE_DEVICES=""`, `37/37 = 100.0%` `aletheia mutate`)
 - **Literal Law-4 Verdict:** **`PARTIAL`** (`Exact-Q Theorem 1 & Theorem 2 = 100% PROVEN`; `Gate 1 Zero-NaN = PASS`, `Gate 2a 2D Regression & Simplicity Bias = PASS`, `Gate 2b High-Gain g_0=3 Parameter-Crush Immunity = PASS`, `Gate 3 4×4 Saddle-Escaped Lookup = PASS`, `Gate 4 8×8 65-Token Single-CPU-Thread Saddle Escape = FAIL` at `50.98%` across all arms incl. `Softmax`)
 
 ---
