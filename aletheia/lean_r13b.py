@@ -23,10 +23,16 @@ Closes two live Lean 4.36.0 audit gaps surfaced in Wave-12/Wave-13 cold kernel r
        - `._native.bv_decide.ax_*` and `_native.bv_decide` axiom artifacts in `.lean` files
          and axiom-audit logs (`*axiom*.{log,txt,out}` auto-discovered by directory walk, or
          explicitly audited via `audit_lean4_axiom_log(path)`).
-  2. `lake-manifest.json` zero-dependency verification: When a `lake-manifest.json` is
-     present in an audited Lean project, fails closed on malformed/non-regular/symlinked/
-     directory manifests (`LEAN4_LAKE_MANIFEST_INVALID`) or non-empty `"packages"` lists
-     (`LEAN4_LAKE_MANIFEST_NONEMPTY_PACKAGES`), blocking hidden external Lean dependencies.
+  2. `lake-manifest.json` & `lakefile.{toml,lean}` dependency verification: When a
+     `lake-manifest.json` is present in an audited Lean project, fails closed on
+     malformed/non-regular/symlinked/directory manifests (`LEAN4_LAKE_MANIFEST_INVALID`) or
+     non-empty `"packages"` lists (`LEAN4_LAKE_MANIFEST_NONEMPTY_PACKAGES`). When a
+     `lakefile.toml` or `lakefile.lean` is present, parses declared `require` packages
+     (respecting comments, strings, raw strings, char literals, and French guillemets; rejecting
+     malformed lakefiles and raw `@[package_dep]` attributes with `LEAN4_LAKEFILE_INVALID`) and
+     cross-checks every declared package against the sibling `lake-manifest.json` — failing closed
+     if the manifest is absent (`LEAN4_LAKEFILE_MISSING_MANIFEST`), invalid, or omits any declared
+     package (`LEAN4_LAKEFILE_UNMANIFESTED_REQUIRE`).
 """
 from __future__ import annotations
 
@@ -34,6 +40,7 @@ import os
 from pathlib import Path
 import re
 import stat
+import tomllib
 from typing import Any, Sequence
 
 from .strict_io import AletheiaError, parse_strict_json_text
@@ -475,6 +482,14 @@ def _format_package_names(packages: list[Any]) -> str:
     return ", ".join(names)
 
 
+def _extract_manifest_package_names(packages: list[Any]) -> list[str]:
+    names: list[str] = []
+    for item in packages:
+        if isinstance(item, dict) and isinstance(item.get("name"), str) and item["name"].strip():
+            names.append(item["name"])
+    return names
+
+
 def audit_lean4_lake_manifest_text(
     text: str,
     *,
@@ -501,7 +516,7 @@ def audit_lean4_lake_manifest_text(
                 "excerpt": f"{exc.code}: {exc.message}"[:100],
             }
         )
-        return {"clean": False, "findings": findings, "package_count": None}
+        return {"clean": False, "findings": findings, "package_count": None, "package_names": None}
 
     if "packages" not in data:
         findings.append(
@@ -511,7 +526,7 @@ def audit_lean4_lake_manifest_text(
                 "excerpt": "lake-manifest.json missing required 'packages' field",
             }
         )
-        return {"clean": False, "findings": findings, "package_count": None}
+        return {"clean": False, "findings": findings, "package_count": None, "package_names": None}
 
     packages = data["packages"]
     if not isinstance(packages, list):
@@ -522,8 +537,9 @@ def audit_lean4_lake_manifest_text(
                 "excerpt": f"lake-manifest.json 'packages' must be a list, got {type(packages).__name__}",
             }
         )
-        return {"clean": False, "findings": findings, "package_count": None}
+        return {"clean": False, "findings": findings, "package_count": None, "package_names": None}
 
+    pkg_names = _extract_manifest_package_names(packages)
     if not allow_external_packages:
         if len(packages) > 0:
             pkg_summary = _format_package_names(packages)
@@ -534,9 +550,19 @@ def audit_lean4_lake_manifest_text(
                     "excerpt": f"packages ({len(packages)}): {pkg_summary}"[:100],
                 }
             )
-            return {"clean": False, "findings": findings, "package_count": len(packages)}
+            return {
+                "clean": False,
+                "findings": findings,
+                "package_count": len(packages),
+                "package_names": pkg_names,
+            }
 
-    return {"clean": True, "findings": findings, "package_count": len(packages)}
+    return {
+        "clean": True,
+        "findings": findings,
+        "package_count": len(packages),
+        "package_names": pkg_names,
+    }
 
 
 def audit_lean4_lake_manifest(
@@ -554,6 +580,7 @@ def audit_lean4_lake_manifest(
                 {"line": 1, "code": "LEAN4_LAKE_MANIFEST_INVALID", "excerpt": f"unreadable manifest: {exc}"[:100]}
             ],
             "package_count": None,
+            "package_names": None,
         }
     if not stat.S_ISREG(st.st_mode):
         return {
@@ -562,6 +589,7 @@ def audit_lean4_lake_manifest(
                 {"line": 1, "code": "LEAN4_LAKE_MANIFEST_INVALID", "excerpt": "non-regular or symlinked lake-manifest.json"}
             ],
             "package_count": None,
+            "package_names": None,
         }
     try:
         text = path.read_bytes().decode("utf-8")
@@ -572,8 +600,692 @@ def audit_lean4_lake_manifest(
                 {"line": 1, "code": "LEAN4_LAKE_MANIFEST_INVALID", "excerpt": f"invalid UTF-8/IO in manifest: {exc}"[:100]}
             ],
             "package_count": None,
+            "package_names": None,
         }
     return audit_lean4_lake_manifest_text(text, allow_external_packages=allow_external_packages)
+
+
+# ---------------------------------------------------------------------------
+# lakefile.toml & lakefile.lean `require` parsing and manifest cross-checking
+# ---------------------------------------------------------------------------
+
+_LAKEFILE_NAMES: frozenset[str] = frozenset({"lakefile.toml", "lakefile.lean"})
+_TOML_REQUIRE_KEY_RE = re.compile(r"(?:^|\n)[ \t]*(?:\[\[\s*require\s*\]\]|require\s*=|\[[ \t]*require[ \t]*\])")
+_LEAN_DECL_BEFORE_REQUIRE: frozenset[str] = frozenset(
+    {
+        "def",
+        "theorem",
+        "lemma",
+        "abbrev",
+        "let",
+        "fun",
+        "structure",
+        "inductive",
+        "class",
+    }
+)
+_LEAN_LAKEFILE_METAPROG_COMMANDS: frozenset[str] = frozenset(
+    {
+        "macro",
+        "macro_rules",
+        "elab",
+        "elab_rules",
+        "syntax",
+        "declare_syntax_cat",
+        "notation",
+        "prefix",
+        "infix",
+        "infixl",
+        "infixr",
+        "postfix",
+        "run_cmd",
+        "run_elab",
+        "run_meta",
+        "initialize",
+        "builtin_initialize",
+    }
+)
+_LEAN_LAKEFILE_FORBIDDEN_HASH_CMDS: frozenset[str] = frozenset(
+    {"#eval", "#eval!", "#run_cmd", "#run_elab", "#run_meta"}
+)
+_LEAN_LAKEFILE_FORBIDDEN_ATTRS: frozenset[str] = frozenset(
+    {
+        "package_dep",
+        "init",
+        "builtin_init",
+        "macro",
+        "builtin_macro",
+        "command_elab",
+        "builtin_command_elab",
+        "term_elab",
+        "builtin_term_elab",
+        "tactic",
+        "builtin_tactic",
+        "command_parser",
+        "builtin_command_parser",
+        "extern",
+        "implemented_by",
+        "export",
+        "csimp",
+    }
+)
+_DELIM_CLOSE: dict[str, str] = {"(": ")", "[": "]", "{": "}"}
+_LEAN_STR_SIMPLE_ESCAPES: dict[str, str] = {
+    "\\": "\\",
+    '"': '"',
+    "'": "'",
+    "n": "\n",
+    "r": "\r",
+    "t": "\t",
+}
+
+
+def _find_toml_require_line(text: str, pkg_name: str | None = None, search_from: int = 0) -> tuple[int, int]:
+    """Locate approximate 1-based line number and next cursor for a `lakefile.toml` require entry."""
+    if pkg_name is not None:
+        pat = re.compile(
+            r"""(?:^|[\s,{])((?:"name"|'name'|name)\s*=\s*(?:"|'|"{3}|'{3})""" + re.escape(pkg_name) + r")"
+        )
+        m = pat.search(text, search_from)
+        if m is not None:
+            return text.count("\n", 0, m.start(1)) + 1, m.end()
+    m_req = _TOML_REQUIRE_KEY_RE.search(text, search_from)
+    if m_req is not None:
+        hit_pos = m_req.start() + (1 if text[m_req.start()] == "\n" else 0)
+        return text.count("\n", 0, hit_pos) + 1, m_req.end()
+    return 1, search_from
+
+
+def parse_lakefile_toml_requires(text: str) -> dict[str, Any]:
+    """
+    Strictly parse `require` dependency declarations from a `lakefile.toml` payload.
+
+    Uses Python's stdlib `tomllib` so `#` comments, string literals, single/multiline strings,
+    inline arrays (`require = [{ name = "..." }]`), and duplicate keys obey TOML 1.0 semantics.
+    Fails closed (`LEAN4_LAKEFILE_INVALID`) on syntax errors, non-list `require`, non-table entries,
+    or missing/empty/padded/non-string `name`.
+    """
+    findings: list[dict[str, Any]] = []
+    text = text.removeprefix("\ufeff")
+    try:
+        data = tomllib.loads(text)
+    except (tomllib.TOMLDecodeError, RecursionError, ValueError) as exc:
+        findings.append(
+            {
+                "line": 1,
+                "code": "LEAN4_LAKEFILE_INVALID",
+                "excerpt": f"invalid lakefile.toml: {exc}"[:100],
+            }
+        )
+        return {"valid": False, "requires": [], "findings": findings}
+
+    if "require" not in data:
+        return {"valid": True, "requires": [], "findings": findings}
+
+    reqs_raw = data["require"]
+    if not isinstance(reqs_raw, list):
+        line, _ = _find_toml_require_line(text)
+        findings.append(
+            {
+                "line": line,
+                "code": "LEAN4_LAKEFILE_INVALID",
+                "excerpt": f"lakefile.toml 'require' must be an array of tables, got {type(reqs_raw).__name__}",
+            }
+        )
+        return {"valid": False, "requires": [], "findings": findings}
+
+    requires: list[dict[str, Any]] = []
+    cursor = 0
+    for idx, entry in enumerate(reqs_raw):
+        if not isinstance(entry, dict):
+            line, cursor = _find_toml_require_line(text, None, cursor)
+            findings.append(
+                {
+                    "line": line,
+                    "code": "LEAN4_LAKEFILE_INVALID",
+                    "excerpt": f"lakefile.toml require[{idx}] must be a table, got {type(entry).__name__}",
+                }
+            )
+            continue
+        name = entry.get("name")
+        if not isinstance(name, str) or not name.strip() or name != name.strip():
+            line, cursor = _find_toml_require_line(text, None, cursor)
+            findings.append(
+                {
+                    "line": line,
+                    "code": "LEAN4_LAKEFILE_INVALID",
+                    "excerpt": f"lakefile.toml require[{idx}] missing valid non-empty string 'name'",
+                }
+            )
+            continue
+        line, cursor = _find_toml_require_line(text, name, cursor)
+        requires.append({"name": name, "line": line})
+
+    return {"valid": len(findings) == 0, "requires": requires, "findings": findings}
+
+
+def _decode_lean_string_literal(text: str, start: int, n: int) -> tuple[str | None, int, int]:
+    """
+    Parse a Lean 4 double-quoted string literal starting at `text[start] == '"'`.
+    Returns `(decoded_or_None_if_unterminated, next_index, newlines_crossed)`.
+    """
+    chars: list[str] = []
+    i = start + 1
+    nl = 0
+    while i < n:
+        ch = text[i]
+        if ch == '"':
+            return "".join(chars), i + 1, nl
+        if ch == "\\":
+            if i + 1 >= n:
+                return None, n, nl
+            esc = text[i + 1]
+            if esc in _LEAN_STR_SIMPLE_ESCAPES:
+                chars.append(_LEAN_STR_SIMPLE_ESCAPES[esc])
+                i += 2
+            elif esc == "x" and i + 3 < n and all(c in _LEAN4_HEX_DIGITS for c in text[i + 2 : i + 4]):
+                chars.append(chr(int(text[i + 2 : i + 4], 16)))
+                i += 4
+            elif esc == "u" and i + 5 < n and all(c in _LEAN4_HEX_DIGITS for c in text[i + 2 : i + 6]):
+                chars.append(chr(int(text[i + 2 : i + 6], 16)))
+                i += 6
+            else:
+                if esc == "\n":
+                    nl += 1
+                chars.append(esc)
+                i += 2
+        else:
+            if ch == "\n":
+                nl += 1
+            chars.append(ch)
+            i += 1
+    return None, n, nl
+
+
+def _tokenize_lakefile_lean(text: str) -> tuple[list[tuple[str, str, int, int, int]], list[dict[str, Any]]]:
+    """
+    Tokenize a Lean 4 `lakefile.lean` respecting `--` line comments, nested `/- ... -/` (and
+    3-character `/--` / `/-!` doc-comment openers), regular/raw/interpolated strings, char
+    literals, numeric literals, `#commands`, and French-quoted `«...»` identifiers.
+    Emits `(kind, value, line, start_offset, end_offset)` tokens and fails closed
+    (`LEAN4_LAKEFILE_INVALID`) on unclosed comments, strings, raw strings, or guillemets.
+    """
+    tokens: list[tuple[str, str, int, int, int]] = []
+    findings: list[dict[str, Any]] = []
+    i = 0
+    n = len(text)
+    line = 1
+    pending_interp = False
+    pending_ambig_interp = False
+    in_interp_str = False
+    interp_line = 1
+    interp_stack: list[int] = []
+
+    while i < n:
+        ch = text[i]
+        nxt = text[i + 1] if i + 1 < n else ""
+
+        if in_interp_str:
+            if ch == "\\" and i + 1 < n:
+                if nxt == "\n":
+                    line += 1
+                i += 2
+            elif ch == "{":
+                interp_stack.append(1)
+                tokens.append(("SYM", "{", line, i, i + 1))
+                in_interp_str = False
+                i += 1
+            elif ch == '"':
+                in_interp_str = False
+                i += 1
+            else:
+                if ch == "\n":
+                    line += 1
+                i += 1
+            continue
+
+        if ch == "/" and nxt == "-":
+            start_line = line
+            depth = 1
+            if i + 2 < n and text[i + 2] in ("-", "!"):
+                i += 3
+            else:
+                i += 2
+            while i < n and depth > 0:
+                if text[i] == "/" and i + 1 < n and text[i + 1] == "-":
+                    depth += 1
+                    i += 2
+                elif text[i] == "-" and i + 1 < n and text[i + 1] == "/":
+                    depth -= 1
+                    i += 2
+                else:
+                    if text[i] == "\n":
+                        line += 1
+                    i += 1
+            if depth > 0:
+                findings.append(
+                    {
+                        "line": start_line,
+                        "code": "LEAN4_LAKEFILE_INVALID",
+                        "excerpt": "unterminated block comment in lakefile.lean",
+                    }
+                )
+            continue
+
+        if ch == "-" and nxt == "-":
+            while i < n and text[i] != "\n":
+                i += 1
+            continue
+
+        if ch.isspace():
+            if ch == "\n":
+                line += 1
+            i += 1
+            continue
+
+        if ch != '"':
+            pending_interp = False
+            pending_ambig_interp = False
+
+        if interp_stack and ch in "{}":
+            if ch == "{":
+                interp_stack[-1] += 1
+                tokens.append(("SYM", "{", line, i, i + 1))
+            else:
+                interp_stack[-1] -= 1
+                tokens.append(("SYM", "}", line, i, i + 1))
+                if interp_stack[-1] == 0:
+                    interp_stack.pop()
+                    in_interp_str = True
+                    interp_line = line
+            i += 1
+            continue
+
+        if ch == '"':
+            if pending_interp:
+                pending_interp = False
+                in_interp_str = True
+                interp_line = line
+                i += 1
+                continue
+            was_ambig_interp = pending_ambig_interp
+            pending_ambig_interp = False
+            start_line = line
+            start_pos = i
+            decoded, next_i, nl = _decode_lean_string_literal(text, i, n)
+            line += nl
+            i = next_i
+            if decoded is None:
+                findings.append(
+                    {
+                        "line": start_line,
+                        "code": "LEAN4_LAKEFILE_INVALID",
+                        "excerpt": "unterminated string literal in lakefile.lean",
+                    }
+                )
+                break
+            if was_ambig_interp and ("{" in decoded or "}" in decoded):
+                findings.append(
+                    {
+                        "line": start_line,
+                        "code": "LEAN4_LAKEFILE_INVALID",
+                        "excerpt": "ambiguous non-builtin interpolated string prefix in lakefile.lean",
+                    }
+                )
+            tokens.append(("STR", decoded, start_line, start_pos, next_i))
+            continue
+
+        if ch == "«":
+            start_line = line
+            start_pos = i
+            end_g = text.find("»", i + 1)
+            if end_g == -1:
+                findings.append(
+                    {
+                        "line": start_line,
+                        "code": "LEAN4_LAKEFILE_INVALID",
+                        "excerpt": "unterminated guillemet identifier in lakefile.lean",
+                    }
+                )
+                break
+            inner = text[i + 1 : end_g]
+            line += inner.count("\n")
+            tokens.append(("GUIL", inner, start_line, start_pos, end_g + 1))
+            i = end_g + 1
+            continue
+
+        if ch == "'":
+            start_line = line
+            char_end = match_lean4_char_literal_end(text, i, n)
+            if char_end is not None:
+                line += text.count("\n", i, char_end)
+                tokens.append(("CHAR", text[i:char_end], start_line, i, char_end))
+                i = char_end
+                continue
+            tokens.append(("SYM", "'", line, i, i + 1))
+            i += 1
+            continue
+
+        if ch == "#" and i + 1 < n and is_lean4_id_first(text[i + 1]):
+            cmd_end = match_lean4_hash_command_end(text, i, n)
+            tokens.append(("SYM", text[i:cmd_end], line, i, cmd_end))
+            i = cmd_end
+            continue
+
+        if "0" <= ch <= "9":
+            num_end = scan_lean4_numeric_literal_end(text, i, n)
+            tokens.append(("NUM", text[i:num_end], line, i, num_end))
+            i = num_end
+            continue
+
+        dot_prev = i > 0 and text[i - 1] == "."
+        if ch == "r" and not dot_prev:
+            j = i + 1
+            while j < n and text[j] == "#":
+                j += 1
+            if j < n and text[j] == '"':
+                start_line = line
+                start_pos = i
+                close_seq = '"' + ("#" * (j - (i + 1)))
+                close_pos = text.find(close_seq, j + 1)
+                if close_pos == -1:
+                    findings.append(
+                        {
+                            "line": start_line,
+                            "code": "LEAN4_LAKEFILE_INVALID",
+                            "excerpt": "unterminated raw string literal in lakefile.lean",
+                        }
+                    )
+                    break
+                line += text.count("\n", j + 1, close_pos)
+                end_pos = close_pos + len(close_seq)
+                tokens.append(("STR", text[j + 1 : close_pos], start_line, start_pos, end_pos))
+                i = end_pos
+                continue
+
+        if is_lean4_id_first(ch):
+            w_end = i + 1
+            while w_end < n and is_lean4_id_rest(text[w_end]):
+                if text[w_end : w_end + 3] == "'\"'" and text[w_end - 1] in "!?":
+                    break
+                w_end += 1
+            word = text[i:w_end]
+            if not dot_prev:
+                if word.endswith("!"):
+                    if word[:-1] in LEAN4_INIT_RESERVED_INTERP_BANG_WORDS:
+                        pending_interp = True
+                    else:
+                        pending_ambig_interp = True
+                elif word in LEAN4_INTERP_KEYWORDS:
+                    pending_ambig_interp = True
+            tokens.append(("IDENT", word, line, i, w_end))
+            i = w_end
+            continue
+
+        tokens.append(("SYM", ch, line, i, i + 1))
+        i += 1
+
+    if in_interp_str or interp_stack:
+        findings.append(
+            {
+                "line": interp_line,
+                "code": "LEAN4_LAKEFILE_INVALID",
+                "excerpt": "unterminated interpolated string in lakefile.lean",
+            }
+        )
+
+    return tokens, findings
+
+
+def _is_adjacent_dot_projection(tokens: list[tuple[str, str, int, int, int]], idx: int) -> bool:
+    """Return True iff `tokens[idx]` is directly adjacent to `<ident|guil|')'>.<tok>` with zero whitespace."""
+    if idx < 2:
+        return False
+    dot = tokens[idx - 1]
+    lhs = tokens[idx - 2]
+    tok = tokens[idx]
+    return (
+        dot[0] == "SYM"
+        and dot[1] == "."
+        and dot[4] == tok[3]
+        and lhs[4] == dot[3]
+        and (lhs[0] in ("IDENT", "GUIL") or lhs[:2] == ("SYM", ")"))
+    )
+
+
+def parse_lakefile_lean_requires(text: str) -> dict[str, Any]:
+    """
+    Parse Lake DSL `require` declarations from a `lakefile.lean` payload.
+
+    Supports all Lean 4 Lake `depName` forms:
+      - `require foo ...`
+      - `require «foo-bar» ...` / zero-whitespace `require«foo-bar»`
+      - `require "foo-bar" ...`
+      - `require "scope" / "pkg" ...`, `require "scope" / pkg ...`, `require "scope" / «pkg» ...`
+      - multiline and conditional (`meta if ... then require ...`) declarations
+
+    Ignores `--` line comments, nested `/- ... -/` (and `/--`/`/-!`) comments, regular/raw/
+    interpolated strings, adjacent dot-projections (`obj.require`), and non-command declarations
+    (`def require := ...`). Fails closed (`LEAN4_LAKEFILE_INVALID`) on unclosed lexemes,
+    mismatched/unbalanced delimiters (`([)]`, EOF), malformed scoped/empty/bare `require`,
+    build-time metaprogramming/operator/evaluation commands (`macro`, `elab`, `syntax`, `infix*`,
+    `#eval`, `run_cmd`, `initialize`, `register_*`, syntax quotations `` `( ``), ambiguous
+    non-builtin interpolated string prefixes, and forbidden attributes (`@[package_dep]`, `@[init]`,
+    `@[term_elab]`, `@[extern]`, etc.).
+    """
+    text = text.removeprefix("\ufeff")
+    tokens, findings = _tokenize_lakefile_lean(text)
+    requires: list[dict[str, Any]] = []
+    n = len(tokens)
+    delim_stack: list[str] = []
+    idx = 0
+
+    while idx < n:
+        kind, val, line, _spos, _epos = tokens[idx]
+
+        # Reject raw `@[... package_dep/init/macro/term_elab/extern ...]` and `attribute [...]`.
+        if (
+            (kind == "SYM" and val == "@" or kind in ("IDENT", "GUIL") and val == "attribute")
+            and idx + 1 < n
+            and tokens[idx + 1][:2] == ("SYM", "[")
+        ):
+            j = idx + 2
+            depth_b = 1
+            while j < n and depth_b > 0:
+                tk_k, tk_v, tk_ln, _ts, _te = tokens[j]
+                if tk_k == "SYM" and tk_v == "[":
+                    depth_b += 1
+                elif tk_k == "SYM" and tk_v == "]":
+                    depth_b -= 1
+                elif tk_k in ("IDENT", "GUIL") and tk_v in _LEAN_LAKEFILE_FORBIDDEN_ATTRS:
+                    findings.append(
+                        {
+                            "line": tk_ln,
+                            "code": "LEAN4_LAKEFILE_INVALID",
+                            "excerpt": f"disallowed {tk_v!r} attribute bypasses static lakefile require scanning",
+                        }
+                    )
+                j += 1
+            if depth_b != 0:
+                findings.append(
+                    {
+                        "line": line,
+                        "code": "LEAN4_LAKEFILE_INVALID",
+                        "excerpt": "unbalanced attribute brackets in lakefile.lean",
+                    }
+                )
+            idx = j
+            continue
+
+        # Reject syntax quotations `` `( ... ) `` at any delimiter depth (`B1`).
+        if kind == "SYM" and val == "`" and idx + 1 < n and tokens[idx + 1][:2] == ("SYM", "("):
+            findings.append(
+                {
+                    "line": line,
+                    "code": "LEAN4_LAKEFILE_INVALID",
+                    "excerpt": "syntax quotation '`(' is disallowed in lakefile.lean",
+                }
+            )
+            idx += 1
+            continue
+
+        # Reject build-time evaluation hash commands (`#eval`, `#eval!`, `#run_cmd`, etc.).
+        if kind == "SYM" and val in _LEAN_LAKEFILE_FORBIDDEN_HASH_CMDS:
+            findings.append(
+                {
+                    "line": line,
+                    "code": "LEAN4_LAKEFILE_INVALID",
+                    "excerpt": f"disallowed build-time command {val!r} in lakefile.lean",
+                }
+            )
+            idx += 1
+            continue
+
+        if kind == "SYM":
+            if val in _DELIM_CLOSE:
+                delim_stack.append(_DELIM_CLOSE[val])
+            elif val in (")", "]", "}"):
+                if not delim_stack or delim_stack[-1] != val:
+                    findings.append(
+                        {
+                            "line": line,
+                            "code": "LEAN4_LAKEFILE_INVALID",
+                            "excerpt": f"unbalanced {val!r} delimiter in lakefile.lean",
+                        }
+                    )
+                else:
+                    delim_stack.pop()
+            idx += 1
+            continue
+
+        # Reject build-time metaprogramming & custom operator commands at ANY delimiter depth (`B1`/`H2`).
+        if kind == "IDENT" and (val in _LEAN_LAKEFILE_METAPROG_COMMANDS or val.startswith("register_")):
+            if not _is_adjacent_dot_projection(tokens, idx):
+                findings.append(
+                    {
+                        "line": line,
+                        "code": "LEAN4_LAKEFILE_INVALID",
+                        "excerpt": f"disallowed metaprogramming command {val!r} in lakefile.lean",
+                    }
+                )
+                idx += 1
+                continue
+
+        if kind == "IDENT" and val == "require":
+            is_dot_proj = _is_adjacent_dot_projection(tokens, idx)
+            prev_is_decl_kw = (
+                idx > 0
+                and tokens[idx - 1][2] == line
+                and tokens[idx - 1][0] == "IDENT"
+                and tokens[idx - 1][1] in _LEAN_DECL_BEFORE_REQUIRE
+                and not _is_adjacent_dot_projection(tokens, idx - 1)
+            )
+            is_non_cmd = is_dot_proj or prev_is_decl_kw
+            nxt = tokens[idx + 1] if idx + 1 < n else None
+            if not is_non_cmd and nxt is not None and nxt[0] in ("IDENT", "GUIL", "STR"):
+                if nxt[0] == "STR" and idx + 2 < n and tokens[idx + 2][:2] == ("SYM", "/"):
+                    if idx + 3 >= n or tokens[idx + 3][0] not in ("IDENT", "GUIL", "STR"):
+                        findings.append(
+                            {
+                                "line": line,
+                                "code": "LEAN4_LAKEFILE_INVALID",
+                                "excerpt": "malformed scoped require declaration missing package name",
+                            }
+                        )
+                        idx += 3
+                        continue
+                    pkg_tok = tokens[idx + 3]
+                    end_idx = idx + 4
+                else:
+                    pkg_tok = nxt
+                    end_idx = idx + 2
+
+                pkg_name = pkg_tok[1]
+                if pkg_tok[0] in ("IDENT", "GUIL"):
+                    while (
+                        end_idx + 1 < n
+                        and tokens[end_idx][:2] == ("SYM", ".")
+                        and tokens[end_idx + 1][0] in ("IDENT", "GUIL")
+                    ):
+                        pkg_name = f"{pkg_name}.{tokens[end_idx + 1][1]}"
+                        end_idx += 2
+
+                if not pkg_name.strip() or pkg_name != pkg_name.strip():
+                    findings.append(
+                        {
+                            "line": line,
+                            "code": "LEAN4_LAKEFILE_INVALID",
+                            "excerpt": "lakefile.lean require declaration has empty or padded package name",
+                        }
+                    )
+                else:
+                    requires.append({"name": pkg_name, "line": line})
+                idx = end_idx
+                continue
+            if not is_non_cmd and not delim_stack:
+                findings.append(
+                    {
+                        "line": line,
+                        "code": "LEAN4_LAKEFILE_INVALID",
+                        "excerpt": "malformed require declaration missing package name",
+                    }
+                )
+
+        idx += 1
+
+    if delim_stack:
+        findings.append(
+            {
+                "line": tokens[-1][2],
+                "code": "LEAN4_LAKEFILE_INVALID",
+                "excerpt": "unbalanced delimiters at EOF in lakefile.lean",
+            }
+        )
+
+    return {"valid": len(findings) == 0, "requires": requires, "findings": findings}
+
+
+def audit_lean4_lakefile(path: Path) -> dict[str, Any]:
+    """Fail-closed validation and `require` extraction for a `lakefile.toml` or `lakefile.lean`."""
+    try:
+        st = os.lstat(path)
+    except OSError as exc:
+        return {
+            "valid": False,
+            "requires": [],
+            "findings": [
+                {"line": 1, "code": "LEAN4_LAKEFILE_INVALID", "excerpt": f"unreadable lakefile: {exc}"[:100]}
+            ],
+        }
+    if not stat.S_ISREG(st.st_mode):
+        return {
+            "valid": False,
+            "requires": [],
+            "findings": [
+                {"line": 1, "code": "LEAN4_LAKEFILE_INVALID", "excerpt": f"non-regular or symlinked {path.name}"[:100]}
+            ],
+        }
+    try:
+        text = path.read_bytes().decode("utf-8-sig")
+    except (OSError, UnicodeDecodeError) as exc:
+        return {
+            "valid": False,
+            "requires": [],
+            "findings": [
+                {"line": 1, "code": "LEAN4_LAKEFILE_INVALID", "excerpt": f"invalid UTF-8/IO in {path.name}: {exc}"[:100]}
+            ],
+        }
+    if path.suffix == ".toml":
+        return parse_lakefile_toml_requires(text)
+    if path.suffix == ".lean":
+        return parse_lakefile_lean_requires(text)
+    return {
+        "valid": False,
+        "requires": [],
+        "findings": [
+            {"line": 1, "code": "LEAN4_LAKEFILE_INVALID", "excerpt": f"unsupported lakefile extension: {path.name}"[:100]}
+        ],
+    }
 
 
 def _is_axiom_log_filename(name: str) -> bool:
@@ -588,35 +1300,63 @@ def audit_lean4_directory_r13b_artifacts(
     allow_external_packages: bool = False,
 ) -> dict[str, Any]:
     """
-    Discover and validate `lake-manifest.json` files and `*axiom*.{log,txt,out}` axiom-audit
-    logs under `root` (skipping `skip_dirs` and `.lake`, never following directory symlinks).
+    Discover and validate `lake-manifest.json`, `lakefile.{toml,lean}` (cross-checking every
+    declared `require` package against sibling `lake-manifest.json`), and `*axiom*.{log,txt,out}`
+    axiom-audit logs under `root` (skipping `skip_dirs` and `.lake`, never following dir symlinks).
     """
     skip = set(skip_dirs) | {".lake"}
     manifest_paths: list[Path] = []
+    lakefile_paths: list[Path] = []
     axiom_log_paths: list[Path] = []
+    findings: list[dict[str, Any]] = []
 
     if root.is_file():
         if root.name == "lake-manifest.json":
             manifest_paths.append(root)
+            for lf_name in sorted(_LAKEFILE_NAMES):
+                sib_lf = root.parent / lf_name
+                if os.path.lexists(sib_lf):
+                    lakefile_paths.append(sib_lf)
+        elif root.name in _LAKEFILE_NAMES:
+            lakefile_paths.append(root)
+            sib_manifest = root.parent / "lake-manifest.json"
+            if os.path.lexists(sib_manifest):
+                manifest_paths.append(sib_manifest)
         elif _is_axiom_log_filename(root.name):
             axiom_log_paths.append(root)
         elif root.suffix == ".lean":
             sib_manifest = root.parent / "lake-manifest.json"
             if os.path.lexists(sib_manifest):
                 manifest_paths.append(sib_manifest)
+            for lf_name in sorted(_LAKEFILE_NAMES):
+                sib_lf = root.parent / lf_name
+                if os.path.lexists(sib_lf):
+                    lakefile_paths.append(sib_lf)
     else:
         stack: list[Path] = [root]
         while stack:
             cur = stack.pop()
             try:
                 entries = sorted(os.scandir(cur), key=lambda e: e.name)
-            except OSError:
+            except OSError as exc:
+                rel_dir = "." if cur == root else str(cur.relative_to(root))
+                findings.append(
+                    {
+                        "file": rel_dir,
+                        "line": 1,
+                        "code": "LEAN4_LAKEFILE_INVALID",
+                        "excerpt": f"unreadable directory during Lean audit: {exc}"[:100],
+                    }
+                )
                 continue
             for entry in entries:
                 name = entry.name
                 p = Path(entry.path)
                 if name == "lake-manifest.json":
                     manifest_paths.append(p)
+                    continue
+                if name in _LAKEFILE_NAMES:
+                    lakefile_paths.append(p)
                     continue
                 if entry.is_dir(follow_symlinks=False):
                     if name not in skip:
@@ -626,14 +1366,56 @@ def audit_lean4_directory_r13b_artifacts(
                     axiom_log_paths.append(p)
 
     manifest_paths.sort()
+    lakefile_paths.sort()
     axiom_log_paths.sort()
 
-    findings: list[dict[str, Any]] = []
+    manifest_by_dir: dict[Path, dict[str, Any]] = {}
     for mp in manifest_paths:
         rel = mp.name if root.is_file() else str(mp.relative_to(root))
         res = audit_lean4_lake_manifest(mp, allow_external_packages=allow_external_packages)
+        manifest_by_dir[mp.parent] = res
         for f in res["findings"]:
             findings.append({"file": rel, **f})
+
+    for lp in lakefile_paths:
+        rel = lp.name if root.is_file() else str(lp.relative_to(root))
+        lf_res = audit_lean4_lakefile(lp)
+        for f in lf_res["findings"]:
+            findings.append({"file": rel, **f})
+        if lf_res["requires"]:
+            mf_res = manifest_by_dir.get(lp.parent)
+            if mf_res is None:
+                for req in lf_res["requires"]:
+                    findings.append(
+                        {
+                            "file": rel,
+                            "line": req["line"],
+                            "code": "LEAN4_LAKEFILE_MISSING_MANIFEST",
+                            "excerpt": f"required package {req['name']!r} has no sibling lake-manifest.json"[:100],
+                        }
+                    )
+            elif mf_res["package_names"] is None:
+                for req in lf_res["requires"]:
+                    findings.append(
+                        {
+                            "file": rel,
+                            "line": req["line"],
+                            "code": "LEAN4_LAKEFILE_UNMANIFESTED_REQUIRE",
+                            "excerpt": f"required package {req['name']!r} unverified: lake-manifest.json is invalid"[:100],
+                        }
+                    )
+            else:
+                manifested = set(mf_res["package_names"])
+                for req in lf_res["requires"]:
+                    if req["name"] not in manifested:
+                        findings.append(
+                            {
+                                "file": rel,
+                                "line": req["line"],
+                                "code": "LEAN4_LAKEFILE_UNMANIFESTED_REQUIRE",
+                                "excerpt": f"required package {req['name']!r} not listed in lake-manifest.json"[:100],
+                            }
+                        )
 
     for ap in axiom_log_paths:
         rel = ap.name if root.is_file() else str(ap.relative_to(root))
@@ -643,6 +1425,7 @@ def audit_lean4_directory_r13b_artifacts(
 
     return {
         "manifests_checked": len(manifest_paths),
+        "lakefiles_checked": len(lakefile_paths),
         "axiom_logs_checked": len(axiom_log_paths),
         "findings": findings,
     }
