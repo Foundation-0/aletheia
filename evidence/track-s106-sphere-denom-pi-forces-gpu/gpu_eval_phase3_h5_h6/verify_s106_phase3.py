@@ -4,9 +4,9 @@
 Pure stdlib. Independently checks, for gpu_eval_phase3_h5_h6/:
   - Each protocol JSON is a runtime dump of the LOCKED_PROTOCOL constants emitted at run
     start (locked_utc falls inside the receipt window — a run-ordering check, NOT a
-    pre-registration; the true pre-commitments are the unshipped amendment markdowns,
-    reported as unverifiable).
-  - Parent preregistration SHA-256 and amendment SHA-256 prefixes match the locked notes.
+    pre-registration; the pre-commitment amendment markdowns are shipped at the track root
+    ../PREREG_SPHERE_PI_FORCES_AMENDMENT{1_H5,2_H6}.md and verified by full 64-hex SHA-256).
+  - Parent preregistration SHA-256 and amendment full 64-hex SHA-256s match the shipped files.
   - Both mlos Zone-B receipts: clean_hardware_run=true, anomalies=[], exit 0, no throttling,
     compute VRAM 0 -> 0.
   - Inner result_sha256 of both results files; 0 syndrome errors / 0 out-of-ball groups /
@@ -253,12 +253,31 @@ def _verify_one(d: pathlib.Path, proto_name: str, res_name: str, receipt_name: s
 
 
 def verify_phase3_dir(d: pathlib.Path, amendment1_path: pathlib.Path | None = None,
-                     amendment2_path: pathlib.Path | None = None) -> dict[str, Any]:
+                     amendment2_path: pathlib.Path | None = None,
+                     prereg_path: pathlib.Path | None = None) -> dict[str, Any]:
     h5 = _verify_one(d, "h5_locked_protocol.json", "s106_h5_results.json", "mlos_zone_b_h5_receipt.json",
                      "amendment1_sha256", AMEND1_SHA256, regrade_h5)
     h6 = _verify_one(d, "h6_locked_protocol.json", "s106_h6_results.json", "mlos_zone_b_h6_receipt.json",
                      "amendment2_sha256", AMEND2_SHA256, regrade_h6)
-    # Real amendment check: when the amendment markdowns are supplied, their full SHA-256
+    if amendment1_path is None:
+        cand1 = d.parent / "PREREG_SPHERE_PI_FORCES_AMENDMENT1_H5.md"
+        if cand1.is_file():
+            amendment1_path = cand1
+    if amendment2_path is None:
+        cand2 = d.parent / "PREREG_SPHERE_PI_FORCES_AMENDMENT2_H6.md"
+        if cand2.is_file():
+            amendment2_path = cand2
+    if prereg_path is None:
+        candp = d.parent / "PREREG_SPHERE_PI_FORCES_V1.md"
+        if candp.is_file():
+            prereg_path = candp
+    prereg_status = "UNVERIFIABLE_NOT_SHIPPED"
+    if prereg_path is not None:
+        praw = _read(prereg_path, "prereg")
+        if not hmac.compare_digest(hashlib.sha256(praw).hexdigest(), PREREG_SHA256):
+            raise S106Phase3Error("PREREG_FILE_SHA_MISMATCH", str(prereg_path))
+        prereg_status = "VERIFIED"
+    # Real amendment check: when the amendment markdowns are present/supplied, their full SHA-256
     # must equal the pinned 64-hex constants (a 16-hex prefix match no longer suffices);
     # otherwise the status is loudly UNVERIFIABLE_NOT_SHIPPED.
     status = "VERIFIED"
@@ -269,7 +288,7 @@ def verify_phase3_dir(d: pathlib.Path, amendment1_path: pathlib.Path | None = No
         raw = _read(path, "amendment")
         if not hmac.compare_digest(hashlib.sha256(raw).hexdigest(), sha):
             raise S106Phase3Error("AMENDMENT_FILE_SHA_MISMATCH", str(path))
-    return {"ok": True, "h5": h5, "h6": h6, "amendment_status": status}
+    return {"ok": True, "h5": h5, "h6": h6, "prereg_status": prereg_status, "amendment_status": status}
 
 
 def main(argv: list[str] | None = None) -> int:

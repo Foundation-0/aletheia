@@ -1,9 +1,9 @@
 # Track S106 Phase 3 Report: Amendments 1 & 2 (`H5a`, `H5b`, `H6a`, `H6b`, `H6c`)
 
-- **Parent Preregistration SHA-256:** `ac3e62116bc4841320d2c713787c23568beed1ae738bf9b284b7f0c2a118d72a` — **UNVERIFIABLE (file not shipped in any reachable repo)**
-- **Amendment 1 (`H5`) SHA-256:** `c83910a0e1a98e2afe473e5b15109fcbaf8e16bf85a08188b10fbdecfd75a05f` — **UNVERIFIABLE (not shipped)** (`h5_locked_protocol.json` locked `2026-11-25T13:37:02Z`, `mlos_zone_b_h5_receipt.json` `clean_hardware_run=true`, `anomalies=[]`, `1534369.0 ms`, `57°C -> 67°C`, `compute_vram_mib: 0 -> 0`)
-- **Amendment 2 (`H6`) SHA-256:** `b676cc556c9bbfa0849c29c3326ebd13e8f43e9c65960ddb5eb508fdead21d85` — **UNVERIFIABLE (not shipped)** (`h6_locked_protocol.json` locked `2026-11-25T14:09:23Z`, `mlos_zone_b_h6_receipt.json` `clean_hardware_run=true`, `anomalies=[]`, `1106793.1 ms`, `53°C -> 71°C`, `compute_vram_mib: 0 -> 0`)
-- **Verifier status fields:** `verify_s106_phase3.py --json` reports `amendment_status=UNVERIFIABLE_NOT_SHIPPED` unless the amendment markdowns are supplied via `--amendment1/2`, in which case their **full** SHA-256 must equal the pinned 64-hex constants (`AMENDMENT_FILE_SHA_MISMATCH` otherwise; previously a 16-hex prefix match sufficed).
+- **Parent Preregistration SHA-256:** `ac3e62116bc4841320d2c713787c23568beed1ae738bf9b284b7f0c2a118d72a` ([`../PREREG_SPHERE_PI_FORCES_V1.md`](../PREREG_SPHERE_PI_FORCES_V1.md), `10,800` B — shipped at track root and verified on disk by full 64-hex SHA-256, `prereg_status="VERIFIED"`)
+- **Amendment 1 (`H5`) SHA-256:** `c83910a0e1a98e2afe473e5b15109fcbaf8e16bf85a08188b10fbdecfd75a05f` ([`../PREREG_SPHERE_PI_FORCES_AMENDMENT1_H5.md`](../PREREG_SPHERE_PI_FORCES_AMENDMENT1_H5.md), `3,658` B — shipped at track root and verified on disk by full 64-hex SHA-256; `h5_locked_protocol.json` locked `2026-11-25T13:37:02Z`, `mlos_zone_b_h5_receipt.json` `clean_hardware_run=true`, `anomalies=[]`, `1534369.0 ms`, `57°C -> 67°C`, `compute_vram_mib: 0 -> 0`)
+- **Amendment 2 (`H6`) SHA-256:** `b676cc556c9bbfa0849c29c3326ebd13e8f43e9c65960ddb5eb508fdead21d85` ([`../PREREG_SPHERE_PI_FORCES_AMENDMENT2_H6.md`](../PREREG_SPHERE_PI_FORCES_AMENDMENT2_H6.md), `4,794` B — shipped at track root and verified on disk by full 64-hex SHA-256; `h6_locked_protocol.json` locked `2026-11-25T14:09:23Z`, `mlos_zone_b_h6_receipt.json` `clean_hardware_run=true`, `anomalies=[]`, `1106793.1 ms`, `53°C -> 71°C`, `compute_vram_mib: 0 -> 0`)
+- **Verifier status fields:** `verify_s106_phase3.py --json` auto-discovers the shipped parent & amendment markdowns at track root (and accepts `--amendment1/2` overrides), verifying all three **full** 64-hex SHA-256s (`prereg_status="VERIFIED"`, `amendment_status="VERIFIED"`, raising `PREREG_FILE_SHA_MISMATCH` / `AMENDMENT_FILE_SHA_MISMATCH` on any mismatch, or reporting `UNVERIFIABLE_NOT_SHIPPED` when invoked on an isolated directory without those markdowns; note git commit of the markdowns post-dates the GPU run windows while their full hashes are recorded inside the run-time JSONs).
 - **Post-run receipt rewrite (disclosed):** the H5/H6 Zone-B receipts (`mlos_zone_b_h5/h6_receipt.json`) were re-signed after the runs to add the `bound_file_sha256` results-binding link; the verifier checks that binding, and the raw run-time receipt bytes are therefore not the shipped bytes.
 - **Isolation & Integrity:** Executed exclusively in sibling dir `gpu_eval_phase3_h5_h6/` (leaving audited Phase-2 `gpu_eval/` 100% untouched); `74/74` LLM arms (`48` H5 + `26` H6) + `4/4` matched-param `10,818,432`-param micro-LMs completed with **`0` syndrome errors, `0` out-of-ball groups, `0` non-block diffs, `WEIGHTS=0`, `0` GitHub pushes**.
 
@@ -57,7 +57,7 @@
 
 ## 5. Frozen Artifact Manifest (`gpu_eval_phase3_h5_h6/` — `10` Sibling Files + `REPORT_PHASE3_H5_H6.md` = `11` Files)
 
-> **R5 mutation kill rate (this head):** `aletheia mutate --guards require_ok raise --max-mutants 0` on `verify_s106_phase3.py` kills **19/40 (47.5%)** (18/39 at the reviewed head `efdc334`); null mutant passes.
+> **R5 mutation kill rate (this head):** `aletheia mutate --guards require_ok raise --max-mutants 0` on `verify_s106_phase3.py` kills **20/41 (48.8%)** (18/39 at the reviewed head `efdc334`); null mutant passes.
 
 | File | Lines | Bytes | Mode | SHA-256 (Full 64-Hex) | Role |
 | :--- | ---: | ---: | :---: | :--- | :--- |
@@ -69,5 +69,5 @@
 | `s106_h5_results.json` | `1` | `31,727` | `0o644` (git 100644) | `0acb1c3e4fd7d7e6675a636e61dd31d102c4ec4b0d5e7f229217875253db0a9b` | Canonical H5 results (`48/48` arms, `result_sha256=676b4674...`) |
 | `s106_h6_hypersphere_arrangement_eval.py` | `558` | `29,946` | `0o644` (git 100644) | `639529b2019234f9722a4ed1d2715a03bf02bb7c77b02e725c77c571f1504d85` | Amendment 2 (H6a/H6b/H6c) held-out + micro-LM evaluator |
 | `s106_h6_results.json` | `1` | `17,711` | `0o644` (git 100644) | `f8b6e2a163f88c95d518a51a2f94af02acd24fcb450ede55a9742f6de2664fc4` | Canonical H6 results (`26/26` arms + `4` micro-LMs, `result_sha256=5ab86f4b...`) |
-| `test_s106_phase3_r5.py` | `225` | `12,160` | `0o644` (git 100644) | `0e83813d96e2a457348bcd0fea72e1c8679e101b0539ecde7d40b3269565d4e0` | Pure-stdlib R5 adversarial + hygiene test suite (7/7 tests incl. test_07 full-sha amendment flags, 0 bare asserts) |
-| `verify_s106_phase3.py` | `297` | `14,660` | `0o644` (git 100644) | `2c7862199284307c687b203709d7981f5d297ff53ddadc420fe24c84c29e0694` | Pure-stdlib integrity, receipt re-sign + bound-link, and literal locked-rule verdict verifier; amendment files now compared by FULL sha256 (not 16-hex prefix) |
+| `test_s106_phase3_r5.py` | `242` | `13,347` | `0o644` (git 100644) | `dd629c45568f557a8287b34fae772d769283ea18d6daf2595fd514a54f145828` | Pure-stdlib R5 adversarial + hygiene test suite (7/7 tests incl. test_07 full-sha amendment flags, 0 bare asserts) |
+| `verify_s106_phase3.py` | `316` | `15,636` | `0o644` (git 100644) | `fbe78464af5c8fc9c9f84a889f6a7a2524fa5acf619f09721ae8ced6e555d901` | Pure-stdlib integrity, receipt re-sign + bound-link, and literal locked-rule verdict verifier; amendment files now compared by FULL sha256 (not 16-hex prefix) |

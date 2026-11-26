@@ -30,8 +30,18 @@ class TestS106GpuBundleHygiene(unittest.TestCase):
     def test_01_top_level_hygiene_and_bundle_layout(self) -> None:
         bad = ("/" + "home/", "~" + "/", "/" + "dev/" + "null", "4" + "-mode")
         self.assertTrue((_HERE / "README.md").is_file())
+        self.assertTrue((_HERE / "PREREG_SPHERE_PI_FORCES_V1.md").is_file())
+        self.assertTrue((_HERE / "PREREG_SPHERE_PI_FORCES_AMENDMENT1_H5.md").is_file())
+        self.assertTrue((_HERE / "PREREG_SPHERE_PI_FORCES_AMENDMENT2_H6.md").is_file())
         self.assertTrue((_HERE / "gpu_eval" / "verify_s106_gpu_eval.py").is_file())
         self.assertTrue((_HERE / "gpu_eval_phase3_h5_h6" / "verify_s106_phase3.py").is_file())
+        v2_mod = _load_suite_module("s106_v2_top_chk", _HERE / "gpu_eval" / "verify_s106_gpu_eval.py")
+        v3_mod = _load_suite_module("s106_v3_top_chk", _HERE / "gpu_eval_phase3_h5_h6" / "verify_s106_phase3.py")
+        r2 = v2_mod.verify_gpu_eval_dir(_HERE / "gpu_eval")
+        r3 = v3_mod.verify_phase3_dir(_HERE / "gpu_eval_phase3_h5_h6")
+        self.assertEqual(r2["prereg_status"], "VERIFIED")
+        self.assertEqual(r3["prereg_status"], "VERIFIED")
+        self.assertEqual(r3["amendment_status"], "VERIFIED")
         for p in sorted(_HERE.rglob("*")):
             if not p.is_file():
                 continue

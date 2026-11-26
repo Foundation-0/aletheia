@@ -2,11 +2,11 @@
 """Track S106 GPU Evaluation Integrity & Preregistered-Verdict Verifier (Pure Stdlib).
 
 Independently audits all Phase 1B + Phase 2 artifacts in gpu_eval/:
-  1. Verifies the PREREG_SPHERE_PI_FORCES_V1.md SHA-256 lock (ac3e6211...) WHEN the file
-     is supplied/shipped; the file is NOT shipped in any reachable repo, so by default the
-     result carries prereg_status="UNVERIFIABLE_NOT_SHIPPED" (fail-loud, never silently
-     skipped) and the hardcoded PREREG_SHA256 constant is still cross-checked against the
-     pilot params and gauntlet results JSONs.
+  1. Verifies the PREREG_SPHERE_PI_FORCES_V1.md SHA-256 lock (ac3e6211...) on disk by full
+     64-hex SHA-256 (shipped at ../PREREG_SPHERE_PI_FORCES_V1.md -> prereg_status="VERIFIED";
+     falls back to prereg_status="UNVERIFIABLE_NOT_SHIPPED" only when verify_gpu_eval_dir is
+     invoked on an isolated directory without the prereg file) and cross-checks PREREG_SHA256
+     against both shipped JSONs.
   2. Verifies s106_frozen_pilot_params.json inner pilot_params_sha256, zero held-out
      models touched during pilot lock, and strict temporal ordering (pilot_locked_utc
      < gauntlet_completed_utc, proving zero post-hoc snooping).
@@ -360,6 +360,10 @@ def _strict_kill_gate_verdicts(models_out: dict[str, Any]) -> dict[str, str]:
 
 
 def verify_gpu_eval_dir(gpu_dir: pathlib.Path, prereg_path: pathlib.Path | None = None) -> dict[str, Any]:
+    if prereg_path is None:
+        in_track = gpu_dir.parent / "PREREG_SPHERE_PI_FORCES_V1.md"
+        if in_track.is_file():
+            prereg_path = in_track
     prereg_status = "UNVERIFIABLE_NOT_SHIPPED"
     if prereg_path is not None:
         prereg_raw = _read_regular_bytes(prereg_path, "prereg")

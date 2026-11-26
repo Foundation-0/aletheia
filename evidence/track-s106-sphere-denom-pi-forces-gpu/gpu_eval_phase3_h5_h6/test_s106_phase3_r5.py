@@ -174,11 +174,28 @@ class TestS106Phase3R5(unittest.TestCase):
             self.assertTrue(res["ok"])
 
     def test_07_amendment_flags_require_full_sha256(self) -> None:
-        # Not supplied -> loudly UNVERIFIABLE_NOT_SHIPPED (never silently VERIFIED).
+        # Shipped track verifies all 3 markdowns on disk by full 64-hex SHA-256 (while
+        # single-subdir mutation slots without parent markdowns report UNVERIFIABLE_NOT_SHIPPED).
         res = v3.verify_phase3_dir(_HERE)
-        self.assertEqual(res["amendment_status"], "UNVERIFIABLE_NOT_SHIPPED")
+        exp_p = "VERIFIED" if (_HERE.parent / "PREREG_SPHERE_PI_FORCES_V1.md").is_file() else "UNVERIFIABLE_NOT_SHIPPED"
+        exp_a = "VERIFIED" if (
+            (_HERE.parent / "PREREG_SPHERE_PI_FORCES_AMENDMENT1_H5.md").is_file()
+            and (_HERE.parent / "PREREG_SPHERE_PI_FORCES_AMENDMENT2_H6.md").is_file()
+        ) else "UNVERIFIABLE_NOT_SHIPPED"
+        self.assertEqual(res["prereg_status"], exp_p)
+        self.assertEqual(res["amendment_status"], exp_a)
         with tempfile.TemporaryDirectory(prefix="s106_p3_t7_") as td:
             d = self._copy(td)
+            # Isolated copy without parent markdowns -> loudly UNVERIFIABLE_NOT_SHIPPED.
+            res_unshipped = v3.verify_phase3_dir(d)
+            self.assertEqual(res_unshipped["prereg_status"], "UNVERIFIABLE_NOT_SHIPPED")
+            self.assertEqual(res_unshipped["amendment_status"], "UNVERIFIABLE_NOT_SHIPPED")
+            # Wrong prereg bytes -> PREREG_FILE_SHA_MISMATCH.
+            bad_p = pathlib.Path(td) / "prereg_bad.md"
+            bad_p.write_bytes(b"not the prereg")
+            with self.assertRaises(v3.S106Phase3Error) as ctx_p:
+                v3.verify_phase3_dir(d, prereg_path=bad_p)
+            self.assertEqual(ctx_p.exception.code, "PREREG_FILE_SHA_MISMATCH")
             # Wrong bytes -> AMENDMENT_FILE_SHA_MISMATCH.
             bad = pathlib.Path(td) / "amend1.md"
             bad.write_bytes(b"not the amendment")

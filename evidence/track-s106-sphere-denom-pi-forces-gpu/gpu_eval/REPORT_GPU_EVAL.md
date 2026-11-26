@@ -1,6 +1,6 @@
 # Track S106 GPU Evaluation Report: `PREREG-SPHERE-PI-FORCES-V1` (Phase 1B Pilot Lock + Phase 2 Blind Held-Out RTX 3080 Gauntlet)
 
-- **Parent Preregistration SHA-256:** `ac3e62116bc4841320d2c713787c23568beed1ae738bf9b284b7f0c2a118d72a` (`PREREG_SPHERE_PI_FORCES_V1.md` — file NOT shipped in any reachable repo, so the "locked before execution" claim is UNVERIFIABLE; verifier reports `prereg_status=UNVERIFIABLE_NOT_SHIPPED` and cross-checks the SHA constant against both shipped JSONs)
+- **Parent Preregistration SHA-256:** `ac3e62116bc4841320d2c713787c23568beed1ae738bf9b284b7f0c2a118d72a` ([`../PREREG_SPHERE_PI_FORCES_V1.md`](../PREREG_SPHERE_PI_FORCES_V1.md), `10,800` B — shipped at track root and verified on disk by full 64-hex SHA-256 `prereg_status="VERIFIED"`, matching `preregistration_sha256` recorded inside both run-time JSONs; git commit of the markdown file post-dates the GPU run window)
 - **Epistemic Class:** `[anchor]` (live bare-metal NVIDIA GeForce RTX 3080 Laptop `8 GiB` measurements serialized via `flock` + `mlos gpu-lease --mode train` + `mlos stamp-run --zone B`, `HF_HUB_OFFLINE=1`, `WEIGHTS=0`, `0` GitHub pushes)
 - **Strict Anti-Snooping Proof:** Phase 1B pilot parameters locked strictly on synthetic $N(0,1)$ + `Qwen/Qwen2.5-0.5B` at `2026-11-25T11:04:41Z` (`held_out_models_touched=[]`), strictly prior to Phase 2 blind gauntlet execution (`2026-11-25T12:23:51Z` -> `2026-11-25T13:26:25Z`, `clean_hardware_run=true`, `anomalies=[]`, `56°C -> 66°C`, `thermal_throttled=false`, `compute_vram_mib: 0 -> 0`).
 - **Global Bit-Level & Algebraic Integrity (`117/117` blind full-model arms across `4.40B` block weights):** `total_syndrome_errors=0`, `total_oob_groups=0`, `total_non_block_diffs=0`, `100%` `CS-08` exact bitrate accounting (all FP16 row/col scales, global RMS, and codebook bytes included in `exact_bpw`).
@@ -164,7 +164,7 @@ On `Qwen/Qwen2.5-3B`, every static `SphereMap` arm exploded to `WikiKL = 15.6..2
 
 ## 5. Frozen Artifact Manifest (`gpu_eval/` — `9` Sibling Files + `REPORT_GPU_EVAL.md` = `10` Files)
 
-> **R5 mutation kill rate (this head):** `aletheia mutate --guards require_ok raise --max-mutants 0` on `verify_s106_gpu_eval.py` kills **26/53 (49.1%)**; null mutant passes. `prereg_status=UNVERIFIABLE_NOT_SHIPPED` appears only in the verifier JSON unless the prereg file is supplied — it is disclosed in prose at the top of this report.
+> **R5 mutation kill rate (this head):** `aletheia mutate --guards require_ok raise --max-mutants 0` on `verify_s106_gpu_eval.py` kills **27/53 (50.9%)**; null mutant passes. When invoked on the shipped bundle, `verify_s106_gpu_eval.py --json` verifies `../PREREG_SPHERE_PI_FORCES_V1.md` by full 64-hex SHA-256 (`prereg_status=VERIFIED`; isolated copies without the prereg markdown report `UNVERIFIABLE_NOT_SHIPPED`).
 
 *Note: the Phase-2 numbers in §1–§4 were produced by the pre-edit `s106_phase2_blind_gauntlet.py` (`f066f28b…`, `54,421` B); the head version differs by a comment-only hampack-baseline label.*
 
@@ -177,5 +177,5 @@ On `Qwen/Qwen2.5-3B`, every static `SphereMap` arm exploded to `WikiKL = 15.6..2
 | `s106_phase1b_pilot_lock.py` | `523` | `22,329` | `0o644` (git 100644) | `137c6a72be373df3348d95d2c7b46746246ba2a377ff1278196cfcd03198065e` | Phase 1B parameter-lock runner (strictly synthetic Gaussian + Qwen/Qwen2.5-0.5B)
 | `s106_phase2_blind_gauntlet.py` | `1,202` | `54,479` | `0o644` (git 100644) | `8c459a3cb95705f79024502417b19eceae256f005f685364d837d4605e3b78a8` | Phase 2 blind gauntlet runner (3 held-out models, locked pilot params) |
 | `s106_quant_ops.py` | `816` | `33,725` | `0o644` (git 100644) | `9eebf4843f294f7dd279d45668ab58cb4759807362f1c726e5af9a1e74848144` | Exact-bpw GPU/CPU operator library (SphereMap, E8, A16, A16^8, Power-0.7, Hodge, EQ(S^3), EQ(S^7), Yukawa/Coulomb)
-| `test_s106_gpu_eval_r5.py` | `232` | `12,032` | `0o644` (git 100644) | `9bf14438a53c652bb0c3a122e6ccc033f86516e8639cb4be665a1a52aebf7020` | Pure-stdlib R5 adversarial + hygiene test suite |
-| `verify_s106_gpu_eval.py` | `491` | `23,881` | `0o644` (git 100644) | `e52babd09766386305213f3e53d5bc5c24913d3ef0f055938dd6e8ec66979655` | Phase 2 integrity + literal locked kill-gate verdict verifier |
+| `test_s106_gpu_eval_r5.py` | `239` | `12,599` | `0o644` (git 100644) | `744b99be29c9133e273acb7919168bf2c3a143dfdca13b58fcf08f9331730486` | Pure-stdlib R5 adversarial + hygiene test suite |
+| `verify_s106_gpu_eval.py` | `495` | `24,044` | `0o644` (git 100644) | `07a75685a112510732998a2bae77d1848810c96aade58cb2a9a2f19f4377f286` | Phase 2 integrity + literal locked kill-gate verdict verifier |

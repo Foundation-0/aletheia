@@ -139,11 +139,18 @@ class TestS106GpuEvalR5(unittest.TestCase):
             self.assertEqual(ctx3.exception.code, "HARDWARE_ANOMALIES")
 
     def test_06_receipt_forgery_prereg_status_and_link_guards(self) -> None:
-        # Live run must loudly report the unshipped prereg (never silently skip).
+        # Live run verifies shipped PREREG_SPHERE_PI_FORCES_V1.md when present at track root
+        # (and reports UNVERIFIABLE_NOT_SHIPPED in aletheia mutate's single-subdir slot copy).
         res = verifier.verify_gpu_eval_dir(_THIS_DIR)
-        self.assertEqual(res["prereg_status"], "UNVERIFIABLE_NOT_SHIPPED")
+        expected_live = "VERIFIED" if (_THIS_DIR.parent / "PREREG_SPHERE_PI_FORCES_V1.md").is_file() else "UNVERIFIABLE_NOT_SHIPPED"
+        self.assertEqual(res["prereg_status"], expected_live)
         with tempfile.TemporaryDirectory(prefix="s106_gpu_t6_") as td:
             d = self._make_copy(td)
+            bad_prereg = pathlib.Path(td) / "bad_prereg.md"
+            bad_prereg.write_bytes(b"tampered prereg bytes")
+            with self.assertRaises(verifier.S106GpuVerifyError) as ctx_p:
+                verifier.verify_gpu_eval_dir(d, prereg_path=bad_prereg)
+            self.assertEqual(ctx_p.exception.code, "PREREG_SHA_MISMATCH")
 
             def expect(code: str) -> None:
                 with self.assertRaises(verifier.S106GpuVerifyError) as ctx:

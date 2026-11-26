@@ -2,9 +2,9 @@
 
 Self-contained empirical evidence bundle pairing two frozen bare-metal NVIDIA GeForce RTX 3080 Laptop (`8 GiB`) evaluation suites under locked preregistrations (`HF_HUB_OFFLINE=1`, `WEIGHTS=0`, Zone-B hardware telemetry receipts `clean_hardware_run=true`, `anomalies=[]`, `compute_vram_mib: 0 -> 0`):
 
-- **Parent Preregistration (`H1`–`H4`):** `PREREG_SPHERE_PI_FORCES_V1.md`, SHA-256 `ac3e62116bc4841320d2c713787c23568beed1ae738bf9b284b7f0c2a118d72a` — **UNVERIFIABLE: not shipped in any reachable repo** (verifier reports `prereg_status="UNVERIFIABLE_NOT_SHIPPED"`); the SHA constant is still cross-checked against both shipped JSONs.
-- **Amendment 1 (`H5a`, `H5b`):** `PREREG_SPHERE_PI_FORCES_AMENDMENT1_H5.md`, SHA-256 `c83910a0e1a98e2afe473e5b15109fcbaf8e16bf85a08188b10fbdecfd75a05f` — **UNVERIFIABLE (not shipped)**.
-- **Amendment 2 (`H6a`, `H6b`, `H6c`):** `PREREG_SPHERE_PI_FORCES_AMENDMENT2_H6.md`, SHA-256 `b676cc556c9bbfa0849c29c3326ebd13e8f43e9c65960ddb5eb508fdead21d85` — **UNVERIFIABLE (not shipped)**.
+- **Parent Preregistration (`H1`–`H4`):** [`PREREG_SPHERE_PI_FORCES_V1.md`](PREREG_SPHERE_PI_FORCES_V1.md) (`10,800` B, SHA-256 `ac3e62116bc4841320d2c713787c23568beed1ae738bf9b284b7f0c2a118d72a`) — shipped in this track directory and verified on disk by full 64-hex SHA-256 (`prereg_status="VERIFIED"` in both verifiers) and cross-checked against the run-time JSON artifacts *(committed to git in this PR after the GPU run windows)*.
+- **Amendment 1 (`H5a`, `H5b`):** [`PREREG_SPHERE_PI_FORCES_AMENDMENT1_H5.md`](PREREG_SPHERE_PI_FORCES_AMENDMENT1_H5.md) (`3,658` B, SHA-256 `c83910a0e1a98e2afe473e5b15109fcbaf8e16bf85a08188b10fbdecfd75a05f`) — shipped in this track directory and verified on disk by full 64-hex SHA-256 (`amendment_status="VERIFIED"`).
+- **Amendment 2 (`H6a`, `H6b`, `H6c`):** [`PREREG_SPHERE_PI_FORCES_AMENDMENT2_H6.md`](PREREG_SPHERE_PI_FORCES_AMENDMENT2_H6.md) (`4,794` B, SHA-256 `b676cc556c9bbfa0849c29c3326ebd13e8f43e9c65960ddb5eb508fdead21d85`) — shipped in this track directory and verified on disk by full 64-hex SHA-256 (`amendment_status="VERIFIED"`).
 - **Held-Out Models (zero tuning; Phase 2 pilot locks strictly on synthetic Gaussian + `Qwen/Qwen2.5-0.5B` with strict UTC ordering before blind execution — Phase 2 is blind on the three held-out models):** `HuggingFaceTB/SmolLM2-360M`, `Qwen/Qwen2.5-1.5B`, `Qwen/Qwen2.5-3B`. **Phase 3 (H5/H6) is NOT blind on these three models** (H5b was motivated by Phase-2 Qwen3B layer-1–5 outliers); all Phase-3 verdicts on them are FALSIFIED and H6c uses micro-LMs.
 - **Global Bit-Level Integrity (`191/191` full-model LLM arms + `4/4` matched-parameter `10,818,432`-param micro-LMs):** `0` syndrome errors, `0` out-of-ball groups, `0` non-block tensor diffs, exact bitrate accounting (`CS-08`), `WEIGHTS=0`.
 
@@ -47,6 +47,13 @@ Self-contained empirical evidence bundle pairing two frozen bare-metal NVIDIA Ge
 - `gpu_eval/` (`10` frozen files): Phase 1B pilot lock + Phase 2 (`H1`–`H4`) evaluator, JSON receipts, `mlos` Zone-B hardware receipts, `REPORT_GPU_EVAL.md`, `verify_s106_gpu_eval.py`, `test_s106_gpu_eval_r5.py`.
 - `gpu_eval_phase3_h5_h6/` (`11` frozen files): Phase 3 Amendment 1 (`H5a`/`H5b`) + Amendment 2 (`H6a`/`H6b`/`H6c`) evaluators, locked protocols, JSON receipts, `mlos` Zone-B hardware receipts, `REPORT_PHASE3_H5_H6.md`, `verify_s106_phase3.py`, `test_s106_phase3_r5.py`.
 - `test_s106_gpu_phase2_3_r5.py`: Top-level pure-stdlib R5 CI runner executing both child R5 suites and bundle hygiene checks across all three isolated Python modes.
+
+| Top-Level File | Lines | Bytes | Mode | SHA-256 |
+| :--- | ---: | ---: | :---: | :--- |
+| `PREREG_SPHERE_PI_FORCES_V1.md` | `68` | `10,800` | `0o644` | `ac3e62116bc4841320d2c713787c23568beed1ae738bf9b284b7f0c2a118d72a` |
+| `PREREG_SPHERE_PI_FORCES_AMENDMENT1_H5.md` | `20` | `3,658` | `0o644` | `c83910a0e1a98e2afe473e5b15109fcbaf8e16bf85a08188b10fbdecfd75a05f` |
+| `PREREG_SPHERE_PI_FORCES_AMENDMENT2_H6.md` | `24` | `4,794` | `0o644` | `b676cc556c9bbfa0849c29c3326ebd13e8f43e9c65960ddb5eb508fdead21d85` |
+| `test_s106_gpu_phase2_3_r5.py` | `75` | `3,285` | `0o644` | `b84ce99fcb8bd6d452f1b26223ad6a73a57fefe4462d57263406dee9f5ba9ef5` |
 
 ```bash
 # Independent integrity & literal locked-rule verdict verification (Phase 2 + Phase 3)
