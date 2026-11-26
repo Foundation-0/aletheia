@@ -71,6 +71,12 @@ jobs:
             --test-cmd "python3 -B -m unittest tests.test_supervision_airlock_r5" \
             --work-root . --add-cwd --max-mutants 0
 
+      - name: R5 mutation test of aletheia/ratchet.py, every site (CONTRIBUTING.md R5 bar)
+        run: |
+          python3 -I -O -B -W error -m aletheia mutate aletheia/ratchet.py \
+            --test-cmd "python3 -B -m unittest tests.test_spec_s6_clauses" \
+            --work-root . --add-cwd --max-mutants 0
+
       - name: Verify portable compute handoff template, v1.1 ratchet/mde demos & dry-run installers
         run: |
           python3 -I -O -B -W error -m aletheia ratchet --demo --json
