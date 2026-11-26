@@ -7,6 +7,11 @@ text hidden behind comments or fenced code blocks, mid-sentence hedges, and
 post-sentence tails do not satisfy them. The spec's enforcement notes must
 also match what `aletheia/mde.py` and `aletheia/ratchet.py` actually check.
 
+Follow-up `Foundation-0/aletheia#29` / PR #31: the whole of Section 6 is pinned
+verbatim (`_SECTION6_CANONICAL_LINES`), so editing any line of Section 6 needs a
+paired edit here; and every refusal site in `aletheia/ratchet.py` has a named
+control (`aletheia mutate aletheia/ratchet.py --max-mutants 0` with this file).
+
 Zero external dependencies. Zero bare assert statements (100% R4 parity
 across `-I -B`, `-I -O -B`, and `-I -B -W error`).
 """
@@ -23,6 +28,7 @@ import sys
 import tempfile
 import unicodedata
 import unittest
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
@@ -33,6 +39,7 @@ from aletheia.mde import (
     compute_zone_canon_id,
     verify_aletheia_mde_manifest,
 )
+import aletheia.ratchet as ratchet_mod
 from aletheia.ratchet import (
     RATCHET_LEDGER_SCHEMA,
     ast_canonical_digest,
@@ -160,6 +167,115 @@ _RATCHET_ENFORCEMENT_BULLET = (
     "rather than a standalone function in `aletheia/ratchet.py`."
 )
 
+# Items 1, 2, 3 and 6 of Section 6, copied verbatim from spec/LAWS_AND_GATES.md (non-ASCII
+# characters written as escapes). Together with the item 4/5 constants above they pin the
+# whole of Section 6: see `_assert_section6_exact_text`.
+_SECTION6_ITEM1 = (
+    '1. **Pure-$\\mathbb{Q}$ v2.0 Gate-Contract Engine (`aletheia gate-v2 --self-test`, '
+    '`aletheia/gates_v2.py`):** Executable pure-$\\mathbb{Q}$ certifiers for `R6`/`R7` '
+    '(registered check IDs verified against executed checks), Two-Direction `R3`, \xa74 '
+    '`NOT_SHOWN`, \xa7\xa75–7 oracle/feedback rules, \xa78 Gate-8 subspace latch '
+    '(`BLIND_AUDIT_IN_COL_PHI`), Law 2b Transformational Steelman (schema/inequality gate '
+    'aligned with `AUDIT-088R` `T1`–`T7` IDs & `G0`–`G4` guards), and Own-Terms-First '
+    '(`certify_own_terms_phase1`, `certify_own_terms_model_ladder`, '
+    '`certify_own_terms_symbol_utility` — schema/inequality gates over caller-supplied '
+    'records; execution provenance requires separate replay). `gate-v2 --self-test` '
+    'dynamically verifies one accept and one rejection control per gate.'
+)
+_SECTION6_ITEM2 = (
+    '2. **Deterministic Agent Safety-Surface Scanner (`aletheia safety-scan` & `aletheia '
+    'audit-check --safety-scan`, `aletheia/safety.py`):** Implements `CYA-GAP-01..06` '
+    '(`AUDIT-078R`): hidden Trojan-Source Unicode (`U+00AD`, `U+200B..200F`, `U+2060..2064`, '
+    '`U+FEFF`, BiDi controls, variation selectors `U+FE00..FE0F`/`U+E0100..E01EF`, Tags), '
+    'unpinned MCP/`npx -y` (shell + JSON/YAML)/`--yolo`/`SessionStart`, unguarded recursive '
+    'force-delete of shell/Makefile variables (YAML `run:`, `$(...)`, continuations, '
+    '`xargs`, `sh -c`, Makefile `$(VAR)`; top-level non-conditional/non-heredoc `set -u` '
+    'guards unset only, `${VAR:?}` guards unset and empty), `pull_request_target` + '
+    'secrets/`secrets: inherit`/write/untrusted PR head checkout (dot/bracket exprs, step '
+    'outputs, `pull/N/head`, `gh pr checkout`), prose-only rules & `~/` host paths (incl. '
+    '`.cursorrules`), UTF-16 decoding, dotfiles/extensionless/vendor-dir scanning, '
+    'fail-closed reporting of `skipped_files` (incl. non-regular files such as '
+    'FIFOs/sockets/devices without blocking), `undecodable_files` (incl. '
+    'binary/NUL-containing text such as UTF-32 with BOM), and `unreadable_files`, plus '
+    'optional `--include-host-hygiene`.'
+)
+_SECTION6_ITEM3_HEADING = (
+    '3. **8-Glyph Exact Operator Calculus (`aletheia calculus`, v1.3, Honest Rule-2 '
+    'Accounting per `AUDIT-084R`):**'
+)
+_SECTION6_ITEM3_NOTATION_BULLET = (
+    'Executable pure-$\\mathbb{Q}/\\mathbb{Z}$ notation (reported `0 / 227,540` Lean 4 corpus '
+    'hits; the scan script and corpus are not in this repository): `⧄` (`|/|`), `⧅` (`|\\|`), '
+    '`⦷` (`(||)`), `⟠` (`<=>`), `⧇` (`[o]`), `⦺` (`(+-0)`), `⩩` (`=#=`), `⫩` (`_|T`).'
+)
+_SECTION6_ITEM3_UTILITY_BULLET = (
+    '**Honest Operational-Utility Classification (`AUDIT-084R`):** Under Own-Terms-First '
+    'Rule 2, `7/8` glyphs are documented transparently as composition shorthands / renamings '
+    '(`6` shorthands + overloaded `⟠`) operating on constructed exact-$\\mathbb{Q}$ objects '
+    '(`0` file I/O in `calculus.py`), while `1/8` (`⫩`, mutation-tested refusal gate) is a '
+    'typed execution operator (`N0` mutation-testing origin); all `6` algebraic composition '
+    'probes (`C1`–`C6`) execute cleanly with zero floats.'
+)
+_SECTION6_ITEM6 = (
+    '6. **Hardened `audit-check` & `mutate` (`aletheia/audit_check.py`, '
+    '`aletheia/mutator.py`):** Includes Lean 4 raw-string `r#"..."#` safe lexing, R4 '
+    '`unittest` `-O` skip detection, `from random import` AST tracking, cross-module '
+    'imported wrapper discovery + `--guards` + `covered_lines`, `shapes.py`/`rule.py` '
+    'refusal shapes, `selfcheck.py` constant-shift mutation, `NOT_SHOWN` truncation, and '
+    '`(?!\\n)$` schema alignment.'
+)
+
+_SECTION6_BULLET = "   - "
+
+# Every non-blank line of Section 6, in order, from the `## 6.` heading to the closing `---`.
+# A change to Section 6 of the spec must update this tuple (and the constants it is built
+# from) in the same pull request, so that every wording change to this binding section is
+# reviewed as a paired spec + test edit.
+_SECTION6_CANONICAL_LINES: tuple[str, ...] = (
+    _SECTION6_HEADING,
+    _SECTION6_ITEM1,
+    _SECTION6_ITEM2,
+    _SECTION6_ITEM3_HEADING,
+    _SECTION6_BULLET + _SECTION6_ITEM3_NOTATION_BULLET,
+    _SECTION6_BULLET + _SECTION6_ITEM3_UTILITY_BULLET,
+    _PLANE2_HEADING,
+    _SECTION6_BULLET + _PLANE2_CONTEXT_BULLET,
+    f"{_SECTION6_BULLET}{_PLANE2_LEAD_IN} {_PLANE2_SENTENCE}",
+    _SECTION6_BULLET + _PLANE2_ENFORCEMENT_BULLET,
+    _RATCHET_HEADING,
+    _SECTION6_BULLET + _RATCHET_SENTENCE,
+    _SECTION6_BULLET + _RATCHET_ENFORCEMENT_BULLET,
+    _SECTION6_ITEM6,
+    "---",
+)
+
+
+def _assert_section6_exact_text(raw_section: str) -> None:
+    """Whole-Section-6 exact allow-list (the binding check for every item, not only 4 and 5).
+
+    Every non-blank line of Section 6, with its leading indentation, must equal the matching
+    line of `_SECTION6_CANONICAL_LINES` after NFKC normalization; trailing whitespace is
+    ignored and blank lines are skipped. Invisible format characters (Unicode category `Cf`)
+    are refused before normalization. Any added, removed, reordered, or reworded heading,
+    bullet, or line anywhere in Section 6 fails whatever its wording, so waiver text cannot
+    be added to any item without also editing this test.
+    """
+    for ch in raw_section:
+        if unicodedata.category(ch) == "Cf":
+            raise AssertionError(f"Invisible format character U+{ord(ch):04X} forbidden in Section 6")
+    got = [ln.rstrip() for ln in unicodedata.normalize("NFKC", raw_section).splitlines() if ln.strip()]
+    expected = [unicodedata.normalize("NFKC", ln) for ln in _SECTION6_CANONICAL_LINES]
+    for idx in range(max(len(got), len(expected))):
+        got_ln = got[idx] if idx < len(got) else None
+        exp_ln = expected[idx] if idx < len(expected) else None
+        if got_ln != exp_ln:
+            raise AssertionError(
+                f"Section 6 differs from its canonical text at non-blank line {idx}: "
+                f"expected {exp_ln!r}, got {got_ln!r}. Section 6 is pinned verbatim; a spec "
+                "edit to it must update _SECTION6_CANONICAL_LINES in "
+                "tests/test_spec_s6_clauses.py in the same change."
+            )
+
 
 def _enclosing_clause_block(section: str, start: int) -> str:
     """Return the enclosing numbered Section 6 item bounded only by column-0 items, headings, or `---`."""
@@ -241,7 +357,11 @@ _SECTION6_OUTSIDE_WAIVER_PATTERNS = (
 
 def _assert_no_section6_waiver_outside_clauses(raw_section: str) -> None:
     """Enforce exact Section 6 top-level item structure (1..6, no extra headings/intro prose)
-    plus best-effort waiver deny-checks across the prose inside non-clause items (1-3, 6)."""
+    plus best-effort waiver deny-checks across the prose inside non-clause items (1-3, 6).
+
+    The keyword deny-list misses plain rephrasings; it is kept as a second layer with
+    targeted error messages. The binding check for the whole section is
+    `_assert_section6_exact_text`."""
     for ch in raw_section:
         if unicodedata.category(ch) == "Cf":
             raise AssertionError(f"Invisible format character U+{ord(ch):04X} forbidden in Section 6")
@@ -390,6 +510,8 @@ class TestSpecSection6Clauses(unittest.TestCase):
             ),
         )
         _assert_no_section6_waiver_outside_clauses(raw_section_6)
+        # Binding check: the whole of Section 6 (every item, heading and bullet) is pinned verbatim.
+        _assert_section6_exact_text(raw_section_6)
 
         required_visible_phrases = (
             # Plane-2 ban key (restored verbatim from v1.3.0 58207b4)
@@ -527,6 +649,66 @@ class TestSpecSection6Clauses(unittest.TestCase):
                 pass
             else:
                 raise AssertionError(f"Section-6 outside waiver was not rejected: {mutated_s6[-160:]!r}")
+
+        # Whole-Section-6 exact allow-list: keyword-free rephrasings outside items 4 & 5
+        # (the four PR #31 review shapes that passed the deny-list at 86373326), plus
+        # reordered/removed lines, MUST fail closed.
+        item3_utility_line = _SECTION6_BULLET + _SECTION6_ITEM3_UTILITY_BULLET + "\n"
+        item3_notation_line = _SECTION6_BULLET + _SECTION6_ITEM3_NOTATION_BULLET + "\n"
+        item6_line = _SECTION6_ITEM6 + "\n"
+        exact_text_mutations = (
+            # Bullet in item 3
+            raw_section_6.replace(
+                item3_utility_line,
+                item3_utility_line + "   - Compliance with the MDE and ratchet contracts is voluntary.\n",
+                1,
+            ),
+            # Bullets in item 6
+            raw_section_6.replace(item6_line, item6_line + "   - Loops may skip the ratchet clauses above.\n", 1),
+            raw_section_6.replace(item6_line, item6_line + "   - The Plane-2 obstruction is suspended for adapters.\n", 1),
+            # Text appended to item 2's heading line
+            raw_section_6.replace(_SECTION6_ITEM2, _SECTION6_ITEM2 + " Loops need not honour item 5.", 1),
+            # Text appended to item 1 and item 3's heading lines
+            raw_section_6.replace(_SECTION6_ITEM1, _SECTION6_ITEM1 + " Items 4 and 5 bind no one.", 1),
+            raw_section_6.replace(_SECTION6_ITEM3_HEADING, _SECTION6_ITEM3_HEADING + " Item 5 is aspirational.", 1),
+            # Indented continuation line under item 6, and a line between `---` and `## 7.`
+            raw_section_6.replace(item6_line, item6_line + "   Adapters can ignore item 4.\n", 1),
+            raw_section_6.replace("\n---\n", "\n---\n\nLoops may treat items 4 and 5 as background reading.\n", 1),
+            # Reordered and removed bullets in item 3
+            raw_section_6.replace(item3_notation_line + item3_utility_line, item3_utility_line + item3_notation_line, 1),
+            raw_section_6.replace(item3_notation_line, "", 1),
+            # Removed closing `---`
+            raw_section_6.replace("\n---\n", "\n", 1),
+        )
+        for mutated_s6 in exact_text_mutations:
+            _req(mutated_s6 != raw_section_6, "Test setup failed to mutate Section 6 for the exact allow-list")
+            try:
+                _assert_section6_exact_text(mutated_s6)
+            except AssertionError:
+                pass
+            else:
+                raise AssertionError(f"Section-6 exact allow-list accepted altered text: {mutated_s6[-200:]!r}")
+
+        # The exact allow-list also subsumes every earlier clause-block and outside-waiver mutation
+        for target_text, replacement, _exp_heading, _lead_in, _allowed in bad_mutations:
+            mutated = raw_section_6.replace(target_text, replacement, 1)
+            try:
+                _assert_section6_exact_text(mutated)
+            except AssertionError:
+                pass
+            else:
+                raise AssertionError(f"Section-6 exact allow-list accepted clause-block mutation: {replacement!r}")
+        for mutated_s6 in outside_waiver_mutations:
+            try:
+                _assert_section6_exact_text(mutated_s6)
+            except AssertionError:
+                pass
+            else:
+                raise AssertionError(f"Section-6 exact allow-list accepted outside mutation: {mutated_s6[-160:]!r}")
+
+        # Positive controls: the canonical lines pass with different blank-line layout and trailing spaces
+        _assert_section6_exact_text("\n\n".join(_SECTION6_CANONICAL_LINES) + "\n")
+        _assert_section6_exact_text("\n".join(ln + "  " for ln in _SECTION6_CANONICAL_LINES))
 
         # Positive controls: clean standalone clause block (bounded by column-0 `### Next`) passes
         _assert_exact_obligation_clause(
@@ -970,6 +1152,79 @@ class TestSpecSection6Clauses(unittest.TestCase):
             )
             rc_g, pay_g = _run_verify_cli(good_jsonl)
             _req(rc_g == 0 and pay_g.get("valid") is True and pay_g.get("status") == "VALID", f"Unexpected CLI good: {rc_g} {pay_g}")
+
+    def test_ratchet_input_guards_and_demo_self_checks_fail_closed(self) -> None:
+        """Named controls for the remaining `aletheia/ratchet.py` refusal sites (R5)."""
+
+        def _expect_code(want: str, fn: object, *args: object, **kwargs: object) -> None:
+            try:
+                fn(*args, **kwargs)  # type: ignore[operator]
+            except AletheiaError as exc:
+                _req(exc.code == want, f"Expected {want}, got {exc.code}")
+            else:
+                raise AssertionError(f"Expected {want} for args={args!r} kwargs={kwargs!r}")
+
+        # check_ring0_lock: both configs must be mappings
+        _expect_code("INVALID_CONFIG", check_ring0_lock, ["oracle"], {"oracle": "exact"})
+        _expect_code("INVALID_CONFIG", check_ring0_lock, {"oracle": "exact"}, "oracle")
+
+        # ast_canonical_digest: empty/non-str source and syntax errors are typed refusals
+        for bad_src in ("", "   \n", 123, None):
+            _expect_code("EMPTY_SOURCE", ast_canonical_digest, bad_src)
+        _expect_code("AST_SYNTAX_ERROR", ast_canonical_digest, "def f(:\n    return 1\n")
+
+        # exact_pythagorean_latch_check: every metric must be a non-negative Fraction
+        good_metrics = dict(
+            proxy_before=Fraction(1), proxy_after=Fraction(1), outside_before=Fraction(1), outside_after=Fraction(1),
+        )
+        for name in good_metrics:
+            for bad_val in (1, 0.5, Fraction(-1, 2), None):
+                _expect_code("INVALID_EXACT_METRIC", exact_pythagorean_latch_check, **dict(good_metrics, **{name: bad_val}))
+
+        # check_fixed_compute_survival: typed budget and format flag
+        for bad_wall in (-1, True, 1.0, None):
+            _expect_code("INVALID_WALL_MS", check_fixed_compute_survival, wall_ms=bad_wall, max_wall_ms=10, format_valid=True)
+        for bad_max in (0, -5, True, 10.0, None):
+            _expect_code("INVALID_MAX_WALL_MS", check_fixed_compute_survival, wall_ms=1, max_wall_ms=bad_max, format_valid=True)
+        for bad_flag in (1, 0, "true", None):
+            _expect_code("INVALID_FORMAT_FLAG", check_fixed_compute_survival, wall_ms=1, max_wall_ms=10, format_valid=bad_flag)
+
+        # build_ratchet_record: step and denominators
+        genesis = "sha256:" + ("0" * 64)
+        d1 = ast_canonical_digest("def f(x):\n    return x + 1\n")
+        rec_kw = dict(
+            step=0, prev_hash=genesis, decision="KEEP", ast_sha256=d1, wall_ms=1,
+            proxy_num=0, proxy_den=1, outside_num=0, outside_den=1, note="n",
+        )
+        for bad_step in (-1, True, 1.0, None):
+            _expect_code("INVALID_STEP", build_ratchet_record, **dict(rec_kw, step=bad_step))
+        for field in ("proxy_den", "outside_den"):
+            for bad_den in (0, -1, True, 1.0, None):
+                _expect_code("INVALID_DENOM", build_ratchet_record, **dict(rec_kw, **{field: bad_den}))
+
+        # run_ratchet_demo: passes as shipped, and each self-check refuses when its gate is broken
+        demo = ratchet_mod.run_ratchet_demo()
+        _req(demo["status"] == "PASS", f"Demo did not pass: {demo}")
+        _req(demo["regime_4_ring0_and_ledger"]["ledger_verified"]["valid"] is True, f"Demo ledger invalid: {demo}")
+
+        def _latch_always(decision: str):
+            return lambda **_kw: {"decision": decision}
+
+        digest_counter = iter(range(10 ** 6))
+        broken_gates = (
+            ("exact_pythagorean_latch_check", _latch_always("KEEP"), "DEMO_LATCH_FAIL"),
+            ("exact_pythagorean_latch_check", _latch_always("LATCH_HALT"), "DEMO_REPAIR_FAIL"),
+            ("ast_canonical_digest", lambda _src: f"sha256:{next(digest_counter):064x}", "DEMO_AST_FAIL"),
+            (
+                "check_fixed_compute_survival",
+                lambda **_kw: {"admitted": True, "within_budget": True, "format_valid": True, "reason": "ADMITTED"},
+                "DEMO_CS08_FAIL",
+            ),
+            ("check_ring0_lock", lambda _base, _cand: True, "DEMO_RING0_FAIL"),
+        )
+        for attr, fake, want in broken_gates:
+            with mock.patch.object(ratchet_mod, attr, fake):
+                _expect_code(want, ratchet_mod.run_ratchet_demo)
 
 
 if __name__ == "__main__":
