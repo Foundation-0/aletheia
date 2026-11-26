@@ -12,6 +12,7 @@
     - `python_code`: `400,000` B (`1da6a86e...`)
     - `formal_docs`: `300,000` B (`9dc785e8...`)
   - Scored by exact raw UTF-8 BPB (`fp32` log-softmax, BOS excluded, EOS scored).
+  - **Corpus disclosure:** no per-file manifest or exact slice recipe for the truncated `python_code` (`400,000` B) / `formal_docs` (`300,000` B) domains is recoverable from this repository (same standing corpus gap as #106); the aggregate `train_sha256` / `eval_sha256` and the per-domain shas above — identical across H10a/H10b with `file_overlap_count = 0` — are the binding integrity anchors.
 - **CPU Pre-Flight R4 Lock:** `s110_cpu_preflight.py` passes **`10/10` gates** bit-identically across `-I -B`, `-I -O -B`, and `-I -B -W error` (`payload_sha256 = cb603cb411de6ad3476eecd96f454639a65cca8629957ce1bcff91f5b6f20012`, `0` volatile stdout).
 
 ---
@@ -20,8 +21,8 @@
 
 | Component / Stage | Scope & Runs | Literal Locked Verdict | Headline Quantitative Outcome (`3` Seeds `[42, 137, 2026]`, `600` Steps = `2.46M` Tok/Run) |
 | :--- | :--- | :---: | :--- |
-| **`sm_86` Microbench Pre-Gate** (`<2 min`) | `5` operators + `6` full `15M` train steps (`BF16`, `B=8, T=512, d=384`) | **`PARTIAL`** *(3/5 ops PASS eager)* | **`BinghamProx` (`13.27%` blk / `+1.41%` step), `ACT` (`1.21%`), `MTP-8` (`4.53%` / `+10.04%` combined step) PASS** `<= 15%`. Eager PyTorch `Cayley2x2` (`28.87%` blk / `+15.55%` step) and `DarcyEMA` (`47.19%` cuFFT blk / `+20.97%` step, down from `124.4%` / `+96.33%` eager Hillis-Steele) exceed `15%` without custom fused `sm_86` CUDA kernels. Peak VRAM `<= 2.13 GiB / 8 GiB`; `0` NaNs. |
-| **Stage 1 (`H10a`)** Single-Shell Isolation | `5` arms × `3` seeds (`15` runs, `~14 min`) | **`PARTIAL`** *(1/4 primary BPB win; 0/4 clear all axes)* | **`H10a_Shell1_Cayley2x2` (`2.3033 ± 0.0266 BPB`) is the #1 overall model across all `14` arms**, beating `Baseline_Loop` (`2.3976`) by **`-0.0943 BPB` (`-3.94%`, `z = +3.82`, `p_Holm = 0.000262`, `CONFIRMED` on BPB-512)** and all `4/4` `N0` baselines (`z = +2.47..+5.48`), while keeping exact post-train Beltrami `[C,K] = 0` (`m0..m4` drift `1.2e-7`). However, it hits the `R_test = 6` phase-rotation wall (`6.6218 BPB` vs `2.9124`) and eager latency `+15.55%`. **`Shell2_BinghamProx`** (`2.3782`, `z=+1.03, p_Holm=0.453`) is `INCONCLUSIVE` on BPB while cutting `M1-H1` `-14.3% (z=+2.25)` at `+1.41%` step cost. **`Shell3_DarcyEMA`** (`2.5414`, `z=-5.63`) is `FALSIFIED` on BPB-512 yet cuts `2x` context decay `-39.85% (z=+2.29)`, `M1-H1` `-25.84% (z=+13.42, 1.621)`, and `3b` PTQ KL `-8.98% (z=+2.85)`. **`Shell4_ACTPlume_MTP8`** (`2.5342`, `z=-6.74`) is `FALSIFIED` on BPB-512 (`MTP-8` `18.24%` 8-step mean acc, exact `16.0` sparse passes). |
+| **`sm_86` Microbench Pre-Gate** (`<2 min`) | `5` operators + `6` full `15M` train steps (`BF16`, `B=8, T=512, d=384`) | **`PRUNE`** *(3/5 ops PASS, 2/5 PRUNE eager)* | **`BinghamProx` (`13.27%` blk / `+1.41%` step), `ACT` (`1.21%`), `MTP-8` (`4.53%` / `+10.04%` combined step) PASS** `<= 15%`. Eager PyTorch `Cayley2x2` (`28.87%` blk / `+15.55%` step) and `DarcyEMA` (`47.19%` cuFFT blk / `+20.97%` step, down from `124.4%` / `+96.33%` eager Hillis-Steele) exceed `15%` without custom fused `sm_86` CUDA kernels. Peak VRAM `<= 2.13 GiB / 8 GiB`; `0` NaNs. |
+| **Stage 1 (`H10a`)** Single-Shell Isolation | `5` arms × `3` seeds (`15` runs, `~14 min`) | **`FALSIFIED`** on the prereg earn-keep *(0/4 shells earn-keep; 2/4 PRUNED on the sm_86 gate)* | Graded against the preregistered Shell-Dynamo earn-keep (`≥15%` M1-H1 reduction OR `≥5%` better `R_test=6`, `≥2` SE — **not** BPB-512), **`0/4` shells earn-keep: `FALSIFIED`**. **`H10a_Shell1_Cayley2x2`** (`2.3033 ± 0.0266 BPB`, #1 across all `14` arms, `-0.0943 BPB` / `-3.94%` vs `Baseline_Loop`, `z = +3.82`, Holm-z `p = 0.000262` but exact-t Holm `p_t = 0.1242` **not significant**, all `4/4` `N0` beaten on z) only cuts M1-H1 `-6.91% (z=+1.09)` and its `R=6` is far worse (`6.6218` vs `2.9124`) → earn-keep **FALSIFIED**, and its eager step overhead `+15.55%` marks it **PRUNED** under Amendment 1. **`Shell2_BinghamProx`** (`2.3782`, `z=+1.03, p_Holm=0.453`) M1-H1 `-14.28% (z=+2.25)` misses the `15%` line → FALSIFIED. **`Shell3_DarcyEMA`** (`2.5414`, `z=-5.63`) earns M1-H1 `-25.84% (z=+13.42)` but is `+20.97%` step → **PRUNED**. **`Shell4_ACTPlume_MTP8`** (`2.5342`, `z=-6.74`) FALSIFIED (`MTP-8` `18.24%` 8-step mean acc, exact `16.0` sparse passes). All shells keep exact post-train Beltrami `[C,K] = 0` (`m0..m4` drift `1.2e-7`). |
 | **Stage 2 (`H10b`)** Coupled `Geosphere-Net-15M` + LOSO | `9` arms × `3` seeds (`27` runs, `~29 min`) | **`FALSIFIED`** *(Anti-Kitchen-Sink Law-5 confirmed)* | **`H10b_Geosphere_Full` (`2.6976 ± 0.0229 BPB`) decisively loses** to its best single shell `H10a_Shell1_Cayley2x2` (`+0.3943 BPB` worse) AND to **all `4/4` `N0` baselines** (`Monolithic_Loop` `z=-23.46`, `nGPT_Loop` `z=-6.02`, `English_CoT` `z=-12.28`, `nGPT_Unlooped` `z=-7.81`). **`0/4` LOSO shells show positive Holm-Bonferroni primary-BPB contribution** (`p_Holm = 1.0`; removing `DarcyEMA` improves BPB `-0.2255 z=-6.82`, removing `ACTDraft` improves `-0.2434 z=-3.35`, removing `BinghamProx` improves `-0.0479 z=-2.39`). **Secondary cross-shell finding:** variable-depth ACT (`r in {1..4}`) cures `Cayley2x2`'s `R=6` blowup (`6.62 -> 3.07 BPB` / `2.94` without Darcy), and `Cayley + Bingham + Darcy` achieves near-unity `M1-H1 = 1.012` (`Geosphere_Full = 1.367`) and minimum `2x` context decay (`+0.1104 BPB`, `-57.8%`). |
 
 ---
@@ -74,14 +75,14 @@ Every arm ran `3` seeds (`[42, 137, 2026]`), `600` steps (`B=8, T=512`, cosine L
 
 ### 4.1 Stage-1 `H10a` vs `H10a_Baseline_Loop` (Primary `T=512` BPB, Holm-Bonferroni `alpha = 0.05`)
 
-| Shell | Paired BPB Gain (`Base - Shell`) | `z` | Raw `p` | Holm Adj. `p` | Holm Sig. | Primary BPB Verdict | Secondary Highlights (`z`) |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
-| **`H10a_Shell1_Cayley2x2`** | **`+0.09435 ± 0.02467` (`-3.94%`)** | **`+3.82`** | `6.56e-5` | **`0.000262`** | **YES** | **`CONFIRMED`** | Beats ALL `4/4` `N0` baselines (`z=+2.47..+5.48`); `R=6` phase blowup (`6.62`); `3b` KL `+28.3%` |
-| `H10a_Shell2_BinghamProx` | `+0.01938 ± 0.01878` (`-0.81%`) | `+1.03` | `0.1509` | `0.4528` | NO | `INCONCLUSIVE` | `M1-H1` `-14.28% (z=+2.25)`, `+1.41%` full train step |
-| `H10a_Shell3_DarcyEMA` | `-0.14380 ± 0.02553` (`+6.00%`) | `-5.63` | `1.0000` | `1.0000` | NO | **`FALSIFIED`** | Cuts `Δ1024-512` **`-39.85% (z=+2.29)`**, `M1-H1` **`-25.84% (z=+13.42)`**, `3b` KL `-8.98% (z=+2.85)` |
-| `H10a_Shell4_ACTPlume_MTP8` | `-0.13655 ± 0.02025` (`+5.70%`) | `-6.74` | `1.0000` | `1.0000` | NO | **`FALSIFIED`** | Exact `16.0` sparse passes; lowest `R=6` (`2.865`) & spike ASR (`0.2375`) |
+| Shell | Paired BPB Gain (`Base - Shell`) | `z` | Raw `p_z` | Holm `p_z` | Holm-z Sig. | `t` (df=2) | `p_t` | Holm `p_t` | Holm-t Sig. | BPB-512 Verdict (graded on Holm-t) | Secondary Highlights (`z`) |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
+| **`H10a_Shell1_Cayley2x2`** | **`+0.09435 ± 0.02467` (`-3.94%`)** | **`+3.82`** | `6.56e-5` | **`0.000262`** | YES (z) | **`+3.82`** | `0.0310` | **`0.1242`** | **NO (t)** | **`FALSIFIED`** under the conservative exact-t Holm | Beats ALL `4/4` `N0` baselines on z (`z=+2.47..+5.48`; unadjusted `p_t` vs Monolithic `0.044`, Unlooped `0.016`, nGPT `0.059`, English CoT `0.066` — Holm-t would not confirm all four); earn-keep FALSIFIED (`M1-H1 -6.91%, z=+1.09`; `R=6 6.62`); `+15.55%` step → PRUNED; `3b` KL `+28.3%` |
+| `H10a_Shell2_BinghamProx` | `+0.01938 ± 0.01878` (`-0.81%`) | `+1.03` | `0.1509` | `0.4528` | NO | `+1.03` | `0.3094` | `1.0000` | NO | `FALSIFIED` | `M1-H1` `-14.28% (z=+2.25)` misses the `15%` earn-keep line (`p_t=0.077`); `+1.41%` full train step |
+| `H10a_Shell3_DarcyEMA` | `-0.14380 ± 0.02553` (`+6.00%`) | `-5.63` | `1.0000` | `1.0000` | NO | `-5.63` | `1.0000` | `1.0000` | NO | **`FALSIFIED`** (PRUNED on `+20.97%` step) | Cuts `Δ1024-512` **`-39.85% (z=+2.29)`**, `M1-H1` **`-25.84% (z=+13.42)`** (earn-keep met on M1-H1, but pruned), `3b` KL `-8.98% (z=+2.85)` |
+| `H10a_Shell4_ACTPlume_MTP8` | `-0.13655 ± 0.02025` (`+5.70%`) | `-6.74` | `1.0000` | `1.0000` | NO | `-6.74` | `1.0000` | `1.0000` | NO | **`FALSIFIED`** | Exact `16.0` sparse passes; lowest `R=6` (`2.865`) & spike ASR (`0.2375`) |
 
-*Small-Sample (`n = 3` Seeds) Statistical Sensitivity Note:* The locked normal-`z` Holm-Bonferroni formula in `s110_train_eval.py` / `s110_geosphere_audit.py` yields `z = +3.8242`, one-sided normal `p = 6.56e-5`, `p_Holm = 0.000262` (`CONFIRMED` on BPB-512; all `3/3` paired seeds beat baseline by `+0.0654`, `+0.0742`, and `+0.1434` BPB). Under a more conservative exact small-sample Student-$t$ ($\text{df} = 2$) test, `t = 3.8242` gives one-sided `p_t = 0.0310` and `p_Holm = 0.1239 > 0.05` (above `alpha = 0.05` after `m = 4` family-wise correction at `n = 3` seeds); multi-seed replication (`n >= 5`) is therefore recommended before elevating `Cayley2x2` beyond `PARTIAL` / `N1`.
+*Small-Sample (`n = 3` Seeds) Statistical Sensitivity Note:* The normal-`z` Holm-Bonferroni yields `z = +3.8242`, one-sided normal `p = 6.56e-5`, `p_Holm = 0.000262` (all `3/3` paired seeds beat baseline by `+0.0654`, `+0.0742`, `+0.1434` BPB). Under the exact small-sample Student-$t$ ($\text{df} = 2$) test, `t = 3.8242` gives one-sided `p_t = 0.0310` and Holm `p_t = 0.1242 > 0.05`. The certificate therefore grades the BPB-512 headline on the conservative Holm-**t** (reported alongside Holm-z in `h10a_vs_baseline_bpb` / `h10b_loso_bpb` / `h10b_full_vs_n0_bpb`): `CONFIRMED` only if Holm-t significant, else `FALSIFIED` — here `FALSIFIED`. Multi-seed replication (`n >= 5`) remains the path to a confirmed standalone Cayley claim; the standalone `2x2` Cayley layer is in the `N0` prior-art class, so the novelty tier is **`N0`** (genuine `N1`/`N2` requires coupled multi-shell synergy, which Stage 2 FALSIFIED).
 
 ### 4.2 Paired `H10a_Shell1_Cayley2x2` vs All `4` `N0` Baselines (Exact Bit-Identical Corpus)
 
@@ -95,7 +96,7 @@ Every arm ran `3` seeds (`[42, 137, 2026]`), `600` steps (`B=8, T=512`, cosine L
 ### 4.3 Stage-2 `H10b` Holm-Bonferroni LOSO & `N0` Baselines (`FALSIFIED`)
 
 - **`H10b_Geosphere_Full` vs `N0` Baselines (`T=512` BPB):** loses to `N0_Monolithic_Loop_15M` (`-0.3005, z=-23.46`), `N0_nGPT_Loop_15M` (`-0.2722, z=-6.02`), `N0_English_CoT_15M` (`-0.2550, z=-12.28`), and `N0_nGPT_Unlooped_15M` (`-0.1097, z=-7.81`).
-- **LOSO Ablation (`Ablated - Full`; positive = removing shell hurt):** `NoCayley = -0.0065 (z=-0.14, p_Holm=1.0)`, `NoBingham = -0.0479 (z=-2.39, p_Holm=1.0)`, `NoDarcyEMA = -0.2255 (z=-6.82, p_Holm=1.0)`, `NoACTDraft = -0.2434 (z=-3.35, p_Holm=1.0)`.
+- **LOSO Ablation (`Ablated - Full`; positive = removing shell hurt):** `NoCayley = -0.0065 (z=-0.14, p_Holm=1.0)`, `NoBingham = -0.0479 (z=-2.39, p_Holm=1.0)`, `NoDarcyEMA = -0.2255 (z=-6.82, p_Holm=1.0)`, `NoACTDraft = -0.2434 (z=-3.35, p_Holm=1.0)` — `0/4` Holm-significant on both z and exact-t (`holm_significant_t` all false), so `H10b_coupled_loso = FALSIFIED` under either test.
 - **Post-Training Portal-3 Beltrami `[C, K] = 0` Audit:** Across all `15/15` trained Cayley runs (`Shell1_Cayley2x2`, `Geosphere_Full`, `LOSO_NoBingham`, `LOSO_NoDarcyEMA`, `LOSO_NoACTDraft`), post-training commutator norm stays identically **`||[C, K]||_F = 0.0`** and conserved moments `m_0..m_4` drift stays **`<= 1.2e-7`**. Hidden-state Beltrami Rayleigh quotients stay within `|mean(H/E)| <= 0.0248` across 3-seed arm means (peak `0.024786` on `H10b_LOSO_NoDarcyEMA`) and within **`|H/E| <= 0.070645`** across every individual seed/pass (peak on `H10b_LOSO_NoACTDraft` seed `2026`: `[-0.053808, -0.068652, -0.070645, -0.035332]`; `H10a_Shell1_Cayley2x2` per-seed max `|H/E| = 0.023878`), with zero `O3.5` monotonic positive-Rayleigh collapse.
 
 ---
@@ -109,13 +110,50 @@ Every arm ran `3` seeds (`[42, 137, 2026]`), `600` steps (`B=8, T=512`, cosine L
 
 ---
 
-## 6. Artifact Provenance & Verification Receipts (`WEIGHTS=0`, `0` Leaks)
+## 6. Deviations & Out-of-Band Disclosures (review round 2)
+
+Stated plainly, with times in America/Chicago (UTC in the receipts):
+
+1. **Preregistration first committed after the GPU windows.** `PREREG_S110_GEOSPHERE_PLANETARY_ARCHITECTURE.md` and `PREREG_S110_AMENDMENT1_COUNCIL_PRUNING.md` are first committed in this PR at `2026-11-25` 4:54 PM CT, while the GPU runs executed earlier the same day: sm_86 microbench 3:28:44–3:28:54 PM CT (`21:28:44Z–21:28:54Z`), H10a 3:29:22–3:42:42 PM CT (`21:29:22Z–21:42:42Z`), H10b 3:43:11–4:12:21 PM CT (`21:43:11Z–22:12:21Z`). The parent/amendment SHA-256 hashes (`2e645597…`, `a41399fd…`) **are** recorded inside every run artifact (`prereg_s110_sha256`, `prereg_s110_amend1_sha256`) and re-hash byte-exact against the markdown committed in this PR, so the content was fixed before the runs even though the git commit came later; the git-timestamp ordering is nonetheless a real deviation from strict prereg-before-run and is disclosed here rather than hidden.
+2. **Cited `notes/` path not in-repo.** The REPORT header cites `notes/sphere_pi_forces_2026_11_25/PREREG_S110_*.md`; that path does not exist in `aletheia`, `siliquant`, `math0`, or `cave-expedition` on any local branch. The authoritative copies are the ones in this track directory, pinned by the hashes above.
+3. **Operators marked PRUNE were still trained.** The sm_86 microbench marks `Cayley2x2` (`28.87%` blk / `+15.55%` step) and `DarcyEMA` (`47.19%` cuFFT blk / `+20.97%` step) `PRUNE_OVERHEAD_GT_15PCT` (`all_operators_clear_15pct_gate: false`); per Amendment 1 `:42` they should have been pruned before multi-seed training. Both were trained in the 15+27-run eval and composed into Stage 2, against prereg `:44` ("failed shells EXCLUDED from Stage 2"). The certificate now grades them `PRUNED` (step overhead `> 15%`) and the Stage-1 verdict is computed from the earn-keep, not from the trained outcome.
+4. **BPB-512 substituted for the earn-keep.** The preregistered Shell-Dynamo earn-keep is `≥15%` M1-H1 reduction or `≥5%` better `R_test=6` at `≥2` SE; BPB-512 is not the earn-keep. The first review round locked a `CONFIRMED` on BPB-512 Holm-z; this round the certificate derives every verdict from the gates (earn-keep per shell, Amendment-1 prune flags, exact-t Holm for the BPB-512 headline, LOSO count for H10b) and reports Holm-t alongside Holm-z.
+5. **Out-of-band preflight citations unverifiable.** `PREREG_S110_AMENDMENT1_COUNCIL_PRUNING.md:4-7` cites three `verification/reports/COLLAB-{CLAUDE,GROK47,DSV41}-S110-*-PREFLIGHT.md` files that are not present in `aletheia`, `math0`, `cave-expedition`, or `siliquant` on any local branch. They are treated as unverifiable out-of-band references, not as evidence; the in-repo `s110_cpu_preflight_receipt.json` (`10/10` gates) is the verifiable preflight record.
+6. **Corpus per-file recipe unrecoverable** for the truncated `python_code` / `formal_docs` domains (see header disclosure).
+
+---
+
+## 7. Artifact Provenance & Verification Receipts (`WEIGHTS=0`, `0` Leaks)
+
+Regenerated file-list manifest (path, lines, bytes, sha256) of every payload file in this track directory, plus the internal payload/receipt digests:
+
+| File | Lines | Bytes | SHA-256 |
+| :--- | ---: | ---: | :--- |
+| `PREFLIGHT_REPORT.md` | 105 | 11484 | `ba2007bd202bde4000c79cd7943b2a6b8ff7d683ce3e136dc04119765e026035` |
+| `PREREG_S110_AMENDMENT1_COUNCIL_PRUNING.md` | 42 | 5981 | `a41399fdb888167288a63cefa540778d921574197f721b8d5322bd8825d0928a` |
+| `PREREG_S110_GEOSPHERE_PLANETARY_ARCHITECTURE.md` | 65 | 11430 | `2e645597e81a330159b2183caf670f685821a9451a37223a782936e88e30d0fe` |
+| `README.md` | 20 | 2699 | `4da28e2202ff54a6ffeede5ee4058c8af471510178e2cba7fe329f7b41df56d3` |
+| `h10a_gpu_results.json` | 2123 | 59247 | `9d9df344c2c4db347674f5512247f906b5ac64ad7cf21d72398f2c51faca3d6b` |
+| `h10b_gpu_results.json` | 4117 | 117096 | `c32d99c32ed08e27120e2991be01c13fba02f5d86657957327855831b66098ac` |
+| `mlos_zone_b_s110_h10a.json` | 94 | 2751 | `677f72dbc916211ba09eb9baeaae30a5e59aae6bb79652979970ee9113881665` |
+| `mlos_zone_b_s110_h10b.json` | 94 | 2752 | `809d5f3e1411d6d8e2d0863c23fdf6fbd33b1b34d4a82af7d86425fd68525e33` |
+| `mlos_zone_b_s110_microbench.json` | 95 | 2869 | `34ce62f84c04bcfb692e9ea7114195b9290240d549d957cbbf87baee5eb971f5` |
+| `s110_cpu_preflight.py` | 577 | 25475 | `65ce7fd01fba2cad4d3d40efaeb534110f73b6e86c20b6af44a1b3a9ffdb7596` |
+| `s110_cpu_preflight_receipt.json` | 364 | 11180 | `4d9aabb726012eed2cfbbf5efd808dfd2e436f87ece1cf98ebff8aef218d25f5` |
+| `s110_geosphere_audit.py` | 907 | 43156 | `d52c0ff709c4f2235cd70200e15ba3b7e87f5758ba38de3e96305fcc6c94eda1` |
+| `s110_geosphere_certificate.json` | 1 | 11156 | `a1e41ac00039e34fd061740160b8d5d72e574fadb97eb0cebecbd2b6c596457d` |
+| `s110_geosphere_models.py` | 1422 | 62532 | `a47d262593cf4e4774559913034988595a5fbae3509cb33bfe30b517ebae50d0` |
+| `s110_sm86_microbench.json` | 152 | 4888 | `1f34743555344d7f94d10c6a56544aa98dd0ce787827e4bcfb009dbc04045a20` |
+| `s110_sm86_microbench_eager_hillis.json` | 152 | 4890 | `0fd10a569cbfb1ece44d0fe2d25aa00706dc967c77efa86eca10d7a6149c7e91` |
+| `s110_train_eval.py` | 1229 | 54829 | `5b84334fb95a780357973a916b3a02c7de4b3e0fef9b7b9ecbd05df84249a03f` |
+| `test_s110_geosphere_audit_r5.py` | 443 | 22773 | `039bd4847743f110604b23a1bf876b6fe19acb6776a7a00fd75ba6a6967b0b73` |
 
 - `s110_sm86_microbench.json`: `payload_sha256 = 733c8c33e8f4ddfbc75bd9a2ee51ac1012881846d353b2d05cce15f8b755fd01`
 - `s110_sm86_microbench_eager_hillis.json`: `payload_sha256 = 279865a222d3f60a843b909c1aeae11257881793f0ef351be15eafeb693ff146`
 - `h10a_gpu_results.json`: `payload_sha256 = 7da424abee3223e91a0bec02eceb82a42b0025bc2f275fcad078d1e9079cea33`
 - `h10b_gpu_results.json`: `payload_sha256 = 8cef8307e6c5d62c33dc7122735f36d0c59fb66154c85432ca542528abfd46d3`
-- `mlos_zone_b_s110_microbench.json`: `772ef320789c62a9cfb43652b22843c1be46626acd2f0997fdc8535d10703021` (`clean_hardware_run = true`, `anomalies = []`)
-- `mlos_zone_b_s110_h10a.json`: `f8288f80d931796afc2d2d15b395398e39ced0fe3d161561dfa3155b9ae16d1f` (`clean_hardware_run = true`, `anomalies = []`)
-- `mlos_zone_b_s110_h10b.json`: `d894aec1ef14d4dd3932759e50c33de1ccfc095859eaa8584812bfa90787ebc5` (`clean_hardware_run = true`, `anomalies = []`)
-- `s110_cpu_preflight_receipt.json`: `payload_sha256 = cb603cb411de6ad3476eecd96f454639a65cca8629957ce1bcff91f5b6f20012` (`10/10 PASS` bit-identical across `-I -B`, `-I -O -B`, `-I -B -W error`)
+- `s110_cpu_preflight_receipt.json`: `payload_sha256 = cb603cb411de6ad3476eecd96f454639a65cca8629957ce1bcff91f5b6f20012`
+- `mlos_zone_b_s110_microbench.json`: internal `receipt_sha256 = 88556dbce090b3ed2ee9d9ceb897cb6bac31d502a7dbe2fa6ee075af398357cf` (`clean_hardware_run = true`, `anomalies = []`, bound to `s110_sm86_microbench.json` = `1f34743555344d7f…`, `s110_sm86_microbench_eager_hillis.json` = `0fd10a569cbfb1ec…`, window `2026-11-25T21:28:44Z .. 2026-11-25T21:28:54Z`)
+- `mlos_zone_b_s110_h10a.json`: internal `receipt_sha256 = 078df50ff9ba23b136c0ebd679e21ceeac295881544f379bccceaede4794710e` (`clean_hardware_run = true`, `anomalies = []`, bound to `h10a_gpu_results.json` = `9d9df344c2c4db34…`, window `2026-11-25T21:29:22Z .. 2026-11-25T21:42:42Z`)
+- `mlos_zone_b_s110_h10b.json`: internal `receipt_sha256 = af695a375ff4747dca6086ef4c24bc389f2d6e74235aa7da99ac240333780b88` (`clean_hardware_run = true`, `anomalies = []`, bound to `h10b_gpu_results.json` = `c32d99c32ed08e27…`, window `2026-11-25T21:43:11Z .. 2026-11-25T22:12:21Z`)
+

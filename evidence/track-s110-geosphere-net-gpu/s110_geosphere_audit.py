@@ -27,6 +27,7 @@ import hmac
 import json
 import math
 import os
+from datetime import datetime, timezone
 from pathlib import Path
 import stat
 import sys
@@ -52,6 +53,21 @@ REQUIRED_EVIDENCE_FILES = (
     "mlos_zone_b_s110_h10b.json",
     "REPORT_S110_GPU_EVAL.md",
 )
+
+# Each Zone-B hardware receipt is cryptographically bound to the results file(s) it describes.
+RECEIPT_BINDINGS = {
+    "mlos_zone_b_s110_microbench.json": ("s110_sm86_microbench.json", "s110_sm86_microbench_eager_hillis.json"),
+    "mlos_zone_b_s110_h10a.json": ("h10a_gpu_results.json",),
+    "mlos_zone_b_s110_h10b.json": ("h10b_gpu_results.json",),
+}
+
+# Amendment 1 sm_86 pre-gate: operators adding > 15% full-model train-step overhead are PRUNED.
+PRUNE_STEP_OVERHEAD_PCT = 15.0
+# Preregistered Shell-Dynamo earn-keep (PREREG-S110 :40): >= 15% M1-H1 reduction OR >= 5% better
+# R_test=6, each at >= 2 SE paired z, against H10a_Baseline_Loop.
+EARN_KEEP_M1H1_REDUCTION_PCT = 15.0
+EARN_KEEP_R6_REDUCTION_PCT = 5.0
+EARN_KEEP_MIN_Z = 2.0
 
 EXPECTED_H10A_ARMS = (
     "H10a_Baseline_Loop",
@@ -265,6 +281,36 @@ def _paired_z_p(base_vals: Sequence[float], arm_vals: Sequence[float]) -> Dict[s
     }
 
 
+def _student_t_cdf_df2(t: float) -> float:
+    # Exact closed-form CDF of Student-t with df = 2 (the n = 3 paired-seed case used here).
+    return 0.5 + t / (2.0 * math.sqrt(t * t + 2.0))
+
+
+def _paired_t_p(base_vals: Sequence[float], arm_vals: Sequence[float]) -> Dict[str, float]:
+    # Conservative small-sample companion to _paired_z_p: same paired deltas, exact t(df = n-1)
+    # CDF (closed form for df = 2), one-sided in the gain direction. Reported alongside the
+    # normal-z Holm so a CONFIRMED is never locked on the anti-conservative normal p at n = 3.
+    require_ok(len(base_vals) == len(arm_vals) and len(base_vals) >= 2, "PAIRED_LEN_MISMATCH", "paired seed mismatch")
+    n = len(base_vals)
+    deltas = [b - a for b, a in zip(base_vals, arm_vals)]
+    m, se = _mean_se(deltas)
+    t = (m / se) if se > 1e-12 else (10.0 if m > 0 else (-10.0 if m < 0 else 0.0))
+    if n == 3:
+        cdf = _student_t_cdf_df2(t)
+        p = 1.0 - cdf
+    else:
+        # Normal fallback for n != 3 (not exercised by the locked 3-seed protocol).
+        p = 0.5 * math.erfc(t / math.sqrt(2.0))
+    p = min(1.0, max(0.0, p))
+    return {
+        "mean_gain": round(m, 6),
+        "se": round(se, 6),
+        "t_stat": round(t, 4),
+        "df": n - 1,
+        "p_one_sided_t": round(p, 8),
+    }
+
+
 def _holm_bonferroni(p_values: Sequence[float], alpha: float = 0.05) -> Tuple[List[float], List[bool]]:
     m = len(p_values)
     indexed = sorted(enumerate(p_values), key=lambda kv: kv[1])
@@ -295,6 +341,24 @@ def _verify_embedded_payload_sha(doc: Dict[str, Any], label: str) -> str:
     ok = hmac.compare_digest(declared, h_ind) or hmac.compare_digest(declared, h_cmp)
     require_ok(ok, "EMBEDDED_SHA_MISMATCH", f"internal payload_sha256 mismatch in {label}")
     return declared
+
+
+def _receipt_self_sha(doc: Dict[str, Any]) -> str:
+    # Zone-B receipt self-hash convention: compact sorted JSON of the receipt minus the
+    # receipt_sha256 field itself, no trailing newline.
+    body = {k: v for k, v in doc.items() if k != "receipt_sha256"}
+    raw = json.dumps(body, sort_keys=True, separators=(",", ":"), allow_nan=False).encode("utf-8")
+    return hashlib.sha256(raw).hexdigest()
+
+
+def _parse_iso_utc(val: Any, label: str) -> datetime:
+    require_ok(type(val) is str and val.endswith("Z"), "BAD_TIMESTAMP", f"{label} must be an ISO-8601 Z timestamp")
+    try:
+        dt = datetime.fromisoformat(val[:-1] + "+00:00")
+    except ValueError:
+        raise S110AuditError("BAD_TIMESTAMP", f"{label} unparseable: {val!r}")
+    require_ok(dt.tzinfo is not None, "BAD_TIMESTAMP", f"{label} missing tz")
+    return dt.astimezone(timezone.utc)
 
 
 # ---------------------------------------------------------------------------
@@ -353,18 +417,50 @@ def _build_certificate_impl(evidence_dir: Path) -> Dict[str, Any]:
     require_ok(preflight.get("all_gates_passed") is True, "PREFLIGHT_NOT_PASSED", "CPU preflight all_gates_passed != True")
     require_ok(preflight.get("gates_passed") == 10 and preflight.get("gates_total") == 10, "PREFLIGHT_COUNT_MISMATCH", "CPU preflight gates != 10/10")
 
-    # 4. Verify 3/3 Zone-B hardware receipts
+    # 4. Verify 3/3 Zone-B hardware receipts: self-hash, results-file binding, and time window
     zone_b_summary: Dict[str, Any] = {}
-    for zname in ("mlos_zone_b_s110_microbench.json", "mlos_zone_b_s110_h10a.json", "mlos_zone_b_s110_h10b.json"):
+    receipt_windows: Dict[str, Tuple[datetime, datetime]] = {}
+    for zname, bound_files in RECEIPT_BINDINGS.items():
         z = parsed[zname]
         require_ok(z.get("clean_hardware_run") is True, "ZONE_B_UNCLEAN", f"{zname} clean_hardware_run != True")
         anoms = z.get("anomalies")
         require_ok(type(anoms) is list and len(anoms) == 0, "ZONE_B_ANOMALIES", f"{zname} has anomalies: {anoms}")
+        # 4a. Recompute the internal receipt_sha256 (canonical compact JSON minus the self field).
+        declared_rsha = require_hex_sha256(z.get("receipt_sha256"), f"{zname}.receipt_sha256")
+        recomp_rsha = _receipt_self_sha(z)
+        require_ok(hmac.compare_digest(declared_rsha, recomp_rsha), "RECEIPT_SHA_MISMATCH", f"{zname} receipt_sha256 mismatch")
+        # 4b. Bind the receipt to the sha256 of every results file it describes (fail on swap).
+        bnd = z.get("bound_results_sha256")
+        require_ok(type(bnd) is dict and set(bnd.keys()) == set(bound_files), "RECEIPT_BINDING_KEYS", f"{zname} bound_results_sha256 keys != {sorted(bound_files)}")
+        for bf in bound_files:
+            require_hex_sha256(bnd[bf], f"{zname}.bound_results_sha256[{bf}]")
+            require_ok(hmac.compare_digest(bnd[bf], file_digests[bf]["sha256"]), "RECEIPT_BINDING_MISMATCH", f"{zname} not bound to {bf} (receipt swap or results edit)")
+        # 4c. Execution window: positive duration, sane ordering, duration matches the window.
+        ex = z.get("execution")
+        require_ok(type(ex) is dict, "RECEIPT_NO_EXECUTION", f"{zname} missing execution block")
+        dur = ex.get("duration_ms")
+        require_ok(type(dur) is float and dur > 0.0, "RECEIPT_BAD_DURATION", f"{zname} duration_ms={dur!r}")
+        started = _parse_iso_utc(ex.get("started_utc"), f"{zname}.started_utc")
+        ended = _parse_iso_utc(ex.get("ended_utc"), f"{zname}.ended_utc")
+        require_ok(started < ended, "RECEIPT_WINDOW_INVERTED", f"{zname} started_utc >= ended_utc")
+        win_ms = (ended - started).total_seconds() * 1000.0
+        require_ok(abs(dur - win_ms) <= 1000.0, "RECEIPT_DURATION_WINDOW_MISMATCH", f"{zname} duration_ms={dur} != window {win_ms:.3f} ms")
+        gh = z.get("git_head")
+        require_ok(gh is None or (type(gh) is str and len(gh) == 64), "RECEIPT_BAD_GIT_HEAD", f"{zname} git_head must be null or a 64-hex sha")
+        receipt_windows[zname] = (started, ended)
         zone_b_summary[zname] = {
             "clean_hardware_run": True,
             "anomalies_count": 0,
             "sha256": file_digests[zname]["sha256"],
+            "receipt_sha256": declared_rsha,
+            "bound_results": sorted(bound_files),
+            "window_utc": [ex["started_utc"], ex["ended_utc"]],
+            "duration_ms": dur,
         }
+    # 4d. Cross-receipt ordering: microbench -> H10a -> H10b must be non-overlapping, in order.
+    order = ["mlos_zone_b_s110_microbench.json", "mlos_zone_b_s110_h10a.json", "mlos_zone_b_s110_h10b.json"]
+    for prev, nxt in zip(order, order[1:]):
+        require_ok(receipt_windows[prev][1] <= receipt_windows[nxt][0], "RECEIPT_WINDOW_OVERLAP", f"{prev} ends after {nxt} starts")
 
     # 5. Verify disjoint corpus equality across H10a & H10b
     c_a = h10a.get("corpus")
@@ -409,6 +505,8 @@ def _build_certificate_impl(evidence_dir: Path) -> Dict[str, Any]:
 
     arm_metrics: Dict[str, Dict[str, Any]] = {}
     bpb512_by_arm: Dict[str, List[float]] = {}
+    r6_by_arm: Dict[str, List[float]] = {}
+    m1h1_by_arm: Dict[str, List[float]] = {}
     for arm in list(EXPECTED_H10A_ARMS) + list(EXPECTED_H10B_ARMS):
         rs = sorted(by_arm[arm], key=lambda x: int(x["seed"]))
         seeds = [int(x["seed"]) for x in rs]
@@ -419,6 +517,8 @@ def _build_certificate_impl(evidence_dir: Path) -> Dict[str, Any]:
         m1h1 = [float(x["ptq_3b"]["m1_h1_loop_drift"]["delta_3_over_delta_1"]) for x in rs]
         kl3 = [float(x["ptq_3b"]["ptq_kl_nats"]) for x in rs]
         bpb512_by_arm[arm] = b512
+        r6_by_arm[arm] = br6
+        m1h1_by_arm[arm] = m1h1
         m512, se512 = _mean_se(b512)
         m1024, _ = _mean_se(b1024)
         mr6, _ = _mean_se(br6)
@@ -435,47 +535,100 @@ def _build_certificate_impl(evidence_dir: Path) -> Dict[str, Any]:
             "ptq_3b_kl_mean": round(mkl, 6),
         }
 
-    # 7. Recompute Stage-1 H10a Holm-Bonferroni & paired verdicts
+    # 7. Recompute Stage-1 H10a Holm-Bonferroni & paired verdicts (normal-z AND exact t[df=2])
     h10a_shells = list(EXPECTED_H10A_ARMS[1:])
     h10a_pairs: Dict[str, Dict[str, Any]] = {}
     p_raw_a: List[float] = []
+    p_raw_t_a: List[float] = []
     for sh in h10a_shells:
         st = _paired_z_p(bpb512_by_arm["H10a_Baseline_Loop"], bpb512_by_arm[sh])
+        st_t = _paired_t_p(bpb512_by_arm["H10a_Baseline_Loop"], bpb512_by_arm[sh])
+        st["t_stat"] = st_t["t_stat"]
+        st["p_one_sided_t"] = st_t["p_one_sided_t"]
         h10a_pairs[sh] = st
         p_raw_a.append(st["p_one_sided"])
+        p_raw_t_a.append(st_t["p_one_sided_t"])
     adj_a, rej_a = _holm_bonferroni(p_raw_a, alpha=0.05)
+    adj_t_a, rej_t_a = _holm_bonferroni(p_raw_t_a, alpha=0.05)
     for idx, sh in enumerate(h10a_shells):
         h10a_pairs[sh]["holm_adjusted_p"] = adj_a[idx]
         h10a_pairs[sh]["holm_significant"] = rej_a[idx]
+        h10a_pairs[sh]["holm_adjusted_p_t"] = adj_t_a[idx]
+        h10a_pairs[sh]["holm_significant_t"] = rej_t_a[idx]
 
     cay = h10a_pairs["H10a_Shell1_Cayley2x2"]
     h10a_sig_count = sum(1 for x in rej_a if x)
-    require_ok(h10a_sig_count == 1, "H10A_SIG_COUNT_MISMATCH", f"expected exactly 1/4 Holm-significant H10a shell, got {h10a_sig_count}")
-    require_ok(cay["holm_significant"] is True and cay["z_score"] >= 2.0, "H10A_CAYLEY_VERDICT_MISMATCH", "Shell1_Cayley2x2 failed BPB-512 confirmation")
-    require_ok(arm_metrics["H10a_Shell1_Cayley2x2"]["bpb_r6_mean"] > 5.0, "H10A_R6_WALL_MISMATCH", "expected R=6 phase wall on Shell1_Cayley2x2")
+    h10a_sig_count_t = sum(1 for x in rej_t_a if x)
 
-    # 8. Recompute Stage-2 H10b LOSO Holm-Bonferroni & N0 baseline comparisons
+    # 7b. Preregistered Shell-Dynamo earn-keep per shell (PREREG-S110 :40): >= 15% M1-H1
+    # reduction OR >= 5% better R_test=6, each at >= 2 SE paired z vs Baseline_Loop. This is
+    # the graded Stage-1 gate; BPB-512 Holm above is reported, not the earn-keep.
+    base_m1 = m1h1_by_arm["H10a_Baseline_Loop"]
+    base_r6 = r6_by_arm["H10a_Baseline_Loop"]
+    base_m1_mean = sum(base_m1) / float(len(base_m1))
+    base_r6_mean = sum(base_r6) / float(len(base_r6))
+    shell_earn_keep: Dict[str, Dict[str, Any]] = {}
+    for sh in h10a_shells:
+        st_m1 = _paired_z_p(base_m1, m1h1_by_arm[sh])
+        st_r6 = _paired_z_p(base_r6, r6_by_arm[sh])
+        m1_red_pct = 100.0 * st_m1["mean_gain"] / base_m1_mean if abs(base_m1_mean) > 1e-12 else 0.0
+        r6_red_pct = 100.0 * st_r6["mean_gain"] / base_r6_mean if abs(base_r6_mean) > 1e-12 else 0.0
+        earn_m1 = (m1_red_pct >= EARN_KEEP_M1H1_REDUCTION_PCT) and (st_m1["z_score"] >= EARN_KEEP_MIN_Z)
+        earn_r6 = (r6_red_pct >= EARN_KEEP_R6_REDUCTION_PCT) and (st_r6["z_score"] >= EARN_KEEP_MIN_Z)
+        earn = earn_m1 or earn_r6
+        shell_earn_keep[sh] = {
+            "m1_h1_reduction_pct": round(m1_red_pct, 4),
+            "m1_h1_z": st_m1["z_score"],
+            "r6_reduction_pct": round(r6_red_pct, 4),
+            "r6_z": st_r6["z_score"],
+            "earn_keep_m1_h1": earn_m1,
+            "earn_keep_r6": earn_r6,
+            "verdict": "CONFIRMED" if earn else "FALSIFIED",
+        }
+
+    # 7c. Amendment-1 sm_86 pre-gate: shells with > 15% full-model train-step overhead are PRUNED.
+    step_bench = mb_cufft["microbench"]["full_model_train_step_bench"]
+    shell_step_overhead: Dict[str, float] = {}
+    shell_verdicts: Dict[str, str] = {}
+    for sh in h10a_shells:
+        ovh = float(step_bench[sh]["step_overhead_pct_vs_baseline"])
+        shell_step_overhead[sh] = ovh
+        pruned = ovh > PRUNE_STEP_OVERHEAD_PCT
+        shell_verdicts[sh] = "PRUNED" if pruned else shell_earn_keep[sh]["verdict"]
+
+    # 8. Recompute Stage-2 H10b LOSO Holm-Bonferroni & N0 baseline comparisons (z and t)
     loso_arms = ["H10b_LOSO_NoCayley", "H10b_LOSO_NoBingham", "H10b_LOSO_NoDarcyEMA", "H10b_LOSO_NoACTDraft"]
     loso_pairs: Dict[str, Dict[str, Any]] = {}
     p_raw_b: List[float] = []
+    p_raw_t_b: List[float] = []
     for la in loso_arms:
         # Positive gain means removing shell hurt (increased BPB)
         st = _paired_z_p(bpb512_by_arm[la], bpb512_by_arm["H10b_Geosphere_Full"])
+        st_t = _paired_t_p(bpb512_by_arm[la], bpb512_by_arm["H10b_Geosphere_Full"])
+        st["t_stat"] = st_t["t_stat"]
+        st["p_one_sided_t"] = st_t["p_one_sided_t"]
         loso_pairs[la] = st
         p_raw_b.append(st["p_one_sided"])
+        p_raw_t_b.append(st_t["p_one_sided_t"])
     adj_b, rej_b = _holm_bonferroni(p_raw_b, alpha=0.05)
+    adj_t_b, rej_t_b = _holm_bonferroni(p_raw_t_b, alpha=0.05)
     for idx, la in enumerate(loso_arms):
         loso_pairs[la]["holm_adjusted_p"] = adj_b[idx]
         loso_pairs[la]["holm_significant"] = rej_b[idx]
+        loso_pairs[la]["holm_adjusted_p_t"] = adj_t_b[idx]
+        loso_pairs[la]["holm_significant_t"] = rej_t_b[idx]
     loso_sig_count = sum(1 for x in rej_b if x)
-    require_ok(loso_sig_count == 0, "H10B_LOSO_MISMATCH", f"expected 0/4 significant LOSO shells, got {loso_sig_count}")
+    loso_sig_count_t = sum(1 for x in rej_t_b if x)
 
     n0_anchors = ["N0_nGPT_Loop_15M", "N0_Monolithic_Loop_15M", "N0_English_CoT_15M", "N0_nGPT_Unlooped_15M"]
     full_vs_n0: Dict[str, Dict[str, Any]] = {}
     for anc in n0_anchors:
         st = _paired_z_p(bpb512_by_arm[anc], bpb512_by_arm["H10b_Geosphere_Full"])
-        require_ok(st["mean_gain"] < 0.0, "H10B_N0_MISMATCH", f"expected Geosphere_Full BPB > {anc} (mean_gain < 0)")
+        st_t = _paired_t_p(bpb512_by_arm[anc], bpb512_by_arm["H10b_Geosphere_Full"])
+        st["t_stat"] = st_t["t_stat"]
+        st["p_one_sided_t"] = st_t["p_one_sided_t"]
         full_vs_n0[anc] = st
+    n0_anchors_beaten = sum(1 for st in full_vs_n0.values() if st["mean_gain"] < 0.0)
 
     # 8b. Recompute exact Portal-3 Beltrami [C,K]=0 & per-seed Rayleigh ceiling across all 15 Cayley runs
     cay_runs = [r for r in all_runs if r.get("beltrami_commutator_diag") is not None]
@@ -496,17 +649,28 @@ def _build_certificate_impl(evidence_dir: Path) -> Dict[str, Any]:
         recorded_pass = op_data.get("gate_status") == "PASS"
         require_ok(recomp_pass == recorded_pass, "MICROBENCH_ARITH_MISMATCH", f"{op_name} gate_status mismatch with op_ms/ref_block_ms={ratio:.4f}")
         (pass_ops if recomp_pass else prune_ops).append(op_name)
-    require_ok(len(pass_ops) == 3 and len(prune_ops) == 2, "MICROBENCH_GATE_MISMATCH", f"unexpected microbench pass/prune split: {pass_ops} / {prune_ops}")
 
+    # 10. Derive every certificate verdict from the preregistered gates (no hardcoded literals,
+    # no expected-pattern locks): microbench PASS/PRUNE, per-shell earn-keep + prune flags,
+    # Stage-1/Stage-2 outcomes, and the novelty tier all follow from the recomputed numbers.
+    h10a_confirmed = any(v == "CONFIRMED" for v in shell_verdicts.values())
+    microbench_verdict = "PRUNE" if len(prune_ops) > 0 else "PASS"
+    h10a_single_shell_verdict = "CONFIRMED" if h10a_confirmed else "FALSIFIED"
+    # BPB-512 headline graded on the conservative exact-t Holm (df = 2), not the normal-z p.
+    cay_bpb512_verdict = "CONFIRMED" if cay["holm_significant_t"] else "FALSIFIED"
+    h10b_verdict = "CONFIRMED" if loso_sig_count > 0 else "FALSIFIED"
     verdicts = {
-        "sm86_microbench": "PARTIAL",
-        "H10a_single_shell": "PARTIAL",
-        "H10a_Shell1_Cayley2x2_bpb512": "CONFIRMED",
-        "H10b_coupled_loso": "FALSIFIED",
+        "sm86_microbench": microbench_verdict,
+        "H10a_single_shell": h10a_single_shell_verdict,
+        "H10a_Shell1_Cayley2x2_bpb512": cay_bpb512_verdict,
+        "H10b_coupled_loso": h10b_verdict,
     }
+    # Prereg :14: a single matching N0 anchor grades N0; genuine N1/N2 requires coupled
+    # multi-shell synergy, i.e. H10b CONFIRMED.
+    novelty_tier = "N1" if h10b_verdict == "CONFIRMED" else "N0"
 
     payload: Dict[str, Any] = {
-        "novelty_tier": "N1",
+        "novelty_tier": novelty_tier,
         "n2_claims": 0,
         "weights_count": 0,
         "prereg_s110_sha256": PREREG_S110_SHA256,
@@ -542,10 +706,17 @@ def _build_certificate_impl(evidence_dir: Path) -> Dict[str, Any]:
             "darcy_cufft_op_ms": ops_cufft["op3_darcy_diagonal_ema"]["op_ms"],
         },
         "verdicts": verdicts,
+        "shell_earn_keep": shell_earn_keep,
+        "shell_step_overhead_pct": shell_step_overhead,
+        "shell_verdicts": shell_verdicts,
         "h10a_vs_baseline_bpb": h10a_pairs,
+        "h10a_holm_significant_count": h10a_sig_count,
+        "h10a_holm_significant_count_t": h10a_sig_count_t,
         "h10b_loso_bpb": loso_pairs,
         "h10b_loso_holm_significant_count": loso_sig_count,
+        "h10b_loso_holm_significant_count_t": loso_sig_count_t,
         "h10b_full_vs_n0_bpb": full_vs_n0,
+        "h10b_n0_anchors_beaten": n0_anchors_beaten,
         "beltrami_cayley_post_train": {
             "cayley_runs_checked": len(cay_runs),
             "max_commutator_frob": max_cay_comm,
