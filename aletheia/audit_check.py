@@ -40,6 +40,7 @@ from .lean_r13b import (
     audit_lean4_directory_r13b_artifacts,
     audit_lean4_lake_manifest,
     audit_lean4_lake_manifest_text,
+    audit_lean4_lakefile,
     extract_custom_lean4_interp_prefixes,
     is_ambiguous_lean4_hash_command,
     is_lean4_id_first,
@@ -49,6 +50,8 @@ from .lean_r13b import (
     match_lean4_char_literal_end,
     match_lean4_hash_command_end,
     normalize_lean4_module_name,
+    parse_lakefile_lean_requires,
+    parse_lakefile_toml_requires,
     scan_lean4_axiom_log_text,
     scan_lean4_bv_decide_source,
     scan_lean4_numeric_literal_end,
@@ -1540,7 +1543,7 @@ def audit_lean4_directory(
     forbidden_import_prefixes: Sequence[str] = (),
     allow_external_packages: bool = False,
 ) -> dict[str, Any]:
-    """Scan all `.lean` files, `lake-manifest.json` manifests, and axiom-audit logs under `root`."""
+    """Scan all `.lean` files, `lakefile.{toml,lean}` configs, `lake-manifest.json` manifests, and axiom-audit logs under `root`."""
     lean_files = [root] if root.is_file() and root.suffix == ".lean" else [
         p for p in sorted(root.rglob("*.lean"))
         if p.is_file() and not any(part in SKIP_DIRS or part == ".lake" for part in p.relative_to(root).parts)
@@ -1569,6 +1572,7 @@ def audit_lean4_directory(
     return {
         "files_checked": len(lean_files),
         "manifests_checked": r13b_extra["manifests_checked"],
+        "lakefiles_checked": r13b_extra["lakefiles_checked"],
         "axiom_logs_checked": r13b_extra["axiom_logs_checked"],
         "clean": len(all_findings) == 0,
         "findings": all_findings,
