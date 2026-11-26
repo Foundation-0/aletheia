@@ -1,11 +1,11 @@
 {
   "schema": "aletheia.track_s108.corpus_manifest.v1",
-  "note": "Complete per-file manifest (relative path, split assignment, byte length, and SHA-256) for all 4 domains in the 51-run gpu-full evaluation. Both python (CPython 3.12.10/11/12 Lib/) and abios_calculus (public Moissanite-Labs/abios@753300553abd60ceca37915cb016996229ac0a13, 104 files) rebuild byte-exact from public repositories; english rebuilds from HuggingFace wikitext/wikitext-2-v1 (per-file SHA-256s below); arabic lists all 78 exact run-time files (10 from public Foundation-0/bayt-al-hikma@15d48261df82fe010a9731c6cc174001c34f9284 + 68 .lean files) whose split_rule concatenation reproduces split_sha256 byte-exact. gpu-full mode fails closed (CORPUS_SOURCE_MISSING) when any local source is absent.",
+  "note": "Complete per-file manifest (relative path, split assignment, byte length, and SHA-256) for all 4 domains in the 51-run gpu-full evaluation. All 4 domains rebuild byte-exact: english (HuggingFace Salesforce/wikitext@b08601e04326c79dfdd32d625aee71d232d685c3 config 'wikitext-2-raw-v1', non-empty \"\\n\".join serialization), python (CPython 3.12.10..3.12.16 Lib/), abios_calculus (public Moissanite-Labs/abios@753300553abd60ceca37915cb016996229ac0a13, 104 files), and arabic (all 78 exact run-time files: 10 from public Foundation-0/bayt-al-hikma@15d48261df82fe010a9731c6cc174001c34f9284 + 68 .lean files). gpu-full mode fails closed (CORPUS_SOURCE_MISSING) when any local source is absent.",
   "harness_interpreter": "CPython 3.12.x (digest-proven: python-domain split sha256 eb47ed59b433... rebuilds byte-exact on CPython 3.12.10/11/12, not on 3.14.8)",
   "mlos_receipt_interpreter": "CPython 3.14.8",
   "domains": {
     "english": {
-      "source": "HuggingFace dataset 'wikitext', config 'wikitext-2-v1' (validation split -> train, test split -> eval)",
+      "source": "HuggingFace dataset 'Salesforce/wikitext' (rev b08601e04326c79dfdd32d625aee71d232d685c3), config 'wikitext-2-raw-v1' (validation split -> train, test split -> eval)",
       "train_bytes": 262144,
       "eval_bytes": 87381,
       "split_sha256": "c7767b125fd4d942054a261bda43a18f5ec7f92330ae0987b1c5e63f08b6f384",
@@ -26,7 +26,7 @@
           "sha256": "430983e5a711fbc4c6576edffecacf47ff23d58f62f3923d2386d798e0a794c9"
         }
       ],
-      "recipe": "Load HuggingFace dataset 'wikitext', config 'wikitext-2-v1' (parquet splits validation and test); save validation text as wikitext2_val.txt (1,146,708 B, sha256 93abc2e0cd80...) and test text as wikitext2_test.txt (1,290,546 B, sha256 430983e5a711...); train = _snap_utf8_slice(val, 0, 262144), eval = _snap_utf8_slice(test, 0, 87381); split_sha256 = sha256(train + b'\\x00' + eval). (Note: raw wikitext-2-raw-v1 zip differs; processed wikitext-2-v1 splits match the hashes above.)"
+      "recipe": "Load HuggingFace dataset 'Salesforce/wikitext' (rev b08601e04326c79dfdd32d625aee71d232d685c3), config 'wikitext-2-raw-v1' (parquet splits validation and test); serialize each split as \"\\n\".join(row for row in rows if row.strip()).encode('utf-8') -> wikitext2_val.txt (1,146,708 B, sha256 93abc2e0cd80...) and wikitext2_test.txt (1,290,546 B, sha256 430983e5a711...); train = _snap_utf8_slice(val, 0, 262144), eval = _snap_utf8_slice(test, 0, 87381); split_sha256 = sha256(train + b'\\x00' + eval)."
     },
     "python": {
       "source": "CPython 3.12 stdlib Lib/ modules, strictly file-disjoint (5 train vs 4 eval)",

@@ -245,7 +245,7 @@ class TestTrackS108TokenizerLoopAuditR5(unittest.TestCase):
 
     def test_18_receipt_window_inclusive_boundaries(self) -> None:
         # Verify inclusive boundaries started == proto_created_utc and proto_created_utc == ended
-        # both pass (:142), killing `<` vs `<=` boundary mutants, while outside-by-1s fails.
+        # both pass (:142), killing `<` vs `<=` boundary mutants, exact == boundary passes (outside-window rejection covered by test_11).
         with tempfile.TemporaryDirectory() as td:
             td_path = Path(td)
             _copy_track_tree(td_path)
