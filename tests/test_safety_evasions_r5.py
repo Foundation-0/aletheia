@@ -8,6 +8,7 @@ assembled programmatically so this file itself scans clean under
 from __future__ import annotations
 
 import errno
+import io
 import json
 import os
 from pathlib import Path
@@ -951,6 +952,70 @@ class TestSafetyEvasionsAndBounds(unittest.TestCase):
         res = safety.scan_text_safety_surface((_SH + " -c '") * 64000, "flood.sh")
         self.assertLess(time.process_time() - t1, 15.0)
         self.assertTrue(res["clean"])
+
+    def test_09_max_file_bytes_cli_override(self) -> None:
+        # Strict parser: ASCII [1-9][0-9]{0,15} only (int() would accept or coerce every rejected form)
+        for good, val in (("1", 1), ("64", 64), ("2097152", 2097152), ("9" * 16, int("9" * 16))):
+            self.assertEqual(safety.parse_max_file_bytes_arg(good), val)
+        for bad in ("0", "", "012", "+5", "-5", " 5", "5 ", "5\n", "1_000", "\u0665", "5.0", "1e3", "9" * 17, "00"):
+            with self.assertRaises(ValueError, msg=repr(bad)):
+                safety.parse_max_file_bytes_arg(bad)
+        for bad_obj in (5, None, b"5"):
+            with self.assertRaises(ValueError, msg=repr(bad_obj)):
+                safety.parse_max_file_bytes_arg(bad_obj)
+        self.assertEqual(safety.validate_max_file_bytes(1), 1)
+        for bad_cap in (True, False, 0, -1, 1.0, "1", None):
+            with self.assertRaises(AletheiaError) as ctx:
+                safety.validate_max_file_bytes(bad_cap)
+            self.assertEqual(ctx.exception.code, "SAFETY_INVALID_MAX_BYTES")
+
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td) / "cap_case"
+            root.mkdir()
+            (root / "data.txt").write_bytes(b"a" * 65)
+
+            def _run(argv: list[str]) -> tuple[int, dict[str, object]]:
+                with mock.patch("sys.stdout", new_callable=io.StringIO) as out:
+                    rc = cli_main(argv)
+                return rc, json.loads(out.getvalue())
+
+            # safety-scan: default unchanged, override honoured at the exact boundary
+            rc_def, rep_def = _run(["safety-scan", str(root), "--json"])
+            self.assertEqual((rc_def, rep_def["files_scanned"]), (0, 1))
+            rc_64, rep_64 = _run(["safety-scan", str(root), "--max-file-bytes", "64", "--json"])
+            self.assertEqual(rc_64, 1)
+            self.assertEqual(rep_64["skipped_files"], [{"file": "data.txt", "reason": "file_size_limit_exceeded"}])
+            rc_65, rep_65 = _run(["safety-scan", str(root), "--max-file-bytes", "65", "--json"])
+            self.assertEqual((rc_65, rep_65["clean"]), (0, True))
+
+            # audit-check --safety-scan --safety-max-file-bytes
+            rc_a64, rep_a64 = _run(["audit-check", str(root), "--safety-scan", "--safety-max-file-bytes", "64", "--json"])
+            self.assertEqual(rc_a64, 1)
+            self.assertEqual(
+                rep_a64["safety_scan"]["skipped_files"],  # type: ignore[index]
+                [{"file": "data.txt", "reason": "file_size_limit_exceeded"}],
+            )
+            rc_a65, rep_a65 = _run(["audit-check", str(root), "--safety-scan", "--safety-max-file-bytes", "65", "--json"])
+            self.assertEqual(rc_a65, 0, msg=str(rep_a65.get("failures")))
+            self.assertTrue(rep_a65["safety_scan"]["clean"])  # type: ignore[index]
+            # Fail closed: the override without --safety-scan is refused, not silently ignored
+            rc_noscan, rep_noscan = _run(["audit-check", str(root), "--safety-max-file-bytes", "64", "--json"])
+            self.assertEqual((rc_noscan, rep_noscan["code"]), (2, "SAFETY_MAX_BYTES_WITHOUT_SCAN"))
+            with self.assertRaises(AletheiaError) as ctx_api:
+                audit_check.run_audit_check(root, safety_scan=True, safety_max_file_bytes=True)  # type: ignore[arg-type]
+            self.assertEqual(ctx_api.exception.code, "SAFETY_INVALID_MAX_BYTES")
+            api_ok = audit_check.run_audit_check(root, safety_scan=True, safety_max_file_bytes=65)
+            self.assertTrue(api_ok["passed"], msg=str(api_ok["failures"]))
+
+            # Bad CLI values exit 2 via argparse on both entry points
+            for argv in (
+                ["safety-scan", str(root), "--max-file-bytes", "0"],
+                ["safety-scan", str(root), "--max-file-bytes", "1_000"],
+                ["audit-check", str(root), "--safety-scan", "--safety-max-file-bytes", "-1"],
+            ):
+                with mock.patch("sys.stderr", new_callable=io.StringIO), self.assertRaises(SystemExit) as ctx_exit:
+                    cli_main(argv)
+                self.assertEqual(ctx_exit.exception.code, 2, msg=str(argv))
 
     def test_10_positional_shell_c_scripts_under_find_exec_and_xargs(self) -> None:
         # Previously missed: the rm script only sees "$1" / {} so no named variable fires

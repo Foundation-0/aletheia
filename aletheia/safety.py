@@ -39,6 +39,8 @@ MAX_JSON_NUMBER_CHARS = 4300
 MAX_SCAN_FILE_BYTES = 2 * 1024 * 1024
 _READ_CHUNK_BYTES = 65536
 _MAX_SHELL_NESTING = 8
+# Strict CLI form of a `--max-file-bytes` override: ASCII decimal, no sign/whitespace/underscores/leading zero.
+_MAX_FILE_BYTES_ARG_RE = re.compile(r"[1-9][0-9]{0,15}")
 
 _ZERO_WIDTH_CODEPOINTS = frozenset(
     {0x00AD, 0x200B, 0x200C, 0x200D, 0x200E, 0x200F, 0x2060, 0x2061, 0x2062, 0x2063, 0x2064, 0xFEFF}
@@ -1413,6 +1415,24 @@ def scan_text_safety_surface(
     }
 
 
+def validate_max_file_bytes(value: Any) -> int:
+    """Return `value` if it is a strict positive `int` (not `bool`); else raise `SAFETY_INVALID_MAX_BYTES`."""
+    if type(value) is not int or value < 1:
+        raise AletheiaError("SAFETY_INVALID_MAX_BYTES", "max_file_bytes must be a positive int")
+    return value
+
+
+def parse_max_file_bytes_arg(text: Any) -> int:
+    """Parse a CLI `--max-file-bytes` value strictly: ASCII digits `[1-9][0-9]{0,15}` only.
+
+    Rejects (ValueError) signs, whitespace, underscores, leading zeros, non-ASCII digits, and zero,
+    all of which `int()` would otherwise accept or coerce.
+    """
+    if not isinstance(text, str) or _MAX_FILE_BYTES_ARG_RE.fullmatch(text) is None:
+        raise ValueError("SAFETY_INVALID_MAX_BYTES")
+    return validate_max_file_bytes(int(text))
+
+
 def scan_directory_safety_surface(
     target_path: Path,
     *,
@@ -1432,8 +1452,7 @@ def scan_directory_safety_surface(
     as FIFOs, sockets, and devices), undecodable/binary/NUL-containing files (including UTF-32 with
     BOM), or unreadable files/directories are present.
     """
-    if type(max_file_bytes) is not int or max_file_bytes < 1:
-        raise AletheiaError("SAFETY_INVALID_MAX_BYTES", "max_file_bytes must be a positive int")
+    validate_max_file_bytes(max_file_bytes)
     try:
         top_lst = os.lstat(target_path)
     except FileNotFoundError:
