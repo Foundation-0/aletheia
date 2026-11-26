@@ -1,0 +1,95 @@
+{
+  "anomalies": [],
+  "bound_result_file_sha256": "6343592ebc8c2427cfee2ea55cbf09005d1fafa4cc8f6d2af23bd7769cabd252",
+  "clean_hardware_run": true,
+  "determinism_pins": {
+    "CUBLAS_WORKSPACE_CONFIG": ":4096:8",
+    "HF_HUB_OFFLINE": "1",
+    "MKL_NUM_THREADS": "1",
+    "NUMEXPR_NUM_THREADS": "1",
+    "OMP_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "1",
+    "PYTHONHASHSEED": "0",
+    "TORCH_USE_DETERMINISTIC_ALGORITHMS": "1",
+    "TRANSFORMERS_OFFLINE": "1",
+    "VECLIB_MAXIMUM_THREADS": "1"
+  },
+  "determinism_zone": "B",
+  "end_gpu_telemetry": {
+    "clocks_event_reasons": {
+      "bitmask": 1024,
+      "decoded_reasons": [],
+      "raw": "0x0000000000000400",
+      "slowdown_active": false,
+      "thermal_throttled": false
+    },
+    "clocks_mem_mhz": 6001,
+    "clocks_sm_mhz": 1710,
+    "compute_processes": [],
+    "compute_vram_mib": 0,
+    "driver_version": "615.78.08",
+    "gpu_name": "NVIDIA GeForce RTX 3080 Laptop GPU",
+    "gpu_processes_queried": true,
+    "graphics_processes": [],
+    "linux_kmd_baseline_vram_mib": 2,
+    "memory_free_mib": 7893,
+    "memory_used_mib": 2,
+    "non_compute_desktop_vram_mib": 2,
+    "power_draw_w": 36.93,
+    "power_limit_w": null,
+    "pstate": "P0",
+    "temperature_gpu_c": 72,
+    "vbios_version": "94.04.49.00.51"
+  },
+  "execution": {
+    "command_argc": 14,
+    "command_exe": "python",
+    "duration_ms": 1568540.898,
+    "ended_utc": "2026-11-26T01:25:58Z",
+    "exit_code": 0,
+    "started_utc": "2026-11-26T00:59:50Z"
+  },
+  "git_head": null,
+  "gpu_telemetry_available": true,
+  "host": {
+    "cpu_isa": "x86_64",
+    "host_os": "linux",
+    "os_release": "7.2.15-1-omarchy",
+    "python_version": "3.14.8"
+  },
+  "original_unmodified_run_receipt_sha256": "782e455bf1a9dadc236b9e6c989fb27cd1bec31c2287061b952c18e17534e9c6",
+  "preregistration_sha256": "0f58e288d2a11a0308fb7b004904c49c90eb592df3d0e00c2f155bacaf81eaf2",
+  "profile_id": "ux582hs-rtx3080-8gb",
+  "profile_sha256": "566c9192d38682a0ec4d652a63a3510aaefb9dc20ef91ae9bdc6d4abbbf5cbe2",
+  "receipt_sha256": "77e7ad8b35ff37e2873511ecf66f3de2c6fe2fc1e0b30ec2875fbc3107fc0bf1",
+  "result_sha256": "bc41be752cd4363973d11b33584728cf3c35527fe9dd8fffcc0e27bd1ccd3637",
+  "schema": "mlos-run-receipt/v0.1",
+  "start_gpu_telemetry": {
+    "clocks_event_reasons": {
+      "bitmask": 1,
+      "decoded_reasons": [
+        "GpuIdle"
+      ],
+      "raw": "0x0000000000000001",
+      "slowdown_active": false,
+      "thermal_throttled": false
+    },
+    "clocks_mem_mhz": 405,
+    "clocks_sm_mhz": 210,
+    "compute_processes": [],
+    "compute_vram_mib": 0,
+    "driver_version": "615.78.08",
+    "gpu_name": "NVIDIA GeForce RTX 3080 Laptop GPU",
+    "gpu_processes_queried": true,
+    "graphics_processes": [],
+    "linux_kmd_baseline_vram_mib": 2,
+    "memory_free_mib": 7893,
+    "memory_used_mib": 2,
+    "non_compute_desktop_vram_mib": 2,
+    "power_draw_w": 13.34,
+    "power_limit_w": null,
+    "pstate": "P8",
+    "temperature_gpu_c": 56,
+    "vbios_version": "94.04.49.00.51"
+  }
+}
