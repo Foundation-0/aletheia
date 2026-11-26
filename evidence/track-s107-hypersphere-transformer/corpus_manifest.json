@@ -1,0 +1,143 @@
+{
+  "honesty_disclosure": "The WikiText-2-raw-v1 validation and test parquet inputs are public and pinned below by exact Hugging Face dataset revision and SHA-256 (wikitext2_test accounts for 1,290,546 bytes = 76.4% of H7a eval and 75.1% of H7b/H7c eval). The python_code and json_traces partitions were assembled by globbing track-s*/*.py (<=120,000 B) and track-s*/*.json (<=80,000 B), excluding track-s107, from a live local expedition workspace outside this repository, split 80/20 by sha256(filename)[0] < 204 up to byte caps (1,000,000 / 250,000 / 400,000 / 120,000). Concurrent tracks added and modified local track-s* files during H7a and after H7b/H7c. Consequently: (1) H7a's held-out eval stream (ee88d7b3f67b5676563372b8dc8ce154e94dc7e2198247cf4f7d8515e1fba57b) is reproduced bit-for-bit locally from test-00000-of-00001.parquet plus the 14 relative files listed below, though not all 14 files reside in this repository; (2) the full H7a train byte stream (43a81400...) and the intermediate 15:28 UTC H7b/H7c train and eval byte streams (ea2f47fa..., 10024fe4...) cannot be reconstructed byte-for-byte from repository history alone.",
+  "reconstructible_from_repo_alone": false,
+  "schema_version": "aletheia.track_s107.corpus_manifest.v1",
+  "split_rule": {
+    "eval_predicate": "sha256(basename_utf8)[0] >= 204",
+    "excluded_substring": "track-s107",
+    "json_eval_cap_bytes": 120000,
+    "json_glob": "track-s*/*.json",
+    "json_max_file_bytes": 80000,
+    "json_train_cap_bytes": 400000,
+    "python_eval_cap_bytes": 250000,
+    "python_glob": "track-s*/*.py",
+    "python_max_file_bytes": 120000,
+    "python_train_cap_bytes": 1000000,
+    "source_script": "gpu_harnesses/s107_train_eval.py",
+    "train_predicate": "sha256(basename_utf8)[0] < 204"
+  },
+  "track_id": "track-s107-hypersphere-transformer",
+  "tracks": {
+    "h7a": {
+      "eval_combined_bytes": 1690187,
+      "eval_domain_sizes": {
+        "json_traces": 126194,
+        "python_code": 273445,
+        "wikitext2_test": 1290546
+      },
+      "eval_local_files_json_traces": [
+        {
+          "bytes": 15204,
+          "relative_path": "track-s104-kronecker-factored-embeddings-and-triple-gate/s104_kronecker_triple_gate_certificate.json",
+          "sha256": "634e1f54a3077f701928373e5d1839facc13259f1097f60419a318fcefb491fd"
+        },
+        {
+          "bytes": 7794,
+          "relative_path": "track-s110-geosphere-weft-conservation/s110_geosphere_weft_certificate.json",
+          "sha256": "2d27a8237cb47dd95f6aad09324d9487dbafe1f4363194a800239ea4e3b5eeba"
+        },
+        {
+          "bytes": 72606,
+          "relative_path": "track-s113-multisensor-silicon-physics/phase_b_manifest.json",
+          "sha256": "07d942b693f075d8d29ae39064ff119b863fb9add437805859f636a7a8a15a75"
+        },
+        {
+          "bytes": 1018,
+          "relative_path": "track-s113-multisensor-silicon-physics/phase_idle_manifest.json",
+          "sha256": "378c62db99fc122b27b6cd90ff6501ec4e8d808ec541fec14296ba41a576fc39"
+        },
+        {
+          "bytes": 4844,
+          "relative_path": "track-s20b-gate8-live-eval/gate8_live_eval_certificate.json",
+          "sha256": "9fb29f94600458f12a7f2da6925f94ca2cb478246c8aeac2b06eebbe611a7aa8"
+        },
+        {
+          "bytes": 2151,
+          "relative_path": "track-s20c-physical-telemetry-portal/FETCH_MANIFEST.json",
+          "sha256": "d582694ae0ae30c369c971794e8da2f65461c5361847599a1cc844086d22687a"
+        },
+        {
+          "bytes": 11276,
+          "relative_path": "track-s21c-aska-physical-zone-b-tomography/aska_zoneb_tomography_certificate.json",
+          "sha256": "8ef522a8d014ce58dc1f7e95d57a4855e600415d15bc0591a2844aa35427f497"
+        },
+        {
+          "bytes": 11293,
+          "relative_path": "track-s22b-odd-perfect-cyclotomic-spoofs/odd_perfect_cyclotomic_certificate.json",
+          "sha256": "6a30f9b113108dec0db2e11f70530a38237602e7daeae79b29b8d2e116f4a089"
+        }
+      ],
+      "eval_local_files_python_code": [
+        {
+          "bytes": 46485,
+          "relative_path": "track-s100-tokenpage-abios-scry-and-m1max-handoff/s100_tokenpage_handoff_oracle.py",
+          "sha256": "803b5d23e8071b12386d845ba8d9c1860e8cf51ae0545a439cd33bad4a4ebec2"
+        },
+        {
+          "bytes": 62130,
+          "relative_path": "track-s100-tokenpage-abios-scry-and-m1max-handoff/test_s100_tokenpage_handoff_r5.py",
+          "sha256": "f8f1741899f6ef819be091f2a46da58f64e4db803faec8f0721e60f2ce5cde91"
+        },
+        {
+          "bytes": 34229,
+          "relative_path": "track-s103-exoplanets-frontier-audit/s103_exoplanets_oracle.py",
+          "sha256": "c3475601a8329f8a1a869a78e5c16b55dd89a5a20aaa46d6f2bd2c8ebc4d7fc6"
+        },
+        {
+          "bytes": 63379,
+          "relative_path": "track-s103-exoplanets-frontier-audit/test_s103_exoplanets_r5.py",
+          "sha256": "8900cabc5ed5a6ccdca040d5109bdf4e01cad7a98a9bf040ba14a4f41d482390"
+        },
+        {
+          "bytes": 33615,
+          "relative_path": "track-s112-natural-systems-stage-b-lean/s112_natural_systems_oracle.py",
+          "sha256": "8bf6ce6773853904cc31cd0638e33299ef1dfada0bee73125e55b2b240fd06ae"
+        },
+        {
+          "bytes": 33601,
+          "relative_path": "track-s112-natural-systems-stage-b-lean/verify_natural_systems_lean.py",
+          "sha256": "bf1ba2e47e30bf0f46e46e6a6d6a21fef3d92adaca104bad057e67cad420fef4"
+        }
+      ],
+      "eval_locally_reproduced_bit_for_bit": true,
+      "eval_reconstructible_from_repo_alone": false,
+      "eval_sha256": "ee88d7b3f67b5676563372b8dc8ce154e94dc7e2198247cf4f7d8515e1fba57b",
+      "train_num_bytes": 2568794,
+      "train_reconstructible_from_repo_alone": false,
+      "train_sha256": "43a81400291ee8fe50f3d88b226b9577e8d7284e7bc1b235498578a418b3aa6b"
+    },
+    "h7b_h7c": {
+      "eval_combined_bytes": 1719485,
+      "eval_domain_sizes": {
+        "json_traces": 126194,
+        "python_code": 302743,
+        "wikitext2_test": 1290546
+      },
+      "eval_reconstructible_from_repo_alone": false,
+      "eval_sha256": "10024fe40bd4d1b23aa5e69cf6ecbaafeaf399cf432e3b4e4875b9dce6641dff",
+      "note": "H7b and H7c share bit-identical train and eval byte streams, differing from H7a by +21,545 B train / +29,298 B python_code eval due to concurrent local track-s* updates during H7a's 36-minute run. Because subsequent runs modified those local track-s* files after 15:57 UTC, the exact 15:28 UTC intermediate file snapshot cannot be reconstructed byte-for-byte.",
+      "train_num_bytes": 2590339,
+      "train_reconstructible_from_repo_alone": false,
+      "train_sha256": "ea2f47fad9c28635bee8834989d9fd7958c2889d65334945b990067be81d3d70"
+    }
+  },
+  "wikitext2_raw_v1": {
+    "config": "wikitext-2-raw-v1",
+    "dataset_id": "Salesforce/wikitext",
+    "hf_revision": "b08601e04326c79dfdd32d625aee71d232d685c3",
+    "test_parquet": {
+      "bytes": 732610,
+      "extracted_utf8_bytes": 1290546,
+      "extracted_utf8_sha256": "430983e5a711fbc4c6576edffecacf47ff23d58f62f3923d2386d798e0a794c9",
+      "file": "wikitext-2-raw-v1/test-00000-of-00001.parquet",
+      "sha256": "5f1bea067869d04849c0f975a2b29c4ff47d867f484f5010ea5e861eab246d91"
+    },
+    "validation_parquet": {
+      "bytes": 657209,
+      "extracted_utf8_bytes": 1146708,
+      "extracted_utf8_sha256": "93abc2e0cd803097893a176fd0de13e75c77a1414c5e64af7bbcf705068938c5",
+      "file": "wikitext-2-raw-v1/validation-00000-of-00001.parquet",
+      "sha256": "204929b7ff9d6184953f867dedb860e40aa69c078fc1e54b3baaa8fb28511c4c"
+    }
+  }
+}

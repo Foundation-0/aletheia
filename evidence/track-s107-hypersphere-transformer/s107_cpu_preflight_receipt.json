@@ -1,0 +1,366 @@
+{
+  "payload": {
+    "all_passed": true,
+    "device": "cpu_only_zero_gpu_touch",
+    "gates": {
+      "gate_1": {
+        "dtypes": {
+          "bf16": {
+            "antipodal_out_max_abs": 0.0,
+            "delta_grad_max_abs": 0.0,
+            "h_grad_max_abs": 0.0,
+            "zero_nan_verified": true
+          },
+          "fp32": {
+            "antipodal_out_max_abs": 0.0,
+            "delta_grad_max_abs": 0.0,
+            "h_grad_max_abs": 0.0,
+            "zero_nan_verified": true
+          }
+        },
+        "gate": "G1_SLERP_ANTIPODAL_ZERO_NAN",
+        "passed": true
+      },
+      "gate_2": {
+        "gate": "G2_HOPF_CLOCK_LAW_AND_NON_CANCELLATION",
+        "hopf_isometry_max_norm_err": 1.2e-07,
+        "inter_pass_state_l2_diff_vs_noclock": 3.481336,
+        "non_degenerate_coupling_verified": true,
+        "output_logit_l2_diff_vs_noclock": 57.324207,
+        "passed": true,
+        "pinned_train_step_aliases_at_r3": true,
+        "unaliased_coprime_distinct_phases_r0_to_r7": 8
+      },
+      "gate_3": {
+        "fp32_all_le_1e_3": true,
+        "gate": "G3_UNIT_NORM_DRIFT_R3_4_6_8",
+        "max_abs_norm_minus_1": {
+          "clifford_hopf": {
+            "bf16": 0.0050968,
+            "fp32": 1e-07
+          },
+          "sphere_noclock": {
+            "bf16": 0.0036873,
+            "fp32": 1e-07
+          },
+          "sphere_randrot": {
+            "bf16": 0.0059688,
+            "fp32": 2e-07
+          }
+        },
+        "passed": true,
+        "r_test_grid": [
+          3,
+          4,
+          6,
+          8
+        ]
+      },
+      "gate_4": {
+        "arm_table": {
+          "CliffordTorus-HopfLoop": {
+            "fwd_flops_per_tok_R3": 29628928,
+            "fwd_flops_per_tok_R8": 66500608,
+            "non_embedding_params": 6341378,
+            "total_params": 6407938
+          },
+          "FlatLoop-Std": {
+            "fwd_flops_per_tok_R3": 29624320,
+            "fwd_flops_per_tok_R8": 66488320,
+            "non_embedding_params": 6328577,
+            "total_params": 6395137
+          },
+          "SphereLoop-NoClock": {
+            "fwd_flops_per_tok_R3": 29624320,
+            "fwd_flops_per_tok_R8": 66488320,
+            "non_embedding_params": 6341378,
+            "total_params": 6407938
+          },
+          "SphereLoop-RandRotClock": {
+            "fwd_flops_per_tok_R3": 30017536,
+            "fwd_flops_per_tok_R8": 67536896,
+            "non_embedding_params": 6341378,
+            "total_params": 6407938
+          },
+          "Unlooped-16L": {
+            "fwd_flops_per_tok_R3": 29624320,
+            "non_embedding_params": 12656896,
+            "total_params": 12723456
+          },
+          "Unlooped-8L": {
+            "fwd_flops_per_tok_R3": 14878720,
+            "non_embedding_params": 6328576,
+            "total_params": 6395136
+          }
+        },
+        "gate": "G4_H7C_KV_POLICY_AND_ISO_PARITY",
+        "kv_policy_pinned": "per_pass_kv_recompute_no_cross_pass_reuse",
+        "max_looped_vs_Unlooped16L_R3_flop_diff_pct": 1.3273,
+        "max_looped_vs_Unlooped8L_non_emb_param_diff_pct": 0.2023,
+        "pass_state_mutation_l2": [
+          0.170296,
+          0.718729,
+          1.325542
+        ],
+        "passed": true
+      },
+      "gate_5": {
+        "arm_count": 10,
+        "equatorial_contrast_ratio": 1.9189,
+        "equatorial_widths": [
+          592,
+          656,
+          784,
+          944,
+          1072,
+          1136,
+          1136,
+          1072,
+          944,
+          784,
+          656,
+          592
+        ],
+        "gate": "G5_H7A_PROFILES_DUAL_NULLS_AND_PARITY",
+        "max_flop_diff_pct": 0.0,
+        "max_non_emb_param_diff_pct": 0.1631,
+        "passed": true,
+        "permuted_eq_widths": [
+          784,
+          592,
+          1136,
+          944,
+          944,
+          784,
+          656,
+          1072,
+          656,
+          592,
+          1136,
+          1072
+        ],
+        "permuted_pol_widths": [
+          1136,
+          784,
+          1136,
+          944,
+          592,
+          656,
+          1072,
+          1072,
+          944,
+          784,
+          592,
+          656
+        ],
+        "polar_contrast_ratio": 1.9189,
+        "polar_widths": [
+          1136,
+          1072,
+          944,
+          784,
+          656,
+          592,
+          592,
+          656,
+          784,
+          944,
+          1072,
+          1136
+        ],
+        "spearman_equatorial_vs_perm": -0.1429,
+        "spearman_polar_vs_perm": 0.0
+      },
+      "gate_6": {
+        "arm_table": {
+          "Block4-RandOrtho-nGPT": {
+            "fwd_flops_per_tok": 33866240,
+            "non_embedding_params": 14900737,
+            "total_params": 14983937
+          },
+          "LieRE-4D-Abelian-nGPT": {
+            "fwd_flops_per_tok": 33866240,
+            "non_embedding_params": 14906497,
+            "total_params": 14989697
+          },
+          "RoPE-2D-Std": {
+            "fwd_flops_per_tok": 33835520,
+            "non_embedding_params": 14876480,
+            "total_params": 14959680
+          },
+          "RoPE-2D-nGPT": {
+            "fwd_flops_per_tok": 33835520,
+            "non_embedding_params": 14900737,
+            "total_params": 14983937
+          },
+          "SU2-Holonomy-Scan-nGPT": {
+            "fwd_flops_per_tok": 34131200,
+            "non_embedding_params": 14898817,
+            "total_params": 14982017
+          }
+        },
+        "gate": "G6_H7B_SU2_SCAN_NON_ABELIAN_AND_PARITY",
+        "interval_holonomy_prefix_leak_max_err": 2.4e-07,
+        "liere_abelian_commutator_max_abs": 2.4e-07,
+        "max_flop_diff_pct": 0.8739,
+        "max_non_emb_param_diff_pct": 0.1628,
+        "parallel_vs_sequential_max_err": 5.7e-07,
+        "passed": true,
+        "su2_non_abelian_commutator_l2": 0.924267,
+        "su2_unit_norm_max_err": 1.2e-07
+      },
+      "gate_7": {
+        "A5_non_commuting_pairs": 3300,
+        "A5_order": 60,
+        "S3_non_commuting_pairs": 18,
+        "S3_order": 6,
+        "gate": "G7_S3_A5_GROUP_TRACKING_AND_HOLONOMY_GRAD",
+        "passed": true,
+        "train_loss_s3_init": 6.748735,
+        "w_omega_grad_l2_norms": [
+          0.029086,
+          0.028009
+        ]
+      },
+      "gate_8": {
+        "dtype_sweeps": {
+          "bf16": {
+            "ptq_3bit": {
+              "arm": "CliffordTorus-HopfLoop-PTQ",
+              "bits": 3,
+              "delta_1_ctrl": 0.1116,
+              "delta_r": 0.331644,
+              "delta_r_over_delta_1": 2.971734,
+              "empirical_rhos": [
+                3.990238,
+                1.841396
+              ],
+              "g3_rho": 12.417808,
+              "kl_nats": 0.000642,
+              "m1_h1_passes_le_2": false,
+              "r_eval": 3,
+              "rho_mean": 2.915817,
+              "step_norms": [
+                0.253475,
+                1.011426,
+                1.862436
+              ]
+            },
+            "ptq_4bit": {
+              "arm": "CliffordTorus-HopfLoop-PTQ",
+              "bits": 4,
+              "delta_1_ctrl": 0.055431,
+              "delta_r": 0.157505,
+              "delta_r_over_delta_1": 2.841456,
+              "empirical_rhos": [
+                3.990238,
+                1.841396
+              ],
+              "g3_rho": 12.417808,
+              "kl_nats": 0.000187,
+              "m1_h1_passes_le_2": false,
+              "r_eval": 3,
+              "rho_mean": 2.915817,
+              "step_norms": [
+                0.253475,
+                1.011426,
+                1.862436
+              ]
+            }
+          },
+          "fp32": {
+            "ptq_3bit": {
+              "arm": "CliffordTorus-HopfLoop-PTQ",
+              "bits": 3,
+              "delta_1_ctrl": 0.107944,
+              "delta_r": 0.326258,
+              "delta_r_over_delta_1": 3.022478,
+              "empirical_rhos": [
+                4.06507,
+                1.846357
+              ],
+              "g3_rho": 12.691957,
+              "kl_nats": 0.000569,
+              "m1_h1_passes_le_2": false,
+              "r_eval": 3,
+              "rho_mean": 2.955714,
+              "step_norms": [
+                0.249473,
+                1.014125,
+                1.872437
+              ]
+            },
+            "ptq_4bit": {
+              "arm": "CliffordTorus-HopfLoop-PTQ",
+              "bits": 4,
+              "delta_1_ctrl": 0.049401,
+              "delta_r": 0.150202,
+              "delta_r_over_delta_1": 3.040481,
+              "empirical_rhos": [
+                4.06507,
+                1.846357
+              ],
+              "g3_rho": 12.691957,
+              "kl_nats": 0.000115,
+              "m1_h1_passes_le_2": false,
+              "r_eval": 3,
+              "rho_mean": 2.955714,
+              "step_norms": [
+                0.249473,
+                1.014125,
+                1.872437
+              ]
+            }
+          }
+        },
+        "embedding_untouched_by_ptq": true,
+        "gate": "G8_M1_H1_DRIFT_AND_PTQ_MONITOR",
+        "passed": true
+      },
+      "gate_9": {
+        "corpus_sha256_prefix": "a88685445ff4bf7e",
+        "cpu_determinism_max_abs_diff": 0.0,
+        "gate": "G9_MICRO_TRAIN_BPTT_BPB_AND_DETERMINISM",
+        "micro_runs": [
+          {
+            "arm": "H7a-S3-Polar-nGPT-Micro",
+            "loss_end": 7.539876,
+            "loss_start": 7.74063,
+            "ptq_3bit_bpb": 11.09045,
+            "r_extrap": null,
+            "val_bpb": 11.042464
+          },
+          {
+            "arm": "H7b-SU2-Holonomy-Micro",
+            "loss_end": 7.446213,
+            "loss_start": 7.905313,
+            "ptq_3bit_bpb": 10.585664,
+            "r_extrap": null,
+            "val_bpb": 10.529875
+          },
+          {
+            "arm": "H7c-CliffordTorus-CheckpointedBPTT-Micro",
+            "loss_end": 6.868091,
+            "loss_start": 7.000336,
+            "ptq_3bit_bpb": 9.896772,
+            "r_extrap": {
+              "R3": 9.849508,
+              "R4": 8.56727,
+              "R6": 8.640806,
+              "R8": 8.634973
+            },
+            "val_bpb": 9.849508
+          }
+        ],
+        "negative_controls_passed": 4,
+        "passed": true,
+        "utf8_roundtrip_verified": true
+      }
+    },
+    "gates_passed": 9,
+    "gates_total": 9,
+    "protocol_id": "PREREG-S107-AMENDMENT1",
+    "schema_version": "aletheia.s107.cpu_preflight.v1"
+  },
+  "payload_sha256": "fc493a4f4beaf24707052d099c5bef46109194e580428fd851622490662ed0c1"
+}
