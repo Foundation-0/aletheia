@@ -1,0 +1,6 @@
+name = "PriorTilt"
+version = "0.1.0"
+defaultTargets = ["PriorTilt"]
+
+[[lean_lib]]
+name = "PriorTilt"

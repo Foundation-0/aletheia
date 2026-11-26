@@ -1,0 +1,11 @@
+import ReciprocityGate
+
+#print axioms ReciprocityGate.min_mul_ge_prod
+#print axioms ReciprocityGate.correlated_verifier_false_accept_bound
+#print axioms ReciprocityGate.correlated_strict_excess
+#print axioms ReciprocityGate.collation_independence_collapse
+#print axioms ReciprocityGate.collation_strict_collapse
+#print axioms ReciprocityGate.reciprocity_2cycle_trace_identity
+#print axioms ReciprocityGate.skew_curl_pair_identity
+#print axioms ReciprocityGate.hodge_defect_decomposition_3node
+#print axioms ReciprocityGate.reciprocity_witness_sand_scarlet

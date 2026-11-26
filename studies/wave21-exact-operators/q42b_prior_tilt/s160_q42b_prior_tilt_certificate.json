@@ -1,0 +1,43 @@
+{
+  "balanced": {
+    "balanced_numerator": 0,
+    "balanced_weight_neg": "1/40",
+    "balanced_weight_pos": "1/40",
+    "imbalanced_numerator": 1158
+  },
+  "contraction": {
+    "b": "1/50",
+    "contraction_steps": 3,
+    "factor": "1/625",
+    "grid_checks": 3,
+    "p": "3/4",
+    "p_input": "45/60"
+  },
+  "lean": {
+    "lean_files": 3,
+    "lean_loc": 101,
+    "public_theorems": 9,
+    "toolchain": "leanprover/lean4:v4.36.0"
+  },
+  "payload_sha256": "8631c9dfe63b50eec230e749a634d9a779d55b2340de24799e6efeadfc1a3584",
+  "queue_id": "EXP-Q42b",
+  "schema": "s160.q42b.prior_tilt.v1",
+  "track": "S160",
+  "witness": {
+    "comparable_pairs": 406,
+    "feedback_diff": 11,
+    "feedback_neg": 7,
+    "feedback_pos": 18,
+    "flipped_majority": 0,
+    "flipped_minority": 52,
+    "flipped_net": 52,
+    "flipped_rate": "26/203",
+    "imbalance": 97,
+    "neg_errors": 167,
+    "pos_errors": 264,
+    "real_majority": 75,
+    "real_minority": 2,
+    "real_net": 77,
+    "real_rate": "11/58"
+  }
+}
