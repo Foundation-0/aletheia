@@ -1,0 +1,49 @@
+{
+  "schema": "holosphere.track_s114.corpus_and_export_manifest.v1",
+  "note": "Provenance manifest for the H14b multi-domain byte-level UTF-8 corpus and external courtesy checkpoint export. The WikiText-2 evaluation component re-hashes byte-exact from public HuggingFace Salesforce/wikitext@b08601e04326c79dfdd32d625aee71d232d685c3 (config 'wikitext-2-raw-v1', non-empty \"\\n\".join serialization -> 1,290,546 B, sha256 430983e5a711...). Because s107_train_eval.load_multidomain_offline_bundle globbed local python_code and json_traces files at run time without recording a per-file list, the full concatenated train_sha256 and eval_sha256 byte streams cannot be reconstructed from repository git history alone.",
+  "reconstructible_from_repo_alone": false,
+  "train_corpus": {
+    "train_sha256": "505a4b675c297306d315a984a7b86913fa56c3e897940c62f5a71b1b879d9931",
+    "train_num_bytes": 2570357,
+    "reconstructible_from_repo_alone": false,
+    "public_wikitext_component": {
+      "hf_dataset": "Salesforce/wikitext",
+      "hf_revision": "b08601e04326c79dfdd32d625aee71d232d685c3",
+      "hf_config": "wikitext-2-raw-v1",
+      "split": "validation",
+      "parquet_sha256": "204929b7dc9c7eac2ff2cd0eb0b1c9bb7d06b5c3bc29fc29b36b8921cd10d7db",
+      "serialized_utf8_bytes": 1146708,
+      "serialized_utf8_sha256": "93abc2e0cd803097893a176fd0de13e75c77a1414c5e64af7bbcf705068938c5",
+      "serialization_recipe": "\"\\n\".join(row for row in rows if row.strip()).encode('utf-8')"
+    },
+    "local_unshipped_components": "Live-globbed local python_code and json_traces partitions (not shipped in git; aggregate train_sha256 is the recorded anchor)."
+  },
+  "eval_corpus": {
+    "eval_sha256": "522a66e9d61918401c10aef0f8619038a75b5cdb4802a391e3d71be03e28132c",
+    "eval_domain_bytes": {
+      "wikitext2_test": 1290546,
+      "python_code": 250282,
+      "json_traces": 121766
+    },
+    "reconstructible_from_repo_alone": false,
+    "public_wikitext_component": {
+      "hf_dataset": "Salesforce/wikitext",
+      "hf_revision": "b08601e04326c79dfdd32d625aee71d232d685c3",
+      "hf_config": "wikitext-2-raw-v1",
+      "split": "test",
+      "parquet_sha256": "5f1bea06c3f49d2b0b0ba7f5c52b02f1fd0aa1ca79d3877aa02f9e059b44cf24",
+      "serialized_utf8_bytes": 1290546,
+      "serialized_utf8_sha256": "430983e5a711fbc4c6576edffecacf47ff23d58f62f3923d2386d798e0a794c9",
+      "serialization_recipe": "\"\\n\".join(row for row in rows if row.strip()).encode('utf-8')"
+    },
+    "local_unshipped_components": "Local held-out python_code (250,282 B) and json_traces (121,766 B) slices (not shipped in git; aggregate eval_sha256 is the recorded anchor)."
+  },
+  "courtesy_checkpoint_export": {
+    "filename": "holosphere_v2_15m_best.pt",
+    "bytes": 59967263,
+    "sha256": "3194cea40c305b47fcf539f58822b3a669c27965f287c1d45429fd960e29adb8",
+    "public_hf_repo": "ahrazzle/holosphere-v2-cayleysu2-15m",
+    "public_hf_commit": "994afb8ce47c41d1cfbe015c7c4dbff580c10ca7",
+    "role": "Courtesy external weight export of seed-42 exploratory HoloSphere-V2-CayleySU2-Unlooped (WEIGHTS=0 in git; not read by s114_holosphere_audit.py --check)."
+  }
+}

@@ -17,4 +17,4 @@ python3 -I -B evidence/track-s114-silisphere-fused-kernel-transformer/s114_holos
 python3 -I -B evidence/track-s114-silisphere-fused-kernel-transformer/test_s114_holosphere_audit_r5.py
 ```
 
-Full evaluation details, explicit deviations, and limitations live in [REPORT_S114_HOLOSPHERE_GPU_EVAL.md](REPORT_S114_HOLOSPHERE_GPU_EVAL.md).
+Full evaluation details, explicit deviations (including that the first in-repo git commit post-dates the three Zone-B GPU windows, `verification/AUDIT_LOG.md` is absent in-repo, `mlos` receipts carry `git_head: null`, and local `python_code`/`json_traces` corpus partitions are not reconstructible from git alone — see [corpus_manifest.json](corpus_manifest.json)), and the file-list manifest live in [REPORT_S114_HOLOSPHERE_GPU_EVAL.md](REPORT_S114_HOLOSPHERE_GPU_EVAL.md).
