@@ -1410,6 +1410,13 @@ class TestLean4AndAuditRootHardening(unittest.TestCase):
             finally:
                 os.chmod(locked_root, 0o700)
 
+            # Root-independent control for the same guard: as root, mode 000 does not block reads, so the
+            # check above cannot fire. An EACCES from listing the root must still be TARGET_UNREADABLE.
+            with mock.patch.object(os, "scandir", side_effect=PermissionError(13, "Permission denied")):
+                with self.assertRaises(AletheiaError) as cm_lr_mock:
+                    run_audit_check(locked_root)
+            _req(cm_lr_mock.exception.code == "TARGET_UNREADABLE", f"wrong code: {cm_lr_mock.exception.code}")
+
             # Symlink directory/file root refused by default, allowed with allow_symlinks=True
             sym_dir = base / "sym_dir"
             os.symlink(real_dir, sym_dir)
