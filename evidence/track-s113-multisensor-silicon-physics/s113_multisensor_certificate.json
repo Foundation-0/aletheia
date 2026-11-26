@@ -1,5 +1,5 @@
 {
-  "certificate_sha256": "37bda8721a8b12028941ca14e0df8b6ca79ae7ee2da7521d5bc773bd9cd2f7e7",
+  "certificate_sha256": "107bcb46dfe218926b2a260895773e53b7d806bd55f5a7e760e085287ead410b",
   "payload": {
     "confirmatory_phases": {
       "E1": {
@@ -1146,6 +1146,8 @@
         "phase": "E2"
       }
     },
+    "exploratory_and_h2_to_h5_n_surrogates": 2000,
+    "h1_prereg_n_surrogates": 500,
     "manifest_digests": {
       "phase_a_manifest_sha256": "aa32f038655c20b84f97fb664dbf6d8a9b01a13766f81f0286dbca20b81de123",
       "phase_b_manifest_sha256": "07d942b693f075d8d29ae39064ff119b863fb9add437805859f636a7a8a15a75",
@@ -1263,30 +1265,33 @@
             "tau_wls_us": 13.1531
           }
         },
-        "min_holm_p": 0.011976,
+        "min_holm_p": 0.01197605,
         "n_surrogates": 500,
         "passes_null_gate": false,
         "popen_startup_slack_ms": 74.532,
         "posthoc_n2000_exploratory": {
           "min_holm_p": 0.0029985,
           "n_surrogates": 2000,
-          "status": "POST-HOC N0 exploratory only: surrogate count raised 500->2000 after data; mechanism category not among preregistered outcomes; stimulus-to-audio lag NOT measured (prbs7_p=0.9545)",
+          "prbs7_p": 0.95452274,
+          "status": "POST-HOC N0 exploratory only: preregistered H1 gate is N=500; surrogate count raised 500->2000 after data, mechanism category not among preregistered outcomes, and stimulus-to-audio lag NOT measured when prbs7_p >= 0.005",
           "verdict": "CONFIRMED_H1_VRM_AIRBORNE_PIEZO"
         },
         "prbs7_folded_edge_rise_10_90_ms": 999.0,
         "prbs7_fwhm_ms": 51.625,
         "prbs7_lag_clock_anchored_ms": -184.0417,
-        "prbs7_p": 0.95452274,
+        "prbs7_p": 0.95808383,
+        "prbs7_p_posthoc": 0.95452274,
         "prbs7_peak_z": -1.5703,
+        "prereg_n_surrogates": 500,
         "prime_carriers": {
           "1009Hz": {
             "active_over_idle_ratio": 42.6341,
             "idle_rayleigh_r2": 0.0106,
             "n_subwindows": 42,
-            "p_holm": 0.0029985,
-            "p_holm_n500": 0.011976,
-            "p_raw": 0.0005,
-            "p_raw_n500": 0.001996,
+            "p_holm_n500": 0.01197605,
+            "p_holm_posthoc": 0.0029985,
+            "p_raw_n500": 0.00199601,
+            "p_raw_posthoc": 0.00049975,
             "present": true,
             "rayleigh_r2": 0.34126
           },
@@ -1294,10 +1299,10 @@
             "active_over_idle_ratio": 6.2303,
             "idle_rayleigh_r2": 0.05381,
             "n_subwindows": 44,
-            "p_holm": 0.005997,
-            "p_holm_n500": 0.011976,
-            "p_raw": 0.001999,
-            "p_raw_n500": 0.003992,
+            "p_holm_n500": 0.01197605,
+            "p_holm_posthoc": 0.005997,
+            "p_raw_n500": 0.00399202,
+            "p_raw_posthoc": 0.001999,
             "present": true,
             "rayleigh_r2": 0.1282
           },
@@ -1305,10 +1310,10 @@
             "active_over_idle_ratio": 135.7007,
             "idle_rayleigh_r2": 0.04435,
             "n_subwindows": 42,
-            "p_holm": 0.0029985,
-            "p_holm_n500": 0.011976,
-            "p_raw": 0.0005,
-            "p_raw_n500": 0.001996,
+            "p_holm_n500": 0.01197605,
+            "p_holm_posthoc": 0.0029985,
+            "p_raw_n500": 0.00199601,
+            "p_raw_posthoc": 0.00049975,
             "present": true,
             "rayleigh_r2": 0.65229
           },
@@ -1316,10 +1321,10 @@
             "active_over_idle_ratio": 4.3674,
             "idle_rayleigh_r2": 0.04286,
             "n_subwindows": 42,
-            "p_holm": 0.05597201,
-            "p_holm_n500": 0.055888,
-            "p_raw": 0.038981,
-            "p_raw_n500": 0.027944,
+            "p_holm_n500": 0.05588822,
+            "p_holm_posthoc": 0.05597201,
+            "p_raw_n500": 0.02794411,
+            "p_raw_posthoc": 0.03898051,
             "present": true,
             "rayleigh_r2": 0.07284
           },
@@ -1327,10 +1332,10 @@
             "active_over_idle_ratio": 3.3825,
             "idle_rayleigh_r2": 0.01177,
             "n_subwindows": 44,
-            "p_holm": 0.05597201,
-            "p_holm_n500": 0.055888,
-            "p_raw": 0.027986,
-            "p_raw_n500": 0.031936,
+            "p_holm_n500": 0.05588822,
+            "p_holm_posthoc": 0.05597201,
+            "p_raw_n500": 0.03193613,
+            "p_raw_posthoc": 0.02798601,
             "present": true,
             "rayleigh_r2": 0.08196
           },
@@ -1338,10 +1343,10 @@
             "active_over_idle_ratio": 18.6374,
             "idle_rayleigh_r2": 0.02677,
             "n_subwindows": 42,
-            "p_holm": 0.0029985,
-            "p_holm_n500": 0.011976,
-            "p_raw": 0.0005,
-            "p_raw_n500": 0.001996,
+            "p_holm_n500": 0.01197605,
+            "p_holm_posthoc": 0.0029985,
+            "p_raw_n500": 0.00199601,
+            "p_raw_posthoc": 0.00049975,
             "present": true,
             "rayleigh_r2": 0.19246
           }
@@ -1743,10 +1748,10 @@
         "verdict": "FALSIFIED"
       }
     },
-    "n_surrogates": 500,
-    "prereg_deviation_note": "H1 surrogate-count deviation N=500 -> N=2000 recorded here; the preregistered gate (N=500, Holm across the 6 frequencies) gives min Holm p = 6 x 0.001996 = 0.011976 >= 0.005, so H1 is FALSIFIED as preregistered; the N=2000 CONFIRMED_H1_VRM_AIRBORNE_PIEZO result is kept only as post-hoc N0 exploratory.",
+    "prereg_deviation_note": "Preregistered H1 gate is N=500 surrogates (Holm across present prime carriers); H2/H3/H5/E1/E2 and H1 post-hoc exploratory runs used N=2000 surrogates. H1 is graded strictly at N=500 (passes_null_gate derived from N=500 Holm and N=500 PRBS-7), and any N=2000 result is confined to posthoc_n2000_exploratory (N0).",
     "prereg_protocol": "PREREG-S113",
     "raw_av_staged_count": 0,
+    "reproducibility_scope": "Raw physical captures and binary telemetry arrays (raw audio/video streams, telemetry NPZs, and phase manifests) are NOT shipped in this repository (AV=0 privacy-preserving policy; raw_av_staged_count=0). Raw physical numbers in this certificate are therefore not independently reproducible from the repository alone; cryptographic digests, pure-Q Schur/Krein/Haynsworth/K4 Hodge-1 algebra, preregistered verdict gates, pooled Holm-Bonferroni recomputation, and synthetic DSP injection/null tests ARE independently reproducible from this repository.",
     "seed": 20261125,
     "track": "S113",
     "verdict_summary": {
@@ -1759,7 +1764,7 @@
       "H5": "FALSIFIED"
     }
   },
-  "payload_sha256": "8026f75cb1df391c37c931917d4d8abc31405d731306d42e8d8c8edbd25ef523",
+  "payload_sha256": "e8e3da5f45cb3331e0b29ac51d08496d6c3ef1b17e9bf27c9e5ad213908ac574",
   "prereg_id": "PREREG-S113",
   "schema": "aletheia.track_s113.multisensor_silicon_certificate.v1"
 }

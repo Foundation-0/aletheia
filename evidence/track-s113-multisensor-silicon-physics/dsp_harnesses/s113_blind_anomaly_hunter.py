@@ -16,6 +16,7 @@ safeguards:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 import os
@@ -65,25 +66,111 @@ def wait_for_capture_quiet(max_wait_s: float = 120.0) -> bool:
     return True
 
 
+def _extract_raw_confirm_p(row: dict[str, Any]) -> float:
+    """Return the raw Half-2 empirical confirm p-value for a blind-hunter row."""
+    for key in ("half2_p_surr", "half2_p_shift", "half2_p_iaaft", "rep2_p"):
+        if key in row and row[key] is not None:
+            return float(row[key])
+    raise ValueError(f"Missing raw Half-2 confirm p field in row: {sorted(row.keys())}")
+
+
 def _apply_lens_family_holm(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Apply Holm-Bonferroni across each lens family (all phases pooled per lens) and
-    return only rows surviving p_Holm < 0.005. Raw surrogate p is never reported as Holm."""
+    """Apply Holm-Bonferroni across each lens family and return only rows surviving
+    p_Holm < 0.005. Raw surrogate p is never reported as Holm."""
     fams: dict[str, list[dict[str, Any]]] = {}
     for row in rows:
         fams.setdefault(str(row.get("lens", "")), []).append(row)
     surviving: list[dict[str, Any]] = []
     for lens, members in fams.items():
-        pvals = [float(m.get("half2_p_surr", m.get("half2_p_shift", m.get("half2_p_iaaft", m.get("rep2_p", 1.0))))) for m in members]
+        pvals = [_extract_raw_confirm_p(m) for m in members]
         adj = holm_bonferroni(pvals)
         for m, a in zip(members, adj):
-            m["half2_p_holm"] = round(a, 6)
+            m["half2_p_holm"] = round(a, 8)
             m["holm_family"] = lens
             m["holm_family_size"] = len(members)
             if a < 0.005 and m.get("replicated_anomaly"):
+                m["replicated_anomaly"] = True
                 surviving.append(m)
             else:
                 m["replicated_anomaly"] = False
     return surviving
+
+
+def apply_pooled_lens_family_holm(
+    phase_order: list[str],
+    rows_by_phase: dict[str, list[dict[str, Any]]],
+) -> tuple[dict[str, list[dict[str, Any]]], list[dict[str, Any]], dict[str, int], dict[str, Any], dict[str, Any]]:
+    """Apply exact step-down Holm-Bonferroni pooled per lens across ALL analyzed phases.
+
+    Returns (surviving_by_phase, holm_rejected, counts_by_lens, pooled_summary, per_phase_diag).
+    """
+    tagged: list[tuple[str, dict[str, Any]]] = []
+    for ph in phase_order:
+        for row in rows_by_phase.get(ph, []):
+            cloned = json.loads(json.dumps(row))
+            cloned["phase"] = ph
+            tagged.append((ph, cloned))
+
+    # 1. Exact per-(phase, lens) diagnostic reference (computed before mutating for pooled output)
+    per_phase_fams: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for ph, row in tagged:
+        per_phase_fams.setdefault((ph, str(row.get("lens", ""))), []).append(row)
+    per_phase_surv_by_lens: dict[str, int] = {}
+    for (_, lens), members in per_phase_fams.items():
+        adj_ph = holm_bonferroni([_extract_raw_confirm_p(m) for m in members])
+        n_ok = sum(1 for m, a in zip(members, adj_ph) if a < 0.005 and m.get("replicated_anomaly"))
+        if n_ok > 0:
+            per_phase_surv_by_lens[lens] = per_phase_surv_by_lens.get(lens, 0) + n_ok
+    non_rts_burst = {
+        k: v
+        for k, v in per_phase_surv_by_lens.items()
+        if k not in ("A4_PERSISTENT_TELEGRAPHER_PIXELS", "A4_SYNCHRONIZED_MULTIPIXEL_BURSTS")
+    }
+    per_phase_diag = {
+        "scope": "per_phase_and_lens_diagnostic_only",
+        "total_surviving_all_lenses": sum(per_phase_surv_by_lens.values()),
+        "total_surviving_excluding_a4_rts_burst": sum(non_rts_burst.values()),
+        "surviving_by_lens": dict(sorted(per_phase_surv_by_lens.items())),
+    }
+
+    # 2. Primary pooled per-lens Holm across ALL phases
+    pooled_fams: dict[str, list[tuple[str, dict[str, Any]]]] = {}
+    for ph, row in tagged:
+        pooled_fams.setdefault(str(row.get("lens", "")), []).append((ph, row))
+
+    surviving_by_phase: dict[str, list[dict[str, Any]]] = {ph: [] for ph in phase_order}
+    holm_rejected: list[dict[str, Any]] = []
+    counts_by_lens: dict[str, int] = {}
+    pooled_summary: dict[str, Any] = {}
+
+    for lens in sorted(pooled_fams.keys()):
+        items = pooled_fams[lens]
+        raw_pvals = [_extract_raw_confirm_p(row) for _, row in items]
+        adj_pvals = holm_bonferroni(raw_pvals)
+        n_surv = 0
+        n_rej = 0
+        for (ph, row), a in zip(items, adj_pvals):
+            row["half2_p_holm"] = round(a, 8)
+            row["holm_family"] = lens
+            row["holm_family_size"] = len(items)
+            if a < 0.005 and row.get("replicated_anomaly"):
+                row["replicated_anomaly"] = True
+                surviving_by_phase[ph].append(row)
+                counts_by_lens[lens] = counts_by_lens.get(lens, 0) + 1
+                n_surv += 1
+            else:
+                row["replicated_anomaly"] = False
+                holm_rejected.append(row)
+                n_rej += 1
+        pooled_summary[lens] = {
+            "family_size": len(items),
+            "min_raw_p": round(min(raw_pvals), 8),
+            "min_p_holm": round(min(adj_pvals), 8),
+            "surviving_count": n_surv,
+            "rejected_count": n_rej,
+        }
+
+    return surviving_by_phase, holm_rejected, dict(sorted(counts_by_lens.items())), pooled_summary, per_phase_diag
 
 
 def holm_bonferroni(pvals: list[float]) -> list[float]:
@@ -2180,10 +2267,95 @@ def analyze_phase(track_dir: Path, phase: str, seed: int = 20261125, polite: boo
     return merged
 
 
+def _canonical_json(obj: Any) -> str:
+    return json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
+
+
+def _sha256_bytes(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def _sha256_text(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def finalize_pooled_blind_receipt(
+    phase_order: list[str],
+    raw_rows_by_phase: dict[str, list[dict[str, Any]]],
+    *,
+    source_phase_manifests_sha256: dict[str, str],
+    source_phase_json_sha256s: dict[str, str],
+    certificate_payload_sha256: str | None = None,
+    generated_utc: str | None = None,
+) -> dict[str, Any]:
+    """Assemble and hash-seal the pooled lens-family Holm blind-discovery receipt."""
+    surviving_by_phase, holm_rejected, counts_by_lens, pooled_summary, per_phase_diag = (
+        apply_pooled_lens_family_holm(phase_order, raw_rows_by_phase)
+    )
+    total_surv = sum(len(v) for v in surviving_by_phase.values())
+    total_rej = len(holm_rejected)
+
+    unsigned: dict[str, Any] = {
+        "prereg_amendment": "PREREG-S113-AMENDMENT1",
+        "parent_prereg_sha256": "cebe48326461ef048c6e8ccfb51f76f661f33b44c32d7e0178777d2ad8221e67",
+        "generated_utc": generated_utc or time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "holm_family_scope": "pooled_across_all_phases",
+        "holm_family_note": (
+            "Step-down Holm-Bonferroni is applied across each lens family pooled over ALL analyzed phases "
+            "(every row's half2_p_holm is computed from its raw Half-2 empirical confirm p-value across the full "
+            "pooled lens family size m). At N_confirm=799 (empirical floor p_min=1/800=0.00125), any lens family "
+            "with m>=4 has minimum possible Holm p >= 4/800 = 0.005 and cannot clear p_Holm < 0.005. Under this "
+            f"pooled family, {total_surv} rows survive (A3_TIME_REVERSAL_ASYMMETRY, m=2, p_Holm=0.0025) and "
+            f"{total_rej} split-half candidates are recorded in holm_rejected (p_Holm >= 0.005). For transparency, "
+            "per_phase_lens_holm_diagnostic also reports per-(phase, lens) Holm survival counts "
+            f"({per_phase_diag['total_surviving_all_lenses']} across all 9 lens keys; "
+            f"{per_phase_diag['total_surviving_excluding_a4_rts_burst']} excluding A4 RTS/burst rows)."
+        ),
+        "phase_e_reentry_caveat": (
+            "PREREG-S113-AMENDMENT1 specified that surviving blind anomalies should immediately trigger "
+            "targeted Phase-E confirmatory probes before the 2026-11-25T14:44:00Z sensor shutoff. In practice, "
+            "per-phase blind-hunter execution finished after shutoff (14:50:09Z-15:17:54Z), and Phases E1/E2 "
+            "targeted H1/H3/H4 physics probes rather than blind-hunter triggers; the Phase-E re-entry rule was "
+            "therefore not executed from blind-hunter survivors."
+        ),
+        "sigma_framing_note": (
+            "All z (sigma) values in this receipt are parametric extrapolations (obs - mean_surr) / sd_surr "
+            "from the surrogate sample, NOT empirical tail probabilities; at N_confirm=799 the empirical "
+            "p-value floor is strictly 1/800 = 0.00125."
+        ),
+        "reproducibility_scope": (
+            "Raw physical captures and binary telemetry arrays are NOT shipped in this repository (AV=0 "
+            "privacy-preserving policy). Raw per-phase physical anomaly rows are therefore not independently "
+            "reproducible from the repository alone; pooled lens-family Holm-Bonferroni recomputation, "
+            "receipt cryptographic binding, and synthetic positive/null lens tests ARE independently reproducible."
+        ),
+        "phases_analyzed": list(phase_order),
+        "total_candidates_evaluated": total_surv + total_rej,
+        "total_surviving_anomalies": total_surv,
+        "total_holm_rejected": total_rej,
+        "counts_by_lens": counts_by_lens,
+        "pooled_lens_family_summary": pooled_summary,
+        "per_phase_lens_holm_diagnostic": per_phase_diag,
+        "source_phase_manifests_sha256": dict(sorted(source_phase_manifests_sha256.items())),
+        "source_phase_json_sha256s": dict(sorted(source_phase_json_sha256s.items())),
+        "anomalies_by_phase": surviving_by_phase,
+        "holm_rejected": holm_rejected,
+    }
+    if certificate_payload_sha256 is not None:
+        unsigned["certificate_payload_sha256"] = certificate_payload_sha256
+
+    receipt = dict(unsigned)
+    receipt["receipt_payload_sha256"] = _sha256_text(_canonical_json(unsigned))
+    return receipt
+
+
 def main() -> int:
-    ap = argparse.ArgumentParser(description="PREREG-S113-AMENDMENT1 Blind Residual & Non-Textbook Anomaly Hunter")
+    ap = argparse.ArgumentParser(description="PREREG-S113-AMENDMENT1 Blind Residual Exploratory Pattern Hunter")
     ap.add_argument("--track-dir", type=Path, default=Path(__file__).resolve().parent)
     ap.add_argument("--phases", nargs="+", default=["IDLE", "A", "B", "C", "D", "E1", "E2"])
+    ap.add_argument("--from-phase-jsons", action="store_true", help="Offline re-aggregation from existing data/s113_blind_anomalies_phase_*.json (zero sensor/AV reads)")
+    ap.add_argument("--certificate", type=Path, default=None, help="Optional S113 certificate JSON whose payload_sha256 binds this receipt")
+    ap.add_argument("--out", type=Path, default=None, help="Optional explicit output path for s113_blind_anomalies_receipt.json")
     ap.add_argument("--polite", action="store_true", help="Lower CPU priority (nice 15) and yield during active capture")
     ap.add_argument("--max-wait-s", type=float, default=90.0)
     args = ap.parse_args()
@@ -2195,45 +2367,58 @@ def main() -> int:
             pass
 
     track_dir = args.track_dir.resolve()
-    summary: dict[str, Any] = {
-        "prereg_amendment": "PREREG-S113-AMENDMENT1",
-        "parent_prereg_sha256": "cebe48326461ef048c6e8ccfb51f76f661f33b44c32d7e0178777d2ad8221e67",
-        "generated_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-        "phases_analyzed": [],
-        "total_surviving_anomalies": 0,
-        "counts_by_lens": {},
-        "anomalies_by_phase": {},
-    }
+    phase_order: list[str] = []
+    raw_rows_by_phase: dict[str, list[dict[str, Any]]] = {}
+    manifest_shas: dict[str, str] = {}
+    phase_json_shas: dict[str, str] = {}
 
     for ph in args.phases:
+        ph_up = ph.upper()
         mfile = track_dir / f"phase_{ph.lower()}_manifest.json"
         if not mfile.is_file():
             continue
-        if args.polite:
-            wait_for_capture_quiet(args.max_wait_s)
-        res = analyze_phase(track_dir, ph, polite=args.polite, max_wait_s=args.max_wait_s)
-        # Re-apply lens-family Holm over the phase's survivors so multi-member families
-        # (e.g. A4 telegraph pixels / bursts) get a real Holm correction, not raw p.
-        res["all_surviving_anomalies"] = _apply_lens_family_holm(res["all_surviving_anomalies"])
-        res["n_surviving_anomalies"] = len(res["all_surviving_anomalies"])
-        summary["phases_analyzed"].append(ph.upper())
-        summary["anomalies_by_phase"][ph.upper()] = res["all_surviving_anomalies"]
-        summary["total_surviving_anomalies"] += res["n_surviving_anomalies"]
-        for anom in res["all_surviving_anomalies"]:
-            lk = str(anom.get("lens", "UNKNOWN"))
-            summary["counts_by_lens"][lk] = summary["counts_by_lens"].get(lk, 0) + 1
-        print(
-            f"[BLIND HUNTER] Phase {ph.upper():4s} | elapsed={res['elapsed_s']:5.2f}s | "
-            f"surviving_anomalies={res['n_surviving_anomalies']}",
-            flush=True,
-        )
-        for anom in res["all_surviving_anomalies"]:
-            print(f"  -> {json.dumps(anom, sort_keys=True)}", flush=True)
+        manifest_shas[f"phase_{ph.lower()}_manifest_sha256"] = _sha256_bytes(mfile.read_bytes())
+        pjson = track_dir / "data" / f"s113_blind_anomalies_phase_{ph.lower()}.json"
+        if args.from_phase_jsons:
+            _require(pjson.is_file(), f"Missing offline phase JSON: {pjson.name}")
+            res = json.loads(pjson.read_text(encoding="utf-8"))
+        else:
+            if args.polite:
+                wait_for_capture_quiet(args.max_wait_s)
+            res = analyze_phase(track_dir, ph, polite=args.polite, max_wait_s=args.max_wait_s)
+        phase_json_shas[f"phase_{ph.lower()}_json_sha256"] = _sha256_bytes(pjson.read_bytes())
+        phase_order.append(ph_up)
+        raw_rows_by_phase[ph_up] = list(res.get("all_surviving_anomalies", []))
 
-    (track_dir / "data").mkdir(parents=True, exist_ok=True)
-    summary_text = json.dumps(summary, indent=2, sort_keys=False) + "\n"
-    (track_dir / "data" / "s113_blind_anomalies_summary.json").write_text(summary_text, encoding="utf-8")
-    (track_dir / "s113_blind_anomalies_receipt.json").write_text(summary_text, encoding="utf-8")
+    cert_payload_sha: str | None = None
+    if args.certificate is not None:
+        cert_obj = json.loads(args.certificate.read_text(encoding="utf-8"))
+        cert_payload_sha = str(cert_obj["payload_sha256"])
+
+    receipt = finalize_pooled_blind_receipt(
+        phase_order,
+        raw_rows_by_phase,
+        source_phase_manifests_sha256=manifest_shas,
+        source_phase_json_sha256s=phase_json_shas,
+        certificate_payload_sha256=cert_payload_sha,
+    )
+
+    print(
+        f"[BLIND HUNTER] Pooled Lens-Family Holm | phases={len(phase_order)} | "
+        f"candidates={receipt['total_candidates_evaluated']} | "
+        f"surviving={receipt['total_surviving_anomalies']} | "
+        f"holm_rejected={receipt['total_holm_rejected']} | "
+        f"receipt_payload_sha256={receipt['receipt_payload_sha256']}",
+        flush=True,
+    )
+
+    summary_text = json.dumps(receipt, indent=2, sort_keys=False) + "\n"
+    if args.out is not None:
+        args.out.write_text(summary_text, encoding="utf-8")
+    else:
+        (track_dir / "data").mkdir(parents=True, exist_ok=True)
+        (track_dir / "data" / "s113_blind_anomalies_summary.json").write_text(summary_text, encoding="utf-8")
+        (track_dir / "s113_blind_anomalies_receipt.json").write_text(summary_text, encoding="utf-8")
     return 0
 
 

@@ -21,6 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from s113_blind_anomaly_hunter import (
     _analyze_2d_stack_blind,
+    apply_pooled_lens_family_holm,
     lens_a1_bicoherence_and_pac,
     lens_a2_chiral_cross_spectrum,
     lens_a3_time_reversal_and_afterglow,
@@ -148,6 +149,33 @@ class BlindAnomalyHunterTests(unittest.TestCase):
         r7 = lens_a7_nonlinear_residual_structure({"dmic_a": xa, "dark_w": xb}, rng, n_screen=200, n_confirm=799)
         if len(r7["surviving_anomalies"]) < 1:
             raise AssertionError("A7 failed to detect zero-covariance nonlinear residual coupling")
+
+    def test_pooled_lens_family_holm_and_raw_p_lookup(self) -> None:
+        # 2-member IAAFT family (A3) at p=1/800 survives (< 0.005: 2/800 = 0.0025),
+        # while 4-member family (A1/A4) at p=1/800 is rejected (4/800 = 0.005 >= 0.005).
+        phase_rows = {
+            "A": [
+                {"lens": "A3_TIME_REVERSAL_ASYMMETRY", "half2_p_iaaft": 0.00125, "replicated_anomaly": True},
+                {"lens": "A1_BICOHERENCE", "half2_p_iaaft": 0.00125, "replicated_anomaly": True},
+                {"lens": "A1_BICOHERENCE", "half2_p_iaaft": 0.00125, "replicated_anomaly": True},
+            ],
+            "E2": [
+                {"lens": "A3_TIME_REVERSAL_ASYMMETRY", "half2_p_iaaft": 0.00125, "replicated_anomaly": True},
+                {"lens": "A1_BICOHERENCE", "half2_p_iaaft": 0.00125, "replicated_anomaly": True},
+                {"lens": "A1_BICOHERENCE", "half2_p_iaaft": 0.00125, "replicated_anomaly": True},
+            ],
+        }
+        surv_by_ph, rej, counts, summary, diag = apply_pooled_lens_family_holm(["A", "E2"], phase_rows)
+        if counts != {"A3_TIME_REVERSAL_ASYMMETRY": 2}:
+            raise AssertionError(f"Unexpected pooled counts: {counts}")
+        if len(rej) != 4 or any(r["replicated_anomaly"] is not False for r in rej):
+            raise AssertionError(f"Expected 4 rejected A1 rows, got {rej}")
+        if abs(surv_by_ph["A"][0]["half2_p_holm"] - 0.0025) > 1e-9:
+            raise AssertionError(f"Bad pooled Holm p for A3: {surv_by_ph['A'][0]}")
+        if abs(rej[0]["half2_p_holm"] - 0.005) > 1e-9:
+            raise AssertionError(f"Bad pooled Holm p for A1: {rej[0]}")
+        if summary["A1_BICOHERENCE"]["family_size"] != 4 or diag["total_surviving_all_lenses"] != 6:
+            raise AssertionError(f"Unexpected summary/diag: {summary} / {diag}")
 
 
 if __name__ == "__main__":

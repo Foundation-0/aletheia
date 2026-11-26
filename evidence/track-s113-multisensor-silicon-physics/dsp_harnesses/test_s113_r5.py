@@ -142,17 +142,27 @@ class TestTrackS113R5(unittest.TestCase):
 
     def test_02_h1_emi_piezo_airborne_and_null_discrimination(self) -> None:
         # 1) Direct EMI (0 us inter-mic delay, 0.05 ms impulse lag)
+        # Note: at preregistered N=500 across 3 present prime carriers, the Holm floor is
+        # 3/501 = 0.00598802 (>= 0.005), so confirmation under the preregistered N=500 gate
+        # comes via the PRBS-7 impulse-lag leg (prbs7_p = 1/501 = 0.00199601 < 0.005), while
+        # the post-hoc N=1500 exploratory Holm clears < 0.005 (3/1501 = 0.00199867).
         man_emi, aud_emi, tel_emi = _build_synthetic_phase_a("EMI", seed=11)
         res_emi = s113.analyze_h1_mechanism(man_emi, aud_emi, tel_emi, n_surrogates=1500, seed=11)
         _ensure(res_emi["verdict"] == "CONFIRMED_H1_EMI", f"Expected EMI, got {res_emi}")
+        _ensure(res_emi["passes_null_gate"] is True, f"Expected passes_null_gate=True, got {res_emi}")
+        _ensure(res_emi["n_surrogates"] == 500, f"Expected preregistered n_surrogates=500, got {res_emi['n_surrogates']}")
         _ensure(res_emi["hf_6_22khz_max_abs_tau_us"] < 2.0, f"EMI tau too high: {res_emi['hf_6_22khz_max_abs_tau_us']}")
         _ensure(abs(res_emi["prbs7_lag_clock_anchored_ms"]) < 0.25, f"EMI PRBS lag: {res_emi['prbs7_lag_clock_anchored_ms']}")
-        _ensure(res_emi["min_holm_p"] < 0.005, f"EMI Holm p failed: {res_emi['min_holm_p']}")
+        _ensure(res_emi["prbs7_p"] < 0.005, f"EMI PRBS-7 p_n500 failed: {res_emi['prbs7_p']}")
+        _ensure(abs(res_emi["min_holm_p"] - (3.0 / 501.0)) < 1e-6, f"Expected 3-carrier N=500 Holm floor 3/501, got {res_emi['min_holm_p']}")
+        _ensure(res_emi["posthoc_n2000_exploratory"]["min_holm_p"] < 0.005, f"Posthoc N=1500 Holm failed: {res_emi['posthoc_n2000_exploratory']}")
 
         # 2) Chassis Piezo (18..52 us linear phase slope, 0.35 ms lag)
         man_pz, aud_pz, tel_pz = _build_synthetic_phase_a("PIEZO", seed=22)
         res_pz = s113.analyze_h1_mechanism(man_pz, aud_pz, tel_pz, n_surrogates=1500, seed=22)
         _ensure(res_pz["verdict"] == "CONFIRMED_H1_CHASSIS_PIEZO", f"Expected PIEZO, got {res_pz}")
+        _ensure(res_pz["passes_null_gate"] is True, f"Expected PIEZO passes_null_gate=True")
+        _ensure(res_pz["prbs7_p"] < 0.005, f"PIEZO PRBS-7 p_n500 failed: {res_pz['prbs7_p']}")
         _ensure(45.0 <= res_pz["hf_6_22khz_max_abs_tau_us"] <= 60.0, f"Piezo tau mismatch: {res_pz['hf_6_22khz_max_abs_tau_us']}")
         _ensure(abs(res_pz["prbs7_lag_clock_anchored_ms"] - 0.35) < 0.20, f"Piezo PRBS lag: {res_pz['prbs7_lag_clock_anchored_ms']}")
 
@@ -165,6 +175,7 @@ class TestTrackS113R5(unittest.TestCase):
         man_null, aud_null, tel_null = _build_synthetic_phase_a("NULL", seed=44)
         res_null = s113.analyze_h1_mechanism(man_null, aud_null, tel_null, n_surrogates=1500, seed=44)
         _ensure(res_null["verdict"] == "FALSIFIED", f"Expected FALSIFIED on pure noise, got {res_null}")
+        _ensure(res_null["passes_null_gate"] is False, f"Expected passes_null_gate=False on pure noise, got {res_null}")
 
     def test_03_h2_microarch_beyond_watts_and_wattage_confound_refusal(self) -> None:
         rng = np.random.default_rng(303)

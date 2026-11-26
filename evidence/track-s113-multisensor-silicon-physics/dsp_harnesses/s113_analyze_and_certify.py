@@ -849,23 +849,25 @@ def analyze_h1_mechanism(
             "rayleigh_r2": round(rayleigh_r2, 5),
             "idle_rayleigh_r2": round(idle_r2, 5),
             "active_over_idle_ratio": round(act_over_idle, 4),
-            "p_raw": round(p_emp, 6),
-            "p_raw_n500": round(p_500, 6),
+            "p_raw_n500": round(p_500, 8),
+            "p_raw_posthoc": round(p_emp, 8),
         }
 
     present_pvals = {k: v for k, v in raw_pvals.items() if carrier_stats[k].get("present")}
     holm_pvals = holm_bonferroni(present_pvals) if present_pvals else {}
     for k, cstat in carrier_stats.items():
-        cstat["p_holm"] = holm_pvals.get(k, 1.0)
+        if cstat.get("present"):
+            cstat["p_holm_posthoc"] = round(holm_pvals.get(k, 1.0), 8)
     min_holm_p_posthoc = min(holm_pvals.values()) if holm_pvals else 1.0
 
     # PREREG-S113 fixes the H1 kill gate at N=500 surrogates (Holm across the 6 frequencies).
-    # The REPORTED gate/verdict is evaluated at the preregistered N=500 (raw_pvals_500);
+    # The REPORTED gate/verdict is evaluated strictly at the preregistered N=500 (raw_pvals_500);
     # any larger surrogate run is post-hoc exploratory only and is recorded as such.
     present_pvals_500 = {k: v for k, v in raw_pvals_500.items() if carrier_stats[k].get("present")}
     holm_pvals_500 = holm_bonferroni(present_pvals_500) if present_pvals_500 else {}
     for k, cstat in carrier_stats.items():
-        cstat["p_holm_n500"] = round(holm_pvals_500.get(k, 1.0), 8)
+        if cstat.get("present"):
+            cstat["p_holm_n500"] = round(holm_pvals_500.get(k, 1.0), 8)
     min_holm_p = min(holm_pvals_500.values()) if holm_pvals_500 else 1.0
 
     # 2. PRBS-7 impulse response latency, edge rise sharpness, and circular-shift p-value
@@ -879,6 +881,7 @@ def analyze_h1_mechanism(
     prbs_edge_rise_ms = 999.0
     prbs_peak_z = 0.0
     prbs_p = 1.0
+    prbs_p_n500 = 1.0
 
     if prbs_blocks:
         # Evaluate at 20,000 Hz envelope grid (0.05 ms resolution; resolves +-0.05 ms)
@@ -960,10 +963,13 @@ def analyze_h1_mechanism(
             right += 1
         prbs_fwhm_ms = float((right - left + 1) / env_fs_actual * 1000.0)
 
+        prbs_p_n500 = 1.0
         if surr_max_list:
             surr_comb = np.mean(np.stack(surr_max_list, axis=0), axis=0)
             prbs_peak_z = (pk_val - float(np.mean(surr_comb))) / max(float(np.std(surr_comb)), 1e-12)
             prbs_p = (1.0 + int(np.sum(surr_comb >= pk_val * (1.0 - 1e-12)))) / (n_surrogates + 1.0)
+            n500 = min(500, len(surr_comb))
+            prbs_p_n500 = (1.0 + int(np.sum(surr_comb[:n500] >= pk_val * (1.0 - 1e-12)))) / (n500 + 1.0)
 
         if edge_windows:
             folded = np.mean(np.stack(edge_windows, axis=0), axis=0)
@@ -1046,14 +1052,14 @@ def analyze_h1_mechanism(
     median_abs_tau_lf_us = float(np.median(lf_abs_taus))
     max_coh_lf = float(max(lf_p90_cohs))
 
-    # 5. Exact PREREG-S113 Classification & Kill Gate
-    passes_null_gate = (min_holm_p < 0.005) or (prbs_p < 0.005)
-    fast_khz_locked = any(
-        carrier_stats.get(k, {}).get("p_holm", 1.0) < 0.005
+    # 5. Exact PREREG-S113 Classification & Kill Gate (evaluated strictly at preregistered N=500)
+    passes_null_gate = (min_holm_p < 0.005) or (prbs_p_n500 < 0.005)
+    fast_khz_locked_posthoc = any(
+        carrier_stats.get(k, {}).get("p_holm_posthoc", 1.0) < 0.005
         for k in ("317Hz", "1009Hz", "3001Hz")
     ) or (prbs_p < 0.005)
 
-    # Check slow airborne thermal fan dominance first (when HF lock-in is absent or slow >500ms lag)
+    # Check slow airborne thermal fan dominance when fast N=500 gate does not fire
     if not passes_null_gate:
         if rapl_lf_corr > 0.50 and rapl_to_lf_lag_ms >= 800.0 and 100.0 <= median_abs_tau_lf_us <= 500.0:
             verdict = "CONFIRMED_AIRBORNE_ACOUSTIC"
@@ -1064,16 +1070,21 @@ def analyze_h1_mechanism(
         fast_emi_lag = (abs(prbs_lag_ms) < 0.25) if exact_clock else (abs(rapl_to_hf_lag_ms) <= 50.0 and prbs_edge_rise_ms < 0.50)
         fast_piezo_lag = (abs(prbs_lag_ms) < 1.00) if exact_clock else (abs(rapl_to_hf_lag_ms) <= 50.0 and prbs_edge_rise_ms < 2.50)
 
-        if max_coh_hf > 0.50 and max_abs_tau_hf_us < 2.0 and fast_emi_lag:
+        if prbs_p_n500 < 0.005 and max_coh_hf > 0.50 and max_abs_tau_hf_us < 2.0 and fast_emi_lag:
             verdict = "CONFIRMED_H1_EMI"
-        elif max_coh_hf > 0.50 and (5.0 <= max_abs_tau_hf_us <= 80.0) and fast_piezo_lag:
+        elif prbs_p_n500 < 0.005 and max_coh_hf > 0.50 and (5.0 <= max_abs_tau_hf_us <= 80.0) and fast_piezo_lag:
             verdict = "CONFIRMED_H1_CHASSIS_PIEZO"
-        elif fast_khz_locked and max_coh_hf > 0.50 and (80.0 < max_abs_tau_hf_us <= 500.0):
-            verdict = "CONFIRMED_H1_VRM_AIRBORNE_PIEZO"
-        elif 100.0 <= max_abs_tau_hf_us <= 500.0 or (rapl_to_lf_lag_ms >= 800.0 and max_coh_lf > 0.50):
+        elif (100.0 <= max_abs_tau_hf_us <= 500.0 and prbs_p_n500 < 0.005) or (
+            rapl_to_lf_lag_ms >= 800.0 and max_coh_lf > 0.50 and 100.0 <= median_abs_tau_lf_us <= 500.0
+        ):
             verdict = "CONFIRMED_AIRBORNE_ACOUSTIC"
         else:
-            verdict = "CONFIRMED_MIXED_FAST_COUPLING"
+            verdict = "FALSIFIED"
+
+    if (min_holm_p_posthoc < 0.005 or prbs_p < 0.005) and fast_khz_locked_posthoc and max_coh_hf > 0.50 and (80.0 < max_abs_tau_hf_us <= 500.0):
+        posthoc_verdict = "CONFIRMED_H1_VRM_AIRBORNE_PIEZO"
+    else:
+        posthoc_verdict = verdict
 
     return {
         "hypothesis": "S113-H1",
@@ -1085,9 +1096,16 @@ def analyze_h1_mechanism(
         "posthoc_n2000_exploratory": {
             "n_surrogates": int(n_surrogates),
             "min_holm_p": round(min_holm_p_posthoc, 8),
-            "status": "POST-HOC N0 exploratory only: preregistered gate is N=500; the N=2000 run is not a preregistered outcome",
+            "prbs7_p": round(prbs_p, 8),
+            "verdict": posthoc_verdict,
+            "status": (
+                "POST-HOC N0 exploratory only: preregistered H1 gate is N=500; surrogate count raised "
+                "500->2000 after data, mechanism category not among preregistered outcomes, and "
+                "stimulus-to-audio lag NOT measured when prbs7_p >= 0.005"
+            ),
         },
-        "prbs7_p": round(prbs_p, 8),
+        "prbs7_p": round(prbs_p_n500, 8),
+        "prbs7_p_posthoc": round(prbs_p, 8),
         "prbs7_peak_z": round(prbs_peak_z, 4),
         "prbs7_lag_clock_anchored_ms": round(prbs_lag_ms, 4),
         "prbs7_fwhm_ms": round(prbs_fwhm_ms, 4),
@@ -2514,7 +2532,22 @@ def analyze_track_directory(
         "track": "S113",
         "prereg_protocol": PREREG_ID,
         "seed": int(seed),
-        "n_surrogates": int(n_surrogates),
+        "h1_prereg_n_surrogates": 500,
+        "exploratory_and_h2_to_h5_n_surrogates": int(n_surrogates),
+        "prereg_deviation_note": (
+            f"Preregistered H1 gate is N=500 surrogates (Holm across present prime carriers); "
+            f"H2/H3/H5/E1/E2 and H1 post-hoc exploratory runs used N={int(n_surrogates)} surrogates. "
+            "H1 is graded strictly at N=500 (passes_null_gate derived from N=500 Holm and N=500 PRBS-7), "
+            "and any N=2000 result is confined to posthoc_n2000_exploratory (N0)."
+        ),
+        "reproducibility_scope": (
+            "Raw physical captures and binary telemetry arrays (raw audio/video streams, telemetry NPZs, "
+            "and phase manifests) are NOT shipped in this repository (AV=0 privacy-preserving policy; "
+            "raw_av_staged_count=0). Raw physical numbers in this certificate are therefore not "
+            "independently reproducible from the repository alone; cryptographic digests, pure-Q "
+            "Schur/Krein/Haynsworth/K4 Hodge-1 algebra, preregistered verdict gates, pooled Holm-Bonferroni "
+            "recomputation, and synthetic DSP injection/null tests ARE independently reproducible from this repository."
+        ),
         "raw_av_staged_count": 0,
         "manifest_digests": manifest_digests,
         "verdict_summary": verdict_summary,
