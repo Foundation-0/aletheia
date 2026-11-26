@@ -6,10 +6,14 @@ pure Python 3 stdlib deterministic scanners integrated into `aletheia audit-chec
   - CYA-GAP-01: Hidden / Trojan-Source Unicode (ZWSP/BOM, U+00AD soft hyphen, U+2061..2064 invisible operators,
                 CVE-2021-42574 BiDi controls, Variation Selectors U+FE00..FE0F & U+E0100..E01EF, Unicode Tags)
   - CYA-GAP-02: Unpinned MCP tags, auto-yes package runners (shell + single/multi-line JSON/YAML),
-                permission-bypass flags, and session hooks
-  - CYA-GAP-03: Unguarded recursive force-delete of shell/Makefile variables across shell scripts, YAML `run:`,
-                command substitutions, backslash continuations, `xargs`, `sh -c`, and Makefiles without top-level
-                non-conditional/non-heredoc `set -u` (guards unset only) or `${VAR:?}` (guards unset and empty)
+                duplicate JSON keys, bounded-depth JSON traversal, permission-bypass flags, and session hooks
+  - CYA-GAP-03: (a) Unguarded recursive force-delete of shell/Makefile variables without
+                top-level non-conditional/non-heredoc `set -u` (guards unset only) or `${VAR:?}`
+                (guards unset and empty); and (b) unconditional detection of dynamic-execution and
+                deletion-wrapper evasions (eval-wrapped deletion, find delete and -exec removal
+                actions, busybox deletion wrappers, xargs removal invocations including spaceless
+                forms, and printf piped to shell interpreters), which fire regardless of `set -u`,
+                `${VAR:?}`, or literal paths.
   - CYA-GAP-04: Untrusted CI workflow privilege (`pull_request_target` with secrets, `secrets: inherit`, write
                 permissions, or untrusted PR head checkout via dot/bracket exprs, step outputs, `pull/N/head`, or `gh pr checkout`)
   - CYA-GAP-05: Prose-only governance illusions & host-home tilde path dependencies in rule/prompt docs
@@ -17,6 +21,8 @@ pure Python 3 stdlib deterministic scanners integrated into `aletheia audit-chec
 """
 from __future__ import annotations
 
+from bisect import bisect_right
+import errno
 import json
 import os
 from pathlib import Path
@@ -24,7 +30,17 @@ import re
 import stat
 from typing import Any
 
+from .strict_io import AletheiaError
+
 _VCS_IGNORE_DIRS = {".git"}
+
+MAX_JSON_DEPTH = 64
+MAX_JSON_NUMBER_CHARS = 4300
+MAX_SCAN_FILE_BYTES = 2 * 1024 * 1024
+_READ_CHUNK_BYTES = 65536
+_MAX_SHELL_NESTING = 8
+# Strict CLI form of a `--max-file-bytes` override: ASCII decimal, no sign/whitespace/underscores/leading zero.
+_MAX_FILE_BYTES_ARG_RE = re.compile(r"[1-9][0-9]{0,15}")
 
 _ZERO_WIDTH_CODEPOINTS = frozenset(
     {0x00AD, 0x200B, 0x200C, 0x200D, 0x200E, 0x200F, 0x2060, 0x2061, 0x2062, 0x2063, 0x2064, 0xFEFF}
@@ -32,59 +48,86 @@ _ZERO_WIDTH_CODEPOINTS = frozenset(
 _BIDI_CODEPOINTS = frozenset({0x061C, 0x202A, 0x202B, 0x202C, 0x202D, 0x202E, 0x2066, 0x2067, 0x2068, 0x2069})
 
 _NPX_TOKEN = "n" + "px"
+_BUNX_TOKEN = "b" + "unx"
+_AUTO_YES_RUNNERS = frozenset({_NPX_TOKEN, _BUNX_TOKEN})
+_AUTO_YES_RUNNER_RE = r"(?:" + _NPX_TOKEN + r"|" + _BUNX_TOKEN + r")"
 _YES_FLAG_CORE = r"(?:-[A-Za-z]*y[A-Za-z]*|--y" + r"es)"
 _YES_FLAG_EXACT_RE = re.compile(_YES_FLAG_CORE)
+
+_EVAL_TOKEN = "ev" + "al"
+_FIND_TOKEN = "fi" + "nd"
+_DELETE_FLAG = "-" + "delete"
+_BUSYBOX_TOKEN = "busy" + "box"
+_XARGS_TOKEN = "xa" + "rgs"
+_PRINTF_TOKEN = "pri" + "ntf"
 
 _MCP_BYPASS_RULES: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"@" + r"latest\b"), "unpinned_latest_tag"),
     (re.compile(r"\b" + _NPX_TOKEN + r"\b[^\n]*?\s" + _YES_FLAG_CORE + r"\b"), "npx_auto_yes"),
+    (re.compile(r"\b" + _BUNX_TOKEN + r"\b[^\n]*?\s" + _YES_FLAG_CORE + r"\b"), "bunx_auto_yes"),
     (re.compile(r"--dangerously-" + r"skip-permissions\b"), "dangerously_skip_permissions"),
     (re.compile(r"(?<!\w)--" + r"yolo\b"), "yolo_mode_flag"),
     (re.compile(r"\bSession" + r"Start\b"), "session_start_hook"),
 )
 
-_YAML_ARGS_YES_LIST_RE = (
-    r"(?:[ \t]*\n[ \t]*-[ \t]*[^\n]+)*?[ \t]*\n[ \t]*-[ \t]*[\"']?" + _YES_FLAG_CORE + r"[\"']?(?:\s|$)"
+_STRUCTURED_CMD_LINE_RE = re.compile(
+    r"(?<![A-Za-z0-9_])[\"']?com" + r"mand[\"']?[ \t]*:[ \t]*([^\n,}\]]+)"
 )
-_STRUCTURED_NPX_YES_CMD_FIRST_RE = re.compile(
-    r"(?:[\"']?com" + r"mand[\"']?\s*:\s*[\"']?"
-    + _NPX_TOKEN
-    + r"[\"']?)"
-    r"(?:(?!\bcom" + r"mand\s*:)[\s\S]){0,600}?"
-    r"(?:[\"']?a" + r"rgs[\"']?\s*:\s*"
-    r"(?:\[[^\]]*?[\"']" + _YES_FLAG_CORE + r"[\"']"
-    r"|" + _YAML_ARGS_YES_LIST_RE + r"))"
+_STRUCTURED_ARGS_KEY_RE = re.compile(
+    r"(?<![A-Za-z0-9_])[\"']?a" + r"rgs[\"']?[ \t]*:"
 )
-_STRUCTURED_NPX_YES_ARGS_FIRST_RE = re.compile(
-    r"(?:[\"']?a" + r"rgs[\"']?\s*:\s*"
-    r"(?:\[[^\]]*?[\"']" + _YES_FLAG_CORE + r"[\"'][^\]]*\]"
-    r"|" + _YAML_ARGS_YES_LIST_RE + r"(?:[ \t]*\n[ \t]*-[ \t]*[^\n]+)*))"
-    r"(?:(?!\ba" + r"rgs\s*:)[\s\S]){0,600}?"
-    r"[\"']?com" + r"mand[\"']?\s*:\s*[\"']?"
-    + _NPX_TOKEN
-    + r"[\"']?\b"
+_STRUCTURED_INLINE_YES_RE = re.compile(
+    r"(?:^|[,\[\s\"'])" + _YES_FLAG_CORE + r"(?:$|[,\s\]\"'])"
 )
+_STRUCTURED_PROXIMITY_CHARS = 600
 
-_SHELL_PREFIX_RE = (
-    r"^\s*"
-    r"(?:(?:-\s+)?run:\s*|RUN(?:\s+--[A-Za-z0-9_-]+=\S+)*\s+)?"
-    r"(?:(?:[({!]\s*|(?:then|do|else)\s+))*"
-    r"(?:(?:[A-Za-z_][A-Za-z0-9_]*=\S*"
-    r"|sudo(?:\s+(?:-[uUgChp]\s+\S+|-[A-Za-z]+))*"
-    r"|command(?:\s+(?:-[pvV]+|--))*"
-    r"|env(?:\s+(?:-[uC]\s+\S+|-[A-Za-z]+))*"
-    r"|xargs(?:\s+(?:-[IEnLP]\s+\S+|-[A-Za-z0-9]+))*"
-    r"|builtin|exec|nohup|nice(?:\s+-n\s+\S+)?|time)\s+)*"
+_FIND_EXEC_FLAGS = frozenset({"-exec", "-execdir", "-ok", "-okdir"})
+_FIND_EXEC_END = frozenset({";", "\\;", "+"})
+_SHELL_INTERPRETERS = frozenset({"sh", "bash", "zsh", "dash", "ash", "ksh"})
+_XARGS_LONG_VAL_OPTS = frozenset(
+    {
+        "--arg-file",
+        "--delimiter",
+        "--eof",
+        "--max-args",
+        "--max-chars",
+        "--max-lines",
+        "--max-procs",
+        "--replace",
+    }
+)
+_XARGS_SHORT_VAL_FLAGS = frozenset({"I", "E", "n", "L", "P", "d", "a", "s", "J"})
+_ENV_VAL_OPTS = frozenset({"-u", "-C", "--unset", "--chdir"})
+_SUDO_VAL_OPTS = frozenset(
+    {
+        "-u",
+        "-U",
+        "-g",
+        "-C",
+        "-h",
+        "-p",
+        "-r",
+        "-t",
+        "-D",
+        "-R",
+        "-T",
+        "--user",
+        "--other-user",
+        "--group",
+        "--host",
+        "--prompt",
+    }
+)
+_NICE_VAL_OPTS = frozenset({"-n", "--adjustment"})
+_TIMEOUT_VAL_OPTS = frozenset({"-k", "-s", "--kill-after", "--signal"})
+_STDBUF_VAL_OPTS = frozenset({"-i", "-o", "-e", "--input", "--output", "--error"})
+_STAGE_LEADING_PREFIX_RE = re.compile(
+    r"^\s*(?:(?:-\s+)?run:\s*|RUN(?:\s+--[A-Za-z0-9_-]+=\S+)*\s+)?"
 )
 _SET_OPT_PREFIX_RE = r"(?:(?:[-+][A-Za-z]+|[-+]o\s+[A-Za-z]+)\s+)*"
 _SET_TOPLEVEL_NOUNSET_ON_RE = re.compile(
     r"^set\s+" + _SET_OPT_PREFIX_RE + r"(?:-[A-Za-z]*u[A-Za-z]*|-o\s+nounset)\b"
 )
-_SET_NOUNSET_OFF_RE = re.compile(
-    _SHELL_PREFIX_RE + r"set\s+" + _SET_OPT_PREFIX_RE + r"(?:\+[A-Za-z]*u[A-Za-z]*|\+o\s+nounset)\b"
-)
-_RM_CMD_RE = re.compile(_SHELL_PREFIX_RE + r"(?:[@+-]+\s*)?(?:(?:/[A-Za-z0-9._-]+)+/|\\)?rm\s+([^\n;&|]+)")
-_SHELL_SEG_SPLIT_RE = re.compile(r"(?:&&|\|\||;|\||(?<![<>])&(?!>))")
 _VAR_REF_RE = re.compile(r"\$(?:\{([^}]+)\}|\(([A-Za-z_][A-Za-z0-9_]*)\)|([A-Za-z_][A-Za-z0-9_]*))")
 _HEREDOC_START_RE = re.compile(r"<<(-)?\s*['\"]?([A-Za-z_][A-Za-z0-9_]*)['\"]?")
 _BLOCK_OPEN_RE = re.compile(r"(?:^\s*(?:if|for|while|until|case)\b|(?:^|\s)\{(?:\s|$)|(?:^|\s)\($)")
@@ -183,25 +226,647 @@ def _join_backslash_continuations(lines: list[str]) -> list[tuple[int, str]]:
     return logical
 
 
-def _extract_nested_rm_segments(seg: str, parent_nounset: bool) -> list[tuple[str, bool]]:
-    candidates: list[tuple[str, bool]] = [(seg, parent_nounset)]
-    for m_sub in _CMD_SUB_RE.finditer(seg):
-        inner = m_sub.group(1) if m_sub.group(1) is not None else m_sub.group(2)
-        if any(ch.isspace() for ch in inner):
-            for part in _SHELL_SEG_SPLIT_RE.split(inner):
-                candidates.append((part.strip(), parent_nounset))
-    for m_sh in _SHELL_C_RE.finditer(seg):
-        flags = m_sh.group(1)
-        body = m_sh.group(2) if m_sh.group(2) is not None else m_sh.group(3).replace('\\"', '"')
-        child_nounset = "u" in flags
-        for part in _SHELL_SEG_SPLIT_RE.split(body):
-            sub = part.strip()
-            if _SET_TOPLEVEL_NOUNSET_ON_RE.search(sub):
-                child_nounset = True
-            if _SET_NOUNSET_OFF_RE.search(sub):
-                child_nounset = False
-            candidates.append((sub, child_nounset))
-    return candidates
+def _split_shell_pipelines(code_line: str) -> list[list[str]]:
+    """Split one shell line on unquoted top-level statement separators into pipelines of pipe stages."""
+    pipelines: list[list[str]] = []
+    current_pipe: list[str] = []
+    buf: list[str] = []
+    in_single = False
+    in_double = False
+    in_backtick = False
+    cmd_sub_depth = 0
+    i = 0
+    n = len(code_line)
+    while i < n:
+        ch = code_line[i]
+        if in_single:
+            if ch == "'":
+                in_single = False
+            buf.append(ch)
+            i += 1
+            continue
+        if in_double:
+            if ch == "\\" and i + 1 < n:
+                buf.append(ch)
+                buf.append(code_line[i + 1])
+                i += 2
+                continue
+            if ch == '"':
+                in_double = False
+            buf.append(ch)
+            i += 1
+            continue
+        if ch == "\\" and i + 1 < n:
+            buf.append(ch)
+            buf.append(code_line[i + 1])
+            i += 2
+            continue
+        if ch == "`":
+            in_backtick = not in_backtick
+            buf.append(ch)
+            i += 1
+            continue
+        if in_backtick:
+            buf.append(ch)
+            i += 1
+            continue
+        if ch == "$" and i + 1 < n and code_line[i + 1] == "(":
+            cmd_sub_depth += 1
+            buf.append("$(")
+            i += 2
+            continue
+        if cmd_sub_depth > 0:
+            if ch == "(":
+                cmd_sub_depth += 1
+            elif ch == ")":
+                cmd_sub_depth -= 1
+            buf.append(ch)
+            i += 1
+            continue
+        if ch == "'":
+            in_single = True
+            buf.append(ch)
+            i += 1
+            continue
+        if ch == '"':
+            in_double = True
+            buf.append(ch)
+            i += 1
+            continue
+        if ch == ";":
+            current_pipe.append("".join(buf))
+            pipelines.append(current_pipe)
+            current_pipe = []
+            buf = []
+            i += 1
+            continue
+        if ch == "&":
+            if i + 1 < n and code_line[i + 1] == "&":
+                current_pipe.append("".join(buf))
+                pipelines.append(current_pipe)
+                current_pipe = []
+                buf = []
+                i += 2
+                continue
+            prev_ch = code_line[i - 1] if i > 0 else ""
+            next_ch = code_line[i + 1] if i + 1 < n else ""
+            if prev_ch not in ("<", ">") and next_ch != ">":
+                current_pipe.append("".join(buf))
+                pipelines.append(current_pipe)
+                current_pipe = []
+                buf = []
+                i += 1
+                continue
+        if ch == "|":
+            if i + 1 < n and code_line[i + 1] == "|":
+                current_pipe.append("".join(buf))
+                pipelines.append(current_pipe)
+                current_pipe = []
+                buf = []
+                i += 2
+                continue
+            current_pipe.append("".join(buf))
+            buf = []
+            if i + 1 < n and code_line[i + 1] == "&":
+                i += 2
+            else:
+                i += 1
+            continue
+        buf.append(ch)
+        i += 1
+    current_pipe.append("".join(buf))
+    pipelines.append(current_pipe)
+    return pipelines
+
+
+def _unquote_eval_arg(raw: str) -> str:
+    """Strip one layer of POSIX shell quoting from an eval argument string."""
+    out: list[str] = []
+    i = 0
+    n = len(raw)
+    in_single = False
+    in_double = False
+    while i < n:
+        ch = raw[i]
+        if in_single:
+            if ch == "'":
+                in_single = False
+            else:
+                out.append(ch)
+        elif in_double:
+            if ch == "\\" and i + 1 < n and raw[i + 1] in ('"', "\\", "$", "`"):
+                out.append(raw[i + 1])
+                i += 1
+            elif ch == '"':
+                in_double = False
+            else:
+                out.append(ch)
+        else:
+            if ch == "$" and i + 1 < n and raw[i + 1] == "'":
+                in_single = True
+                i += 1
+            elif ch == "'":
+                in_single = True
+            elif ch == '"':
+                in_double = True
+            elif ch == "\\" and i + 1 < n:
+                out.append(raw[i + 1])
+                i += 1
+            else:
+                out.append(ch)
+        i += 1
+    return "".join(out)
+
+
+def _strip_cmd_token(tok: str) -> str:
+    """Normalize a shell command token (strip quotes, path prefix, and leading backslash)."""
+    s = tok.strip()
+    if len(s) >= 2 and s[0] == s[-1] and s[0] in ("'", '"'):
+        s = s[1:-1]
+    return s.rsplit("/", 1)[-1].lstrip("\\")
+
+
+def _is_env_assign(tok: str) -> bool:
+    """Return True if tok is a POSIX NAME=value environment assignment."""
+    name, sep, _ = tok.partition("=")
+    if not sep or not name:
+        return False
+    if not (name[0].isascii() and (name[0].isalpha() or name[0] == "_")):
+        return False
+    return all(ch.isascii() and (ch.isalnum() or ch == "_") for ch in name[1:])
+
+
+def _is_spaceless_xargs_rm_tail(tail: str) -> bool:
+    """Return True for spaceless xargs option+rm tails like '-0rm' or '-I{}rm'."""
+    if tail == "-I{}rm":
+        return True
+    return len(tail) == 4 and tail[0] == "-" and "0" <= tail[1] <= "9" and tail[2:] == "rm"
+
+
+def _split_shell_tokens(text: str) -> list[tuple[str, int, int]]:
+    """Split text into quote-aware whitespace tokens with (token, start, end) offsets in O(n)."""
+    tokens: list[tuple[str, int, int]] = []
+    n = len(text)
+    i = 0
+    while i < n and text[i].isspace():
+        i += 1
+    while i < n:
+        start = i
+        in_single = False
+        in_double = False
+        while i < n:
+            ch = text[i]
+            if in_single:
+                if ch == "'":
+                    in_single = False
+                i += 1
+            elif in_double:
+                if ch == "\\":
+                    i += 2
+                elif ch == '"':
+                    in_double = False
+                    i += 1
+                else:
+                    i += 1
+            else:
+                if ch.isspace():
+                    break
+                if ch == "\\":
+                    i += 2
+                elif ch == "'":
+                    in_single = True
+                    i += 1
+                elif ch == '"':
+                    in_double = True
+                    i += 1
+                else:
+                    i += 1
+        tokens.append((text[start:i], start, i))
+        while i < n and text[i].isspace():
+            i += 1
+    return tokens
+
+
+def _skip_xargs_options(
+    tokens: list[str],
+    idx: int,
+    *,
+    stop_tokens: frozenset[str] = frozenset(),
+) -> tuple[int, bool]:
+    """Advance idx past xargs options in strictly linear O(n) time."""
+    n = len(tokens)
+    while idx < n:
+        t = tokens[idx]
+        if t in stop_tokens:
+            break
+        if t == "--":
+            idx += 1
+            break
+        if _is_spaceless_xargs_rm_tail(t):
+            return (idx + 1, True)
+        if t in _XARGS_LONG_VAL_OPTS:
+            idx += 2 if idx + 1 < n and tokens[idx + 1] not in stop_tokens else 1
+            continue
+        if t.startswith("--"):
+            idx += 1
+            continue
+        if t.startswith("-") and len(t) >= 2:
+            if len(t) == 2 and t[1] in _XARGS_SHORT_VAL_FLAGS:
+                idx += 2 if idx + 1 < n and tokens[idx + 1] not in stop_tokens else 1
+            else:
+                idx += 1
+            continue
+        break
+    return (idx, False)
+
+
+def _skip_wrapper_flag_args(
+    tokens: list[str],
+    idx: int,
+    val_opts: frozenset[str],
+    *,
+    allow_env_assign: bool = False,
+    stop_tokens: frozenset[str] = frozenset(),
+) -> int:
+    """Advance idx past a wrapper command's options in strictly linear O(n) time."""
+    n = len(tokens)
+    while idx < n:
+        t = tokens[idx]
+        if t in stop_tokens:
+            break
+        if t == "--":
+            return idx + 1
+        if allow_env_assign and _is_env_assign(t):
+            idx += 1
+            continue
+        if t in val_opts:
+            idx += 2 if idx + 1 < n and tokens[idx + 1] not in stop_tokens else 1
+            continue
+        if t.startswith("-") and len(t) >= 2:
+            idx += 1
+            continue
+        break
+    return idx
+
+
+def _skip_command_wrappers(
+    tokens: list[str],
+    idx: int,
+    *,
+    stop_tokens: frozenset[str] = frozenset(),
+) -> tuple[int, bool, bool, bool]:
+    """Skip leading env assignments and wrapper commands in O(n); return (cmd_idx, saw_busybox, saw_xargs, spaceless_xargs_rm)."""
+    n = len(tokens)
+    saw_busybox = False
+    saw_xargs = False
+    while idx < n and _is_env_assign(tokens[idx]):
+        idx += 1
+    while idx < n:
+        cmd = _strip_cmd_token(tokens[idx])
+        if cmd == _XARGS_TOKEN + "rm":
+            return (idx + 1, saw_busybox, True, True)
+        if cmd.startswith(_XARGS_TOKEN + "-"):
+            saw_xargs = True
+            tail = cmd[len(_XARGS_TOKEN) :]
+            if _is_spaceless_xargs_rm_tail(tail):
+                return (idx + 1, saw_busybox, True, True)
+            if len(tail) == 2 and tail[1] in _XARGS_SHORT_VAL_FLAGS:
+                idx += 2 if idx + 1 < n and tokens[idx + 1] not in stop_tokens else 1
+            else:
+                idx += 1
+            idx, hit = _skip_xargs_options(tokens, idx, stop_tokens=stop_tokens)
+            if hit:
+                return (idx, saw_busybox, True, True)
+            continue
+        if cmd == _XARGS_TOKEN:
+            saw_xargs = True
+            idx, hit = _skip_xargs_options(tokens, idx + 1, stop_tokens=stop_tokens)
+            if hit:
+                return (idx, saw_busybox, True, True)
+            continue
+        if cmd == _BUSYBOX_TOKEN:
+            saw_busybox = True
+            idx += 1
+            continue
+        if cmd == "env":
+            idx = _skip_wrapper_flag_args(
+                tokens, idx + 1, _ENV_VAL_OPTS, allow_env_assign=True, stop_tokens=stop_tokens
+            )
+            continue
+        if cmd == "sudo":
+            idx = _skip_wrapper_flag_args(
+                tokens, idx + 1, _SUDO_VAL_OPTS, allow_env_assign=True, stop_tokens=stop_tokens
+            )
+            continue
+        if cmd == "command":
+            idx = _skip_wrapper_flag_args(tokens, idx + 1, frozenset(), stop_tokens=stop_tokens)
+            continue
+        if cmd == "nice":
+            idx = _skip_wrapper_flag_args(tokens, idx + 1, _NICE_VAL_OPTS, stop_tokens=stop_tokens)
+            continue
+        if cmd == "stdbuf":
+            idx = _skip_wrapper_flag_args(tokens, idx + 1, _STDBUF_VAL_OPTS, stop_tokens=stop_tokens)
+            continue
+        if cmd == "timeout":
+            idx = _skip_wrapper_flag_args(tokens, idx + 1, _TIMEOUT_VAL_OPTS, stop_tokens=stop_tokens)
+            if idx < n and tokens[idx] not in stop_tokens:
+                idx += 1
+            continue
+        if cmd == "exec":
+            idx = _skip_wrapper_flag_args(tokens, idx + 1, frozenset({"-a"}), stop_tokens=stop_tokens)
+            continue
+        if cmd == "time":
+            idx = _skip_wrapper_flag_args(tokens, idx + 1, frozenset(), stop_tokens=stop_tokens)
+            continue
+        if cmd in ("nohup", "builtin"):
+            idx += 1
+            continue
+        break
+    return (idx, saw_busybox, saw_xargs, False)
+
+
+def _parse_shell_stage_command(stage: str) -> tuple[str, list[str], str, int, bool, bool, bool]:
+    """Parse one shell pipeline stage in O(n), stripping YAML/Dockerfile/control prefixes and wrappers."""
+    m_pre = _STAGE_LEADING_PREFIX_RE.match(stage)
+    pos = m_pre.end() if m_pre is not None else 0
+    n = len(stage)
+    while pos < n:
+        if stage[pos].isspace() or stage[pos] in "({!":
+            pos += 1
+            continue
+        matched_kw = False
+        for kw in ("then", "do", "else"):
+            kw_end = pos + len(kw)
+            if stage.startswith(kw, pos) and kw_end < n and stage[kw_end].isspace():
+                pos = kw_end + 1
+                matched_kw = True
+                break
+        if matched_kw:
+            continue
+        break
+    while pos < n and stage[pos] in "@+-":
+        pos += 1
+    tok_spans = _split_shell_tokens(stage[pos:])
+    if not tok_spans:
+        return ("", [], "", len(stage), False, False, False)
+    raw_tokens = [t for t, _s, _e in tok_spans]
+    cmd_idx, saw_busybox, saw_xargs, spaceless_xargs_rm = _skip_command_wrappers(raw_tokens, 0)
+    if spaceless_xargs_rm:
+        rest_tokens = raw_tokens[cmd_idx:]
+        end_off = pos + tok_spans[cmd_idx - 1][2]
+        return ("rm", rest_tokens, stage[end_off:].strip(), end_off, saw_busybox, True, True)
+    if cmd_idx >= len(raw_tokens):
+        return ("", [], "", len(stage), saw_busybox, saw_xargs, False)
+    cmd = _strip_cmd_token(raw_tokens[cmd_idx])
+    end_off = pos + tok_spans[cmd_idx][2]
+    rest_tokens = raw_tokens[cmd_idx + 1 :]
+    return (cmd, rest_tokens, stage[end_off:].strip(), end_off, saw_busybox, saw_xargs, False)
+
+
+def _stage_disables_nounset(stage: str) -> bool:
+    """Return True if stage invokes `set +u` or `set +o nounset` (outside `--`)."""
+    cmd, rest_tokens, _rest_str, _end_off, _bb, _xa, _srm = _parse_shell_stage_command(stage)
+    if cmd != "set":
+        return False
+    idx = 0
+    n = len(rest_tokens)
+    while idx < n:
+        t = rest_tokens[idx]
+        if t == "--":
+            break
+        if t == "+o" and idx + 1 < n:
+            if rest_tokens[idx + 1] == "nounset":
+                return True
+            idx += 2
+            continue
+        if t == "-o":
+            idx += 2
+            continue
+        if t.startswith("+") and "u" in t[1:]:
+            return True
+        idx += 1
+    return False
+
+
+def _pipeline_has_printf_to_shell(stages: list[str]) -> bool:
+    """Return True if a pipeline invokes printf before piping into a shell interpreter."""
+    seen_printf = False
+    for raw_stage in stages:
+        cmd, _rest, _rest_str, _end_off, _bb, _xa, _srm = _parse_shell_stage_command(raw_stage.strip())
+        if seen_printf and cmd in _SHELL_INTERPRETERS:
+            return True
+        if cmd == _PRINTF_TOKEN:
+            seen_printf = True
+    return False
+
+
+def _shell_c_script_runs_rm(interp_args: list[str]) -> bool:
+    """Return True if `<shell> [-flags] -c SCRIPT ...` (given the tokens after the interpreter) runs rm.
+
+    Covers positional-parameter shell scripts that are only dangerous through their caller: a find
+    exec action or an xargs invocation whose command is `sh -c` with an rm script operating on
+    `"$1"` / `{}`. The script token is unquoted once and every pipeline stage of it is parsed for
+    an rm command.
+    """
+    n = len(interp_args)
+    j = 0
+    while j < n and interp_args[j].startswith("-") and not interp_args[j].startswith("--"):
+        flag = interp_args[j]
+        j += 1
+        if "c" in flag[1:]:
+            if j >= n:
+                return False
+            body = _unquote_eval_arg(interp_args[j])
+            return any(
+                _parse_shell_stage_command(stage.strip())[0] == "rm"
+                for pipeline in _split_shell_pipelines(body)
+                for stage in pipeline
+            )
+    return False
+
+
+def _find_tokens_exec_rm(find_tokens: list[str]) -> bool:
+    """Return True if any find -exec/-execdir/-ok/-okdir action invokes rm (directly or via wrapper)."""
+    n = len(find_tokens)
+    idx = 0
+    while idx < n:
+        if find_tokens[idx] in _FIND_EXEC_FLAGS:
+            cmd_idx, _bb, _xa, spaceless_xargs_rm = _skip_command_wrappers(
+                find_tokens, idx + 1, stop_tokens=_FIND_EXEC_END
+            )
+            if spaceless_xargs_rm:
+                return True
+            if cmd_idx < n and _strip_cmd_token(find_tokens[cmd_idx]) == "rm":
+                return True
+            if (
+                cmd_idx < n
+                and _strip_cmd_token(find_tokens[cmd_idx]) in _SHELL_INTERPRETERS
+                and _shell_c_script_runs_rm(find_tokens[cmd_idx + 1 :])
+            ):
+                return True
+            idx = cmd_idx + 1
+            continue
+        idx += 1
+    return False
+
+
+def _build_span_cover_index(spans: list[tuple[int, int]]) -> tuple[list[int], list[int]]:
+    """Index spans for O(log m) containment queries: sorted starts plus the running max of their ends.
+
+    A query `[start, end)` lies inside some span `(es, ee)` with `es <= start` and `end <= ee` iff the
+    running max of `ee` over all spans with `es <= start` (the first `bisect_right(starts, start)`
+    spans in start order) is `>= end`. This keeps `_extract_quoted_subcommands` O((q + m) log m)
+    instead of O(q * m) on adversarial inputs such as `"sh -c '" * n` (Foundation-0/aletheia#35).
+    """
+    starts: list[int] = []
+    cover_ends: list[int] = []
+    running_max = -1
+    for es, ee in sorted(spans):
+        running_max = max(running_max, ee)
+        starts.append(es)
+        cover_ends.append(running_max)
+    return starts, cover_ends
+
+
+def _span_is_covered(start: int, end: int, starts: list[int], cover_ends: list[int]) -> bool:
+    """Return True iff `[start, end)` is contained in some indexed span (see `_build_span_cover_index`)."""
+    idx = bisect_right(starts, start)
+    return idx > 0 and cover_ends[idx - 1] >= end
+
+
+def _extract_quoted_subcommands(stage: str, excluded_spans: list[tuple[int, int]]) -> list[str]:
+    """Extract non-excluded quoted string contents containing whitespace for subcommand scanning."""
+    subcmds: list[str] = []
+    span_starts, span_cover_ends = _build_span_cover_index(excluded_spans)
+    n = len(stage)
+    i = 0
+    while i < n:
+        ch = stage[i]
+        if ch == "\\":
+            i += 2
+            continue
+        if ch not in ("'", '"'):
+            i += 1
+            continue
+        quote = ch
+        start = i
+        i += 1
+        buf: list[str] = []
+        closed = False
+        while i < n:
+            c = stage[i]
+            if quote == '"' and c == "\\" and i + 1 < n:
+                nxt = stage[i + 1]
+                if nxt in ('"', "\\"):
+                    buf.append(nxt)
+                else:
+                    buf.append(c)
+                    buf.append(nxt)
+                i += 2
+                continue
+            if c == quote:
+                closed = True
+                i += 1
+                break
+            buf.append(c)
+            i += 1
+        end = i
+        if not closed:
+            break
+        if _span_is_covered(start, end, span_starts, span_cover_ends):
+            continue
+        inner = "".join(buf)
+        if any(c.isspace() for c in inner):
+            subcmds.append(inner)
+    return subcmds
+
+
+def _scan_shell_segment_findings(seg: str, parent_nounset: bool) -> list[str]:
+    """Iteratively inspect one shell segment (plus nested subshells, command subs, quoted strings, and eval) for CYA-GAP-03."""
+    details: list[str] = []
+    stack: list[tuple[str, bool, bool, bool, int]] = [(seg, parent_nounset, False, False, 0)]
+    while stack:
+        curr_text, curr_nounset, from_eval, is_subshell, depth = stack.pop()
+        if depth > _MAX_SHELL_NESTING:
+            details.append("shell_nesting_depth_exceeded")
+            continue
+        pipelines = [[curr_text]] if depth == 0 else _split_shell_pipelines(curr_text)
+        local_nounset = curr_nounset
+        for pipeline in pipelines:
+            if _pipeline_has_printf_to_shell(pipeline):
+                details.append("printf_pipe_to_shell")
+            for raw_stage in pipeline:
+                stage = raw_stage.strip()
+                if is_subshell:
+                    if _SET_TOPLEVEL_NOUNSET_ON_RE.search(stage) is not None:
+                        local_nounset = True
+                    if _stage_disables_nounset(stage):
+                        local_nounset = False
+
+                excluded_spans: list[tuple[int, int]] = []
+                cmd, rest_tokens, rest_str, cmd_end, saw_busybox, saw_xargs, spaceless_xargs_rm = (
+                    _parse_shell_stage_command(stage)
+                )
+
+                if cmd == _EVAL_TOKEN:
+                    eval_arg = rest_str[2:].strip() if rest_tokens and rest_tokens[0] == "--" else rest_str
+                    if eval_arg:
+                        excluded_spans.append((cmd_end, len(stage)))
+                        unquoted = _unquote_eval_arg(eval_arg)
+                        stack.append((unquoted, False, True, False, depth + 1))
+
+                for m_sub in _CMD_SUB_RE.finditer(stage):
+                    excluded_spans.append((m_sub.start(), m_sub.end()))
+                    inner = m_sub.group(1) if m_sub.group(1) is not None else m_sub.group(2)
+                    if any(ch.isspace() for ch in inner):
+                        stack.append((inner, local_nounset, from_eval, False, depth + 1))
+
+                for m_sh in _SHELL_C_RE.finditer(stage):
+                    excluded_spans.append((m_sh.start(), m_sh.end()))
+                    flags = m_sh.group(1)
+                    body = m_sh.group(2) if m_sh.group(2) is not None else m_sh.group(3).replace('\\"', '"')
+                    stack.append((body, "u" in flags, False, True, depth + 1))
+
+                for quoted_inner in _extract_quoted_subcommands(stage, excluded_spans):
+                    stack.append((quoted_inner, local_nounset, from_eval, True, depth + 1))
+
+                if spaceless_xargs_rm:
+                    details.append("xargs_rm")
+                    continue
+
+                if cmd == _FIND_TOKEN:
+                    find_tokens = [tok.rstrip(")}") for tok in rest_tokens]
+                    if _DELETE_FLAG in find_tokens:
+                        details.append("find_delete")
+                    if _find_tokens_exec_rm(find_tokens):
+                        details.append("find_exec_rm")
+                    continue
+
+                if saw_xargs and cmd in _SHELL_INTERPRETERS and _shell_c_script_runs_rm(rest_tokens):
+                    details.append("xargs_rm")
+                    continue
+
+                if cmd == "rm":
+                    if saw_xargs:
+                        details.append("xargs_rm")
+                        continue
+                    if saw_busybox:
+                        details.append("busybox_rm")
+                        continue
+                    if from_eval:
+                        details.append("eval_wrapped_rm")
+                        continue
+                    if not _rm_args_are_recursive_force(rest_tokens):
+                        continue
+                    if local_nounset:
+                        continue
+                    for vm in _VAR_REF_RE.finditer(rest_str):
+                        braced = vm.group(1)
+                        if braced is not None and ":?" in braced:
+                            continue
+                        details.append("unguarded_rm_rf_variable")
+                        break
+    return details
 
 
 def _decode_text_bytes(raw: bytes) -> str | None:
@@ -240,21 +905,167 @@ def _decode_text_bytes(raw: bytes) -> str | None:
     return decoded
 
 
-def _find_json_npx_yes_objects(obj: Any) -> int:
-    """Recursively count JSON objects invoking an auto-yes package runner."""
-    hits = 0
-    if isinstance(obj, dict):
-        cmd = obj.get("command")
-        args = obj.get("args")
-        if isinstance(cmd, str) and cmd.strip() == _NPX_TOKEN and isinstance(args, list):
-            if any(isinstance(a, str) and _YES_FLAG_EXACT_RE.fullmatch(a.strip()) is not None for a in args):
-                hits += 1
-        for val in obj.values():
-            hits += _find_json_npx_yes_objects(val)
-    elif isinstance(obj, list):
-        for item in obj:
-            hits += _find_json_npx_yes_objects(item)
-    return hits
+class _JsonObjectPairs:
+    """Preserves raw JSON object key/value pairs so duplicate keys cannot hide entries."""
+
+    __slots__ = ("pairs",)
+
+    def __init__(self, pairs: list[tuple[str, Any]]) -> None:
+        self.pairs = pairs
+
+
+def _check_json_nesting_depth(text: str, max_depth: int = MAX_JSON_DEPTH) -> None:
+    """Iteratively verify JSON container nesting depth does not exceed max_depth."""
+    depth = 0
+    in_string = False
+    escaped = False
+    for ch in text:
+        if in_string:
+            if escaped:
+                escaped = False
+            elif ch == "\\":
+                escaped = True
+            elif ch == '"':
+                in_string = False
+        elif ch == '"':
+            in_string = True
+        elif ch in "{[":
+            depth += 1
+            if depth > max_depth:
+                raise AletheiaError(
+                    "SAFETY_JSON_DEPTH_EXCEEDED",
+                    f"JSON nesting depth exceeds cap {max_depth}",
+                )
+        elif ch in "}]" and depth > 0:
+            depth -= 1
+
+
+def _extract_runner_name(cmd: Any) -> str | None:
+    if not isinstance(cmd, str):
+        return None
+    base = cmd.strip().rsplit("/", 1)[-1].rsplit("\\", 1)[-1]
+    if base in _AUTO_YES_RUNNERS:
+        return base
+    return None
+
+
+def _scan_json_safety_tree(obj: Any, *, max_depth: int = MAX_JSON_DEPTH) -> list[str]:
+    """Iteratively walk a parsed JSON tree with bounded depth, collecting CYA-GAP-02 detail tags."""
+    details: list[str] = []
+    stack: list[tuple[Any, int]] = [(obj, 1)]
+    while stack:
+        curr, depth = stack.pop()
+        is_pairs = isinstance(curr, _JsonObjectPairs)
+        is_dict = isinstance(curr, dict)
+        is_list = isinstance(curr, list)
+        if not (is_pairs or is_dict or is_list):
+            continue
+        if depth > max_depth:
+            raise AletheiaError(
+                "SAFETY_JSON_DEPTH_EXCEEDED",
+                f"JSON nesting depth exceeds cap {max_depth}",
+            )
+        if is_list:
+            for item in curr:
+                stack.append((item, depth + 1))
+            continue
+        pairs = curr.pairs if is_pairs else list(curr.items())
+
+        seen_keys: set[str] = set()
+        runners: list[str] = []
+        has_auto_yes_args = False
+        for key, val in pairs:
+            if key in seen_keys:
+                details.append("duplicate_json_key")
+            else:
+                seen_keys.add(key)
+            if key == "command":
+                runner = _extract_runner_name(val)
+                if runner is not None:
+                    runners.append(runner)
+            elif key == "args" and isinstance(val, list):
+                if any(
+                    isinstance(a, str) and _YES_FLAG_EXACT_RE.fullmatch(a.strip()) is not None
+                    for a in val
+                ):
+                    has_auto_yes_args = True
+            stack.append((val, depth + 1))
+        if has_auto_yes_args:
+            for runner in runners:
+                details.append(f"{runner}_auto_yes_structured_config")
+    return details
+
+
+def _find_json_npx_yes_objects(obj: Any, *, max_depth: int = MAX_JSON_DEPTH) -> int:
+    """Iteratively count JSON objects invoking an auto-yes package runner."""
+    return sum(
+        1
+        for d in _scan_json_safety_tree(obj, max_depth=max_depth)
+        if d.endswith("_auto_yes_structured_config")
+    )
+
+
+def _parse_bounded_json_int(token: str) -> int:
+    if len(token) > MAX_JSON_NUMBER_CHARS:
+        raise ValueError("SAFETY_JSON_NUMBER_LIMIT_EXCEEDED")
+    return int(token)
+
+
+def _parse_bounded_json_float(token: str) -> str:
+    if len(token) > MAX_JSON_NUMBER_CHARS:
+        raise ValueError("SAFETY_JSON_NUMBER_LIMIT_EXCEEDED")
+    return token
+
+
+def _read_regular_file_bounded(
+    p: Path,
+    *,
+    max_bytes: int = MAX_SCAN_FILE_BYTES,
+) -> tuple[str, bytes | str | OSError]:
+    """Check lstat S_ISREG before opening with O_RDONLY|O_NOFOLLOW|O_NONBLOCK, verify fstat dev/ino, and stream at most max_bytes."""
+    try:
+        lst = os.lstat(p)
+    except OSError as exc:
+        return ("unreadable", exc)
+    if stat.S_ISLNK(lst.st_mode):
+        return ("skipped", "symlink_not_followed")
+    if not stat.S_ISREG(lst.st_mode):
+        return ("skipped", "non_regular_file")
+
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
+    try:
+        fd = os.open(p, flags)
+    except OSError as exc:
+        if exc.errno == errno.ELOOP:
+            return ("skipped", "symlink_not_followed")
+        if exc.errno in (errno.ENXIO, errno.EOPNOTSUPP):
+            return ("skipped", "non_regular_file")
+        return ("unreadable", exc)
+
+    try:
+        st = os.fstat(fd)
+        if not stat.S_ISREG(st.st_mode):
+            return ("skipped", "non_regular_file")
+        if st.st_dev != lst.st_dev or st.st_ino != lst.st_ino:
+            return ("skipped", "path_changed_during_open")
+        if st.st_size > max_bytes:
+            return ("skipped", "file_size_limit_exceeded")
+        chunks: list[bytes] = []
+        total = 0
+        while True:
+            remaining = max_bytes - total + 1
+            chunk = os.read(fd, min(_READ_CHUNK_BYTES, remaining))
+            if not chunk:
+                break
+            total += len(chunk)
+            if total > max_bytes:
+                return ("skipped", "file_size_limit_exceeded")
+            chunks.append(chunk)
+        return ("ok", b"".join(chunks))
+    except OSError as exc:
+        return ("unreadable", exc)
+    finally:
+        os.close(fd)
 
 
 def scan_hidden_unicode(text: str, file_label: str = "<input>") -> list[dict[str, Any]]:
@@ -294,6 +1105,103 @@ def scan_hidden_unicode(text: str, file_label: str = "<input>") -> list[dict[str
     return findings
 
 
+def _scan_structured_auto_yes_config(text: str) -> list[tuple[int, str]]:
+    """Detect non-JSON structured (YAML/fenced-JSON) npx/bunx auto-yes configs in strictly O(n) time."""
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    n = len(text)
+    events: list[tuple[int, int, str, str]] = []
+
+    for m_cmd in _STRUCTURED_CMD_LINE_RE.finditer(text):
+        raw_val = m_cmd.group(1).strip().strip("\"'")
+        base = raw_val.rsplit("/", 1)[-1].rsplit("\\", 1)[-1]
+        runner = base if base in (_NPX_TOKEN, _BUNX_TOKEN) else ""
+        events.append((m_cmd.start(), m_cmd.end(), "cmd", runner))
+
+    bracket_floor = 0
+    bracket_yes_start = -1
+    yaml_floor = 0
+    yaml_yes_pos = -1
+    for m_args in _STRUCTURED_ARGS_KEY_RE.finditer(text):
+        pos = m_args.end()
+        while pos < n and text[pos] in " \t":
+            pos += 1
+        if pos != n and text[pos] == "#":
+            nl_c = text.find("\n", pos)
+            pos = nl_c if nl_c != -1 else n
+        has_yes = False
+        end_pos = pos
+        if pos < n and text[pos] == "[":
+            if m_args.start() < bracket_floor:
+                end_pos = bracket_floor
+                has_yes = bracket_yes_start >= pos
+            else:
+                close_idx = text.find("]", pos + 1)
+                end_pos = close_idx + 1 if close_idx != -1 else n
+                bracket_floor = end_pos
+                bracket_yes_start = -1
+                for m_yes in _STRUCTURED_INLINE_YES_RE.finditer(text[pos + 1 : end_pos]):
+                    bracket_yes_start = pos + 1 + m_yes.start()
+                has_yes = bracket_yes_start >= pos + 1
+        elif pos < n and text[pos] == "\n":
+            if m_args.start() < yaml_floor:
+                end_pos = yaml_floor - 1
+                has_yes = yaml_yes_pos >= pos + 1
+            else:
+                cur = pos + 1
+                yaml_yes_pos = -1
+                while True:
+                    nl = text.find("\n", cur)
+                    line_end = nl if nl != -1 else n
+                    stripped = text[cur:line_end].lstrip(" \t")
+                    if not stripped.startswith("-"):
+                        break
+                    after_dash = stripped[1:]
+                    if after_dash and after_dash[0] not in " \t":
+                        break
+                    parts = after_dash.strip().split()
+                    if parts:
+                        tok = parts[0].strip("\"'")
+                        if _YES_FLAG_EXACT_RE.fullmatch(tok) is not None:
+                            yaml_yes_pos = cur
+                    end_pos = line_end
+                    if nl == -1:
+                        break
+                    cur = nl + 1
+                yaml_floor = end_pos + 1
+                has_yes = yaml_yes_pos >= pos + 1
+        events.append((m_args.start(), end_pos, "args", "yes" if has_yes else ""))
+
+    events.sort(key=lambda item: item[0])
+    hits: list[tuple[int, str]] = []
+    ev_count = len(events)
+    for i, (c_start, c_end, kind, runner) in enumerate(events):
+        if kind != "cmd" or not runner:
+            continue
+        matched = False
+        for j in range(i + 1, ev_count):
+            ev_start, _ev_end, ev_kind, ev_val = events[j]
+            if ev_start - c_end > _STRUCTURED_PROXIMITY_CHARS:
+                break
+            if ev_kind == "cmd":
+                break
+            if ev_val == "yes":
+                hits.append((text.count("\n", 0, c_start) + 1, runner))
+                matched = True
+                break
+        if matched:
+            continue
+        for j in range(i - 1, -1, -1):
+            ev_start, ev_end, ev_kind, ev_val = events[j]
+            if c_start - ev_end > _STRUCTURED_PROXIMITY_CHARS:
+                break
+            if ev_kind == "cmd":
+                break
+            if ev_val == "yes":
+                hits.append((text.count("\n", 0, ev_start) + 1, runner))
+            break
+    return hits
+
+
 def scan_text_safety_surface(
     text: str,
     file_label: str = "<input>",
@@ -309,7 +1217,7 @@ def scan_text_safety_surface(
     findings: list[dict[str, Any]] = scan_hidden_unicode(text, file_label)
     lines = text.splitlines()
 
-    # CYA-GAP-02: Unpinned MCP / permission bypass (line-based + recursive JSON + multi-line YAML/embedded)
+    # CYA-GAP-02: Unpinned MCP / permission bypass (line-based + bounded iterative JSON + multi-line YAML/embedded)
     for lineno, line in enumerate(lines, start=1):
         for pat, detail in _MCP_BYPASS_RULES:
             for _m in pat.finditer(line):
@@ -321,36 +1229,62 @@ def scan_text_safety_surface(
                         "detail": detail,
                     }
                 )
-    json_parsed = False
-    if text.lstrip().startswith(("{", "[")):
+    json_handled = False
+    json_candidate = text.lstrip("\ufeff \t\r\n")
+    if json_candidate.startswith(("{", "[")):
         try:
-            parsed_json = json.loads(text)
-            json_parsed = True
-        except json.JSONDecodeError:
-            parsed_json = None
-        if json_parsed:
-            for _ in range(_find_json_npx_yes_objects(parsed_json)):
+            _check_json_nesting_depth(json_candidate)
+            parsed_json = json.loads(
+                json_candidate,
+                object_pairs_hook=_JsonObjectPairs,
+                parse_int=_parse_bounded_json_int,
+                parse_float=_parse_bounded_json_float,
+            )
+            json_details = _scan_json_safety_tree(parsed_json)
+            json_handled = True
+            for detail in json_details:
                 findings.append(
                     {
                         "gap_id": "CYA-GAP-02",
                         "file": file_label,
                         "line": 1,
-                        "detail": "npx_auto_yes_structured_config",
+                        "detail": detail,
                     }
                 )
-    if not json_parsed:
-        for pat in (_STRUCTURED_NPX_YES_CMD_FIRST_RE, _STRUCTURED_NPX_YES_ARGS_FIRST_RE):
-            for m_struct in pat.finditer(text):
-                findings.append(
-                    {
-                        "gap_id": "CYA-GAP-02",
-                        "file": file_label,
-                        "line": text.count("\n", 0, m_struct.start()) + 1,
-                        "detail": "npx_auto_yes_structured_config",
-                    }
-                )
+        except AletheiaError:
+            json_handled = True
+            findings.append(
+                {
+                    "gap_id": "CYA-GAP-02",
+                    "file": file_label,
+                    "line": 1,
+                    "detail": "json_nesting_depth_exceeded",
+                }
+            )
+        except json.JSONDecodeError:
+            json_handled = False
+        except (ValueError, RecursionError):
+            json_handled = True
+            findings.append(
+                {
+                    "gap_id": "CYA-GAP-02",
+                    "file": file_label,
+                    "line": 1,
+                    "detail": "json_parse_limit_exceeded",
+                }
+            )
+    if not json_handled:
+        for hit_line, hit_runner in _scan_structured_auto_yes_config(text):
+            findings.append(
+                {
+                    "gap_id": "CYA-GAP-02",
+                    "file": file_label,
+                    "line": hit_line,
+                    "detail": f"{hit_runner}_auto_yes_structured_config",
+                }
+            )
 
-    # CYA-GAP-03: Unguarded recursive force-delete of shell/Makefile variables
+    # CYA-GAP-03: Unguarded recursive force-delete & command-wrapper evasions
     nounset_active = False
     heredoc_delim: str | None = None
     heredoc_strip_tabs = False
@@ -369,40 +1303,38 @@ def scan_text_safety_surface(
                 heredoc_strip_tabs = m_hd.group(1) == "-"
                 heredoc_delim = m_hd.group(2)
         indented = raw_line[:1] in (" ", "\t")
-        segments = _SHELL_SEG_SPLIT_RE.split(code_line)
-        for seg_idx, raw_seg in enumerate(segments):
-            seg = raw_seg.strip()
-            if not in_heredoc and _BLOCK_OPEN_RE.search(seg):
-                block_depth += 1
-            if not in_heredoc and block_depth == 0 and not indented and seg_idx == 0 and _SET_TOPLEVEL_NOUNSET_ON_RE.search(seg):
-                nounset_active = True
-            if _SET_NOUNSET_OFF_RE.search(seg):
-                nounset_active = False
-            for cand_seg, cand_nounset in _extract_nested_rm_segments(seg, nounset_active):
-                m_rm = _RM_CMD_RE.search(cand_seg)
-                if m_rm is None:
-                    continue
-                arg_str = m_rm.group(1)
-                tokens = arg_str.split()
-                if not _rm_args_are_recursive_force(tokens):
-                    continue
-                if cand_nounset:
-                    continue
-                for vm in _VAR_REF_RE.finditer(arg_str):
-                    braced = vm.group(1)
-                    if braced is not None and ":?" in braced:
-                        continue
+        pipelines = _split_shell_pipelines(code_line)
+        seg_idx = 0
+        for pipeline in pipelines:
+            if _pipeline_has_printf_to_shell(pipeline):
+                findings.append(
+                    {
+                        "gap_id": "CYA-GAP-03",
+                        "file": file_label,
+                        "line": lineno,
+                        "detail": "printf_pipe_to_shell",
+                    }
+                )
+            for raw_seg in pipeline:
+                seg = raw_seg.strip()
+                if not in_heredoc and _BLOCK_OPEN_RE.search(seg):
+                    block_depth += 1
+                if not in_heredoc and block_depth == 0 and not indented and seg_idx == 0 and _SET_TOPLEVEL_NOUNSET_ON_RE.search(seg):
+                    nounset_active = True
+                if _stage_disables_nounset(seg):
+                    nounset_active = False
+                for detail in _scan_shell_segment_findings(seg, nounset_active):
                     findings.append(
                         {
                             "gap_id": "CYA-GAP-03",
                             "file": file_label,
                             "line": lineno,
-                            "detail": "unguarded_rm_rf_variable",
+                            "detail": detail,
                         }
                     )
-                    break
-            if not in_heredoc and _BLOCK_CLOSE_RE.search(seg):
-                block_depth = max(0, block_depth - 1)
+                if not in_heredoc and _BLOCK_CLOSE_RE.search(seg):
+                    block_depth = max(0, block_depth - 1)
+                seg_idx += 1
 
     # CYA-GAP-04: pull_request_target + privileged access or untrusted PR head checkout in CI YAML
     lower_label = file_label.lower()
@@ -483,22 +1415,74 @@ def scan_text_safety_surface(
     }
 
 
+def validate_max_file_bytes(value: Any) -> int:
+    """Return `value` if it is a strict positive `int` (not `bool`); else raise `SAFETY_INVALID_MAX_BYTES`."""
+    if type(value) is not int or value < 1:
+        raise AletheiaError("SAFETY_INVALID_MAX_BYTES", "max_file_bytes must be a positive int")
+    return value
+
+
+def parse_max_file_bytes_arg(text: Any) -> int:
+    """Parse a CLI `--max-file-bytes` value strictly: ASCII digits `[1-9][0-9]{0,15}` only.
+
+    Rejects (ValueError) signs, whitespace, underscores, leading zeros, non-ASCII digits, and zero,
+    all of which `int()` would otherwise accept or coerce.
+    """
+    if not isinstance(text, str) or _MAX_FILE_BYTES_ARG_RE.fullmatch(text) is None:
+        raise ValueError("SAFETY_INVALID_MAX_BYTES")
+    return validate_max_file_bytes(int(text))
+
+
 def scan_directory_safety_surface(
     target_path: Path,
     *,
     include_host_hygiene: bool = False,
+    max_file_bytes: int = MAX_SCAN_FILE_BYTES,
 ) -> dict[str, Any]:
     """Scan a file or directory tree for CYA-GAP-01..06 safety findings.
 
-    Scans all regular working-tree text files (including dotfiles, extensionless files, build/dist/node_modules,
-    and UTF-16 files; excluding only `.git` VCS metadata). Fails closed (`clean=False`) whenever any
-    findings, skipped entries (broken symlinks, symlinked directories, or non-regular files such as FIFOs,
-    sockets, and devices), undecodable/binary/NUL-containing files (including UTF-32 with BOM), or
-    unreadable files/directories are present.
+    Verifies `lstat` S_ISREG before opening with `O_RDONLY|O_NOFOLLOW|O_NONBLOCK`, confirms `fstat`
+    `S_ISREG` and `(st_dev, st_ino)` identity, and streams up to `max_file_bytes` (including
+    dotfiles, extensionless files, build/dist/node_modules, and UTF-16 files; excluding only `.git`
+    VCS metadata). Direct symlink targets, broken/looping symlinks, out-of-root symlinks, and
+    symlinked directories are refused fail-closed; in-root regular-file symlinks (such as
+    `CLAUDE.md -> AGENTS.md`) are resolved within the scanned root and scanned through their target.
+    Fails closed (`clean=False`) whenever any findings, skipped entries (unfollowed/broken/outside
+    symlinks, symlinked directories, oversized files, TOCTOU path changes, or non-regular files such
+    as FIFOs, sockets, and devices), undecodable/binary/NUL-containing files (including UTF-32 with
+    BOM), or unreadable files/directories are present.
     """
+    validate_max_file_bytes(max_file_bytes)
+    try:
+        top_lst = os.lstat(target_path)
+    except FileNotFoundError:
+        raise ValueError("SAFETY_TARGET_NOT_FOUND") from None
+    except OSError as exc:
+        return {
+            "clean": False,
+            "target": str(target_path),
+            "files_scanned": 0,
+            "finding_count": 0,
+            "gap_ids_present": [],
+            "findings": [],
+            "skipped_files": [],
+            "undecodable_files": [],
+            "unreadable_files": [{"file": target_path.name, "error": type(exc).__name__, "detail": str(exc)}],
+        }
+    if stat.S_ISLNK(top_lst.st_mode):
+        reason = "symlink_directory_not_followed" if target_path.is_dir() else "symlink_not_followed"
+        return {
+            "clean": False,
+            "target": str(target_path),
+            "files_scanned": 0,
+            "finding_count": 0,
+            "gap_ids_present": [],
+            "findings": [],
+            "skipped_files": [{"file": target_path.name, "reason": reason}],
+            "undecodable_files": [],
+            "unreadable_files": [],
+        }
     resolved = target_path.resolve()
-    if not resolved.exists():
-        raise ValueError("SAFETY_TARGET_NOT_FOUND")
 
     all_findings: list[dict[str, Any]] = []
     skipped_files: list[dict[str, str]] = []
@@ -508,23 +1492,15 @@ def scan_directory_safety_surface(
 
     def _scan_one(p: Path, label: str) -> None:
         nonlocal files_scanned
-        if p.is_symlink() and not p.exists():
-            skipped_files.append({"file": label, "reason": "broken_symlink"})
+        status, payload = _read_regular_file_bounded(p, max_bytes=max_file_bytes)
+        if status == "skipped":
+            skipped_files.append({"file": label, "reason": str(payload)})
             return
-        try:
-            st = p.stat()
-        except OSError as exc:
+        if status == "unreadable":
+            exc = payload
             unreadable_files.append({"file": label, "error": type(exc).__name__, "detail": str(exc)})
             return
-        if not stat.S_ISREG(st.st_mode):
-            skipped_files.append({"file": label, "reason": "non_regular_file"})
-            return
-        try:
-            raw = p.read_bytes()
-        except OSError as exc:
-            unreadable_files.append({"file": label, "error": type(exc).__name__, "detail": str(exc)})
-            return
-        decoded = _decode_text_bytes(raw)
+        decoded = _decode_text_bytes(payload)  # type: ignore[arg-type]
         if decoded is None:
             undecodable_files.append({"file": label, "reason": "undecodable_or_binary"})
             return
@@ -532,7 +1508,36 @@ def scan_directory_safety_surface(
         res = scan_text_safety_surface(decoded, label, include_host_hygiene=include_host_hygiene)
         all_findings.extend(res["findings"])
 
-    if not resolved.is_dir():
+    def _scan_walk_file(fp: Path, label: str) -> None:
+        try:
+            entry_lst = os.lstat(fp)
+        except OSError as exc:
+            unreadable_files.append({"file": label, "error": type(exc).__name__, "detail": str(exc)})
+            return
+        if stat.S_ISLNK(entry_lst.st_mode):
+            try:
+                link_target = fp.resolve(strict=True)
+            except (OSError, RuntimeError):
+                skipped_files.append({"file": label, "reason": "symlink_not_followed"})
+                return
+            try:
+                link_target.relative_to(resolved)
+            except ValueError:
+                skipped_files.append({"file": label, "reason": "symlink_not_followed"})
+                return
+            try:
+                target_lst = os.lstat(link_target)
+            except OSError as exc:
+                unreadable_files.append({"file": label, "error": type(exc).__name__, "detail": str(exc)})
+                return
+            if stat.S_ISDIR(target_lst.st_mode):
+                skipped_files.append({"file": label, "reason": "symlink_directory_not_followed"})
+                return
+            _scan_one(link_target, label)
+            return
+        _scan_one(fp, label)
+
+    if not stat.S_ISDIR(top_lst.st_mode):
         _scan_one(resolved, resolved.name)
     else:
         def _on_walk_err(exc: OSError) -> None:
@@ -560,7 +1565,7 @@ def scan_directory_safety_surface(
             for fn in sorted(filenames):
                 fp = dp / fn
                 label = str(fp.relative_to(resolved))
-                _scan_one(fp, label)
+                _scan_walk_file(fp, label)
 
     clean = (
         len(all_findings) == 0

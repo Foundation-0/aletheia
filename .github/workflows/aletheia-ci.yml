@@ -62,7 +62,7 @@ jobs:
       - name: R5 mutation test of aletheia/safety.py, every site (CONTRIBUTING.md R5 bar)
         run: |
           python3 -I -O -B -W error -m aletheia mutate aletheia/safety.py \
-            --test-cmd "python3 -B -m unittest tests.test_safety_r5" \
+            --test-cmd "python3 -B -m unittest tests.test_safety_r5 tests.test_safety_evasions_r5" \
             --work-root . --add-cwd --max-mutants 0
 
       - name: R5 mutation test of aletheia/supervision_airlock.py, every site (CONTRIBUTING.md R5 bar)

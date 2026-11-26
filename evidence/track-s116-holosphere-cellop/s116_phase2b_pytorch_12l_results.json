@@ -1,0 +1,35 @@
+{
+  "T_2048": {
+    "bench_tokens": 256,
+    "context_len_T": 2048,
+    "cuda_launches_per_tok": 184,
+    "kv_cache_bf16_bytes": 25165824,
+    "kv_cache_bf16_mib": 24.0,
+    "mean_sm_clock_mhz": 1245.0,
+    "mean_watts": 25.0617,
+    "mj_per_tok": 90.226393,
+    "nvml_samples": 180,
+    "us_per_tok": 3600.1705
+  },
+  "T_8192": {
+    "bench_tokens": 256,
+    "context_len_T": 8192,
+    "cuda_launches_per_tok": 184,
+    "kv_cache_bf16_bytes": 100663296,
+    "kv_cache_bf16_mib": 96.0,
+    "mean_sm_clock_mhz": 1245.0,
+    "mean_watts": 26.0926,
+    "mj_per_tok": 99.611257,
+    "nvml_samples": 191,
+    "us_per_tok": 3817.6023
+  },
+  "d_model": 256,
+  "dtype": "bfloat16",
+  "gpu_name": "NVIDIA GeForce RTX 3080 Laptop GPU",
+  "n_heads": 8,
+  "n_layers": 12,
+  "payload_sha256": "50421008785fae565dc5f07ce9495a876efd0a84b6932e9f420e3d4cb73eba9b",
+  "schema": "s116_phase2b_pytorch_12l_baseline_v1",
+  "total_params": 9581056,
+  "weights_bf16_bytes": 19162112
+}
