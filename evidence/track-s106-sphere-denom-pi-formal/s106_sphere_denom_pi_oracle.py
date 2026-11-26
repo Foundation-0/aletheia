@@ -31,8 +31,8 @@ PINNED_LEAN_SOURCE_SHA256 = "3184a96268417396b9583bdecfca941a0b2489f57a5eac7f479
 PINNED_LAKEFILE_SHA256 = "46e7baa5d7019b638f5c00391c7b0965a407504b87a8892c02e27e87899e54ff"
 PINNED_LEAN_TOOLCHAIN_SHA256 = "582a63f8f9c5128067b688778c1051cf1464c3ca9d57b9325025c051c29b774a"
 
-# External-historical pins: the two files are NOT shipped in this repo and no repo@sha is
-# named, so --verify-pins cannot reproduce them (IO_OPEN_ERROR unless supplied externally).
+# Shipped in-track pins: both markdown files live in this track directory and are re-hashed
+# byte-exact on disk by --check and --verify-pins.
 EXTERNAL_PINS: tuple[tuple[str, str, int, str], ...] = (
     ("PREREG_V1", "PREREG_SPHERE_PI_FORCES_V1.md", 10800,
      "ac3e62116bc4841320d2c713787c23568beed1ae738bf9b284b7f0c2a118d72a"),

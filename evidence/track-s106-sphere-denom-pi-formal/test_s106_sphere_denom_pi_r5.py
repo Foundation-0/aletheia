@@ -603,7 +603,8 @@ class Test06SecFr0Fr1AndCLI(unittest.TestCase):
     def test_track_artifacts_external_pins_and_cli(self):
         with tempfile.TemporaryDirectory() as td:
             t = Path(td)
-            for name in (oracle.LEAN_SOURCE_NAME, "lean-toolchain", "lakefile.toml"):
+            for name in (oracle.LEAN_SOURCE_NAME, "lean-toolchain", "lakefile.toml",
+                         "PREREG_SPHERE_PI_FORCES_V1.md", "SPHERE_HYPERSPHERE_DENOM_PI_FORCES_SILIQUANT.md"):
                 shutil.copyfile(_THIS_DIR / name, t / name)
             with mock.patch.object(verifier, "verify_lean4_file_live", return_value=dict(FAKE_LIVE)):
                 self.assertIs(verifier.verify_certificate_dict(copy.deepcopy(CERT), full_replay=True, track_dir=t)["valid"], True)
@@ -613,6 +614,9 @@ class Test06SecFr0Fr1AndCLI(unittest.TestCase):
                 (t / "lakefile.toml").write_bytes(b'name = "x"\n')
                 self.assertEqual(code_of(verifier._load_track_artifacts, t), "LAKEFILE_SHA_MISMATCH")
                 shutil.copyfile(_THIS_DIR / "lakefile.toml", t / "lakefile.toml")
+                (t / "PREREG_SPHERE_PI_FORCES_V1.md").write_bytes(b"x" * 10800)
+                self.assertEqual(code_of(verifier._load_track_artifacts, t), "EXT_PIN_SHA")
+                shutil.copyfile(_THIS_DIR / "PREREG_SPHERE_PI_FORCES_V1.md", t / "PREREG_SPHERE_PI_FORCES_V1.md")
             with mock.patch.object(verifier, "verify_lean4_file_live", return_value=dict(FAKE_LIVE, lean_source_sha256="0" * 64)):
                 self.assertEqual(code_of(verifier._load_track_artifacts, t), "LEAN_SHA_MISMATCH")
             (t / "f.md").write_bytes(b"hello")

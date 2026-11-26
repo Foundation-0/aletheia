@@ -506,9 +506,10 @@ def _load_track_artifacts(track_dir: Path) -> dict[str, Any]:
     lk_raw = read_regular_bytes_capped(track_dir / "lakefile.toml", "lakefile.toml")
     require_ok(tc_raw == (oracle.EXPECTED_LEAN_TOOLCHAIN + "\n").encode("ascii"), "TOOLCHAIN_MISMATCH", "lean-toolchain mismatch")
     require_ok(oracle.sha256_hex(lk_raw) == oracle.PINNED_LAKEFILE_SHA256, "LAKEFILE_SHA_MISMATCH", "lakefile SHA mismatch")
+    pins = verify_external_pins(track_dir)
     live = verify_lean4_file_live(track_dir / oracle.LEAN_SOURCE_NAME)
     require_ok(live["lean_source_sha256"] == oracle.PINNED_LEAN_SOURCE_SHA256, "LEAN_SHA_MISMATCH", "Lean SHA mismatch")
-    return live
+    return {**live, "external_pins_verified": pins["external_pins_verified"]}
 
 
 def verify_certificate_dict(cert: Any, *, full_replay: bool = True, track_dir: Path | None = None) -> dict[str, Any]:

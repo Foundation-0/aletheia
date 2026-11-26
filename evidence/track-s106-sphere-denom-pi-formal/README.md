@@ -22,7 +22,8 @@ Self-contained Aletheia evidence bundle providing an exact pure-$\mathbb{Z}/\mat
 - `s106_formal_physics_certificate.json` — Committed canonical zero-float certificate (`20,592` bytes)
 - `s106_physics_denom_pi_bench.py` — Zero-float 30-digit `Decimal` analytical physics testbed for `H2b` ($S^2$ and $S^3$)
 - `test_s106_sphere_denom_pi_r5.py` — Assertion-free verification, every-leaf tamper (`690/690` leaves), Zone-B, R12 Lean gate, and live Lean test suite (`0` skips)
-- `REPORT.md` — Complete technical report, verbatim `34/34` theorem index, analytical physics tables, and 7-companion-file SHA-256 manifest
+- `PREREG_SPHERE_PI_FORCES_V1.md` / `SPHERE_HYPERSPHERE_DENOM_PI_FORCES_SILIQUANT.md` — Shipped protocol and mathematical derivation notes (`10,800` B and `9,000` B; re-hashed byte-exact on disk by `--check` and `--verify-pins`)
+- `REPORT.md` — Complete technical report, verbatim `34/34` theorem index, analytical physics tables, and 11-companion-file SHA-256 manifest
 
 ## Quickstart
 
