@@ -117,7 +117,39 @@ Per anti-HARKing discipline, the initial unmodified 3-seed Zone-B baseline (`gpu
 
 - **CPU Pre-Flight Suite (`s109_cpu_preflight.py`, `CUDA_VISIBLE_DEVICES=""`):** `7/7 OK ×3` across `-I -B`, `-I -O -B`, and `-I -B -W error` (`0` volatile stdout bytes, `0` bare `assert`s, `100%` SHA-256 prereg pins verified across `PREREG-S109` + `Amendments 1–3`, causal `<EOS>` `ir_len=12` vs `ir_len=24` invariance verified `< 1e-5`, exact `15.0M` triple parity verified).
 - **Dual `aletheia audit-check --strict-ancestors --safety-scan --scripts s109_cpu_preflight.py`:** Verified `PASS ×2` across both `aletheia-fix-lean-gates-v2` and `aletheia-fast-mutate` (`r4_scripts_passed=1/1`, `bare_assert=0, crlf=0, leak=0, pycache=0, safety_findings=0, ancestors=0`).
-- **Artifacts (`weights_saved = 0` in all protocol/results JSONs):**
-  - `s109_terracore_models.py`, `s109_train_eval.py`, `s109_cpu_preflight.py`, `REPORT_S109_GPU_EVAL.md`
-  - `mlos_zone_b_s109_h9a.json`, `mlos_zone_b_s109_h9a_v2.json`, `mlos_zone_b_s109_terracore.json`
-  - `gpu_results_h9a/`, `gpu_results_h9a_v2/`, `gpu_results_terracore/` (each containing `s109_locked_protocol.json` and `s109_gpu_full_results.json`, `0o600` in source track).
+- **Artifacts (`weights_saved = 0` in all protocol/results JSONs; every file is git mode `100644` / `0o644` in the work tree and in the index):**
+  - Harnesses: `gpu_harnesses/s109_terracore_models.py`, `gpu_harnesses/s109_train_eval.py`, `gpu_harnesses/s109_cpu_preflight.py`
+  - Auditor, R5 tests, certificate: `s109_terracore_audit.py`, `test_s109_terracore_audit_r5.py`, `s109_terracore_certificate.json`
+  - Preregistration (4 files): `PREREG_S109_MINIMAL_MEDIUM_CORE_AND_TRANSLATOR.md`, `PREREG_S109_AMENDMENT1_COUNCIL_HARDENING.md`, `PREREG_S109_AMENDMENT2_GEODYNAMIC_TERRACORE.md`, `PREREG_S109_AMENDMENT3_STEELMAN_REPAIR.md`
+  - MLOS Zone-B receipts: `mlos_zone_b_s109_h9a.json`, `mlos_zone_b_s109_h9a_v2.json`, `mlos_zone_b_s109_terracore.json`
+  - Run artifacts: `gpu_results_h9a/`, `gpu_results_h9a_v2/`, `gpu_results_terracore/` (each containing `s109_locked_protocol.json` and `s109_gpu_full_results.json`)
+  - Docs: `README.md`, `REPORT_S109_GPU_EVAL.md` (this file)
+- **Post-lock disclosure (PR #107 review round 2, `2026-11-26`):** Amendment 1's three `verification/reports/COLLAB-*-S109-*-PREFLIGHT.md` in-repo path citations were dropped (those external reports exist on no branch of this repo; bare filenames retained and marked UNVERIFIABLE in-repo). The amendment's `amendment1_sha256` pin was re-signed in all six `gpu_results_*` JSONs (`result_sha256`/`protocol_sha256` recomputed), the auditor constant updated, and the certificate re-issued: `cert_sha256=bab313e32fe20d3d4fcabaf343326929bbd3f9a91f89426142b47aa3f0004f0d` (scorecard unchanged: `H9a=CONFIRMED`, `H9b/H9c/H9d=FALSIFIED`; `--check` OK in `-I -B`, `-I -O -B`, `-I -B -W error`; `--write-certificate` byte-identical).
+
+---
+
+## 5. File-List Manifest (regenerated 2026-11-26 after the round-2 edits)
+
+| Path | Lines | Bytes | SHA-256 |
+| :--- | ---: | ---: | :--- |
+| `PREREG_S109_AMENDMENT1_COUNCIL_HARDENING.md` | 51 | 7064 | `303e4788c7bcc485c648984252741d7da49b76bb2bdc81db3219743bb21c44f0` |
+| `PREREG_S109_AMENDMENT2_GEODYNAMIC_TERRACORE.md` | 47 | 7309 | `faf225067917b464ac25b2ae68ae1fa7bdf3179a2c461ec883490ea24ff9d7e3` |
+| `PREREG_S109_AMENDMENT3_STEELMAN_REPAIR.md` | 32 | 6113 | `e441b07a97205f857a65f1b232b373cdcdc60fa6526d044d5c6fef856761e70e` |
+| `PREREG_S109_MINIMAL_MEDIUM_CORE_AND_TRANSLATOR.md` | 74 | 11098 | `1ca8a38fa3c7fd8dda5823741c867b93be09c2342eb35bafde18e9e7e510b1c9` |
+| `README.md` | 21 | 3742 | `6611c6c43f39beccec96ebb4f9d0d70d309463a1dac9a249d7c11b2fd34cab3e` |
+| `REPORT_S109_GPU_EVAL.md` | self | self | `self-referential (this manifest lives in this file)` |
+| `gpu_harnesses/s109_cpu_preflight.py` | 341 | 17851 | `6dadcea166e4bba0379aab9db10139d6a0c69c37bc75a807c3f31ec41c6fe46c` |
+| `gpu_harnesses/s109_terracore_models.py` | 971 | 41383 | `ab963170f550f46ebb72f5cf5f24c8f3f5b5928e0d36d865f5c295d78862a48e` |
+| `gpu_harnesses/s109_train_eval.py` | 1552 | 70377 | `e6c76deca5b3d5a99993ee2a777c15d75c0f6cc28b7c103d9786a24062ea9ff2` |
+| `gpu_results_h9a/s109_gpu_full_results.json` | 1 | 11596 | `6d7909fa4c3ece0c314574f90b699e414e9546c84def86058593ca7e29bb7580` |
+| `gpu_results_h9a/s109_locked_protocol.json` | 1 | 897 | `e553860939233c129623386782d1857bd19f06d4e9b9e03d53e2b1dc3eb41b59` |
+| `gpu_results_h9a_v2/s109_gpu_full_results.json` | 1 | 11941 | `7616dd188c92395c6a80a111c2330f9ba8c2175d560f3b33f526f078511e64fe` |
+| `gpu_results_h9a_v2/s109_locked_protocol.json` | 1 | 1091 | `ebd97a9415ea7e461bd2b7b0234c38c9633de9e7d17c9f5caedca3cc59625c6b` |
+| `gpu_results_terracore/s109_gpu_full_results.json` | 1 | 65664 | `ff38ac43da59b147534b3de7cb8358560a2bed6ae35e93546b222365a7f4acb4` |
+| `gpu_results_terracore/s109_locked_protocol.json` | 1 | 1097 | `4578a88131fd4ebdeda0b9848221042ca09a8b4f66394b54a09b9d0cc0b7fce6` |
+| `mlos_zone_b_s109_h9a.json` | 91 | 2624 | `12493f817dd96ec16894f205b8272f951d234853ae0af4e13c4a8a987e39e6b7` |
+| `mlos_zone_b_s109_h9a_v2.json` | 91 | 2624 | `a2a4aee5d255b6a765aeee8534d7648173737ef98a9cdb5c7cf7348dff4bb38b` |
+| `mlos_zone_b_s109_terracore.json` | 91 | 2624 | `585fa3e330013d877aefc9bbbd178787dcebd0c03346635b5700ad1c4e49e2d7` |
+| `s109_terracore_audit.py` | 787 | 38434 | `6ab2b1e26af4ca5218a8fbad6a2a4691747fb07447bfd20e228b68d6f191fef5` |
+| `s109_terracore_certificate.json` | 1035 | 27161 | `234f440228d4794b9d74793a57e1b50d7483a09d99fe567463c7597bdfd85835` |
+| `test_s109_terracore_audit_r5.py` | 195 | 9557 | `75197991bb7a7cecf6dfd1e5ba4fdb56cccfc03f6561f9c236a1451f0a2d93d5` |

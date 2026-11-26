@@ -1,10 +1,11 @@
 # Preregistration Amendment 1 (`PREREG-S109-AMENDMENT1-COUNCIL-HARDENING`)
 
 - **Status:** `LOCKED_PREREGISTRATION_AMENDMENT_1` *(2026-11-25; parent `PREREG-S109` SHA `1ca8a38fa3c7fd8dda5823741c867b93be09c2342eb35bafde18e9e7e510b1c9` remains 100% immutable and unmutated)*
-- **Source Audits (Unanimous 3-Family Pre-Flight Consensus, `#2787`):**
-  1. `verification/reports/COLLAB-INKLING2-S109-LOOP-MODULARITY-PREFLIGHT.md`
-  2. `verification/reports/COLLAB-CLAUDE-S109-CS21-PREFLIGHT.md`
-  3. `verification/reports/COLLAB-GLM53-S109-INFO-THEORY-PREFLIGHT.md`
+- **Source Audits (Unanimous 3-Family Pre-Flight Consensus, `#2787`):** external collaborator preflight reports, **not shipped in this repository** — no `verification/reports/COLLAB-*-S109-*-PREFLIGHT.md` exists on any branch of `foundation-0/aletheia`. Retained as bare filenames only and treated as **UNVERIFIABLE in-repo external citations** (in-repo path citations dropped per review round 2 of PR #107):
+  1. `COLLAB-INKLING2-S109-LOOP-MODULARITY-PREFLIGHT.md` *(external; not in-repo)*
+  2. `COLLAB-CLAUDE-S109-CS21-PREFLIGHT.md` *(external; not in-repo)*
+  3. `COLLAB-GLM53-S109-INFO-THEORY-PREFLIGHT.md` *(external; not in-repo)*
+- **Post-lock annotation (`2026-11-26`, PR #107 review round 2):** only the three in-repo path citations above were removed/qualified; every blocking/high-severity repair clause below is unchanged. All SHA-256 pins (this file's `amendment1_sha256` in the six `gpu_results_*` JSONs, the auditor constant, and the certificate) were re-signed accordingly; certificate re-issued.
 
 All 5 unanimous blocking/high-severity consensus repairs below are **mandatory pre-execution overrides** before any GPU training runs under `EXP-Q10a..c`:
 
