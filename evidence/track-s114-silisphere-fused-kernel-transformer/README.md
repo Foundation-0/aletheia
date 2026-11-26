@@ -13,7 +13,7 @@ This evidence package contains the complete bare-metal NVIDIA GeForce RTX 3080 L
 ## Verification (Pure Python Stdlib, Zero External Dependencies)
 
 ```bash
-python3 -I -B evidence/track-s114-silisphere-fused-kernel-transformer/s114_holosphere_audit.py --check evidence/track-s114-silisphere-fused-kernel-transformer/s114_holosphere_certificate.json
+python3 -I -B evidence/track-s114-silisphere-fused-kernel-transformer/s114_holosphere_audit.py --check s114_holosphere_certificate.json
 python3 -I -B evidence/track-s114-silisphere-fused-kernel-transformer/test_s114_holosphere_audit_r5.py
 ```
 

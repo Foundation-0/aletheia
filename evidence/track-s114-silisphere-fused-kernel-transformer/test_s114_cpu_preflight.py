@@ -30,21 +30,31 @@ import unittest
 _HERE = pathlib.Path(__file__).resolve().parent
 _EXPEDITION = _HERE.parent
 _S107 = _EXPEDITION / "track-s107-hypersphere-transformer"
-for _p in (str(_HERE), str(_S107)):
+for _p in (str(_HERE), str(_S107), str(_S107 / "gpu_harnesses")):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
-import torch  # noqa: E402
-from torch.autograd import gradcheck  # noqa: E402
+try:
+    import torch  # noqa: E402
+    from torch.autograd import gradcheck  # noqa: E402
+    import s107_models as s107  # noqa: E402
+    import s114_fused_ops as ops  # noqa: E402
+    import su2_holonomy_triton as tr_mod  # noqa: E402
 
-import s107_models as s107  # noqa: E402
-import s114_fused_ops as ops  # noqa: E402
-import su2_holonomy_triton as tr_mod  # noqa: E402
+    _HAS_TORCH_DEPS = True
+except ImportError:
+    torch = None  # type: ignore[assignment]
+    gradcheck = None  # type: ignore[assignment]
+    s107 = None  # type: ignore[assignment]
+    ops = None  # type: ignore[assignment]
+    tr_mod = None  # type: ignore[assignment]
+    _HAS_TORCH_DEPS = False
 
 PREREG_SHA256 = "5fa927a06933c3cff057b65f75c1d2f190e10f1e420303d582dfb7c802ee69a4"
 
 
 class TestS114CpuPreflight(unittest.TestCase):
+    @unittest.skipUnless(_HAS_TORCH_DEPS, "requires torch and s107_models")
     def test_01_su2_scan_exact_parity_vs_s107_across_lengths(self) -> None:
         gen = torch.Generator().manual_seed(20261125)
         for seq_len in (1, 7, 32, 33, 64, 256, 512, 2048):
@@ -77,6 +87,7 @@ class TestS114CpuPreflight(unittest.TestCase):
             norm_drift = float((torch.linalg.vector_norm(pi_path, dim=-1) - 1.0).abs().max().item())
             self.assertLess(norm_drift, 1e-5, f"T={seq_len} unit-norm drift: {norm_drift}")
 
+    @unittest.skipUnless(_HAS_TORCH_DEPS, "requires torch and s107_models")
     def test_02_exact_fp64_gradcheck_su2_lie_algebra_adjoint(self) -> None:
         gen = torch.Generator().manual_seed(11402)
         bsz, heads, seq_len, d_head = 1, 2, 9, 8
@@ -126,6 +137,7 @@ class TestS114CpuPreflight(unittest.TestCase):
         self.assertLess(float((g_k1 - g_k2).abs().max().item()), 1e-10)
         self.assertLess(float((g_om1 - g_om2).abs().max().item()), 1e-10)
 
+    @unittest.skipUnless(_HAS_TORCH_DEPS, "requires torch and s107_models")
     def test_03_holonomy_invariants_non_abelian_and_inverse_untransport(self) -> None:
         gen = torch.Generator().manual_seed(11403)
         bsz, heads, seq_len, d_head = 2, 2, 17, 16
@@ -163,6 +175,7 @@ class TestS114CpuPreflight(unittest.TestCase):
         ip_cov = float((q[:, :, t_idx] * k_trans).sum().item())
         self.assertLess(abs(ip_direct - ip_cov), 1e-11)
 
+    @unittest.skipUnless(_HAS_TORCH_DEPS, "requires torch and s107_models")
     def test_04_spherical_steps_gradcheck_and_safe_hopf_acute_cone(self) -> None:
         gen = torch.Generator().manual_seed(11404)
         h = torch.randn((3, 5, 16), generator=gen, dtype=torch.float64, requires_grad=True)
@@ -194,6 +207,7 @@ class TestS114CpuPreflight(unittest.TestCase):
                 n_diff = float((torch.linalg.vector_norm(rot, dim=-1) - torch.linalg.vector_norm(h.detach(), dim=-1)).abs().max().item())
                 self.assertLess(n_diff, 1e-12)
 
+    @unittest.skipUnless(_HAS_TORCH_DEPS, "requires torch and s107_models")
     def test_05_covariant_attention_e2e_and_triton_import(self) -> None:
         torch.manual_seed(11405)
         attn = ops.S114CovariantHolonomyAttention(d_model=64, n_heads=4, covariant_v=True, ngpt=True, backend="reference")
@@ -213,7 +227,9 @@ class TestS114CpuPreflight(unittest.TestCase):
         self.assertTrue(hasattr(tr_mod, "triton_su2_holonomy_bwd"))
 
     def test_06_prereg_lock_zero_spill_receipt_and_hygiene(self) -> None:
-        prereg = _EXPEDITION / "notes" / "holosphere_kernel_transformer_2026_11_25" / "PREREG_S114_SILISPHERE_FUSED_ENTITY.md"
+        prereg = _HERE / "PREREG_S114_SILISPHERE_FUSED_ENTITY.md"
+        if not prereg.is_file():
+            prereg = _EXPEDITION / "notes" / "holosphere_kernel_transformer_2026_11_25" / "PREREG_S114_SILISPHERE_FUSED_ENTITY.md"
         self.assertTrue(prereg.is_file(), "PREREG-S114 missing")
         got_sha = hashlib.sha256(prereg.read_bytes()).hexdigest()
         self.assertEqual(got_sha, PREREG_SHA256)
@@ -239,6 +255,7 @@ class TestS114CpuPreflight(unittest.TestCase):
             for tok in bad:
                 self.assertNotIn(tok, low, f"forbidden token {tok!r} in {p.name}")
 
+    @unittest.skipUnless(_HAS_TORCH_DEPS, "requires torch and s107_models")
     def test_07_v2_cayley2x2_hopf_s3_and_cayley_su2_gradcheck_and_beltrami(self) -> None:
         gen = torch.Generator().manual_seed(11407)
         x = torch.randn((3, 5, 16), generator=gen, dtype=torch.float64, requires_grad=True)
