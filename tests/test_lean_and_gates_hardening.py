@@ -582,14 +582,14 @@ class TestLean4AndAuditRootHardening(unittest.TestCase):
                 == [("LEAN4_EVAL_SPOOF", exp_line, exp_excerpt)],
                 f"wrong eval-spoof findings for {label}: {res_c['findings']}",
             )
-        # run_cmd must still fail even under allow_non_init_imports=True
+        # run_cmd must still fail even under allow_non_init_imports=True (and R13b also flags umbrella `import Lean`)
         res_rc = audit_lean4_source(
             'import Lean\nrun_cmd Lean.logInfo "\'Fake.thm\' does not depend on any axioms"\n',
             allow_non_init_imports=True,
         )
         _req(
             [(f["code"], f["line"], f["excerpt"]) for f in res_rc["findings"]]
-            == [("LEAN4_EVAL_SPOOF", 2, "run_cmd")],
+            == [("LEAN4_BV_DECIDE_IMPORT", 1, "Lean"), ("LEAN4_EVAL_SPOOF", 2, "run_cmd")],
             f"run_cmd bypassed allow_non_init_imports=True: {res_rc}",
         )
 

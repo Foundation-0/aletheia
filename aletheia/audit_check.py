@@ -31,6 +31,28 @@ import subprocess
 import sys
 from typing import Any, Mapping, Sequence
 
+from .lean_r13b import (
+    LEAN4_INIT_RESERVED_INTERP_BANG_WORDS,
+    LEAN4_INTERP_BANG_WORDS,
+    LEAN4_INTERP_BRACKET_WORDS,
+    LEAN4_INTERP_KEYWORDS,
+    audit_lean4_axiom_log,
+    audit_lean4_directory_r13b_artifacts,
+    audit_lean4_lake_manifest,
+    audit_lean4_lake_manifest_text,
+    extract_custom_lean4_interp_prefixes,
+    is_ambiguous_lean4_hash_command,
+    is_lean4_id_first,
+    is_lean4_id_rest,
+    is_lean4_safe_guillemet_ident,
+    is_lean4_word_cont,
+    match_lean4_char_literal_end,
+    match_lean4_hash_command_end,
+    normalize_lean4_module_name,
+    scan_lean4_axiom_log_text,
+    scan_lean4_bv_decide_source,
+    scan_lean4_numeric_literal_end,
+)
 from .safety import MAX_SCAN_FILE_BYTES, scan_directory_safety_surface, validate_max_file_bytes
 from .strict_io import (
     AletheiaError,
@@ -920,9 +942,12 @@ _LEAN4_EVAL_SPOOF_RE = re.compile(
     flags=re.DOTALL,
 )
 
-# Lean 4.22 module-aware import regex (supports single-line & multiline `public\n import Foo`)
+# Lean 4.22+ module-aware import regex (supports same-line multi-imports, multiline
+# `public/private/meta`, `import all`, & zero-whitespace `import«Std»` guillemet segments; `E1` / `B2` / `N2`).
 _LEAN4_IMPORT_FULL_RE = re.compile(
-    r"(?:^|\n)[ \t]*(?:(?:public|private|meta)\s+)*import\s+([A-Za-z0-9_.]+)", flags=re.DOTALL
+    r"(?<![A-Za-z0-9_'.])(?:(?:public|private|meta)\s+)*\bimport(?:\s+|(?=«))(?:all(?:\s+|(?=«)))?"
+    r"((?:[A-Za-z0-9_]+|«[^»\n]+»)(?:\.(?:[A-Za-z0-9_]+|«[^»\n]+»))*)",
+    flags=re.DOTALL,
 )
 
 # Unsound attribute trust escapes (`@[...]` and post-declaration `attribute [...]`) vs `@[csimp]`/`attribute [csimp]`
@@ -984,13 +1009,34 @@ _LEAN4_VACUOUS_THM_RE = re.compile(
 _LEAN4_EXISTS_IMP_RE = re.compile(r"∃[^,\n]+,\s*(?!.*(?:∀|∧))[^,\n]*(?:→|->)")
 
 
-def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
+def _replace_guillemet_ident_preserving_boundaries(m: re.Match[str]) -> str:
+    """Normalize `«ident»` -> `ident` while preserving token boundaries (e.g. `import«Std»` -> `import Std`)."""
+    text = m.string
+    s, e = m.start(), m.end()
+    left_pad = " " if s > 0 and is_lean4_id_rest(text[s - 1]) else ""
+    right_pad = " " if e < len(text) and is_lean4_id_rest(text[e]) else ""
+    return left_pad + m.group(1) + right_pad
+
+
+def _strip_lean4_with_meta(
+    source: str,
+    *,
+    strict_init_interp_only: bool = False,
+) -> tuple[str, list[dict[str, Any]], bool]:
     """
     Char-literal-safe, raw-string-safe (`r"..."` and `r#"..."#`), interpolated-string-safe
-    (`s!"{...}"` / `m!"{...}"`), and nested-block-comment-safe Lean 4 stripper preserving
-    line count. Reports one finding per block comment or string still open at end of file
-    so callers treat unterminated escapes as failed audits (R1).
+    (`s!"{...}"` / `m!"{...}"` / `f!"{...}"` keeping `{...}` code visible), French-quoted
+    identifier-safe (`«...»`), `#command`-boundary-safe (`#check'"'` / `#evalr"\\"` with
+    fail-closed `LEAN4_AMBIGUOUS_LEXING` on glued `#<ident>` + quote/raw-string `B3`),
+    numeric-literal-blanked (`W10-OBS-32`), and nested-block-comment-safe Lean 4 stripper
+    preserving line count. Returns `(cleaned, lex_findings, saw_ambig_interp)`.
     """
+    extra_bang_words, extra_kw_words = extract_custom_lean4_interp_prefixes(source)
+    all_bang_words = LEAN4_INTERP_BANG_WORDS | extra_bang_words if extra_bang_words else LEAN4_INTERP_BANG_WORDS
+    all_kw_words = LEAN4_INTERP_KEYWORDS | extra_kw_words if extra_kw_words else LEAN4_INTERP_KEYWORDS
+    interp_bang_words = LEAN4_INIT_RESERVED_INTERP_BANG_WORDS if strict_init_interp_only else all_bang_words
+    interp_keywords: frozenset[str] = frozenset() if strict_init_interp_only else all_kw_words
+
     out: list[str] = []
     i = 0
     n = len(source)
@@ -999,6 +1045,8 @@ def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
     in_interp = False
     in_ident = False
     pending_interp = False
+    suppress_unknown_bang = False
+    saw_ambig_interp = False
     trace_brack = 0
     in_syntax_header = False
     syntax_quote_reported = False
@@ -1006,6 +1054,7 @@ def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
     raw_hashes = -1
     opened_at = 0
     lex_issues: list[tuple[int, str]] = []
+
     while i < n:
         ch = source[i]
         nxt = source[i + 1] if i + 1 < n else ""
@@ -1033,7 +1082,7 @@ def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
                 i += 1
             continue
         if in_str:
-            if ch == "\\":
+            if ch == "\\" and i + 1 < n:
                 if nxt == '"' and in_syntax_header and not syntax_quote_reported:
                     syntax_quote_reported = True
                     lex_issues.append((i, "LEAN4_SYNTAX_QUOTE_TOKEN"))
@@ -1048,7 +1097,7 @@ def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
                 i += 1
             continue
         if in_interp:
-            if ch == "\\":
+            if ch == "\\" and i + 1 < n:
                 out.append(" \n" if nxt == "\n" else "  ")
                 i += 2
             elif ch == "{":
@@ -1084,6 +1133,7 @@ def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
             continue
         if ch != '"':
             pending_interp = False
+            suppress_unknown_bang = False
         if ch != "[" and trace_brack == 1:
             trace_brack = 0
         if interp_stack:
@@ -1112,7 +1162,9 @@ def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
             trace_brack -= 1
             if trace_brack == 1:
                 trace_brack = 0
-                pending_interp = True
+                if not strict_init_interp_only:
+                    pending_interp = True
+                    saw_ambig_interp = True
             out.append(ch)
             i += 1
         elif ch == "=" and nxt == ">":
@@ -1120,12 +1172,19 @@ def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
             in_syntax_header = False
             out.append("=>")
             i += 2
+        elif ch == "#" and not in_ident and i + 1 < n and is_lean4_id_first(source[i + 1]):
+            cmd_end = match_lean4_hash_command_end(source, i, n)
+            if is_ambiguous_lean4_hash_command(source, i, cmd_end, n):
+                lex_issues.append((i, "LEAN4_AMBIGUOUS_LEXING"))
+            out.append(source[i:cmd_end])
+            in_ident = False
+            i = cmd_end
         elif ch == '"':
             if pending_interp:
                 in_interp = True
                 pending_interp = False
             else:
-                if in_ident and source[i - 1] == "!":
+                if in_ident and source[i - 1] == "!" and not suppress_unknown_bang:
                     # Standalone `panic!"` takes a plain string, so it is not an unknown bang-string.
                     # This does not exempt `panic!` itself: `_LEAN4_HARD_LINE_RULES` still reports it
                     # as `LEAN4_DBG_FFI_ESCAPE` (see the `panic!` policy comment there).
@@ -1136,6 +1195,7 @@ def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
                     )
                     if not is_panic:
                         lex_issues.append((i, "LEAN4_UNKNOWN_BANG_STRING"))
+                suppress_unknown_bang = False
                 in_str = True
                 syntax_quote_reported = False
             in_ident = False
@@ -1150,55 +1210,27 @@ def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
                 out.append("\n" * source.count("\n", i))
                 break
             inner = source[i + 1 : end_g]
-            # Simple ASCII `«ident»` is kept so `audit_lean4_source` can normalize it to `ident`
-            # (fail-closed: `«sorry»` is then reported even as a declaration name).
-            if _LEAN4_SIMPLE_GUILLEMET_INNER_RE.match(inner) is not None and inner != "axioms":
+            # Simple safe `«ident»` (excluding `«axioms»`) is kept so `audit_lean4_source` can normalize
+            # it with boundary preservation (`import«Std»` -> `import Std`, `«sorry»` -> `sorry`).
+            if is_lean4_safe_guillemet_ident(inner) and inner != "axioms":
                 out.append(source[i : end_g + 1])
             else:
                 out.append(" " + "".join("\n" if c == "\n" else " " for c in inner) + " ")
             i = end_g + 1
         elif ch == "'" and not in_ident:
             # Lean 4 char literals ('"', '<LF>', '\n', '\x27', '\u0027') without disturbing identifier primes x'
-            char_end = _match_lean4_char_literal_end(source, i, n)
+            char_end = match_lean4_char_literal_end(source, i, n)
             if char_end is not None:
                 out.append(" \n " if source[i + 1] == "\n" else " " * (char_end - i))
                 i = char_end
             else:
                 out.append(ch)
                 i += 1
+        elif not in_ident and "0" <= ch <= "9":
+            num_end = scan_lean4_numeric_literal_end(source, i, n)
+            out.append(" " * (num_end - i))
+            i = num_end
         else:
-            if not in_ident and "0" <= ch <= "9":
-                num_end = i + 1
-                if ch == "0" and nxt in "xXbBoO":
-                    num_end += 1
-                    base_chars = (
-                        _LEAN4_HEX_NUM_CHARS
-                        if nxt in "xX"
-                        else (_LEAN4_BIN_NUM_CHARS if nxt in "bB" else _LEAN4_OCT_NUM_CHARS)
-                    )
-                    while num_end < n and source[num_end] in base_chars:
-                        num_end += 1
-                else:
-                    while num_end < n and source[num_end] in _LEAN4_DEC_NUM_CHARS:
-                        num_end += 1
-                    has_dot = False
-                    if num_end < n and source[num_end] == "." and num_end + 1 < n and "0" <= source[num_end + 1] <= "9":
-                        has_dot = True
-                        num_end += 2
-                        while num_end < n and source[num_end] in _LEAN4_DEC_NUM_CHARS:
-                            num_end += 1
-                    exp_start = num_end + 1 if (not has_dot and num_end < n and source[num_end] == ".") else num_end
-                    if exp_start < n and source[exp_start] in "eE":
-                        exp_pos = exp_start + 1
-                        if exp_pos < n and source[exp_pos] in "+-":
-                            exp_pos += 1
-                        if exp_pos < n and "0" <= source[exp_pos] <= "9":
-                            while exp_pos < n and source[exp_pos] in _LEAN4_DEC_NUM_CHARS:
-                                exp_pos += 1
-                            num_end = exp_pos
-                out.append(" " * (num_end - i))
-                i = num_end
-                continue
             ident_prev = in_ident or (i > 0 and source[i - 1] == ".")
             if ch == "r" and not ident_prev:
                 j = i + 1
@@ -1211,14 +1243,14 @@ def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
                     out.append(" " * (j - i + 1))
                     i = j + 1
                     continue
-            if ch.isascii() and ch.isalpha() and not ident_prev:
+            if not ident_prev and is_lean4_id_first(ch):
                 w_end = i + 1
-                while w_end < n and source[w_end] in _LEAN4_WORD_CONT_CHARS:
+                while w_end < n and is_lean4_word_cont(source[w_end]):
                     w_end += 1
                 word = source[i:w_end]
                 if word == "Macro" and source.startswith(".trace", w_end):
                     end_mt = w_end + 6
-                    if end_mt == n or source[end_mt] not in _LEAN4_ID_REST_CHARS:
+                    if end_mt == n or not is_lean4_id_rest(source[end_mt]):
                         if trace_brack == 0:
                             trace_brack = 1
                         in_ident = True
@@ -1226,18 +1258,39 @@ def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
                         i = end_mt
                         continue
                 next_ch = source[w_end] if w_end < n else ""
-                if next_ch == "!" and word in _LEAN4_INTERP_BANG_WORDS:
-                    after_bang = source[w_end + 1] if w_end + 1 < n else ""
-                    if after_bang not in _LEAN4_ID_REST_CHARS:
+                if (
+                    next_ch == "!"
+                    and word in all_bang_words
+                    and (w_end + 1 == n or not is_lean4_id_rest(source[w_end + 1]))
+                ):
+                    if word in interp_bang_words:
                         pending_interp = True
-                        in_ident = True
-                        out.append(source[i : w_end + 1])
-                        i = w_end + 1
-                        continue
+                        if word not in LEAN4_INIT_RESERVED_INTERP_BANG_WORDS:
+                            saw_ambig_interp = True
+                    else:
+                        suppress_unknown_bang = True
+                    in_ident = True
+                    out.append(source[i : w_end + 1])
+                    i = w_end + 1
+                    continue
+                if (
+                    next_ch == "?"
+                    and (word + "?") in all_kw_words
+                    and (w_end + 1 == n or not is_lean4_id_rest(source[w_end + 1]))
+                ):
+                    if (word + "?") in interp_keywords:
+                        pending_interp = True
+                        saw_ambig_interp = True
+                    in_ident = True
+                    out.append(source[i : w_end + 1])
+                    i = w_end + 1
+                    continue
                 if next_ch not in ".'!?":
-                    if word in _LEAN4_INTERP_KEYWORDS:
-                        pending_interp = True
-                    elif word in _LEAN4_TRACE_BRACK_WORDS and trace_brack == 0:
+                    if word in all_kw_words:
+                        if word in interp_keywords:
+                            pending_interp = True
+                            saw_ambig_interp = True
+                    elif word in LEAN4_INTERP_BRACKET_WORDS and trace_brack == 0:
                         trace_brack = 1
                     elif word in _LEAN4_SYNTAX_QUOTE_KEYWORDS:
                         in_syntax_header = True
@@ -1245,7 +1298,7 @@ def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
                 out.append(word)
                 i = w_end
                 continue
-            in_ident = (ch in _LEAN4_ID_REST_CHARS) if in_ident else (ch in _LEAN4_ID_FIRST_CHARS)
+            in_ident = is_lean4_id_rest(ch) if in_ident else is_lean4_id_first(ch)
             out.append(ch)
             i += 1
     unclosed_open = depth > 0 or in_str or in_interp or raw_hashes >= 0
@@ -1261,7 +1314,13 @@ def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
             cur_line += source.count("\n", cur_pos, pos)
             cur_pos = pos
             unterminated.append({"line": cur_line, "code": code, "excerpt": lines[cur_line - 1].strip()[:100]})
-    return "".join(out), unterminated
+    return "".join(out), unterminated, saw_ambig_interp
+
+
+def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
+    """Strip comments & literals from Lean 4 source, returning `(cleaned, lex_findings)`."""
+    cleaned, lex_findings, _ = _strip_lean4_with_meta(source, strict_init_interp_only=False)
+    return cleaned, lex_findings
 
 
 def _strip_lean4_comments_and_literals(source: str) -> str:
@@ -1269,36 +1328,19 @@ def _strip_lean4_comments_and_literals(source: str) -> str:
     return _strip_lean4_with_report(source)[0]
 
 
-def audit_lean4_source(
-    source: str,
+def _scan_cleaned_lean4_pass(
+    raw_cleaned: str,
+    lex_findings: Sequence[dict[str, Any]],
     *,
-    allow_non_init_imports: bool = False,
-    allow_project_imports: Sequence[str] = (),
-    allowed_axioms: frozenset[str] = frozenset(),
-    forbidden_import_prefixes: Sequence[str] = (),
-) -> dict[str, Any]:
-    """
-    Hardened v1.2 static Lean 4 auditor (AUDIT-029 + Round-3 4-lab tomography):
-      - Flags `sorry`, `admit`, `axiom`, `unsafe`, `native_decide`, `sorryAx`,
-        `Lean.ofReduceBool`, `Lean.trustCompiler`, and multiline `debug.skipKernelTC`
-      - Scopes `partial` to declarations (`partial def|instance|abbrev`) to avoid `.partial` FPs
-      - Flags multiline `@[... extern | implemented_by ...]` as hard escapes and separates
-        kernel-proved `@[csimp]` rewrites + `ExistsImplication` / vacuous signatures as notices
-      - Parses Lean 4.22 `(public|private|meta)? import` with optional `allow_project_imports`
-        and `forbidden_import_prefixes` (enforcing Spec -/-> Proof isolation)
-    Fail-closed choices that can flag legal Lean (by design, documented):
-      - Guillemet identifiers are normalized, so `def «sorry» : Nat := 1` reports `LEAN4_SORRY`.
-      - Every `panic!` / `unreachable!` reports `LEAN4_DBG_FFI_ESCAPE`, glued (`panic!"m"`) or spaced.
-      - `syntax` / `macro` / `notation` and friends report `LEAN4_META_SYNTAX_ESCAPE` wholesale.
-    """
-    cleaned, unterminated = _strip_lean4_with_report(source)
-    # Guillemet normalization (`«native»` -> `native`) so escaped keywords cannot dodge the rules.
-    # Known fail-closed false positive: a legal escaped identifier that spells a forbidden token,
-    # such as `def «sorry» : Nat := 1` or `«admit»`, is reported (`LEAN4_SORRY` / `LEAN4_ADMIT`).
-    # This is kept on purpose: telling a declaration name apart from a use of the term would need
-    # name resolution, which a static scan cannot do, so the scan rejects rather than guesses.
-    cleaned = _LEAN4_GUILLEMET_IDENT_RE.sub(r"\1", cleaned)
-    findings: list[dict[str, Any]] = list(unterminated)
+    allow_non_init_imports: bool,
+    allow_project_imports: Sequence[str],
+    allowed_axioms: frozenset[str],
+    forbidden_import_prefixes: Sequence[str],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[str]]:
+    """Run all static Lean 4 audit rules on a single stripped projection."""
+    # Guillemet normalization (`«native»` -> `native`, `import«Std»` -> `import Std`) preserving token boundaries.
+    cleaned = _LEAN4_GUILLEMET_IDENT_RE.sub(_replace_guillemet_ident_preserving_boundaries, raw_cleaned)
+    findings: list[dict[str, Any]] = list(lex_findings)
     notices: list[dict[str, Any]] = []
     imports: list[str] = []
 
@@ -1328,14 +1370,17 @@ def audit_lean4_source(
                 {"line": lineno, "code": "LEAN4_EXISTS_IMPLICATION_NOTICE", "excerpt": line.strip()[:100]}
             )
 
-    # Full-buffer Lean 4.22 module-aware import scan (handles multiline `public\n import Foo`)
+    # Full-buffer Lean 4.22+ module-aware import scan (handles multiline `public\n import`, `import all`,
+    # same-line multi-imports, and zero-whitespace guillemet `import«Std».Tactic.BVDecide`).
+    import_entries: list[tuple[int, str]] = []
     imp_line, imp_pos = 1, 0
     for m_imp in _LEAN4_IMPORT_FULL_RE.finditer(cleaned):
-        mod = m_imp.group(1)
+        mod = normalize_lean4_module_name(m_imp.group(1))
         pos_m = m_imp.start(1)
         imp_line += cleaned.count("\n", imp_pos, pos_m)
         imp_pos = pos_m
         imports.append(mod)
+        import_entries.append((imp_line, mod))
         for pref in forbidden_import_prefixes:
             if mod == pref or mod.startswith(pref + "."):
                 findings.append(
@@ -1348,6 +1393,10 @@ def audit_lean4_source(
             )
             if root_pkg not in ("Init", "Std") and not is_allowed_proj:
                 findings.append({"line": imp_line, "code": "LEAN4_NON_INIT_IMPORT", "excerpt": mod})
+
+    # R13b (`W13-OBS-BVDECIDE` & `B4`): `bv_decide`/`bv_check` calls, `BVDecide`/`Grind.BVDecide`
+    # imports & references, and `_native.<tactic>.ax_*` axiom artifacts.
+    findings.extend(scan_lean4_bv_decide_source(cleaned, import_entries=import_entries))
 
     # Multiline declaration-scoped `partial` check (`partial\n def ...`, zero FP on `.partial`)
     part_line, part_pos = 1, 0
@@ -1422,6 +1471,63 @@ def audit_lean4_source(
         if m_cs is not None:
             notices.append({"line": attr_line, "code": "LEAN4_CSIMP_REWRITE_NOTICE", "excerpt": m_cs.group(1)})
 
+    return findings, notices, imports
+
+
+def audit_lean4_source(
+    source: str,
+    *,
+    allow_non_init_imports: bool = False,
+    allow_project_imports: Sequence[str] = (),
+    allowed_axioms: frozenset[str] = frozenset(),
+    forbidden_import_prefixes: Sequence[str] = (),
+) -> dict[str, Any]:
+    """
+    Hardened static Lean 4.36.0 auditor (AUDIT-029 + PR #34 + R13b DELTA2):
+      - Flags `sorry`, `admit`, `axiom`, `unsafe`, `native_decide`, `decide +native`,
+        `bv_decide`, `bv_check`, `BVDecide`/`Grind.BVDecide` imports & refs, `_native.<tactic>.ax_*`,
+        `sorryAx`, `mkSorry`, `Lean.ofReduceBool`, `Lean.ofReduceNat`, `Lean.trustCompiler`,
+        multiline `debug.skipKernelTC`, `opaque`, `partial`, `#eval`/`#print`, and meta/syntax escapes.
+      - Runs dual-projection (`interp` + `plain`) whenever a shadowable/non-Init-reserved
+        interpolation trigger (`m!`, `v!`, `logInfo`, `throwError`, `dbg_trace`, custom macros)
+        appears, closing false-interpolation `"{"` masking escapes (`B1`/`E1`).
+      - Parses Lean 4.22+ `(public|private|meta)? import` including zero-whitespace `import«Std»` (`E1`/`B2`).
+    """
+    cleaned_interp, lex_interp, saw_ambig_interp = _strip_lean4_with_meta(
+        source, strict_init_interp_only=False
+    )
+    findings, notices, imports = _scan_cleaned_lean4_pass(
+        cleaned_interp,
+        lex_interp,
+        allow_non_init_imports=allow_non_init_imports,
+        allow_project_imports=allow_project_imports,
+        allowed_axioms=allowed_axioms,
+        forbidden_import_prefixes=forbidden_import_prefixes,
+    )
+    if saw_ambig_interp:
+        cleaned_plain, lex_plain, _ = _strip_lean4_with_meta(
+            source, strict_init_interp_only=True
+        )
+        findings_plain, _, imports_plain = _scan_cleaned_lean4_pass(
+            cleaned_plain,
+            lex_plain,
+            allow_non_init_imports=allow_non_init_imports,
+            allow_project_imports=allow_project_imports,
+            allowed_axioms=allowed_axioms,
+            forbidden_import_prefixes=forbidden_import_prefixes,
+        )
+        seen_keys = {(f["line"], f["code"]) for f in findings}
+        for f in findings_plain:
+            key = (f["line"], f["code"])
+            if key not in seen_keys:
+                seen_keys.add(key)
+                findings.append(f)
+        seen_imps = set(imports)
+        for imp in imports_plain:
+            if imp not in seen_imps:
+                seen_imps.add(imp)
+                imports.append(imp)
+
     return {"clean": len(findings) == 0, "findings": findings, "notices": notices, "imports": imports}
 
 
@@ -1432,11 +1538,12 @@ def audit_lean4_directory(
     allow_project_imports: Sequence[str] = (),
     allowed_axioms: frozenset[str] = frozenset(),
     forbidden_import_prefixes: Sequence[str] = (),
+    allow_external_packages: bool = False,
 ) -> dict[str, Any]:
-    """Scan all `.lean` files under `root` with the hardened v1.2 static Lean 4 auditor."""
+    """Scan all `.lean` files, `lake-manifest.json` manifests, and axiom-audit logs under `root`."""
     lean_files = [root] if root.is_file() and root.suffix == ".lean" else [
         p for p in sorted(root.rglob("*.lean"))
-        if p.is_file() and not any(part in SKIP_DIRS for part in p.relative_to(root).parts)
+        if p.is_file() and not any(part in SKIP_DIRS or part == ".lake" for part in p.relative_to(root).parts)
     ]
     all_findings: list[dict[str, Any]] = []
     all_notices: list[dict[str, Any]] = []
@@ -1453,8 +1560,16 @@ def audit_lean4_directory(
             all_findings.append({"file": rel, **f})
         for n in res["notices"]:
             all_notices.append({"file": rel, **n})
+    r13b_extra = audit_lean4_directory_r13b_artifacts(
+        root,
+        skip_dirs=frozenset(SKIP_DIRS),
+        allow_external_packages=allow_external_packages,
+    )
+    all_findings.extend(r13b_extra["findings"])
     return {
         "files_checked": len(lean_files),
+        "manifests_checked": r13b_extra["manifests_checked"],
+        "axiom_logs_checked": r13b_extra["axiom_logs_checked"],
         "clean": len(all_findings) == 0,
         "findings": all_findings,
         "notices": all_notices,
