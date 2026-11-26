@@ -1,0 +1,6 @@
+name = "s98_trust_boundary_unification"
+version = "0.1.0"
+defaultTargets = ["TrustBoundaryUnification"]
+
+[[lean_lib]]
+name = "TrustBoundaryUnification"

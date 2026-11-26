@@ -1,0 +1,1770 @@
+{
+  "certificate_sha256": "107bcb46dfe218926b2a260895773e53b7d806bd55f5a7e760e085287ead410b",
+  "payload": {
+    "confirmatory_phases": {
+      "E1": {
+        "e1a_cocycle_and_dispersion": {
+          "broadband_tau_vs_freq_log_slope": 0.0937,
+          "core_pinning_3001hz": {
+            "CORE0_3001HZ": {
+              "broadband_6_22khz_tau_us": {
+                "ch0_ch1": -21.7949,
+                "ch0_ch2": -195.584,
+                "ch0_ch3": 37.8421,
+                "ch1_ch2": -241.3594,
+                "ch1_ch3": -191.0893,
+                "ch2_ch3": -410.7252
+              },
+              "broadband_hodge1_obstruction": {
+                "kappa_h1_decimal": 0.572151,
+                "kappa_h1_exact_q": "17371924671689/30362481371231",
+                "operator": "U+29C7_cohom_obstruction",
+                "triangle_curl_us": {
+                  "tri_012_us": -67.5703,
+                  "tri_013_us": -250.7263,
+                  "tri_023_us": -644.1513,
+                  "tri_123_us": -460.9953
+                },
+                "vertex_potentials_us": [
+                  44.8842,
+                  102.6634,
+                  -6.5545,
+                  -140.9931
+                ]
+              },
+              "broadband_p90_coherence": {
+                "ch0_ch1": 0.8417,
+                "ch0_ch2": 0.95732,
+                "ch0_ch3": 0.82438,
+                "ch1_ch2": 0.89667,
+                "ch1_ch3": 0.77065,
+                "ch2_ch3": 0.85897
+              },
+              "cpu_pin": 0,
+              "freq_hz": 3001.0,
+              "n_threads": 1,
+              "narrowband_pancharatnam_holonomy_deg": {
+                "tri_012_deg": 21.468,
+                "tri_013_deg": 25.416,
+                "tri_023_deg": 20.812,
+                "tri_123_deg": 16.863
+              },
+              "narrowband_snr_over_idle": 1.81,
+              "narrowband_wrapped_phase_tau_us": {
+                "ch0_ch1": -113.8366,
+                "ch0_ch2": -135.2918,
+                "ch0_ch3": -110.0814,
+                "ch1_ch2": -41.3331,
+                "ch1_ch3": -19.7785,
+                "ch2_ch3": 5.9404
+              },
+              "participation_ratio_f0": 2.39887,
+              "rel_channel_rms": [
+                0.9485,
+                0.5218,
+                1.0699,
+                1.2974
+              ]
+            },
+            "CORE4_3001HZ": {
+              "broadband_6_22khz_tau_us": {
+                "ch0_ch1": -27.7034,
+                "ch0_ch2": -199.2839,
+                "ch0_ch3": 36.2902,
+                "ch1_ch2": -231.4226,
+                "ch1_ch3": 209.0786,
+                "ch2_ch3": -407.4647
+              },
+              "broadband_hodge1_obstruction": {
+                "kappa_h1_decimal": 0.948205,
+                "kappa_h1_exact_q": "19286263333761/20339752820108",
+                "operator": "U+29C7_cohom_obstruction",
+                "triangle_curl_us": {
+                  "tri_012_us": -59.8421,
+                  "tri_013_us": 145.085,
+                  "tri_023_us": -643.0388,
+                  "tri_123_us": -847.9659
+                },
+                "vertex_potentials_us": [
+                  47.6743,
+                  -1.3398,
+                  -5.8105,
+                  -40.524
+                ]
+              },
+              "broadband_p90_coherence": {
+                "ch0_ch1": 0.82637,
+                "ch0_ch2": 0.95068,
+                "ch0_ch3": 0.82204,
+                "ch1_ch2": 0.88156,
+                "ch1_ch3": 0.76114,
+                "ch2_ch3": 0.84368
+              },
+              "cpu_pin": 4,
+              "freq_hz": 3001.0,
+              "n_threads": 1,
+              "narrowband_pancharatnam_holonomy_deg": {
+                "tri_012_deg": 20.366,
+                "tri_013_deg": 15.132,
+                "tri_023_deg": 17.175,
+                "tri_123_deg": 22.41
+              },
+              "narrowband_snr_over_idle": 1.01,
+              "narrowband_wrapped_phase_tau_us": {
+                "ch0_ch1": -103.7666,
+                "ch0_ch2": -158.8751,
+                "ch0_ch3": -131.1576,
+                "ch1_ch2": -73.856,
+                "ch1_ch3": -41.3201,
+                "ch2_ch3": 11.9071
+              },
+              "participation_ratio_f0": 2.50759,
+              "rel_channel_rms": [
+                0.942,
+                0.5221,
+                1.0499,
+                1.3182
+              ]
+            },
+            "CORE7_3001HZ": {
+              "broadband_6_22khz_tau_us": {
+                "ch0_ch1": -677.3499,
+                "ch0_ch2": -196.2574,
+                "ch0_ch3": 36.6924,
+                "ch1_ch2": 144.2387,
+                "ch1_ch3": 204.3328,
+                "ch2_ch3": -409.1256
+              },
+              "broadband_hodge1_obstruction": {
+                "kappa_h1_decimal": 0.345077,
+                "kappa_h1_exact_q": "16761703385299/48573775907428",
+                "operator": "U+29C7_cohom_obstruction",
+                "triangle_curl_us": {
+                  "tri_012_us": -336.8538,
+                  "tri_013_us": -509.7095,
+                  "tri_023_us": -642.0754,
+                  "tri_123_us": -469.2197
+                },
+                "vertex_potentials_us": [
+                  209.2287,
+                  -256.4803,
+                  89.2767,
+                  -42.0251
+                ]
+              },
+              "broadband_p90_coherence": {
+                "ch0_ch1": 0.74465,
+                "ch0_ch2": 0.92231,
+                "ch0_ch3": 0.75882,
+                "ch1_ch2": 0.83279,
+                "ch1_ch3": 0.67772,
+                "ch2_ch3": 0.78526
+              },
+              "cpu_pin": 7,
+              "freq_hz": 3001.0,
+              "n_threads": 1,
+              "narrowband_pancharatnam_holonomy_deg": {
+                "tri_012_deg": 20.109,
+                "tri_013_deg": -174.447,
+                "tri_023_deg": -6.616,
+                "tri_123_deg": -172.06
+              },
+              "narrowband_snr_over_idle": 0.11,
+              "narrowband_wrapped_phase_tau_us": {
+                "ch0_ch1": -126.3586,
+                "ch0_ch2": -158.5031,
+                "ch0_ch3": -123.2149,
+                "ch1_ch2": -50.6556,
+                "ch1_ch3": 163.7279,
+                "ch2_ch3": 41.3785
+              },
+              "participation_ratio_f0": 2.93932,
+              "rel_channel_rms": [
+                0.9588,
+                0.533,
+                1.0147,
+                1.3293
+              ]
+            }
+          },
+          "lamb_frequency_sweep": {
+            "LAMB_1009HZ": {
+              "broadband_6_22khz_tau_us": {
+                "ch0_ch1": -401.2258,
+                "ch0_ch2": -214.9362,
+                "ch0_ch3": 30.0155,
+                "ch1_ch2": 162.7544,
+                "ch1_ch3": 218.3472,
+                "ch2_ch3": -388.4015
+              },
+              "broadband_hodge1_obstruction": {
+                "kappa_h1_decimal": 0.371822,
+                "kappa_h1_exact_q": "32207250891829/86620172513156",
+                "operator": "U+29C7_cohom_obstruction",
+                "triangle_curl_us": {
+                  "tri_012_us": -23.5352,
+                  "tri_013_us": -212.8941,
+                  "tri_023_us": -633.3532,
+                  "tri_123_us": -443.9943
+                },
+                "vertex_potentials_us": [
+                  146.5366,
+                  -195.5819,
+                  84.0549,
+                  -35.0097
+                ]
+              },
+              "broadband_p90_coherence": {
+                "ch0_ch1": 0.86185,
+                "ch0_ch2": 0.95792,
+                "ch0_ch3": 0.87228,
+                "ch1_ch2": 0.91198,
+                "ch1_ch3": 0.85258,
+                "ch2_ch3": 0.89265
+              },
+              "cpu_pin": null,
+              "freq_hz": 1009.0,
+              "n_threads": 4,
+              "narrowband_pancharatnam_holonomy_deg": {
+                "tri_012_deg": -87.507,
+                "tri_013_deg": 17.851,
+                "tri_023_deg": 108.409,
+                "tri_123_deg": 3.051
+              },
+              "narrowband_snr_over_idle": 9.48,
+              "narrowband_wrapped_phase_tau_us": {
+                "ch0_ch1": 54.0725,
+                "ch0_ch2": 56.7234,
+                "ch0_ch3": -75.8563,
+                "ch1_ch2": 243.8419,
+                "ch1_ch3": -179.1292,
+                "ch2_ch3": -431.3802
+              },
+              "participation_ratio_f0": 1.02238,
+              "rel_channel_rms": [
+                0.883,
+                0.4568,
+                0.9563,
+                1.4482
+              ]
+            },
+            "LAMB_11003HZ": {
+              "broadband_6_22khz_tau_us": {
+                "ch0_ch1": 632.9191,
+                "ch0_ch2": -214.0689,
+                "ch0_ch3": 0.9651,
+                "ch1_ch2": -198.7752,
+                "ch1_ch3": 210.7826,
+                "ch2_ch3": -409.2744
+              },
+              "broadband_hodge1_obstruction": {
+                "kappa_h1_decimal": 0.784768,
+                "kappa_h1_exact_q": "54765799028270/69785943160319",
+                "operator": "U+29C7_cohom_obstruction",
+                "triangle_curl_us": {
+                  "tri_012_us": 648.2128,
+                  "tri_013_us": 842.7366,
+                  "tri_023_us": -624.3084,
+                  "tri_123_us": -818.8322
+                },
+                "vertex_potentials_us": [
+                  -104.9538,
+                  155.2279,
+                  -0.8924,
+                  -49.3817
+                ]
+              },
+              "broadband_p90_coherence": {
+                "ch0_ch1": 0.73534,
+                "ch0_ch2": 0.92474,
+                "ch0_ch3": 0.74802,
+                "ch1_ch2": 0.81817,
+                "ch1_ch3": 0.65428,
+                "ch2_ch3": 0.78089
+              },
+              "cpu_pin": null,
+              "freq_hz": 11003.0,
+              "n_threads": 4,
+              "narrowband_pancharatnam_holonomy_deg": {
+                "tri_012_deg": -0.011,
+                "tri_013_deg": -0.01,
+                "tri_023_deg": 0.002,
+                "tri_123_deg": 0.001
+              },
+              "narrowband_snr_over_idle": 3939.13,
+              "narrowband_wrapped_phase_tau_us": {
+                "ch0_ch1": -4.8421,
+                "ch0_ch2": -44.1729,
+                "ch0_ch3": 32.2364,
+                "ch1_ch2": -39.328,
+                "ch1_ch3": 37.0812,
+                "ch2_ch3": -14.4679
+              },
+              "participation_ratio_f0": 1.00012,
+              "rel_channel_rms": [
+                1.1033,
+                0.3823,
+                1.1678,
+                1.1282
+              ]
+            },
+            "LAMB_15013HZ": {
+              "broadband_6_22khz_tau_us": {
+                "ch0_ch1": 64.8987,
+                "ch0_ch2": -193.1275,
+                "ch0_ch3": 56.1956,
+                "ch1_ch2": -213.6102,
+                "ch1_ch3": 208.0241,
+                "ch2_ch3": -435.2242
+              },
+              "broadband_hodge1_obstruction": {
+                "kappa_h1_decimal": 0.968876,
+                "kappa_h1_exact_q": "62587747761769/64598293193558",
+                "operator": "U+29C7_cohom_obstruction",
+                "triangle_curl_us": {
+                  "tri_012_us": 44.416,
+                  "tri_013_us": 216.7272,
+                  "tri_023_us": -684.5473,
+                  "tri_123_us": -856.8585
+                },
+                "vertex_potentials_us": [
+                  18.0083,
+                  17.6212,
+                  7.1216,
+                  -42.7511
+                ]
+              },
+              "broadband_p90_coherence": {
+                "ch0_ch1": 0.78695,
+                "ch0_ch2": 0.92806,
+                "ch0_ch3": 0.80295,
+                "ch1_ch2": 0.869,
+                "ch1_ch3": 0.74196,
+                "ch2_ch3": 0.84529
+              },
+              "cpu_pin": null,
+              "freq_hz": 15013.0,
+              "n_threads": 4,
+              "narrowband_pancharatnam_holonomy_deg": {
+                "tri_012_deg": 0.003,
+                "tri_013_deg": 0.001,
+                "tri_023_deg": -0.003,
+                "tri_123_deg": -0.001
+              },
+              "narrowband_snr_over_idle": 17708.05,
+              "narrowband_wrapped_phase_tau_us": {
+                "ch0_ch1": -28.0587,
+                "ch0_ch2": -32.6104,
+                "ch0_ch3": -6.2988,
+                "ch1_ch2": -4.5522,
+                "ch1_ch3": 21.7598,
+                "ch2_ch3": 26.3122
+              },
+              "participation_ratio_f0": 1.00006,
+              "rel_channel_rms": [
+                0.4956,
+                0.5043,
+                1.2399,
+                1.4009
+              ]
+            },
+            "LAMB_3001HZ": {
+              "broadband_6_22khz_tau_us": {
+                "ch0_ch1": -615.7191,
+                "ch0_ch2": -208.6913,
+                "ch0_ch3": 26.9745,
+                "ch1_ch2": 185.7757,
+                "ch1_ch3": 213.337,
+                "ch2_ch3": -421.7512
+              },
+              "broadband_hodge1_obstruction": {
+                "kappa_h1_decimal": 0.318286,
+                "kappa_h1_exact_q": "43368920813161/136257810686336",
+                "operator": "U+29C7_cohom_obstruction",
+                "triangle_curl_us": {
+                  "tri_012_us": -221.2521,
+                  "tri_013_us": -429.3566,
+                  "tri_023_us": -657.417,
+                  "tri_123_us": -449.3125
+                },
+                "vertex_potentials_us": [
+                  199.359,
+                  -253.708,
+                  99.7089,
+                  -45.3599
+                ]
+              },
+              "broadband_p90_coherence": {
+                "ch0_ch1": 0.8214,
+                "ch0_ch2": 0.94648,
+                "ch0_ch3": 0.83969,
+                "ch1_ch2": 0.87396,
+                "ch1_ch3": 0.78549,
+                "ch2_ch3": 0.8552
+              },
+              "cpu_pin": null,
+              "freq_hz": 3001.0,
+              "n_threads": 4,
+              "narrowband_pancharatnam_holonomy_deg": {
+                "tri_012_deg": -0.414,
+                "tri_013_deg": 0.103,
+                "tri_023_deg": 0.017,
+                "tri_123_deg": -0.501
+              },
+              "narrowband_snr_over_idle": 20.95,
+              "narrowband_wrapped_phase_tau_us": {
+                "ch0_ch1": 85.1128,
+                "ch0_ch2": -85.5534,
+                "ch0_ch3": -114.89,
+                "ch1_ch2": 163.0509,
+                "ch1_ch3": 133.235,
+                "ch2_ch3": -29.3523
+              },
+              "participation_ratio_f0": 1.01329,
+              "rel_channel_rms": [
+                0.8214,
+                0.4274,
+                1.0319,
+                1.4415
+              ]
+            },
+            "LAMB_5003HZ": {
+              "broadband_6_22khz_tau_us": {
+                "ch0_ch1": -596.5369,
+                "ch0_ch2": -203.5063,
+                "ch0_ch3": 36.9515,
+                "ch1_ch2": 105.283,
+                "ch1_ch3": 205.9781,
+                "ch2_ch3": -421.4069
+              },
+              "broadband_hodge1_obstruction": {
+                "kappa_h1_decimal": 0.387554,
+                "kappa_h1_exact_q": "110682439617/285592636594",
+                "operator": "U+29C7_cohom_obstruction",
+                "triangle_curl_us": {
+                  "tri_012_us": -287.7476,
+                  "tri_013_us": -427.5103,
+                  "tri_023_us": -661.8647,
+                  "tri_123_us": -522.102
+                },
+                "vertex_potentials_us": [
+                  190.7729,
+                  -226.9495,
+                  80.7959,
+                  -44.6193
+                ]
+              },
+              "broadband_p90_coherence": {
+                "ch0_ch1": 0.80285,
+                "ch0_ch2": 0.94272,
+                "ch0_ch3": 0.81037,
+                "ch1_ch2": 0.86527,
+                "ch1_ch3": 0.75736,
+                "ch2_ch3": 0.83675
+              },
+              "cpu_pin": null,
+              "freq_hz": 5003.0,
+              "n_threads": 4,
+              "narrowband_pancharatnam_holonomy_deg": {
+                "tri_012_deg": -0.003,
+                "tri_013_deg": 0.031,
+                "tri_023_deg": 0.018,
+                "tri_123_deg": -0.016
+              },
+              "narrowband_snr_over_idle": 461.04,
+              "narrowband_wrapped_phase_tau_us": {
+                "ch0_ch1": -97.6655,
+                "ch0_ch2": 27.9506,
+                "ch0_ch3": 90.9671,
+                "ch1_ch2": -74.2261,
+                "ch1_ch3": -11.2284,
+                "ch2_ch3": 63.0068
+              },
+              "participation_ratio_f0": 1.00066,
+              "rel_channel_rms": [
+                0.7887,
+                0.4898,
+                1.0954,
+                1.3922
+              ]
+            },
+            "LAMB_7919HZ": {
+              "broadband_6_22khz_tau_us": {
+                "ch0_ch1": 615.585,
+                "ch0_ch2": -225.5531,
+                "ch0_ch3": 34.1298,
+                "ch1_ch2": 193.6064,
+                "ch1_ch3": 207.0219,
+                "ch2_ch3": -407.6488
+              },
+              "broadband_hodge1_obstruction": {
+                "kappa_h1_decimal": 0.854247,
+                "kappa_h1_exact_q": "57875476501601/67750298573466",
+                "operator": "U+29C7_cohom_obstruction",
+                "triangle_curl_us": {
+                  "tri_012_us": 1034.7445,
+                  "tri_013_us": 788.4771,
+                  "tri_023_us": -667.3317,
+                  "tri_123_us": -421.0643
+                },
+                "vertex_potentials_us": [
+                  -106.0404,
+                  53.7392,
+                  93.9255,
+                  -41.6243
+                ]
+              },
+              "broadband_p90_coherence": {
+                "ch0_ch1": 0.77033,
+                "ch0_ch2": 0.92976,
+                "ch0_ch3": 0.7747,
+                "ch1_ch2": 0.83983,
+                "ch1_ch3": 0.70473,
+                "ch2_ch3": 0.79976
+              },
+              "cpu_pin": null,
+              "freq_hz": 7919.0,
+              "n_threads": 4,
+              "narrowband_pancharatnam_holonomy_deg": {
+                "tri_012_deg": -0.032,
+                "tri_013_deg": 0.675,
+                "tri_023_deg": 0.614,
+                "tri_123_deg": -0.093
+              },
+              "narrowband_snr_over_idle": 1790.38,
+              "narrowband_wrapped_phase_tau_us": {
+                "ch0_ch1": 39.2862,
+                "ch0_ch2": 47.1698,
+                "ch0_ch3": 29.9293,
+                "ch1_ch2": 7.8949,
+                "ch1_ch3": -9.5934,
+                "ch2_ch3": -17.4557
+              },
+              "participation_ratio_f0": 1.00079,
+              "rel_channel_rms": [
+                0.8853,
+                0.5551,
+                1.0967,
+                1.3059
+              ]
+            }
+          }
+        },
+        "e1b_ir_1009hz_replication": {
+          "ir_led_off_1009hz": {
+            "active_frames": 326,
+            "carrier_amp_dn": 0.00077,
+            "empirical_4sigma_bound_lsb": 0.004704,
+            "empirical_4sigma_bound_ppm": 64.31,
+            "estimator": "spatial_row_fft",
+            "idle_frames": 328,
+            "p_raw": 0.776612,
+            "present": true,
+            "sideband_noise_std_dn": 0.000406,
+            "snr_idle_sigma": -0.9761,
+            "snr_sideband_sigma": 0.4997
+          },
+          "ir_led_on_1009hz": {
+            "active_frames": 327,
+            "carrier_amp_dn": 0.000623,
+            "empirical_4sigma_bound_lsb": 0.00207,
+            "empirical_4sigma_bound_ppm": 12.82,
+            "estimator": "spatial_row_fft",
+            "idle_frames": 324,
+            "p_raw": 0.869065,
+            "present": true,
+            "sideband_noise_std_dn": 0.000518,
+            "snr_idle_sigma": -1.5268,
+            "snr_sideband_sigma": -0.2158
+          },
+          "ir_stratified_1009hz": {
+            "active_frames": 653,
+            "carrier_amp_dn": 0.00065,
+            "empirical_4sigma_bound_lsb": 0.002335,
+            "empirical_4sigma_bound_ppm": 19.93,
+            "estimator": "crystal_coherent_lockin",
+            "idle_frames": 652,
+            "p_raw": 0.885557,
+            "present": true,
+            "sideband_noise_std_dn": 0.000248,
+            "snr_idle_sigma": -1.35,
+            "snr_sideband_sigma": 0.8153
+          },
+          "verdict": "FALSIFIED_NOISE_FLUCTUATION"
+        },
+        "e1c_linear_gamma100_ptc_and_e1d_thermal": {
+          "conversion_gain_k_dn_per_e": 0.002585,
+          "hypothesis": "S113-H4",
+          "intercept_raw_dn2": 0.062637,
+          "inverse_gain_e_per_dn": 386.792,
+          "n_steps_linear_fit": 8,
+          "n_steps_total": 10,
+          "ptc_r2": 0.972693,
+          "read_noise_dn": 0.25027,
+          "read_noise_electrons": 96.8038,
+          "spatial_fpn_var_min_max_dn2": [
+            1.2717,
+            50.3884
+          ],
+          "thermal_drift": {
+            "delta_pkg_temp_c": 31.0,
+            "ir_led_off": {
+              "delta_mean_dn": -6.2625,
+              "delta_var_dn2": 10.19984,
+              "mean_slope_dn_per_c": -0.202016,
+              "var_slope_dn2_per_c": 0.329027
+            },
+            "ir_led_on": {
+              "delta_mean_dn": -1.7855,
+              "delta_var_dn2": -0.1427,
+              "mean_slope_dn_per_c": -0.057597,
+              "var_slope_dn2_per_c": -0.004603
+            },
+            "present": true,
+            "rgb": {
+              "delta_mean_dn": -2.9576,
+              "delta_var_dn2": -0.01059,
+              "mean_slope_dn_per_c": -0.095406,
+              "var_slope_dn2_per_c": -0.000342
+            }
+          },
+          "verdict": "FALSIFIED"
+        },
+        "phase": "E1"
+      },
+      "E2": {
+        "e2a_cpu_vs_gpu_triangulation_and_imd": {
+          "CPU_ONLY_1009HZ": {
+            "broadband_6_22khz_tau_us": {
+              "ch0_ch1": -404.8984,
+              "ch0_ch2": 175.6912,
+              "ch0_ch3": 28.4193,
+              "ch1_ch2": 161.8277,
+              "ch1_ch3": 218.0923,
+              "ch2_ch3": -388.9047
+            },
+            "broadband_hodge1_obstruction": {
+              "kappa_h1_decimal": 0.284252,
+              "kappa_h1_exact_q": "23912280869755/84123418036232",
+              "operator": "U+29C7_cohom_obstruction",
+              "triangle_curl_us": {
+                "tri_012_us": -418.7619,
+                "tri_013_us": -215.2254,
+                "tri_023_us": -241.6328,
+                "tri_123_us": -445.1693
+              },
+              "vertex_potentials_us": [
+                50.197,
+                -196.2046,
+                181.6059,
+                -35.5983
+              ]
+            },
+            "broadband_p90_coherence": {
+              "ch0_ch1": 0.86149,
+              "ch0_ch2": 0.95699,
+              "ch0_ch3": 0.86764,
+              "ch1_ch2": 0.90745,
+              "ch1_ch3": 0.84901,
+              "ch2_ch3": 0.87921
+            },
+            "cpu_hz": 1009.0,
+            "gpu_hz": 0.0,
+            "hf_participation_ratio": 2.64087,
+            "mean_gpu_w": 15.6,
+            "mean_pkg_w": 58.82,
+            "spectral_line_ratios": {
+              "1009Hz": {
+                "direct_over_idle_ratio": 8.674,
+                "hf_env_over_idle_ratio": 13.338
+              },
+              "1326Hz": {
+                "direct_over_idle_ratio": 0.1,
+                "hf_env_over_idle_ratio": 1.752
+              },
+              "220Hz": {
+                "direct_over_idle_ratio": 0.527,
+                "hf_env_over_idle_ratio": 2.073
+              },
+              "3001Hz": {
+                "direct_over_idle_ratio": 0.07,
+                "hf_env_over_idle_ratio": 1.441
+              },
+              "317Hz": {
+                "direct_over_idle_ratio": 0.72,
+                "hf_env_over_idle_ratio": 2.313
+              },
+              "414Hz": {
+                "direct_over_idle_ratio": 0.355,
+                "hf_env_over_idle_ratio": 2.498
+              },
+              "692Hz": {
+                "direct_over_idle_ratio": 0.285,
+                "hf_env_over_idle_ratio": 2.053
+              },
+              "97Hz": {
+                "direct_over_idle_ratio": 1.393,
+                "hf_env_over_idle_ratio": 1.874
+              }
+            }
+          },
+          "DUAL_CPU1009_GPU317": {
+            "broadband_6_22khz_tau_us": {
+              "ch0_ch1": -605.2674,
+              "ch0_ch2": 175.9961,
+              "ch0_ch3": 35.6184,
+              "ch1_ch2": 146.5059,
+              "ch1_ch3": 191.2853,
+              "ch2_ch3": -393.317
+            },
+            "broadband_hodge1_obstruction": {
+              "kappa_h1_decimal": 0.352078,
+              "kappa_h1_exact_q": "4783136475197/13585427341254",
+              "operator": "U+29C7_cohom_obstruction",
+              "triangle_curl_us": {
+                "tri_012_us": -634.7576,
+                "tri_013_us": -449.6005,
+                "tri_023_us": -252.9393,
+                "tri_123_us": -438.0964
+              },
+              "vertex_potentials_us": [
+                98.4132,
+                -235.7646,
+                178.9547,
+                -41.6033
+              ]
+            },
+            "broadband_p90_coherence": {
+              "ch0_ch1": 0.97939,
+              "ch0_ch2": 0.99145,
+              "ch0_ch3": 0.97817,
+              "ch1_ch2": 0.98599,
+              "ch1_ch3": 0.97864,
+              "ch2_ch3": 0.98227
+            },
+            "cpu_hz": 1009.0,
+            "gpu_hz": 317.0,
+            "hf_participation_ratio": 2.70446,
+            "mean_gpu_w": 79.78,
+            "mean_pkg_w": 52.75,
+            "spectral_line_ratios": {
+              "1009Hz": {
+                "direct_over_idle_ratio": 8.99,
+                "hf_env_over_idle_ratio": 24.707
+              },
+              "1326Hz": {
+                "direct_over_idle_ratio": 0.389,
+                "hf_env_over_idle_ratio": 16.526
+              },
+              "1701Hz": {
+                "direct_over_idle_ratio": 0.45,
+                "hf_env_over_idle_ratio": 26.64
+              },
+              "220Hz": {
+                "direct_over_idle_ratio": 3.701,
+                "hf_env_over_idle_ratio": 21.039
+              },
+              "3001Hz": {
+                "direct_over_idle_ratio": 0.331,
+                "hf_env_over_idle_ratio": 15.001
+              },
+              "317Hz": {
+                "direct_over_idle_ratio": 2.779,
+                "hf_env_over_idle_ratio": 20290.363
+              },
+              "375Hz": {
+                "direct_over_idle_ratio": 1.246,
+                "hf_env_over_idle_ratio": 16.305
+              },
+              "414Hz": {
+                "direct_over_idle_ratio": 1.384,
+                "hf_env_over_idle_ratio": 20.778
+              },
+              "692Hz": {
+                "direct_over_idle_ratio": 0.629,
+                "hf_env_over_idle_ratio": 14.16
+              },
+              "97Hz": {
+                "direct_over_idle_ratio": 1.251,
+                "hf_env_over_idle_ratio": 19.605
+              }
+            }
+          },
+          "GPU_ONLY_1009HZ": {
+            "broadband_6_22khz_tau_us": {
+              "ch0_ch1": -586.3494,
+              "ch0_ch2": 184.4632,
+              "ch0_ch3": 20.8518,
+              "ch1_ch2": 165.5266,
+              "ch1_ch3": 217.2231,
+              "ch2_ch3": -396.6967
+            },
+            "broadband_hodge1_obstruction": {
+              "kappa_h1_decimal": 0.317033,
+              "kappa_h1_exact_q": "4299107106433/13560450908220",
+              "operator": "U+29C7_cohom_obstruction",
+              "triangle_curl_us": {
+                "tri_012_us": -605.286,
+                "tri_013_us": -389.9781,
+                "tri_023_us": -233.0853,
+                "tri_123_us": -448.3932
+              },
+              "vertex_potentials_us": [
+                95.2586,
+                -242.2748,
+                186.6716,
+                -39.6555
+              ]
+            },
+            "broadband_p90_coherence": {
+              "ch0_ch1": 0.95774,
+              "ch0_ch2": 0.99154,
+              "ch0_ch3": 0.97075,
+              "ch1_ch2": 0.96147,
+              "ch1_ch3": 0.9495,
+              "ch2_ch3": 0.97304
+            },
+            "cpu_hz": 0.0,
+            "gpu_hz": 1009.0,
+            "hf_participation_ratio": 1.57296,
+            "mean_gpu_w": 43.59,
+            "mean_pkg_w": 30.97,
+            "spectral_line_ratios": {
+              "1009Hz": {
+                "direct_over_idle_ratio": 2.991,
+                "hf_env_over_idle_ratio": 24854.966
+              },
+              "1326Hz": {
+                "direct_over_idle_ratio": 0.186,
+                "hf_env_over_idle_ratio": 43.048
+              },
+              "220Hz": {
+                "direct_over_idle_ratio": 0.545,
+                "hf_env_over_idle_ratio": 68.627
+              },
+              "3001Hz": {
+                "direct_over_idle_ratio": 0.188,
+                "hf_env_over_idle_ratio": 25.141
+              },
+              "317Hz": {
+                "direct_over_idle_ratio": 0.81,
+                "hf_env_over_idle_ratio": 53.339
+              },
+              "414Hz": {
+                "direct_over_idle_ratio": 0.893,
+                "hf_env_over_idle_ratio": 62.495
+              },
+              "692Hz": {
+                "direct_over_idle_ratio": 0.44,
+                "hf_env_over_idle_ratio": 66.084
+              },
+              "97Hz": {
+                "direct_over_idle_ratio": 1.381,
+                "hf_env_over_idle_ratio": 461.624
+              }
+            }
+          },
+          "GPU_ONLY_317HZ": {
+            "broadband_6_22khz_tau_us": {
+              "ch0_ch1": -21.2503,
+              "ch0_ch2": -200.5037,
+              "ch0_ch3": 40.9516,
+              "ch1_ch2": 119.6883,
+              "ch1_ch3": -184.7352,
+              "ch2_ch3": -397.16
+            },
+            "broadband_hodge1_obstruction": {
+              "kappa_h1_decimal": 0.570152,
+              "kappa_h1_exact_q": "14169340779541/24851879138227",
+              "operator": "U+29C7_cohom_obstruction",
+              "triangle_curl_us": {
+                "tri_012_us": 298.9417,
+                "tri_013_us": -246.9371,
+                "tri_023_us": -638.6153,
+                "tri_123_us": -92.7365
+              },
+              "vertex_potentials_us": [
+                45.2006,
+                10.9491,
+                79.0862,
+                -135.2359
+              ]
+            },
+            "broadband_p90_coherence": {
+              "ch0_ch1": 0.94967,
+              "ch0_ch2": 0.98594,
+              "ch0_ch3": 0.95224,
+              "ch1_ch2": 0.97786,
+              "ch1_ch3": 0.95541,
+              "ch2_ch3": 0.96779
+            },
+            "cpu_hz": 0.0,
+            "gpu_hz": 317.0,
+            "hf_participation_ratio": 2.77175,
+            "mean_gpu_w": 81.64,
+            "mean_pkg_w": 30.55,
+            "spectral_line_ratios": {
+              "1009Hz": {
+                "direct_over_idle_ratio": 2.229,
+                "hf_env_over_idle_ratio": 8.128
+              },
+              "1326Hz": {
+                "direct_over_idle_ratio": 3.039,
+                "hf_env_over_idle_ratio": 10.977
+              },
+              "220Hz": {
+                "direct_over_idle_ratio": 3.699,
+                "hf_env_over_idle_ratio": 20.722
+              },
+              "3001Hz": {
+                "direct_over_idle_ratio": 3.099,
+                "hf_env_over_idle_ratio": 17.129
+              },
+              "317Hz": {
+                "direct_over_idle_ratio": 4.328,
+                "hf_env_over_idle_ratio": 18899.874
+              },
+              "414Hz": {
+                "direct_over_idle_ratio": 1.413,
+                "hf_env_over_idle_ratio": 27.255
+              },
+              "692Hz": {
+                "direct_over_idle_ratio": 2.14,
+                "hf_env_over_idle_ratio": 9.456
+              },
+              "97Hz": {
+                "direct_over_idle_ratio": 1.163,
+                "hf_env_over_idle_ratio": 16.077
+              }
+            }
+          }
+        },
+        "e2b_high_wattage_rolling_shutter": {
+          "confirmed_carriers": [],
+          "hypothesis": "S113-H3",
+          "ir_led_off_dark_only": {
+            "carriers": {
+              "220Hz": {
+                "active_frames": 183,
+                "carrier_amp_dn": 0.002073,
+                "empirical_4sigma_bound_lsb": 0.002962,
+                "empirical_4sigma_bound_ppm": 40.61,
+                "estimator": "spatial_row_fft",
+                "idle_frames": 293,
+                "p_raw": 0.401299,
+                "present": true,
+                "sideband_noise_std_dn": 0.00074,
+                "snr_idle_sigma": 0.3618,
+                "snr_sideband_sigma": 1.5111
+              },
+              "317Hz": {
+                "active_frames": 183,
+                "carrier_amp_dn": 0.002617,
+                "empirical_4sigma_bound_lsb": 0.002617,
+                "empirical_4sigma_bound_ppm": 35.88,
+                "estimator": "crystal_coherent_lockin",
+                "idle_frames": 293,
+                "p_raw": 0.051974,
+                "present": true,
+                "sideband_noise_std_dn": 0.000588,
+                "snr_idle_sigma": 2.1011,
+                "snr_sideband_sigma": 2.5548
+              },
+              "414Hz": {
+                "active_frames": 183,
+                "carrier_amp_dn": 0.001699,
+                "empirical_4sigma_bound_lsb": 0.003483,
+                "empirical_4sigma_bound_ppm": 47.76,
+                "estimator": "spatial_row_fft",
+                "idle_frames": 293,
+                "p_raw": 0.131934,
+                "present": true,
+                "sideband_noise_std_dn": 0.000871,
+                "snr_idle_sigma": 1.4237,
+                "snr_sideband_sigma": 0.6115
+              },
+              "97Hz": {
+                "active_frames": 366,
+                "carrier_amp_dn": 0.00175,
+                "empirical_4sigma_bound_lsb": 0.00271,
+                "empirical_4sigma_bound_ppm": 37.16,
+                "estimator": "crystal_coherent_lockin",
+                "idle_frames": 293,
+                "p_raw": 0.417791,
+                "present": true,
+                "sideband_noise_std_dn": 0.000491,
+                "snr_idle_sigma": 0.3375,
+                "snr_sideband_sigma": 1.895
+              }
+            },
+            "effective_row_clock_hz": 10796.87,
+            "estimated_fps": 29.9913,
+            "mean_intensity_dn": 72.931,
+            "n_frames": 708,
+            "n_rows": 360,
+            "present": true
+          },
+          "ir_max_4sigma_bound_lsb": 0.009144,
+          "ir_max_4sigma_bound_ppm": 77.98,
+          "ir_unique_stratified": {
+            "carriers": {
+              "220Hz": {
+                "active_frames": 366,
+                "carrier_amp_dn": 0.001857,
+                "empirical_4sigma_bound_lsb": 0.002342,
+                "empirical_4sigma_bound_ppm": 19.97,
+                "estimator": "crystal_coherent_lockin",
+                "idle_frames": 586,
+                "p_holm": 1.0,
+                "p_raw": 0.533233,
+                "present": true,
+                "sideband_noise_std_dn": 0.000585,
+                "snr_idle_sigma": -0.1058,
+                "snr_sideband_sigma": 1.2746
+              },
+              "317Hz": {
+                "active_frames": 366,
+                "carrier_amp_dn": 0.002208,
+                "empirical_4sigma_bound_lsb": 0.002385,
+                "empirical_4sigma_bound_ppm": 20.34,
+                "estimator": "crystal_coherent_lockin",
+                "idle_frames": 586,
+                "p_holm": 1.0,
+                "p_raw": 0.788606,
+                "present": true,
+                "sideband_noise_std_dn": 0.000596,
+                "snr_idle_sigma": -0.989,
+                "snr_sideband_sigma": 2.0268
+              },
+              "414Hz": {
+                "active_frames": 366,
+                "carrier_amp_dn": 0.001747,
+                "empirical_4sigma_bound_lsb": 0.00254,
+                "empirical_4sigma_bound_ppm": 21.66,
+                "estimator": "spatial_row_fft",
+                "idle_frames": 586,
+                "p_holm": 1.0,
+                "p_raw": 0.86007,
+                "present": true,
+                "sideband_noise_std_dn": 0.000635,
+                "snr_idle_sigma": -1.3537,
+                "snr_sideband_sigma": 0.2132
+              },
+              "97Hz": {
+                "active_frames": 733,
+                "carrier_amp_dn": 0.000784,
+                "empirical_4sigma_bound_lsb": 0.009144,
+                "empirical_4sigma_bound_ppm": 77.98,
+                "estimator": "crystal_coherent_lockin",
+                "idle_frames": 586,
+                "p_holm": 1.0,
+                "p_raw": 1.0,
+                "present": true,
+                "sideband_noise_std_dn": 0.001048,
+                "snr_idle_sigma": -5.3633,
+                "snr_sideband_sigma": -0.2531
+              }
+            },
+            "effective_row_clock_hz": 10796.87,
+            "estimated_fps": 29.9913,
+            "mean_intensity_dn": 117.266,
+            "n_frames": 1417,
+            "n_rows": 360,
+            "present": true
+          },
+          "n_permutations": 2000,
+          "rgb_manual": {
+            "carriers": {
+              "220Hz": {
+                "active_frames": 736,
+                "carrier_amp_dn": 0.00011,
+                "empirical_4sigma_bound_lsb": 0.000402,
+                "empirical_4sigma_bound_ppm": 1.9,
+                "estimator": "spatial_row_fft",
+                "idle_frames": 1169,
+                "p_holm": 0.812592,
+                "p_raw": 0.135432,
+                "present": true,
+                "sideband_noise_std_dn": 0.000101,
+                "snr_idle_sigma": 1.3483,
+                "snr_sideband_sigma": 1.6306
+              },
+              "317Hz": {
+                "active_frames": 736,
+                "carrier_amp_dn": 0.00013,
+                "empirical_4sigma_bound_lsb": 0.000499,
+                "empirical_4sigma_bound_ppm": 2.36,
+                "estimator": "spatial_row_fft",
+                "idle_frames": 1169,
+                "p_holm": 0.500248,
+                "p_raw": 0.071464,
+                "present": true,
+                "sideband_noise_std_dn": 0.000125,
+                "snr_idle_sigma": 1.9403,
+                "snr_sideband_sigma": -0.3891
+              },
+              "414Hz": {
+                "active_frames": 736,
+                "carrier_amp_dn": 0.000104,
+                "empirical_4sigma_bound_lsb": 0.000322,
+                "empirical_4sigma_bound_ppm": 1.52,
+                "estimator": "crystal_coherent_lockin",
+                "idle_frames": 1169,
+                "p_holm": 1.0,
+                "p_raw": 0.724638,
+                "present": true,
+                "sideband_noise_std_dn": 8e-05,
+                "snr_idle_sigma": -0.8075,
+                "snr_sideband_sigma": 0.2291
+              },
+              "97Hz": {
+                "active_frames": 1472,
+                "carrier_amp_dn": 2.2e-05,
+                "empirical_4sigma_bound_lsb": 0.000267,
+                "empirical_4sigma_bound_ppm": 1.26,
+                "estimator": "crystal_coherent_lockin",
+                "idle_frames": 1169,
+                "p_holm": 0.031984,
+                "p_raw": 0.003998,
+                "present": true,
+                "sideband_noise_std_dn": 6.7e-05,
+                "snr_idle_sigma": 4.1826,
+                "snr_sideband_sigma": -0.6734
+              }
+            },
+            "effective_row_clock_hz": 14395.81,
+            "estimated_fps": 29.9913,
+            "mean_intensity_dn": 211.493,
+            "n_frames": 2739,
+            "n_rows": 480,
+            "present": true
+          },
+          "rgb_max_4sigma_bound_lsb": 0.000499,
+          "rgb_max_4sigma_bound_ppm": 2.36,
+          "verdict": "FALSIFIED"
+        },
+        "phase": "E2"
+      }
+    },
+    "exploratory_and_h2_to_h5_n_surrogates": 2000,
+    "h1_prereg_n_surrogates": 500,
+    "manifest_digests": {
+      "phase_a_manifest_sha256": "aa32f038655c20b84f97fb664dbf6d8a9b01a13766f81f0286dbca20b81de123",
+      "phase_b_manifest_sha256": "07d942b693f075d8d29ae39064ff119b863fb9add437805859f636a7a8a15a75",
+      "phase_c_manifest_sha256": "62d25acbae8aaf369efc364812e6ce2077b3ec9e02a9dd6daa70e05c6ff7449a",
+      "phase_d_manifest_sha256": "fbccdea50edd5b529aa21799bc2ed38f8cf2d495caa919fccf1d26ce4ccfd495",
+      "phase_e1_manifest_sha256": "439a405f41c1ae912641ac4163d2d5f3e024e87afa915f542134a7f0c94e9557",
+      "phase_e2_manifest_sha256": "dd68f388cf35de0eb61a5a0607e3e002cfbe3fc0e1c8fc76918c8ae324d5af12",
+      "phase_idle_manifest_sha256": "378c62db99fc122b27b6cd90ff6501ec4e8d808ec541fec14296ba41a576fc39"
+    },
+    "modules": {
+      "H1": {
+        "hf_6_22khz_max_abs_tau_us": 250.4171,
+        "hf_6_22khz_max_p90_coherence": 0.99006,
+        "hf_6_22khz_median_abs_tau_us": 122.8764,
+        "hf_pair_metrics": {
+          "ch0_ch1": {
+            "abs_tau_wls_us": 2.8274,
+            "mean_coherence": 0.48822,
+            "p90_coherence": 0.95948,
+            "phase_linear_r2": 0.73221,
+            "tau_gcc_us": 61.1979,
+            "tau_wls_us": 2.8274
+          },
+          "ch0_ch2": {
+            "abs_tau_wls_us": 167.7852,
+            "mean_coherence": 0.5615,
+            "p90_coherence": 0.99006,
+            "phase_linear_r2": 0.82624,
+            "tau_gcc_us": 221.3542,
+            "tau_wls_us": -167.7852
+          },
+          "ch0_ch3": {
+            "abs_tau_wls_us": 33.6872,
+            "mean_coherence": 0.52832,
+            "p90_coherence": 0.95605,
+            "phase_linear_r2": 0.94594,
+            "tau_gcc_us": 11.7188,
+            "tau_wls_us": 33.6872
+          },
+          "ch1_ch2": {
+            "abs_tau_wls_us": 250.4171,
+            "mean_coherence": 0.55749,
+            "p90_coherence": 0.97363,
+            "phase_linear_r2": 0.97336,
+            "tau_gcc_us": 205.7292,
+            "tau_wls_us": -250.4171
+          },
+          "ch1_ch3": {
+            "abs_tau_wls_us": 177.1325,
+            "mean_coherence": 0.53048,
+            "p90_coherence": 0.91713,
+            "phase_linear_r2": 0.56133,
+            "tau_gcc_us": 186.1979,
+            "tau_wls_us": -177.1325
+          },
+          "ch2_ch3": {
+            "abs_tau_wls_us": 77.9675,
+            "mean_coherence": 0.5902,
+            "p90_coherence": 0.95756,
+            "phase_linear_r2": 0.97766,
+            "tau_gcc_us": 92.4479,
+            "tau_wls_us": 77.9675
+          }
+        },
+        "hypothesis": "S113-H1",
+        "lf_fan_band_max_p90_coherence": 0.76155,
+        "lf_fan_band_median_abs_tau_us": 31.2904,
+        "lf_pair_metrics": {
+          "ch0_ch1": {
+            "abs_tau_wls_us": 27.1607,
+            "mean_coherence": 0.36613,
+            "p90_coherence": 0.76155,
+            "phase_linear_r2": 0.27563,
+            "tau_gcc_us": 31.25,
+            "tau_wls_us": -27.1607
+          },
+          "ch0_ch2": {
+            "abs_tau_wls_us": 35.42,
+            "mean_coherence": 0.40458,
+            "p90_coherence": 0.75772,
+            "phase_linear_r2": 0.17369,
+            "tau_gcc_us": 96.3542,
+            "tau_wls_us": 35.42
+          },
+          "ch0_ch3": {
+            "abs_tau_wls_us": 429.4591,
+            "mean_coherence": 0.18515,
+            "p90_coherence": 0.47694,
+            "phase_linear_r2": 0.83456,
+            "tau_gcc_us": 493.4896,
+            "tau_wls_us": -429.4591
+          },
+          "ch1_ch2": {
+            "abs_tau_wls_us": 381.7262,
+            "mean_coherence": 0.2254,
+            "p90_coherence": 0.55515,
+            "phase_linear_r2": 0.84336,
+            "tau_gcc_us": 489.5833,
+            "tau_wls_us": -381.7262
+          },
+          "ch1_ch3": {
+            "abs_tau_wls_us": 22.8354,
+            "mean_coherence": 0.34835,
+            "p90_coherence": 0.69965,
+            "phase_linear_r2": 0.09744,
+            "tau_gcc_us": 32.5521,
+            "tau_wls_us": 22.8354
+          },
+          "ch2_ch3": {
+            "abs_tau_wls_us": 13.1531,
+            "mean_coherence": 0.23088,
+            "p90_coherence": 0.48682,
+            "phase_linear_r2": 0.64221,
+            "tau_gcc_us": 10.4167,
+            "tau_wls_us": 13.1531
+          }
+        },
+        "min_holm_p": 0.01197605,
+        "n_surrogates": 500,
+        "passes_null_gate": false,
+        "popen_startup_slack_ms": 74.532,
+        "posthoc_n2000_exploratory": {
+          "min_holm_p": 0.0029985,
+          "n_surrogates": 2000,
+          "prbs7_p": 0.95452274,
+          "status": "POST-HOC N0 exploratory only: preregistered H1 gate is N=500; surrogate count raised 500->2000 after data, mechanism category not among preregistered outcomes, and stimulus-to-audio lag NOT measured when prbs7_p >= 0.005",
+          "verdict": "CONFIRMED_H1_VRM_AIRBORNE_PIEZO"
+        },
+        "prbs7_folded_edge_rise_10_90_ms": 999.0,
+        "prbs7_fwhm_ms": 51.625,
+        "prbs7_lag_clock_anchored_ms": -184.0417,
+        "prbs7_p": 0.95808383,
+        "prbs7_p_posthoc": 0.95452274,
+        "prbs7_peak_z": -1.5703,
+        "prereg_n_surrogates": 500,
+        "prime_carriers": {
+          "1009Hz": {
+            "active_over_idle_ratio": 42.6341,
+            "idle_rayleigh_r2": 0.0106,
+            "n_subwindows": 42,
+            "p_holm_n500": 0.01197605,
+            "p_holm_posthoc": 0.0029985,
+            "p_raw_n500": 0.00199601,
+            "p_raw_posthoc": 0.00049975,
+            "present": true,
+            "rayleigh_r2": 0.34126
+          },
+          "23Hz": {
+            "active_over_idle_ratio": 6.2303,
+            "idle_rayleigh_r2": 0.05381,
+            "n_subwindows": 44,
+            "p_holm_n500": 0.01197605,
+            "p_holm_posthoc": 0.005997,
+            "p_raw_n500": 0.00399202,
+            "p_raw_posthoc": 0.001999,
+            "present": true,
+            "rayleigh_r2": 0.1282
+          },
+          "3001Hz": {
+            "active_over_idle_ratio": 135.7007,
+            "idle_rayleigh_r2": 0.04435,
+            "n_subwindows": 42,
+            "p_holm_n500": 0.01197605,
+            "p_holm_posthoc": 0.0029985,
+            "p_raw_n500": 0.00199601,
+            "p_raw_posthoc": 0.00049975,
+            "present": true,
+            "rayleigh_r2": 0.65229
+          },
+          "317Hz": {
+            "active_over_idle_ratio": 4.3674,
+            "idle_rayleigh_r2": 0.04286,
+            "n_subwindows": 42,
+            "p_holm_n500": 0.05588822,
+            "p_holm_posthoc": 0.05597201,
+            "p_raw_n500": 0.02794411,
+            "p_raw_posthoc": 0.03898051,
+            "present": true,
+            "rayleigh_r2": 0.07284
+          },
+          "7Hz": {
+            "active_over_idle_ratio": 3.3825,
+            "idle_rayleigh_r2": 0.01177,
+            "n_subwindows": 44,
+            "p_holm_n500": 0.05588822,
+            "p_holm_posthoc": 0.05597201,
+            "p_raw_n500": 0.03193613,
+            "p_raw_posthoc": 0.02798601,
+            "present": true,
+            "rayleigh_r2": 0.08196
+          },
+          "97Hz": {
+            "active_over_idle_ratio": 18.6374,
+            "idle_rayleigh_r2": 0.02677,
+            "n_subwindows": 42,
+            "p_holm_n500": 0.01197605,
+            "p_holm_posthoc": 0.0029985,
+            "p_raw_n500": 0.00199601,
+            "p_raw_posthoc": 0.00049975,
+            "present": true,
+            "rayleigh_r2": 0.19246
+          }
+        },
+        "rapl_to_hf_corr": 0.1678,
+        "rapl_to_hf_lag_ms": 3130.0,
+        "rapl_to_lf_corr": 0.0756,
+        "rapl_to_lf_lag_ms": 2040.0,
+        "verdict": "FALSIFIED"
+      },
+      "H2": {
+        "chance_balanced_accuracy": 0.2,
+        "fwl_null_mean_f": 1.05212,
+        "fwl_partial_f_obs": 3.15806,
+        "hamming0_vs_hamming64_lobo_accuracy": 0.4,
+        "hypothesis": "S113-H2",
+        "lobo_balanced_accuracy": 0.48,
+        "lobo_unresidualized_balanced_accuracy": 0.64,
+        "n_active_segments": 25,
+        "n_blocks": 5,
+        "n_permutations": 2000,
+        "n_segments_total": 30,
+        "p_perm": 0.014993,
+        "p_perm_n500": 0.021956,
+        "per_regime_recall": {
+          "AVX512_FMA": 0.4,
+          "CSTATE_PULSE_1009HZ": 0.6,
+          "DRAM_STREAM": 0.6,
+          "INT_HAMMING_0": 0.2,
+          "INT_HAMMING_64": 0.6
+        },
+        "regime_telemetry_means": {
+          "AVX512_FMA": {
+            "mean_cpu_fan_rpm": 4721.8,
+            "mean_pkg_w": 63.787,
+            "mean_psys_w": 7.252
+          },
+          "CSTATE_PULSE_1009HZ": {
+            "mean_cpu_fan_rpm": 4705.8,
+            "mean_pkg_w": 63.903,
+            "mean_psys_w": 7.169
+          },
+          "DRAM_STREAM": {
+            "mean_cpu_fan_rpm": 4706.8,
+            "mean_pkg_w": 63.175,
+            "mean_psys_w": 6.596
+          },
+          "IDLE": {
+            "mean_cpu_fan_rpm": 4713.8,
+            "mean_pkg_w": 58.686,
+            "mean_psys_w": 6.984
+          },
+          "INT_HAMMING_0": {
+            "mean_cpu_fan_rpm": 4716.6,
+            "mean_pkg_w": 63.522,
+            "mean_psys_w": 7.276
+          },
+          "INT_HAMMING_64": {
+            "mean_cpu_fan_rpm": 4705.4,
+            "mean_pkg_w": 65.488,
+            "mean_psys_w": 7.167
+          }
+        },
+        "verdict": "FALSIFIED"
+      },
+      "H3": {
+        "confirmed_carriers": [],
+        "hypothesis": "S113-H3",
+        "ir_led_off_dark_only": {
+          "carriers": {
+            "1009Hz": {
+              "active_frames": 293,
+              "carrier_amp_dn": 0.000636,
+              "empirical_4sigma_bound_lsb": 0.004004,
+              "empirical_4sigma_bound_ppm": 58.45,
+              "estimator": "spatial_row_fft",
+              "idle_frames": 590,
+              "p_raw": 0.477261,
+              "present": true,
+              "sideband_noise_std_dn": 0.000253,
+              "snr_idle_sigma": 0.0815,
+              "snr_sideband_sigma": 0.6106
+            },
+            "23Hz": {
+              "active_frames": 291,
+              "carrier_amp_dn": 0.002148,
+              "empirical_4sigma_bound_lsb": 0.240786,
+              "empirical_4sigma_bound_ppm": 3515.35,
+              "estimator": "crystal_coherent_lockin",
+              "idle_frames": 590,
+              "p_raw": 0.853573,
+              "present": true,
+              "sideband_noise_std_dn": 0.006259,
+              "snr_idle_sigma": -1.3341,
+              "snr_sideband_sigma": -0.0823
+            },
+            "317Hz": {
+              "active_frames": 294,
+              "carrier_amp_dn": 0.001274,
+              "empirical_4sigma_bound_lsb": 0.016885,
+              "empirical_4sigma_bound_ppm": 246.51,
+              "estimator": "spatial_row_fft",
+              "idle_frames": 590,
+              "p_raw": 0.922539,
+              "present": true,
+              "sideband_noise_std_dn": 0.00051,
+              "snr_idle_sigma": -1.4825,
+              "snr_sideband_sigma": -0.1052
+            },
+            "97Hz": {
+              "active_frames": 292,
+              "carrier_amp_dn": 0.002444,
+              "empirical_4sigma_bound_lsb": 0.067147,
+              "empirical_4sigma_bound_ppm": 980.31,
+              "estimator": "spatial_row_fft",
+              "idle_frames": 590,
+              "p_raw": 0.83958,
+              "present": true,
+              "sideband_noise_std_dn": 0.003547,
+              "snr_idle_sigma": -1.3678,
+              "snr_sideband_sigma": 16.5302
+            }
+          },
+          "effective_row_clock_hz": 10799.37,
+          "estimated_fps": 29.9983,
+          "mean_intensity_dn": 68.496,
+          "n_frames": 1855,
+          "n_rows": 360,
+          "present": true
+        },
+        "ir_max_4sigma_bound_lsb": 0.142552,
+        "ir_max_4sigma_bound_ppm": 1267.01,
+        "ir_unique_stratified": {
+          "carriers": {
+            "1009Hz": {
+              "active_frames": 584,
+              "carrier_amp_dn": 0.000388,
+              "empirical_4sigma_bound_lsb": 0.002268,
+              "empirical_4sigma_bound_ppm": 20.16,
+              "estimator": "spatial_row_fft",
+              "idle_frames": 1171,
+              "p_holm": 1.0,
+              "p_raw": 0.546227,
+              "present": true,
+              "sideband_noise_std_dn": 0.000276,
+              "snr_idle_sigma": -0.1295,
+              "snr_sideband_sigma": 0.2157
+            },
+            "23Hz": {
+              "active_frames": 583,
+              "carrier_amp_dn": 0.001818,
+              "empirical_4sigma_bound_lsb": 0.142552,
+              "empirical_4sigma_bound_ppm": 1267.01,
+              "estimator": "crystal_coherent_lockin",
+              "idle_frames": 1171,
+              "p_holm": 1.0,
+              "p_raw": 1.0,
+              "present": true,
+              "sideband_noise_std_dn": 0.006902,
+              "snr_idle_sigma": -1.7408,
+              "snr_sideband_sigma": -0.125
+            },
+            "317Hz": {
+              "active_frames": 586,
+              "carrier_amp_dn": 0.001005,
+              "empirical_4sigma_bound_lsb": 0.008149,
+              "empirical_4sigma_bound_ppm": 72.43,
+              "estimator": "crystal_coherent_lockin",
+              "idle_frames": 1171,
+              "p_holm": 1.0,
+              "p_raw": 0.89955,
+              "present": true,
+              "sideband_noise_std_dn": 0.000547,
+              "snr_idle_sigma": -1.1945,
+              "snr_sideband_sigma": 0.199
+            },
+            "97Hz": {
+              "active_frames": 583,
+              "carrier_amp_dn": 0.002539,
+              "empirical_4sigma_bound_lsb": 0.033901,
+              "empirical_4sigma_bound_ppm": 301.32,
+              "estimator": "crystal_coherent_lockin",
+              "idle_frames": 1171,
+              "p_holm": 1.0,
+              "p_raw": 0.997001,
+              "present": true,
+              "sideband_noise_std_dn": 0.00227,
+              "snr_idle_sigma": -1.445,
+              "snr_sideband_sigma": 0.483
+            }
+          },
+          "effective_row_clock_hz": 10799.37,
+          "estimated_fps": 29.9983,
+          "mean_intensity_dn": 112.51,
+          "n_frames": 3701,
+          "n_rows": 360,
+          "present": true
+        },
+        "n_permutations": 2000,
+        "rgb_manual": {
+          "carriers": {
+            "1009Hz": {
+              "active_frames": 1168,
+              "carrier_amp_dn": 5.3e-05,
+              "empirical_4sigma_bound_lsb": 0.000122,
+              "empirical_4sigma_bound_ppm": 0.84,
+              "estimator": "crystal_coherent_lockin",
+              "idle_frames": 2342,
+              "p_holm": 0.56322,
+              "p_raw": 0.08046,
+              "present": true,
+              "sideband_noise_std_dn": 3e-05,
+              "snr_idle_sigma": 1.7941,
+              "snr_sideband_sigma": 0.5297
+            },
+            "23Hz": {
+              "active_frames": 1169,
+              "carrier_amp_dn": 1e-05,
+              "empirical_4sigma_bound_lsb": 0.000151,
+              "empirical_4sigma_bound_ppm": 1.04,
+              "estimator": "crystal_coherent_lockin",
+              "idle_frames": 2342,
+              "p_holm": 0.974515,
+              "p_raw": 0.194903,
+              "present": true,
+              "sideband_noise_std_dn": 3.8e-05,
+              "snr_idle_sigma": 1.0745,
+              "snr_sideband_sigma": -0.4679
+            },
+            "317Hz": {
+              "active_frames": 1170,
+              "carrier_amp_dn": 2.9e-05,
+              "empirical_4sigma_bound_lsb": 0.000167,
+              "empirical_4sigma_bound_ppm": 1.15,
+              "estimator": "spatial_row_fft",
+              "idle_frames": 2342,
+              "p_holm": 0.56322,
+              "p_raw": 0.089455,
+              "present": true,
+              "sideband_noise_std_dn": 4.2e-05,
+              "snr_idle_sigma": 1.7361,
+              "snr_sideband_sigma": 1.2305
+            },
+            "97Hz": {
+              "active_frames": 1168,
+              "carrier_amp_dn": 2.3e-05,
+              "empirical_4sigma_bound_lsb": 0.000202,
+              "empirical_4sigma_bound_ppm": 1.39,
+              "estimator": "crystal_coherent_lockin",
+              "idle_frames": 2342,
+              "p_holm": 0.24788,
+              "p_raw": 0.030985,
+              "present": true,
+              "sideband_noise_std_dn": 5e-05,
+              "snr_idle_sigma": 2.1951,
+              "snr_sideband_sigma": -0.4535
+            }
+          },
+          "effective_row_clock_hz": 14399.13,
+          "estimated_fps": 29.9982,
+          "mean_intensity_dn": 145.307,
+          "n_frames": 7310,
+          "n_rows": 480,
+          "present": true
+        },
+        "rgb_max_4sigma_bound_lsb": 0.000202,
+        "rgb_max_4sigma_bound_ppm": 1.39,
+        "verdict": "FALSIFIED"
+      },
+      "H4": {
+        "conversion_gain_k_dn_per_e": -0.000144,
+        "hypothesis": "S113-H4",
+        "intercept_raw_dn2": 0.128936,
+        "inverse_gain_e_per_dn": null,
+        "n_steps_linear_fit": 9,
+        "n_steps_total": 12,
+        "ptc_r2": 0.017642,
+        "read_noise_dn": 0.35908,
+        "read_noise_electrons": null,
+        "spatial_fpn_var_min_max_dn2": [
+          1.389,
+          7.5561
+        ],
+        "thermal_drift": {
+          "delta_pkg_temp_c": -6.0,
+          "ir_led_off": {
+            "delta_mean_dn": 0.1354,
+            "delta_var_dn2": 0.06952,
+            "mean_slope_dn_per_c": -0.022567,
+            "var_slope_dn2_per_c": -0.011587
+          },
+          "ir_led_on": {
+            "delta_mean_dn": 0.0899,
+            "delta_var_dn2": 0.00909,
+            "mean_slope_dn_per_c": -0.014983,
+            "var_slope_dn2_per_c": -0.001515
+          },
+          "present": true,
+          "rgb": {
+            "delta_mean_dn": 0.0437,
+            "delta_var_dn2": 0.00095,
+            "mean_slope_dn_per_c": -0.007283,
+            "var_slope_dn2_per_c": -0.000158
+          }
+        },
+        "verdict": "FALSIFIED"
+      },
+      "H5": {
+        "dark_mode_shadow_obs": {
+          "dim_dark": 0,
+          "r_cross": 0
+        },
+        "haynsworth_inertia_additivity_exact": true,
+        "hypothesis": "S113-H5",
+        "incremental_multisensor_dark_r2_decimal": 0.005922,
+        "incremental_multisensor_dark_r2_exact_q": "4432010342228190562499866558189613501827580706403663440898916163793294168032305255205497271350375301751657154806647709215530191357/748427059741448515891275830180806957641479135726580923114362400105017812436090930950021285790414865149410084427097901290697489555120",
+        "internal_power_channels": [
+          "rapl_core_w",
+          "rapl_uncore_w",
+          "rapl_dark_psys_minus_pkg_w"
+        ],
+        "krein_inertia_full_pos_zero_neg": [
+          13,
+          0,
+          0
+        ],
+        "krein_inertia_obs_pos_zero_neg": [
+          10,
+          0,
+          0
+        ],
+        "krein_inertia_schur_pos_zero_neg": [
+          3,
+          0,
+          0
+        ],
+        "n_circular_shifts": 2000,
+        "n_windows": 569,
+        "null_shift_max_r2": 0.507166,
+        "null_shift_mean_r2": 0.331014,
+        "observed_channels": [
+          "dmic_hf_ch0",
+          "dmic_hf_ch1",
+          "dmic_hf_ch2",
+          "dmic_hf_ch3",
+          "ir_row_mean",
+          "ir_row_var",
+          "rgb_row_mean",
+          "rgb_row_var",
+          "core_temp_c",
+          "fan_rpm_sum"
+        ],
+        "operators_used": [
+          "U+29C4_schur_pushforward",
+          "U+29C5_dark_mode_shadow",
+          "U+29BA_krein_inertia"
+        ],
+        "p_circular_shift": 0.031484,
+        "p_circular_shift_n500": 0.035928,
+        "quantization_scale_int": 1024,
+        "rapl_dark_r2_given_all_exact_q": "3684014842092080427697916749509098549357789795301927372486323976109778705405069775514729297274258296016628612721/3697862905183798656856034734083556265132624760105966952631664759118785617044619845704326241589015746705080160435",
+        "rapl_dark_r2_given_cpu_only_exact_q": "11341092347173644541029269983561/11451792812642246596158410050832",
+        "rapl_dark_r2_given_sensors_decimal": 0.475116,
+        "rapl_dark_r2_given_sensors_exact_q": "3440458157266061490751642033403859860865972352222774314406187266810651365037583144590350765053/7241299181058968325067140332599158749095999541155513268248672418562031786152930633379063708296",
+        "schur_complement_pp_exact_q": [
+          [
+            "27504692827937644062318959942807031650258805817331561700903704737666958103902985616286271899/48461712951876882652680163215342213766402563509359417717280617423671981169528624044672",
+            "532031796664710995890160125445747754749452602269218763709627133921512098374022374544773111/8076952158646147108780027202557035627733760584893236286213436237278663528254770674112",
+            "-13438189472447474598722082687880127671637017113409167732533003418147916412938682381870337649/24230856475938441326340081607671106883201281754679708858640308711835990584764312022336"
+          ],
+          [
+            "532031796664710995890160125445747754749452602269218763709627133921512098374022374544773111/8076952158646147108780027202557035627733760584893236286213436237278663528254770674112",
+            "2846578616639273436022426908264989634348604113232297849268226574848344350806755784354303967/4038476079323073554390013601278517813866880292446618143106718118639331764127385337056",
+            "-509952465161211246166095314934550036030156035005867755830140958995914148611083414869539253/4038476079323073554390013601278517813866880292446618143106718118639331764127385337056"
+          ],
+          [
+            "-13438189472447474598722082687880127671637017113409167732533003418147916412938682381870337649/24230856475938441326340081607671106883201281754679708858640308711835990584764312022336",
+            "-509952465161211246166095314934550036030156035005867755830140958995914148611083414869539253/4038476079323073554390013601278517813866880292446618143106718118639331764127385337056",
+            "6679861201745003223753072582065551648910416852254374259828620653341617611802016676254328547/12115428237969220663170040803835553441600640877339854429320154355917995292382156011168"
+          ]
+        ],
+        "sigma_pp_exact_q": [
+          [
+            "169745336871/161596",
+            "-4600218817/161596",
+            "-336657070503/323192"
+          ],
+          [
+            "-4600218817/161596",
+            "169735311091/161596",
+            "-2396643952/40399"
+          ],
+          [
+            "-336657070503/323192",
+            "-2396643952/40399",
+            "169744636923/161596"
+          ]
+        ],
+        "verdict": "FALSIFIED"
+      }
+    },
+    "prereg_deviation_note": "Preregistered H1 gate is N=500 surrogates (Holm across present prime carriers); H2/H3/H5/E1/E2 and H1 post-hoc exploratory runs used N=2000 surrogates. H1 is graded strictly at N=500 (passes_null_gate derived from N=500 Holm and N=500 PRBS-7), and any N=2000 result is confined to posthoc_n2000_exploratory (N0).",
+    "prereg_protocol": "PREREG-S113",
+    "raw_av_staged_count": 0,
+    "reproducibility_scope": "Raw physical captures and binary telemetry arrays (raw audio/video streams, telemetry NPZs, and phase manifests) are NOT shipped in this repository (AV=0 privacy-preserving policy; raw_av_staged_count=0). Raw physical numbers in this certificate are therefore not independently reproducible from the repository alone; cryptographic digests, pure-Q Schur/Krein/Haynsworth/K4 Hodge-1 algebra, preregistered verdict gates, pooled Holm-Bonferroni recomputation, and synthetic DSP injection/null tests ARE independently reproducible from this repository.",
+    "seed": 20261125,
+    "track": "S113",
+    "verdict_summary": {
+      "H1": "FALSIFIED",
+      "H2": "FALSIFIED",
+      "H3": "FALSIFIED",
+      "H3_E1b_IR_1009HZ_OOS": "FALSIFIED_NOISE_FLUCTUATION",
+      "H4": "FALSIFIED",
+      "H4_E1c_LINEAR_GAMMA100": "FALSIFIED",
+      "H5": "FALSIFIED"
+    }
+  },
+  "payload_sha256": "e8e3da5f45cb3331e0b29ac51d08496d6c3ef1b17e9bf27c9e5ad213908ac574",
+  "prereg_id": "PREREG-S113",
+  "schema": "aletheia.track_s113.multisensor_silicon_certificate.v1"
+}

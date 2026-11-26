@@ -1,0 +1,5 @@
+name = "KroneckerFactoredEmbeddings"
+defaultTargets = ["KroneckerFactoredEmbeddings"]
+
+[[lean_lib]]
+name = "KroneckerFactoredEmbeddings"

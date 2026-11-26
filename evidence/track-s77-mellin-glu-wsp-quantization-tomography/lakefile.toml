@@ -1,0 +1,7 @@
+name = "MellinGluQuantMargin"
+version = "0.1.0"
+defaultTargets = ["MellinGluQuantMargin"]
+
+[[lean_lib]]
+name = "MellinGluQuantMargin"
+roots = ["MellinGluQuantMargin"]

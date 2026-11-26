@@ -1,0 +1,6 @@
+name = "track_s86_sovereign_stack"
+version = "0.1.0"
+defaultTargets = ["SovereignStackFourthOrder"]
+
+[[lean_lib]]
+name = "SovereignStackFourthOrder"

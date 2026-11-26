@@ -1,0 +1,14 @@
+name = "CEERSiliconCerts"
+version = "0.1.0"
+defaultTargets = ["CEERSiliconCerts"]
+
+[[lean_lib]]
+name = "CEERSiliconCerts"
+roots = [
+  "CEERSiliconCerts.CEER_Cycle0_Theory",
+  "CEERSiliconCerts.CEER_Cycle0_Verdict",
+  "CEERSiliconCerts.CEER_Cycle1_Theory",
+  "CEERSiliconCerts.CEER_Cycle1_Verdict",
+  "CEERSiliconCerts.CEER_Cycle2_Theory",
+  "CEERSiliconCerts.CEER_Cycle2_Verdict",
+]

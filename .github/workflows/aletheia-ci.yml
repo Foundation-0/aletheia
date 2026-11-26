@@ -4,6 +4,9 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   verify-r4-r5:
     runs-on: ubuntu-latest
@@ -50,6 +53,24 @@ jobs:
             --work-root tests \
             --json
 
+      - name: R5 mutation test of aletheia/gates_v2.py, every site (CONTRIBUTING.md R5 bar)
+        run: |
+          python3 -I -O -B -W error -m aletheia mutate aletheia/gates_v2.py \
+            --test-cmd "python3 -B -m unittest tests.test_gates_v2_r5" \
+            --work-root . --add-cwd --max-mutants 0
+
+      - name: R5 mutation test of aletheia/safety.py, every site (CONTRIBUTING.md R5 bar)
+        run: |
+          python3 -I -O -B -W error -m aletheia mutate aletheia/safety.py \
+            --test-cmd "python3 -B -m unittest tests.test_safety_r5" \
+            --work-root . --add-cwd --max-mutants 0
+
+      - name: R5 mutation test of aletheia/supervision_airlock.py, every site (CONTRIBUTING.md R5 bar)
+        run: |
+          python3 -I -O -B -W error -m aletheia mutate aletheia/supervision_airlock.py \
+            --test-cmd "python3 -B -m unittest tests.test_supervision_airlock_r5" \
+            --work-root . --add-cwd --max-mutants 0
+
       - name: Verify portable compute handoff template, v1.1 ratchet/mde demos & dry-run installers
         run: |
           python3 -I -O -B -W error -m aletheia ratchet --demo --json
@@ -59,4 +80,95 @@ jobs:
           python3 -I -O -B -W error -m aletheia handoff /tmp/ci_handoff.json --json
           for tgt in antigravity claude-code codex cursor gemini-cli repo; do
             python3 -I -O -B -W error -m aletheia install --target "$tgt" --dry-run --json
+          done
+
+  twin-coherence:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check out the twin repo (Foundation-0/cave-expedition)
+        uses: actions/checkout@v4
+        with:
+          repository: Foundation-0/cave-expedition
+          path: cave-expedition
+
+      - name: Install aletheia-method (zero external dependencies)
+        run: |
+          python3 -m pip install --no-deps .
+
+      - name: Machine-check the claims the two repos make about each other
+        run: |
+          python3 -I -O -B -W error -m aletheia twin-check \
+            --aletheia-root "$GITHUB_WORKSPACE" \
+            --cave-root "$GITHUB_WORKSPACE/cave-expedition" \
+            --json
+
+  evidence-tracks:
+    # Each evidence track ships its own R5 test and a certificate with an audit --check.
+    # tests/run_all.py only discovers tests/test_*.py, so without this job CI runs neither.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Cache Lean 4.36.0 toolchain
+        id: cache-lean4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ${{ runner.tool_cache }}/lean-4.36.0
+          key: lean4-v4.36.0-${{ runner.os }}-${{ runner.arch }}-2b7ab1ed
+
+      - name: Install Lean 4.36.0 from SHA-256-verified official release
+        if: steps.cache-lean4.outputs.cache-hit != 'true'
+        env:
+          LEAN_TARBALL_URL: "https://github.com/leanprover/lean4/releases/download/v4.36.0/lean-4.36.0-linux.tar.zst"
+          LEAN_TARBALL_SHA256: "2b7ab1ed8b92d2e6abfaf41344823b510064dbc9c0260cac73eb496ab2dea6eb"
+          LEAN_DIR: ${{ runner.tool_cache }}/lean-4.36.0
+          TMP_ARCHIVE: ${{ runner.temp }}/lean-4.36.0-linux.tar.zst
+        run: |
+          set -euo pipefail
+          [ "$(uname -m)" = "x86_64" ]
+          curl --proto '=https' --tlsv1.2 -fsSL --retry 3 --retry-delay 5 \
+            -o "$TMP_ARCHIVE" "$LEAN_TARBALL_URL"
+          printf '%s  %s\n' "$LEAN_TARBALL_SHA256" "$TMP_ARCHIVE" | sha256sum -c -
+          mkdir -p "$LEAN_DIR"
+          tar --zstd -xf "$TMP_ARCHIVE" --strip-components=1 -C "$LEAN_DIR"
+          rm -f "$TMP_ARCHIVE"
+
+      - name: Add Lean 4.36.0 to PATH and verify toolchain version
+        env:
+          LEAN_DIR: ${{ runner.tool_cache }}/lean-4.36.0
+        run: |
+          set -euo pipefail
+          echo "$LEAN_DIR/bin" >> "$GITHUB_PATH"
+          "$LEAN_DIR/bin/lean" --version
+          "$LEAN_DIR/bin/lean" --version | grep -Fq "version 4.36.0"
+
+      - name: Run every evidence-track test in the three R4 modes and re-check every certificate
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          tests=(evidence/*/test_*.py)
+          certs=(evidence/*/*_certificate.json)
+          [ "${#tests[@]}" -gt 0 ] || { echo "no evidence-track tests found"; exit 1; }
+          for t in "${tests[@]}"; do
+            for flags in "-I -B" "-I -O -B" "-I -B -W error"; do
+              echo "== ${t} (python3 ${flags})"
+              (cd "$(dirname "$t")" && python3 ${flags} "$(basename "$t")")
+            done
+          done
+          for c in "${certs[@]}"; do
+            d="$(dirname "$c")"
+            audits=("$d"/*_audit.py)
+            [ "${#audits[@]}" -eq 1 ] || { echo "expected exactly one *_audit.py next to ${c}"; exit 1; }
+            echo "== ${audits[0]} --check $(basename "$c")"
+            (cd "$d" && python3 -I -B "$(basename "${audits[0]}")" --check "$(basename "$c")")
           done

@@ -1,0 +1,6 @@
+name = "TokenpageAbiosHandoff"
+version = "0.1.0"
+defaultTargets = ["TokenpageAbiosHandoff"]
+
+[[lean_lib]]
+name = "TokenpageAbiosHandoff"

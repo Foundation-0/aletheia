@@ -1,6 +1,6 @@
 # Proposal: give empirical claims an exact core
 
-**Status:** Proposal, not adopted. Adoption is for the method's maintainers. Written against `aletheia.spec.v2.0` as it stands on the open v2 pull request.
+**Status:** Proposal, not adopted. Adoption is for the method's maintainers. Written against `aletheia.spec.v2.0`; merged to `main` as text only. No certifier code exists yet.
 
 ## The limit
 
@@ -89,7 +89,7 @@ Gates 1 and 3 are R6 and R7 applied to data. Gates 2, 5, 6 and 9 are the null an
 
 ### 3. Bytes, not summaries
 
-- **Rule:** Raw data are pinned by hash from the primary archive, with a fetch manifest (source URL, retrieval date, size, hash). Every number in a claim is regenerated from those bytes by code in the repository. A number the repository cannot regenerate is not a claim.
+- **Rule:** Raw data are pinned by hash from the primary archive, with a fetch manifest (source URL, retrieval date, size, hash). Every number in a claim is regenerated from those bytes by code in the repository. A number the repository cannot regenerate is not a claim. Pinning by hash does not mean committing the bytes: raw files enter the repository only when their terms allow redistribution and they hold no personal data; otherwise the manifest and the aggregates are committed and the bytes are re-fetched and checked against the hash.
 - **Catches:** Figures copied from a notebook, a pull request body or a stored certificate that no longer match the code. Silent changes to upstream files.
 - **Certifier recomputes:** Hashes every file against the manifest, runs the regeneration script, and compares every number in the claim file with the regenerated value. The comparison is exact on rationals or on fixed decimal strings, never a float tolerance.
 - **Must-fail control:** A claim file with one number changed in its last digit, and a manifest with one wrong hash. Both must be refused.
@@ -223,6 +223,13 @@ Every row is a failure visible in public pull requests from the week of 2026-11-
 | A self-test whose pass flag was a constant, so it could not fail (as of commit 0b60322, later commits changed some of this) | 9 |
 | Guard removals that left every test passing (13 sub-conditions in one review, 114 of 118 removals in another) (as of commit 0b60322, later commits changed some of this) | 9 |
 
+### Public examples outside that week
+
+From `Foundation-0/project-asma`, an ovarian-cancer research scaffold, read at commit `de88b12`. These are project-asma's own records, quoted with its labels and ledger row ids (`CLAIMS.md`). None of them has been externally reviewed, and none is a certifier for this proposal. The table above keeps its scope.
+
+- **Gate 3 (bytes, not summaries), not externally reviewed:** project-asma found that the printed discovery AUROC 0.83 is drawn as a literal string in the authors' plotting script (row `K45`), while the pooled AUROC of the released score sheet is 3491/4316 = 0.80885 (row `V44`). This is not shown to be an error. Row `C20` (`CONJECTURE`) records the leading open explanation: the 0.83 may be a mean of fold-wise AUCs, or may come from predictions that differ from the released sheet. Row `C26` (`CONJECTURE`) states that it does not assert that the paper misquoted 0.80885, and `V44` is not evidence that the sheet is the figure's input. project-asma's handoff record lists its source request as awaiting answers from the authors (`docs/pilot-001-source-request-handoff.md:3`).
+- **Gate 5 (exact error accounting), applied before any data, not externally reviewed:** a proposed plan in which nothing has been executed (`protocols/pilot-001-exploratory-subset-plan.md:1-8`) fixed its rejection region for 8 refractory versus 13 sensitive patients, U >= 76 of 104 pairs, by exact enumeration of the 203,490 label placements (exact p = 0.04452; 0.05210 at U = 75). Row `V28` labels this an offline calculation on documented counts in which no score was read. Its smallest attainable p-value is therefore 1/203,490. A capacity check (row `V09`, `docs/pilot-001-validation-capacity.md:8-14`) showed that 13 sensitive patients cap even a perfect result's one-sided 95% lower bound on specificity at 79.42%.
+
 ## Changes after review
 
 Items taken from the review of this pull request: the two cases of gate 4, the exchangeability and exact-arithmetic rules of gate 5, the tie and exit-code rules of gate 2, the source-lineage rule of gate 8, the three ladder rules, the `E2 SEALED` grade name with an `outcome` field in the claim record, and the lineage check in the gate 8 certifier and must-fail control.
@@ -231,7 +238,7 @@ Two further proposals from that review are left to their authors as separate pul
 
 ## What this proposal does not do
 
-- It is text only. This pull request adds no certifier code and changes no existing file.
+- It is text only. No certifier code for it exists yet.
 - It does not close the step from data to the world. It narrows that step to a stated bound and a record of what the claim has survived.
 - The bound in gate 5 holds only under the stated assumptions (for example, that records are exchangeable under the null). Gates 6 and 8 test those assumptions. They do not prove them.
 

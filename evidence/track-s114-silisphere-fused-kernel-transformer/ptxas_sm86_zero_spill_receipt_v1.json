@@ -1,0 +1,94 @@
+{
+  "arch": "sm_86",
+  "cu_file": "su2_holonomy_scan_sm86.cu",
+  "cu_sha256": "8c9c40ff9ef7afd6de3bea7ff30364723102555b2577032b6dba59785808aeb2",
+  "kernels": [
+    {
+      "mangled_name": "_ZN15silisphere_sm8631siliquant_a16_dequant_hopf_sm86EPKtPKfP6float4Pjlff",
+      "registers": 26,
+      "smem_bytes": 0,
+      "spill_loads": 0,
+      "spill_stores": 0,
+      "stack_bytes": 0
+    },
+    {
+      "mangled_name": "_ZN15silisphere_sm8625hopf_s3_residual_bwd_sm86EPK6float4S2_S2_PS0_S3_l",
+      "registers": 28,
+      "smem_bytes": 0,
+      "spill_loads": 0,
+      "spill_stores": 0,
+      "stack_bytes": 0
+    },
+    {
+      "mangled_name": "_ZN15silisphere_sm8625hopf_s3_residual_fwd_sm86EPK6float4S2_PS0_l",
+      "registers": 21,
+      "smem_bytes": 0,
+      "spill_loads": 0,
+      "spill_stores": 0,
+      "stack_bytes": 0
+    },
+    {
+      "mangled_name": "_ZN15silisphere_sm8635fused_spherical_slerp_hopf_bwd_sm86EPK6float4S2_S2_S2_PS0_S3_Pfiiffff",
+      "registers": 56,
+      "smem_bytes": 0,
+      "spill_loads": 0,
+      "spill_stores": 0,
+      "stack_bytes": 0
+    },
+    {
+      "mangled_name": "_ZN15silisphere_sm8635fused_spherical_slerp_hopf_fwd_sm86EPK6float4S2_S2_PS0_iiffff",
+      "registers": 48,
+      "smem_bytes": 0,
+      "spill_loads": 0,
+      "spill_stores": 0,
+      "stack_bytes": 0
+    },
+    {
+      "mangled_name": "_ZN15silisphere_sm8624su2_untransport_bwd_sm86EPK6float4S2_S2_PS0_S3_l",
+      "registers": 23,
+      "smem_bytes": 0,
+      "spill_loads": 0,
+      "spill_stores": 0,
+      "stack_bytes": 0
+    },
+    {
+      "mangled_name": "_ZN15silisphere_sm8624su2_untransport_fwd_sm86EPK6float4S2_PS0_l",
+      "registers": 20,
+      "smem_bytes": 0,
+      "spill_loads": 0,
+      "spill_stores": 0,
+      "stack_bytes": 0
+    },
+    {
+      "mangled_name": "_ZN15silisphere_sm8630su2_holonomy_scan_qkv_bwd_sm86EPKfPK6float4S4_S4_S4_S4_S4_S4_S4_PfPS2_S6_S6_ifif",
+      "registers": 39,
+      "smem_bytes": 108,
+      "spill_loads": 0,
+      "spill_stores": 0,
+      "stack_bytes": 0
+    },
+    {
+      "mangled_name": "_ZN15silisphere_sm8630su2_holonomy_scan_qkv_fwd_sm86EPKfPK6float4S4_S4_PS2_S5_S5_S5_ifif",
+      "registers": 30,
+      "smem_bytes": 144,
+      "spill_loads": 0,
+      "spill_stores": 0,
+      "stack_bytes": 0
+    }
+  ],
+  "nonzero_spill_kernels": 0,
+  "nvcc_flags": "-O3 -std=c++17 -arch=sm_86 --ptxas-options=-v --shared -Xcompiler -fPIC",
+  "sass_instruction_counts": {
+    "FFMA": 1137,
+    "LDG.E.128": 60,
+    "MUFU.RSQ": 29,
+    "POPC": 6,
+    "SHFL.BFLY": 45,
+    "SHFL.DOWN": 28,
+    "SHFL.UP": 37,
+    "STG.E.128": 20
+  },
+  "schema": "holosphere.sm86_ptxas_zero_spill_receipt.v1",
+  "total_kernels": 9,
+  "zero_spill_kernels": 9
+}

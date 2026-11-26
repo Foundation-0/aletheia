@@ -16,21 +16,35 @@ v2.0 upgrades (closing aletheia#5 #1, #6, #7, #11, #12 and aletheia#3 §4):
      yields verdict `"NOT_SHOWN"` (`passed=False`) rather than `"PASS"`.
   6. Structured `BASELINE_TEST_TIMEOUT` on timeout (zero unhandled traceback) and explicit `-I`/`--add-cwd`
      hint on `ModuleNotFoundError`/`ImportError` during baseline execution.
+  7. Null-mutant control: every mutant is written back through `ast.unparse`, which changes the file's
+     bytes before any guard is touched. After the baseline passes, the unmodified program is written
+     through the same serialisation and the test command runs once more. If that run fails, a kill
+     could come from the byte change alone, so the run stops with `NULL_MUTANT_KILLED`
+     (`NULL_MUTANT_TIMEOUT` on timeout) instead of reporting kills.
 """
 from __future__ import annotations
 
 import ast
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import copy
 from dataclasses import dataclass
+import os
 from pathlib import Path
+import queue
+import secrets
 import shlex
+import signal
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
 from typing import Any, Sequence
 
 from .strict_io import AletheiaError, require_ok
+
+_MAX_MUTATION_WORKERS = 64
+_COPY_IGNORE_NAMES = frozenset({".git", "__pycache__", ".venv", "venv"})
 
 _REQUIRE_FUNC_NAMES = {"require", "require_ok", "require_cert", "check", "ensure"}
 
@@ -71,6 +85,7 @@ _REFUSAL_STR_PREFIXES = (
     "ERROR",
 )
 _ACCUMULATOR_HINTS = ("finding", "error", "issue", "viol", "problem", "failure", "reason", "defect", "reject")
+_VERDICT_DICT_KEYS = frozenset({"passed", "valid", "ok", "admissible", "clean", "verified", "status", "verdict"})
 
 
 def _is_refusal_constant(node: ast.expr | None) -> bool:
@@ -83,47 +98,101 @@ def _is_refusal_constant(node: ast.expr | None) -> bool:
     return False
 
 
-def _single_stmt_is_refusal(stmt: ast.stmt) -> bool:
-    if isinstance(stmt, ast.Raise):
+def _expr_is_refusal(val: ast.expr | None) -> bool:
+    if _is_refusal_constant(val):
         return True
-    if isinstance(stmt, ast.Return):
-        val = stmt.value
-        if _is_refusal_constant(val):
-            return True
-        if isinstance(val, ast.Tuple) and len(val.elts) >= 1 and _is_refusal_constant(val.elts[0]):
-            return True
-        if isinstance(val, ast.Dict):
-            for v_node in val.values:
-                if _is_refusal_constant(v_node):
-                    return True
-        if isinstance(val, ast.Call):
-            if any(isinstance(a, ast.Constant) and a.value is False for a in val.args):
+    if isinstance(val, ast.Tuple) and len(val.elts) >= 1 and _is_refusal_constant(val.elts[0]):
+        return True
+    if isinstance(val, ast.Dict):
+        for v_node in val.values:
+            if _is_refusal_constant(v_node):
                 return True
-            if any(isinstance(kw.value, ast.Constant) and kw.value.value is False for kw in val.keywords):
-                return True
+    if isinstance(val, ast.Call):
+        if any(isinstance(a, ast.Constant) and a.value is False for a in val.args):
+            return True
+        if any(isinstance(kw.value, ast.Constant) and kw.value.value is False for kw in val.keywords):
+            return True
+    return False
+
+
+def _is_accumulator_name(expr: ast.expr) -> bool:
+    return isinstance(expr, ast.Name) and any(tok in expr.id.lower() for tok in _ACCUMULATOR_HINTS)
+
+
+def _is_refusal_call_stmt(stmt: ast.stmt) -> bool:
     if isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Call):
         fn = stmt.value.func
         if isinstance(fn, ast.Attribute) and fn.attr == "exit" and isinstance(fn.value, ast.Name) and fn.value.id == "sys":
             return True
         if isinstance(fn, ast.Name) and fn.id == "exit":
             return True
-        if (
-            isinstance(fn, ast.Attribute)
-            and fn.attr in ("append", "extend", "add")
-            and isinstance(fn.value, ast.Name)
-            and any(tok in fn.value.id.lower() for tok in _ACCUMULATOR_HINTS)
-        ):
+        if isinstance(fn, ast.Attribute) and fn.attr in ("append", "extend", "add") and _is_accumulator_name(fn.value):
             return True
     return False
 
 
+def _is_verdict_subscript_refusal(target: ast.expr, value: ast.expr) -> bool:
+    return (
+        isinstance(target, ast.Subscript)
+        and isinstance(target.slice, ast.Constant)
+        and target.slice.value in _VERDICT_DICT_KEYS
+        and _is_refusal_constant(value)
+    )
+
+
+def _expr_or_var_is_refusal(val: ast.expr | None, refusal_vars: set[str]) -> bool:
+    if _expr_is_refusal(val):
+        return True
+    return isinstance(val, ast.Name) and val.id in refusal_vars
+
+
 def _stmt_is_refusal(body: list[ast.stmt]) -> bool:
     """
-    Return True if any top-level statement in an `if` branch refuses or records a refusal
-    (covers `raise`, `sys.exit`, `return False/None`, refusal string/tuple/dict/constructor,
-    finding-accumulator calls, AND multi-statement branches like `print("bad"); raise ValueError(x)`).
+    Return True if a statement block refuses or records a refusal:
+    covers `raise`, `sys.exit`/`exit`, `return` of refusal constants/tuples/dicts/calls,
+    assign-then-return refusal dicts/values (including aliases `r2 = r1; return r2`),
+    plain and annotated dict-verdict refusal updates (`res["passed"] = False`,
+    `res["passed"]: bool = False`), finding-accumulator calls and `+=` updates,
+    `with`-wrapped refusals, and `try`-wrapped refusals (`try`/`except`/`else`/`finally`).
     """
-    return any(_single_stmt_is_refusal(stmt) for stmt in body)
+    refusal_vars: set[str] = set()
+    for stmt in body:
+        if isinstance(stmt, ast.Raise) or _is_refusal_call_stmt(stmt):
+            return True
+        if isinstance(stmt, ast.Return):
+            if _expr_or_var_is_refusal(stmt.value, refusal_vars):
+                return True
+        elif isinstance(stmt, ast.Assign):
+            is_ref = _expr_or_var_is_refusal(stmt.value, refusal_vars)
+            for tgt in stmt.targets:
+                if _is_verdict_subscript_refusal(tgt, stmt.value):
+                    return True
+                if isinstance(tgt, ast.Name):
+                    if is_ref:
+                        refusal_vars.add(tgt.id)
+                    else:
+                        refusal_vars.discard(tgt.id)
+        elif isinstance(stmt, ast.AnnAssign) and stmt.value is not None:
+            if _is_verdict_subscript_refusal(stmt.target, stmt.value):
+                return True
+            if isinstance(stmt.target, ast.Name):
+                if _expr_or_var_is_refusal(stmt.value, refusal_vars):
+                    refusal_vars.add(stmt.target.id)
+                else:
+                    refusal_vars.discard(stmt.target.id)
+        elif isinstance(stmt, ast.AugAssign) and isinstance(stmt.op, ast.Add) and _is_accumulator_name(stmt.target):
+            return True
+        elif isinstance(stmt, (ast.With, ast.AsyncWith)) and _stmt_is_refusal(stmt.body):
+            return True
+        elif isinstance(stmt, ast.Try):
+            if (
+                _stmt_is_refusal(stmt.body)
+                or _stmt_is_refusal(stmt.orelse)
+                or _stmt_is_refusal(stmt.finalbody)
+                or any(_stmt_is_refusal(h.body) for h in stmt.handlers)
+            ):
+                return True
+    return False
 
 
 def _is_main_guard(node: ast.If) -> bool:
@@ -172,7 +241,7 @@ def _classify_wrapper_test(test: ast.expr, cond_param: str) -> str | None:
 
 
 def _stmt_is_hard_refusal(body: list[ast.stmt]) -> bool:
-    """Return True when an `if` branch raises or calls sys.exit/exit (ignoring ordinary return None)."""
+    """Return True when a statement block raises or calls sys.exit/exit (including try-wrapped)."""
     for stmt in body:
         if isinstance(stmt, ast.Raise):
             return True
@@ -182,47 +251,373 @@ def _stmt_is_hard_refusal(body: list[ast.stmt]) -> bool:
                 return True
             if isinstance(fn, ast.Name) and fn.id == "exit":
                 return True
+        elif isinstance(stmt, ast.Try):
+            if (
+                _stmt_is_hard_refusal(stmt.body)
+                or _stmt_is_hard_refusal(stmt.orelse)
+                or _stmt_is_hard_refusal(stmt.finalbody)
+                or any(_stmt_is_hard_refusal(h.body) for h in stmt.handlers)
+            ):
+                return True
     return False
+
+
+_SCOPE_BOUNDARIES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)
+
+
+def _store_names(node: ast.AST) -> set[str]:
+    """Return every variable name written (Store ctx) anywhere inside `node`."""
+    return {sub.id for sub in ast.walk(node) if isinstance(sub, ast.Name) and isinstance(sub.ctx, ast.Store)}
+
+
+def _is_wrapper_preamble_stmt(stmt: ast.stmt, cond_param: str) -> bool:
+    """Return True for a side-effect/log or non-redefining preamble statement before a wrapper's guard."""
+    if not isinstance(stmt, (ast.Expr, ast.Assign, ast.AnnAssign)):
+        return False
+    return cond_param not in _store_names(stmt)
+
+
+def _extract_getattr_attr_name(expr: ast.expr | None) -> str | None:
+    if (
+        isinstance(expr, ast.Call)
+        and isinstance(expr.func, ast.Name)
+        and expr.func.id == "getattr"
+        and len(expr.args) >= 2
+        and isinstance(expr.args[1], ast.Constant)
+        and isinstance(expr.args[1].value, str)
+    ):
+        return expr.args[1].value
+    return None
+
+
+def _extract_call_guard_name(func_expr: ast.expr | None) -> str | None:
+    if isinstance(func_expr, ast.Name):
+        return func_expr.id
+    if isinstance(func_expr, ast.Attribute):
+        return func_expr.attr
+    return _extract_getattr_attr_name(func_expr)
+
+
+def _attr_root_name(expr: ast.expr) -> str | None:
+    cur = expr
+    while isinstance(cur, ast.Attribute):
+        cur = cur.value
+    if isinstance(cur, ast.Name):
+        return cur.id
+    return None
+
+
+def _extract_alias_rhs_name(expr: ast.expr | None, allowed_namespaces: set[str]) -> str | None:
+    """Extract a guard target name from an alias RHS, restricting attribute/getattr roots to known namespaces."""
+    if isinstance(expr, ast.Name):
+        return expr.id
+    if isinstance(expr, ast.Attribute):
+        if _attr_root_name(expr.value) in allowed_namespaces:
+            return expr.attr
+        return None
+    ga_name = _extract_getattr_attr_name(expr)
+    if ga_name is not None:
+        if _attr_root_name(expr.args[0]) in allowed_namespaces:  # type: ignore[union-attr]
+            return ga_name
+    return None
+
+
+def _walk_scope_nodes(stmts: Sequence[ast.stmt]) -> list[ast.AST]:
+    """Return AST nodes in the current lexical scope without descending into nested defs/classes/lambdas."""
+    out: list[ast.AST] = []
+    stack: list[ast.AST] = list(reversed(stmts))
+    while stack:
+        cur = stack.pop()
+        out.append(cur)
+        if isinstance(cur, _SCOPE_BOUNDARIES):
+            continue
+        children = list(ast.iter_child_nodes(cur))
+        stack.extend(reversed(children))
+    return out
+
+
+def _collect_scope_namespaces(stmts: Sequence[ast.stmt]) -> set[str]:
+    """Collect module/class namespace names imported or declared directly in this lexical scope."""
+    ns: set[str] = set()
+    for node in _walk_scope_nodes(stmts):
+        if isinstance(node, ast.Import):
+            for imp in node.names:
+                ns.add(imp.asname or imp.name.split(".")[0])
+        elif isinstance(node, ast.ImportFrom):
+            for imp in node.names:
+                ns.add(imp.asname or imp.name)
+        elif isinstance(node, ast.ClassDef):
+            ns.add(node.name)
+    return ns
+
+
+def _extract_args_param_names(args: ast.arguments) -> set[str]:
+    names = {a.arg for a in (*args.posonlyargs, *args.args, *args.kwonlyargs)}
+    for extra in (args.vararg, args.kwarg):
+        if extra is not None:
+            names.add(extra.arg)
+    return names
+
+
+def _resolve_scope_guard_aliases(
+    stmts: Sequence[ast.stmt],
+    inherited_env: dict[str, str],
+    allowed_namespaces: set[str],
+    *,
+    skip_def_names: set[str] | frozenset[str] = frozenset(),
+) -> tuple[dict[str, str], set[str]]:
+    """
+    Resolve guard aliases within a single lexical scope.
+    Any name reassigned to a non-guard, assigned conflicting polarities, or rebound by
+    non-alias statements (`for`, `with`, `del`, `:=`, nested `def`, etc.) is invalidated.
+    """
+    import_bindings: dict[str, set[str]] = {}
+    assign_edges: dict[str, list[str | None]] = {}
+    poisoned: set[str] = set()
+
+    for node in _walk_scope_nodes(stmts):
+        if isinstance(node, ast.ImportFrom):
+            for imp in node.names:
+                if imp.asname:
+                    if imp.name in inherited_env:
+                        import_bindings.setdefault(imp.asname, set()).add(inherited_env[imp.name])
+                    else:
+                        poisoned.add(imp.asname)
+                elif imp.name not in inherited_env:
+                    poisoned.add(imp.name)
+        elif isinstance(node, ast.Import):
+            for imp in node.names:
+                poisoned.add(imp.asname or imp.name.split(".")[0])
+        elif isinstance(node, ast.Assign):
+            rhs_name = _extract_alias_rhs_name(node.value, allowed_namespaces)
+            for tgt in node.targets:
+                if isinstance(tgt, ast.Name):
+                    assign_edges.setdefault(tgt.id, []).append(rhs_name)
+                else:
+                    poisoned.update(_store_names(tgt))
+        elif isinstance(node, ast.AnnAssign) and node.value is not None:
+            rhs_name = _extract_alias_rhs_name(node.value, allowed_namespaces)
+            if isinstance(node.target, ast.Name):
+                assign_edges.setdefault(node.target.id, []).append(rhs_name)
+            else:
+                poisoned.update(_store_names(node.target))
+        elif isinstance(node, ast.AugAssign):
+            poisoned.update(_store_names(node.target))
+        elif isinstance(node, ast.NamedExpr):
+            poisoned.add(node.target.id)
+        elif isinstance(node, ast.Delete):
+            for tgt in node.targets:
+                if isinstance(tgt, ast.Name):
+                    poisoned.add(tgt.id)
+        elif isinstance(node, (ast.For, ast.AsyncFor)):
+            poisoned.update(_store_names(node.target))
+        elif isinstance(node, (ast.With, ast.AsyncWith)):
+            for item in node.items:
+                if item.optional_vars is not None:
+                    poisoned.update(_store_names(item.optional_vars))
+        elif isinstance(node, ast.ExceptHandler):
+            if node.name is not None:
+                poisoned.add(node.name)
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            if node.name not in skip_def_names:
+                poisoned.add(node.name)
+
+    locally_bound = set(assign_edges) | set(import_bindings) | poisoned
+    known = {k: v for k, v in inherited_env.items() if k not in locally_bound}
+    candidates = (set(assign_edges) | set(import_bindings)) - poisoned
+    aliases: dict[str, str] = {}
+
+    changed = True
+    while changed:
+        changed = False
+        for lhs in sorted(candidates):
+            if lhs in aliases:
+                continue
+            pols: set[str] = set(import_bindings.get(lhs, ()))
+            all_resolved = True
+            for rhs in assign_edges.get(lhs, ()):
+                if rhs in known:
+                    pols.add(known[rhs])
+                else:
+                    all_resolved = False
+                    break
+            if all_resolved and len(pols) == 1:
+                pol = next(iter(pols))
+                known[lhs] = pol
+                aliases[lhs] = pol
+                changed = True
+
+    unresolved = locally_bound - set(aliases)
+    return aliases, unresolved
+
+
+def _discover_guard_aliases(tree: ast.Module, base_polarities: dict[str, str]) -> dict[str, str]:
+    """Resolve module-level `from ... import g as alias` and safe variable aliases (`chk = require_ok`, `chk = mod.g`, `chk = getattr(mod, 'g')`)."""
+    mod_ns = _collect_scope_namespaces(tree.body)
+    aliases, _ = _resolve_scope_guard_aliases(
+        tree.body,
+        base_polarities,
+        mod_ns,
+        skip_def_names=set(base_polarities),
+    )
+    return aliases
+
+
+def _build_call_scope_envs(
+    tree: ast.Module,
+    base_polarities: dict[str, str],
+    explicit_guards: set[str] | frozenset[str] = frozenset(),
+) -> tuple[dict[str, str], dict[int, dict[str, str]]]:
+    """Build lexical-scope guard polarity environments for module scope and every `ast.Call` node."""
+    mod_ns = _collect_scope_namespaces(tree.body)
+    mod_aliases, mod_unresolved = _resolve_scope_guard_aliases(
+        tree.body,
+        base_polarities,
+        mod_ns,
+        skip_def_names=set(base_polarities),
+    )
+    mod_env = {k: v for k, v in base_polarities.items() if k not in mod_unresolved}
+    mod_env.update(mod_aliases)
+    call_envs: dict[int, dict[str, str]] = {}
+
+    def _visit_expr(expr: ast.AST | None, env: dict[str, str]) -> None:
+        if expr is None:
+            return
+        stack: list[ast.AST] = [expr]
+        while stack:
+            cur = stack.pop()
+            if isinstance(cur, ast.Lambda):
+                for d in (*cur.args.defaults, *cur.args.kw_defaults):
+                    _visit_expr(d, env)
+                l_shadowed = _extract_args_param_names(cur.args) - explicit_guards
+                l_env = {k: v for k, v in env.items() if k not in l_shadowed}
+                _visit_expr(cur.body, l_env)
+                continue
+            if isinstance(cur, ast.Call):
+                call_envs[id(cur)] = env
+            children = list(ast.iter_child_nodes(cur))
+            stack.extend(reversed(children))
+
+    def _visit_scope(
+        stmts: Sequence[ast.stmt],
+        expr_env: dict[str, str],
+        enclosing_env: dict[str, str],
+        ns: set[str],
+    ) -> None:
+        for node in _walk_scope_nodes(stmts):
+            if isinstance(node, ast.Call):
+                call_envs[id(node)] = expr_env
+            elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                all_arg_nodes = (*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs)
+                for hdr in (
+                    *node.decorator_list,
+                    *node.args.defaults,
+                    *node.args.kw_defaults,
+                    node.returns,
+                    *(a.annotation for a in all_arg_nodes),
+                    *(a.annotation for a in (node.args.vararg, node.args.kwarg) if a is not None),
+                ):
+                    _visit_expr(hdr, expr_env)
+                params = _extract_args_param_names(node.args)
+                shadowed = params - explicit_guards
+                fn_inherited = {k: v for k, v in enclosing_env.items() if k not in shadowed}
+                fn_ns = (ns - params) | _collect_scope_namespaces(node.body)
+                fn_aliases, fn_unresolved = _resolve_scope_guard_aliases(node.body, fn_inherited, fn_ns)
+                fn_env = {k: v for k, v in fn_inherited.items() if k not in fn_unresolved}
+                fn_env.update(fn_aliases)
+                _visit_scope(node.body, fn_env, fn_env, fn_ns)
+            elif isinstance(node, ast.ClassDef):
+                for hdr in (*node.decorator_list, *node.bases, *(kw.value for kw in node.keywords)):
+                    _visit_expr(hdr, expr_env)
+                cls_ns = ns | _collect_scope_namespaces(node.body)
+                cls_aliases, cls_unresolved = _resolve_scope_guard_aliases(node.body, enclosing_env, cls_ns)
+                cls_body_env = {k: v for k, v in enclosing_env.items() if k not in cls_unresolved}
+                cls_body_env.update(cls_aliases)
+                _visit_scope(node.body, cls_body_env, enclosing_env, cls_ns)
+            elif isinstance(node, ast.Lambda):
+                _visit_expr(node, expr_env)
+
+    _visit_scope(tree.body, mod_env, mod_env, mod_ns)
+    return mod_env, call_envs
+
+
+def _lookup_call_polarity(
+    func_expr: ast.expr,
+    scope_env: dict[str, str],
+    attr_polarities: dict[str, str],
+) -> tuple[str | None, str | None]:
+    if isinstance(func_expr, ast.Name):
+        return func_expr.id, scope_env.get(func_expr.id)
+    attr_name = _extract_call_guard_name(func_expr)
+    return attr_name, attr_polarities.get(attr_name)  # type: ignore[arg-type]
+
+
+def _classify_wrapper_func(node: ast.FunctionDef | ast.AsyncFunctionDef) -> str | None:
+    pos_params = list(node.args.posonlyargs) + list(node.args.args)
+    if not pos_params:
+        return None
+    cond_param = pos_params[0].arg
+    if cond_param in ("self", "cls"):
+        if len(pos_params) < 2:
+            return None
+        cond_param = pos_params[1].arg
+
+    stmts = list(node.body)
+    idx = 0
+    while idx < len(stmts) and _is_wrapper_preamble_stmt(stmts[idx], cond_param):
+        idx += 1
+    rem = stmts[idx:]
+    if not rem or len(rem) > 2:
+        return None
+    first = rem[0]
+    if not isinstance(first, ast.If):
+        return None
+    if len(rem) == 2 and not isinstance(rem[1], ast.Return):
+        return None
+
+    polarity = _classify_wrapper_test(first.test, cond_param)
+    if polarity is None:
+        return None
+    if not first.orelse and _stmt_is_hard_refusal(first.body):
+        return polarity
+    if _stmt_is_hard_refusal(first.orelse) and not _stmt_is_hard_refusal(first.body):
+        return "reject" if polarity == "require" else "require"
+    return None
 
 
 def discover_local_refusal_wrappers(tree: ast.Module) -> dict[str, str]:
     """
     AST pre-pass: discover single-refusal helper functions whose guard body raises or exits
-    (e.g. `def _req(cond, ...): if not cond: raise ...` or `def _fail_if(bad, ...): if bad: raise ...`),
-    returning `{func_name: "require" | "reject"}`.
+    (scanning only module-level defs and direct class methods so nested defs never shadow
+    or overwrite module-level functions), returning `{func_name: "require" | "reject"}`.
     """
     wrappers: dict[str, str] = {}
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.FunctionDef):
-            continue
-        pos_params = list(node.args.posonlyargs) + list(node.args.args)
-        if not pos_params:
-            continue
-        cond_param = pos_params[0].arg
-        if cond_param in ("self", "cls"):
-            if len(pos_params) < 2:
-                continue
-            cond_param = pos_params[1].arg
+    top_level_defs: set[str] = set()
+    class_defs: list[ast.FunctionDef | ast.AsyncFunctionDef] = []
 
-        stmts = list(node.body)
-        if (
-            stmts
-            and isinstance(stmts[0], ast.Expr)
-            and isinstance(stmts[0].value, ast.Constant)
-            and isinstance(stmts[0].value.value, str)
-        ):
-            stmts = stmts[1:]
-        if not stmts or len(stmts) > 2:
-            continue
-        first = stmts[0]
-        if not isinstance(first, ast.If) or first.orelse or not _stmt_is_hard_refusal(first.body):
-            continue
-        if len(stmts) == 2 and not isinstance(stmts[1], ast.Return):
-            continue
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            top_level_defs.add(node.name)
+            pol = _classify_wrapper_func(node)
+            if pol is not None:
+                wrappers[node.name] = pol
+            else:
+                wrappers.pop(node.name, None)
+        elif isinstance(node, ast.ClassDef):
+            for item in node.body:
+                if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    class_defs.append(item)
 
-        polarity = _classify_wrapper_test(first.test, cond_param)
-        if polarity is not None:
-            wrappers[node.name] = polarity
+    class_pols: dict[str, set[str]] = {}
+    for method in class_defs:
+        if method.name in top_level_defs:
+            continue
+        pol = _classify_wrapper_func(method)
+        if pol is not None:
+            class_pols.setdefault(method.name, set()).add(pol)
+    for name, pols in class_pols.items():
+        if len(pols) == 1:
+            wrappers[name] = next(iter(pols))
     return wrappers
 
 
@@ -329,8 +724,7 @@ def _is_self_check_invocation(target: Path, test_cmd: str) -> bool:
         parts = shlex.split(test_cmd.replace("{target}", target.name))
     except ValueError:
         return False
-    if not parts:
-        return False
+    # An empty command needs no guard here: parts[1:] is then empty and any() is False.
     return any(Path(tok).name == target.name for tok in parts[1:])
 
 
@@ -349,12 +743,14 @@ def discover_mutant_sites(
     except SyntaxError as exc:
         raise AletheiaError("MUTATOR_SYNTAX_ERROR", f"failed to parse target Python file: {exc}") from exc
 
-    wrapper_polarities: dict[str, str] = {name: "require" for name in _REQUIRE_FUNC_NAMES}
+    base_polarities: dict[str, str] = {name: "require" for name in _REQUIRE_FUNC_NAMES}
     imported_wrappers = discover_imported_refusal_wrappers(tree, target_path=target_path, work_root=work_root)
-    wrapper_polarities.update(imported_wrappers)
+    base_polarities.update(imported_wrappers)
     local_wrappers = discover_local_refusal_wrappers(tree)
-    wrapper_polarities.update(local_wrappers)
-    wrapper_polarities.update(_parse_extra_guards(extra_guards))
+    base_polarities.update(local_wrappers)
+    parsed_extra_guards = _parse_extra_guards(extra_guards)
+    base_polarities.update(parsed_extra_guards)
+    mod_env, call_envs = _build_call_scope_envs(tree, base_polarities, set(parsed_extra_guards))
 
     # Identify top-level Expr(Call) nodes for self-check mode (aletheia#5 #12)
     top_level_calls: set[int] = set()
@@ -369,9 +765,8 @@ def discover_mutant_sites(
     if self_check_mode:
         for stmt in tree.body:
             if isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Call):
-                fn = stmt.value.func
-                fname = fn.id if isinstance(fn, ast.Name) else (fn.attr if isinstance(fn, ast.Attribute) else None)
-                if fname in wrapper_polarities and len(stmt.value.args) >= 1:
+                _, pol = _lookup_call_polarity(stmt.value.func, mod_env, base_polarities)
+                if pol is not None and len(stmt.value.args) >= 1:
                     has_top_level_guard_calls = True
                     break
 
@@ -380,15 +775,17 @@ def discover_mutant_sites(
     idx_counter = 0
 
     for node_idx, node in enumerate(all_nodes):
-        # 1. `if <cond>:` refusal branches
+        # 1. `if <cond>:` and `else:` refusal branches
         if isinstance(node, ast.If) and not _is_main_guard(node):
             if self_check_mode and has_top_level_guard_calls and id(node) in top_level_ifs:
                 # Top-level summary `if FAILS: sys.exit(1)` is verified via `guard_selfcheck_negate`
                 # (`check(False, ...)`), avoiding equivalent `if False:` on empty passing-run FAILS.
                 continue
-            if _stmt_is_refusal(node.body):
+            body_refuses = _stmt_is_refusal(node.body)
+            else_refuses = _stmt_is_refusal(node.orelse)
+            if body_refuses or else_refuses:
                 orig_test = ast.unparse(node.test)
-                if orig_test != "False":
+                if body_refuses and orig_test != "False":
                     idx_counter += 1
                     sites.append(MutantSite(
                         mutant_id=f"M{idx_counter:03d}",
@@ -398,6 +795,17 @@ def discover_mutant_sites(
                         node_index=node_idx,
                         original_src=f"if {orig_test}:",
                         mutated_src="if False:",
+                    ))
+                if else_refuses and orig_test != "True":
+                    idx_counter += 1
+                    sites.append(MutantSite(
+                        mutant_id=f"M{idx_counter:03d}",
+                        kind="guard_else_reject",
+                        lineno=node.lineno,
+                        col_offset=node.col_offset,
+                        node_index=node_idx,
+                        original_src=f"if {orig_test}: ... else:",
+                        mutated_src="if True:",
                     ))
                 if include_boundaries and isinstance(node.test, ast.Compare):
                     for op_i, op in enumerate(node.test.ops):
@@ -417,14 +825,26 @@ def discover_mutant_sites(
                                 extra_cmp_idx=op_i,
                             ))
 
-        # 2. `require*(cond, ...)`, local wrappers, imported wrappers, and `--guards`
+        # 1b. `except ...:` refusal handlers (try-wrapped raises / returns)
+        elif isinstance(node, ast.ExceptHandler):
+            if _stmt_is_refusal(node.body):
+                exc_label = ast.unparse(node.type) if node.type is not None else ""
+                hdr = f"except {exc_label}:" if exc_label else "except:"
+                idx_counter += 1
+                sites.append(MutantSite(
+                    mutant_id=f"M{idx_counter:03d}",
+                    kind="guard_except_reject",
+                    lineno=node.lineno,
+                    col_offset=node.col_offset,
+                    node_index=node_idx,
+                    original_src=hdr,
+                    mutated_src=f"{hdr} pass",
+                ))
+
+        # 2. `require*(cond, ...)`, local/imported/aliased wrappers, `getattr` dispatch, and `--guards`
         elif isinstance(node, ast.Call):
-            fn_name = None
-            if isinstance(node.func, ast.Name):
-                fn_name = node.func.id
-            elif isinstance(node.func, ast.Attribute):
-                fn_name = node.func.attr
-            polarity = wrapper_polarities.get(fn_name) if fn_name is not None else None
+            scope_env = call_envs.get(id(node), mod_env)
+            fn_name, polarity = _lookup_call_polarity(node.func, scope_env, base_polarities)
             if polarity is not None and len(node.args) >= 1:
                 arg0 = node.args[0]
                 orig_arg = ast.unparse(arg0)
@@ -535,6 +955,12 @@ def apply_single_mutation(source: str, site: MutantSite) -> str:
     if site.kind == "guard_if_reject":
         require_ok(isinstance(node, ast.If), "MUTANT_NODE_TYPE", "expected ast.If")
         node.test = ast.Constant(value=False)  # type: ignore[union-attr]
+    elif site.kind == "guard_else_reject":
+        require_ok(isinstance(node, ast.If), "MUTANT_NODE_TYPE", "expected ast.If")
+        node.test = ast.Constant(value=True)  # type: ignore[union-attr]
+    elif site.kind == "guard_except_reject":
+        require_ok(isinstance(node, ast.ExceptHandler), "MUTANT_NODE_TYPE", "expected ast.ExceptHandler")
+        node.body = [ast.Pass()]  # type: ignore[union-attr]
     elif site.kind == "boundary_cmp":
         require_ok(isinstance(node, ast.If) and isinstance(node.test, ast.Compare), "MUTANT_NODE_TYPE", "expected ast.If/Compare")
         cmp_node = node.test  # type: ignore[union-attr]
@@ -560,10 +986,20 @@ def apply_single_mutation(source: str, site: MutantSite) -> str:
     else:
         raise AletheiaError("UNKNOWN_MUTANT_KIND", f"unknown mutant kind {site.kind!r}")
 
+    return _serialise_module(tree)
+
+
+def _serialise_module(tree: ast.Module) -> str:
+    """The one serialisation every mutant, and the null mutant, is written through."""
     ast.fix_missing_locations(tree)
-    mutated = ast.unparse(tree) + "\n"
-    compile(mutated, "<mutated>", "exec")
-    return mutated
+    code = ast.unparse(tree) + "\n"
+    compile(code, "<mutated>", "exec")
+    return code
+
+
+def null_mutant_source(source: str) -> str:
+    """Return `source` unchanged in meaning but re-serialised exactly as every mutant is."""
+    return _serialise_module(ast.parse(source))
 
 
 def _prepare_cmd(test_cmd: str, target_rel: str, *, add_cwd: bool = False) -> list[str]:
@@ -573,7 +1009,10 @@ def _prepare_cmd(test_cmd: str, target_rel: str, *, add_cwd: bool = False) -> li
     When `add_cwd=True`, omits `-I` (keeping `-s -O -B`) so repo-local imports resolve.
     """
     expanded = test_cmd.replace("{target}", target_rel)
-    parts = shlex.split(expanded)
+    try:
+        parts = shlex.split(expanded)
+    except ValueError as exc:
+        raise AletheiaError("INVALID_TEST_CMD", f"malformed test_cmd: {exc}") from exc
     require_ok(len(parts) > 0, "EMPTY_TEST_CMD", "test_cmd cannot be empty")
     if parts[0] in ("python", "python3"):
         rest = parts[1:]
@@ -592,6 +1031,120 @@ def _prepare_cmd(test_cmd: str, target_rel: str, *, add_cwd: bool = False) -> li
     return parts
 
 
+def _select_snap_parent(
+    snap_root: Path | None,
+    *,
+    prefer_shm: bool,
+    platform_name: str | None = None,
+    shm_dir: Path | None = None,
+) -> Path:
+    """Select parent directory for private 0o700 mutation snaps (/dev/shm on Linux when parallel, else tempdir)."""
+    if snap_root is not None:
+        try:
+            st = os.lstat(snap_root)
+        except OSError as exc:
+            raise AletheiaError("INVALID_SNAP_ROOT", f"snap_root unavailable: {exc}") from exc
+        require_ok(
+            stat.S_ISDIR(st.st_mode) and os.access(snap_root, os.W_OK | os.X_OK),
+            "INVALID_SNAP_ROOT",
+            f"snap_root must be a writable non-symlink directory: {snap_root}",
+        )
+        return snap_root.resolve()
+    plat = sys.platform if platform_name is None else platform_name
+    shm_cand = Path("/dev/shm") if shm_dir is None else shm_dir
+    if prefer_shm and plat.startswith("linux"):
+        try:
+            st_shm = os.lstat(shm_cand)
+        except OSError:
+            st_shm = None
+        if st_shm is not None and stat.S_ISDIR(st_shm.st_mode) and os.access(shm_cand, os.W_OK | os.X_OK):
+            return shm_cand
+    return Path(tempfile.gettempdir()).resolve()
+
+
+def _verify_private_dir_stat(st: os.stat_result, expected_uid: int, label: Path) -> None:
+    """Fail closed if a newly created private snap directory does not have mode 0o700 and matching UID."""
+    require_ok(stat.S_ISDIR(st.st_mode), "SNAP_DIR_SECURITY_FAILED", f"snap path is not a directory: {label}")
+    require_ok(st.st_uid == expected_uid, "SNAP_DIR_SECURITY_FAILED", f"snap dir uid mismatch: {label}")
+    require_ok((st.st_mode & 0o777) == 0o700, "SNAP_DIR_SECURITY_FAILED", f"snap dir mode is not 0o700: {label}")
+
+
+def _create_private_snap_dir(parent: Path) -> Path:
+    """Create an exclusive private 0o700 snap directory inside `parent` using CSPRNG naming."""
+    cand = parent / f"aletheia_mut_{os.getpid()}_{secrets.token_hex(8)}"
+    try:
+        os.mkdir(cand, 0o700)
+    except OSError as exc:
+        raise AletheiaError("SNAP_DIR_CREATE_FAILED", f"failed to create snap dir {cand}: {exc}") from exc
+    if os.name == "posix":
+        try:
+            os.chmod(cand, 0o700)
+            _verify_private_dir_stat(os.lstat(cand), os.getuid(), cand)
+        except BaseException:
+            try:
+                os.rmdir(cand)
+            except OSError:
+                pass
+            raise
+    return cand
+
+
+def _sigterm_raises_keyboard_interrupt(signum: int, frame: Any) -> None:
+    # Convert SIGTERM (timeout, CI cancellation, process managers) into a catchable
+    # exception so the `finally: shutil.rmtree(snap_dir)` cleanup runs instead of
+    # leaking the /dev/shm snap (rc=143 default would skip it).
+    raise KeyboardInterrupt(f"SIGTERM ({signum}) received; cleaning up snap dir")
+
+
+def _install_sigterm_raise() -> Any:
+    try:
+        return signal.signal(signal.SIGTERM, _sigterm_raises_keyboard_interrupt)
+    except (ValueError, OSError):
+        # Not in the main thread (or unsupported platform): skip, cleanup stays best-effort.
+        pass
+    return None
+
+
+def _copy_workspace_no_symlinks(src_root: Path, dst_root: Path) -> None:
+    """
+    Copy `src_root` into `dst_root` preserving independent inodes (`st_nlink == 1`)
+    and rejecting symlinks or non-regular files fail-closed.
+    """
+    os.mkdir(dst_root, 0o700)
+    stack: list[tuple[Path, Path]] = [(src_root, dst_root)]
+    while stack:
+        cur_src, cur_dst = stack.pop()
+        with os.scandir(cur_src) as it:
+            entries = sorted(it, key=lambda e: e.name)
+        for entry in entries:
+            name = entry.name
+            if name in _COPY_IGNORE_NAMES or name.endswith(".pyc"):
+                continue
+            if entry.is_symlink():
+                raise AletheiaError("SYMLINK_IN_WORKROOT", f"symlink forbidden inside work_root: {entry.path}")
+            dst_item = cur_dst / name
+            if entry.is_dir(follow_symlinks=False):
+                os.mkdir(dst_item, 0o700)
+                stack.append((Path(entry.path), dst_item))
+            elif entry.is_file(follow_symlinks=False):
+                shutil.copy2(entry.path, dst_item)
+            else:
+                raise AletheiaError("NON_REGULAR_IN_WORKROOT", f"non-regular file forbidden inside work_root: {entry.path}")
+
+
+def _child_env_for_workers(workers: int) -> dict[str, str] | None:
+    """Pin single-threaded BLAS/OpenMP and disable bytecode writes for parallel worker subprocesses."""
+    if workers <= 1:
+        return None
+    env = dict(os.environ)
+    env["OPENBLAS_NUM_THREADS"] = "1"
+    env["OMP_NUM_THREADS"] = "1"
+    env["MKL_NUM_THREADS"] = "1"
+    env["NUMEXPR_NUM_THREADS"] = "1"
+    env["PYTHONDONTWRITEBYTECODE"] = "1"
+    return env
+
+
 def run_mutation_suite(
     script_path: Path,
     test_cmd: str,
@@ -602,11 +1155,21 @@ def run_mutation_suite(
     include_boundaries: bool = True,
     add_cwd: bool = False,
     extra_guards: Sequence[str] = (),
+    workers: int = 1,
+    snap_root: Path | None = None,
 ) -> dict[str, Any]:
     """
     Run AST refusal-site mutation testing against `script_path` in an isolated temporary workspace.
     Never modifies any file on disk outside the temporary directory!
+    With `workers > 1`, executes mutants in parallel across independent per-slot copies inside a
+    private `0o700` RAM-backed `/dev/shm` snap on Linux (with `tempfile.gettempdir()` fallback on
+    macOS/Windows), preserving `st_nlink == 1` semantics and bit-identical sorted output.
     """
+    require_ok(
+        type(workers) is int and 1 <= workers <= _MAX_MUTATION_WORKERS,
+        "INVALID_WORKERS",
+        f"workers must be exact int in [1, {_MAX_MUTATION_WORKERS}], got {workers!r}",
+    )
     target = script_path.resolve()
     require_ok(target.is_file(), "TARGET_SCRIPT_NOT_FOUND", f"script not found: {target}")
     src_root = (work_root or target.parent).resolve()
@@ -636,20 +1199,29 @@ def run_mutation_suite(
 
     covered_lines = sorted({s.lineno for s in sites})
     rel_target = target.relative_to(src_root)
+    cmd = _prepare_cmd(test_cmd, str(rel_target), add_cwd=add_cwd)
+    child_env = _child_env_for_workers(workers)
+    effective_workers = min(workers, len(sites))
+    snap_parent = _select_snap_parent(snap_root, prefer_shm=(workers > 1))
+    snap_dir = _create_private_snap_dir(snap_parent)
 
-    with tempfile.TemporaryDirectory(prefix="aletheia_mut_") as tmp_s:
-        tmp_root = Path(tmp_s) / "work"
-        shutil.copytree(
-            src_root,
-            tmp_root,
-            ignore=shutil.ignore_patterns(".git", "__pycache__", "*.pyc", ".venv", "venv"),
-        )
+    _prev_sigterm = None
+    try:
+        if workers > 1:
+            _prev_sigterm = _install_sigterm_raise()
+        tmp_root = snap_dir / "slot_0"
+        try:
+            _copy_workspace_no_symlinks(src_root, tmp_root)
+        except OSError as exc:
+            raise AletheiaError(
+                "SNAP_COPY_FAILED",
+                f"failed to copy work_root into snap slot 0 (workers={workers}): {exc}",
+            ) from exc
         tmp_target = tmp_root / rel_target
-        cmd = _prepare_cmd(test_cmd, str(rel_target), add_cwd=add_cwd)
 
         # 1. Verify unmutated baseline passes (catch TimeoutExpired cleanly -> aletheia#5 #7)
         try:
-            base_proc = subprocess.run(cmd, cwd=str(tmp_root), capture_output=True, timeout=timeout, check=False)
+            base_proc = subprocess.run(cmd, cwd=str(tmp_root), env=child_env, capture_output=True, timeout=timeout, check=False)
         except subprocess.TimeoutExpired as exc:
             raise AletheiaError(
                 "BASELINE_TEST_TIMEOUT",
@@ -666,37 +1238,141 @@ def run_mutation_suite(
                 f"unmutated baseline test failed (rc={base_proc.returncode}): {stderr_tail}{hint}",
             )
 
+        # 2. Null-mutant control: the unmodified program, re-serialised exactly as every mutant is,
+        #    must still pass. Otherwise a kill could come from the byte change alone (for example a
+        #    test command that pins the target's hash or formatting), not from the removed guard.
+        tmp_target.write_text(null_mutant_source(source), encoding="utf-8", newline="\n")
+        try:
+            null_proc = subprocess.run(cmd, cwd=str(tmp_root), env=child_env, capture_output=True, timeout=timeout, check=False)
+        except subprocess.TimeoutExpired as exc:
+            raise AletheiaError(
+                "NULL_MUTANT_TIMEOUT",
+                f"the null mutant (the unmodified target re-serialised by ast.unparse, as every mutant is) "
+                f"timed out after {timeout}s although the original bytes passed; no kill can be trusted. "
+                "Remove byte or format pins on the target from --test-cmd.",
+            ) from exc
+        finally:
+            tmp_target.write_text(source, encoding="utf-8", newline="\n")
+        if null_proc.returncode != 0:
+            null_tail = (null_proc.stdout + null_proc.stderr).decode("utf-8", errors="replace")[-400:]
+            raise AletheiaError(
+                "NULL_MUTANT_KILLED",
+                f"the null mutant (the unmodified target re-serialised by ast.unparse, as every mutant is) "
+                f"failed the test command (rc={null_proc.returncode}) although the original bytes passed, "
+                "so kills could come from byte or format changes rather than removed guards. "
+                f"Remove byte or format pins on the target (hashes, formatter or lint checks) from --test-cmd: {null_tail}",
+            )
+
         results: list[dict[str, Any]] = []
         killed = 0
         survivors: list[dict[str, Any]] = []
 
-        for site in sites:
-            mutated_code = apply_single_mutation(source, site)
-            tmp_target.write_text(mutated_code, encoding="utf-8", newline="\n")
+        if effective_workers == 1:
+            for site in sites:
+                mutated_code = apply_single_mutation(source, site)
+                tmp_target.write_text(mutated_code, encoding="utf-8", newline="\n")
+                try:
+                    proc = subprocess.run(cmd, cwd=str(tmp_root), env=child_env, capture_output=True, timeout=timeout, check=False)
+                    is_killed = proc.returncode != 0
+                    rc = proc.returncode
+                except subprocess.TimeoutExpired:
+                    is_killed = True
+                    rc = -9
+
+                entry = {
+                    "id": site.mutant_id,
+                    "kind": site.kind,
+                    "line": site.lineno,
+                    "original": site.original_src,
+                    "mutated": site.mutated_src,
+                    "returncode": rc,
+                    "status": "KILLED" if is_killed else "SURVIVED",
+                }
+                results.append(entry)
+                if is_killed:
+                    killed += 1
+                else:
+                    survivors.append(entry)
+
+                tmp_target.write_text(source, encoding="utf-8", newline="\n")
+        else:
+            # Materialize per-worker isolated copies inside the RAM/temp snap dir so every
+            # sibling file retains independent inode semantics (`st_nlink == 1`).
+            slots: list[tuple[Path, Path]] = [(tmp_root, tmp_target)]
+            for slot_i in range(1, effective_workers):
+                slot_root = snap_dir / f"slot_{slot_i}"
+                try:
+                    shutil.copytree(tmp_root, slot_root)
+                except OSError as exc:
+                    # Each slot is a full copy of work_root into RAM-backed /dev/shm
+                    # (or the tempdir fallback); with many workers on a large work_root
+                    # this can hit ENOSPC. Fail closed with a structured error instead of
+                    # a raw traceback; the finally below still removes snap_dir.
+                    raise AletheiaError(
+                        "SNAP_COPY_FAILED",
+                        f"failed to replicate work_root into worker slot {slot_root} (workers={effective_workers}): {exc}",
+                    ) from exc
+                slots.append((slot_root, slot_root / rel_target))
+
+            mutated_sources = [apply_single_mutation(source, site) for site in sites]
+            slot_pool: queue.Queue[int] = queue.Queue()
+            for slot_i in range(effective_workers):
+                slot_pool.put(slot_i)
+
+            def _eval_one(idx: int, site: MutantSite, mutated_code: str) -> tuple[int, dict[str, Any]]:
+                slot_i = slot_pool.get()
+                s_root, s_target = slots[slot_i]
+                try:
+                    s_target.write_text(mutated_code, encoding="utf-8", newline="\n")
+                    try:
+                        proc = subprocess.run(cmd, cwd=str(s_root), env=child_env, capture_output=True, timeout=timeout, check=False)
+                        is_killed = proc.returncode != 0
+                        rc = proc.returncode
+                    except subprocess.TimeoutExpired:
+                        is_killed = True
+                        rc = -9
+                    finally:
+                        s_target.write_text(source, encoding="utf-8", newline="\n")
+                finally:
+                    slot_pool.put(slot_i)
+
+                return idx, {
+                    "id": site.mutant_id,
+                    "kind": site.kind,
+                    "line": site.lineno,
+                    "original": site.original_src,
+                    "mutated": site.mutated_src,
+                    "returncode": rc,
+                    "status": "KILLED" if is_killed else "SURVIVED",
+                }
+
+            indexed_results: list[tuple[int, dict[str, Any]]] = []
+            with ThreadPoolExecutor(max_workers=effective_workers) as pool:
+                futs = [
+                    pool.submit(_eval_one, idx, site, mcode)
+                    for idx, (site, mcode) in enumerate(zip(sites, mutated_sources))
+                ]
+                for fut in as_completed(futs):
+                    indexed_results.append(fut.result())
+
+            indexed_results.sort(key=lambda pair: pair[0])
+            for _, entry in indexed_results:
+                results.append(entry)
+                if entry["status"] == "KILLED":
+                    killed += 1
+                else:
+                    survivors.append(entry)
+    finally:
+        if _prev_sigterm is not None:
             try:
-                proc = subprocess.run(cmd, cwd=str(tmp_root), capture_output=True, timeout=timeout, check=False)
-                is_killed = proc.returncode != 0
-                rc = proc.returncode
-            except subprocess.TimeoutExpired:
-                is_killed = True
-                rc = -9
-
-            entry = {
-                "id": site.mutant_id,
-                "kind": site.kind,
-                "line": site.lineno,
-                "original": site.original_src,
-                "mutated": site.mutated_src,
-                "returncode": rc,
-                "status": "KILLED" if is_killed else "SURVIVED",
-            }
-            results.append(entry)
-            if is_killed:
-                killed += 1
-            else:
-                survivors.append(entry)
-
-            tmp_target.write_text(source, encoding="utf-8", newline="\n")
+                signal.signal(signal.SIGTERM, _prev_sigterm)
+            except (ValueError, OSError):
+                pass
+        # Best-effort cleanup: a mutant run can leave read-only files inside a slot,
+        # and rmtree without ignore_errors would raise PermissionError and mask the
+        # real verdict/results above. The SIGTERM handler above makes interrupts run
+        # this finally instead of exiting rc=143 and leaking the snap.
+        shutil.rmtree(snap_dir, ignore_errors=True)
 
     total = len(sites)
     kill_rate = round(100.0 * killed / total, 2) if total > 0 else 0.0
@@ -718,6 +1394,7 @@ def run_mutation_suite(
         "target": str(target),
         "test_cmd": test_cmd,
         "self_check_mode": self_check_mode,
+        "null_mutant": "passed",
         "local_wrappers_detected": local_wrappers,
         "imported_wrappers_detected": imported_wrappers,
         "explicit_guards": explicit_guards,
