@@ -790,7 +790,8 @@ class TestLean4AndAuditRootHardening(unittest.TestCase):
                 f"wrong R10 findings for {label}: got {res_r10['findings']}, want {exp_findings}",
             )
 
-        # Clean R10 non-FP controls (exact boundaries for panic!, dbg_trace.*/', println!, Macro.trace, trace, prefix.*/notation', meta identifiers)
+        # Clean R10 non-FP controls (exact boundaries for dbg_trace.*/', println!, Macro.trace, trace, prefix.*/notation', meta identifiers;
+        # standalone panic! is always flagged LEAN4_DBG_FFI_ESCAPE by policy, so it has no clean control here)
         for ok_r10 in (
             'def f := dbg_trace.foo "{sorry}"\n',
             "def f := dbg_trace' \"{sorry}\"\n",
@@ -1133,6 +1134,21 @@ class TestLean4AndAuditRootHardening(unittest.TestCase):
             [f["code"] for f in res_not_tm["findings"]] == ["LEAN4_META_SYNTAX_ESCAPE"],
             f"notation™ must not trigger LEAN4_SYNTAX_QUOTE_TOKEN: {res_not_tm['findings']}",
         )
+
+        # Documented fail-closed policies (review 6058102250 Lows 4-5): guillemet identifiers spelling a
+        # forbidden token are flagged even as declaration names, and panic! is flagged glued or spaced,
+        # always as exactly one LEAN4_DBG_FFI_ESCAPE (never an extra LEAN4_UNKNOWN_BANG_STRING).
+        for policy_src, policy_exp in (
+            ("def «sorry» : Nat := 1\n", [("LEAN4_SORRY", 1)]),
+            ("def «admit» : Nat := 1\n", [("LEAN4_ADMIT", 1)]),
+            ('def a : Nat := panic!"x"\n', [("LEAN4_DBG_FFI_ESCAPE", 1)]),
+            ('def a : Nat := panic! "x"\n', [("LEAN4_DBG_FFI_ESCAPE", 1)]),
+        ):
+            res_pol = audit_lean4_source(policy_src)
+            _req(
+                [(f["code"], f["line"]) for f in res_pol["findings"]] == policy_exp,
+                f"documented policy changed for {policy_src!r}: got {res_pol['findings']}, want {policy_exp}",
+            )
 
         # Anti-ReDoS linear-time guard for R13 (including long ident + prime run & scientific literals)
         for r13_redos, exp_clean in (
@@ -1520,6 +1536,17 @@ class TestGatesV2CanonicalAndDepthHardening(unittest.TestCase):
         with self.assertRaises(AletheiaError) as cm_2k:
             g2._verify_no_floats(deep_2000)
         _req(cm_2k.exception.code == "MAX_DEPTH_EXCEEDED", f"wrong code at depth 2000: {cm_2k.exception.code}")
+
+        # Documented precedence (review 6058102250 Low 6): a float at the depth bound is FLOAT_FORBIDDEN,
+        # one level past it is MAX_DEPTH_EXCEEDED (the depth check runs before the type check); both reject.
+        float_at_bound: object = 0.5
+        for _ in range(g2.MAX_CONTAINER_DEPTH):
+            float_at_bound = [float_at_bound]
+        with self.assertRaisesRegex(ValueError, "FLOAT_FORBIDDEN"):
+            g2._verify_no_floats(float_at_bound)
+        with self.assertRaises(AletheiaError) as cm_fdeep:
+            g2._verify_no_floats([float_at_bound])
+        _req(cm_fdeep.exception.code == "MAX_DEPTH_EXCEEDED", f"wrong code for float past bound: {cm_fdeep.exception.code}")
 
         # Float detection across dict keys, dict values, lists, and tuples
         for bad_float in ({0.5: 1}, {"k": 0.5}, [0.5], (0.5,)):

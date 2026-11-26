@@ -187,6 +187,14 @@ def _fmt_q(value: Fraction) -> str:
 
 
 def _verify_no_floats(obj: object) -> None:
+    """Reject any float in a nested dict/list/tuple, walking at most MAX_CONTAINER_DEPTH levels.
+
+    Error precedence (both outcomes reject the input): an item deeper than MAX_CONTAINER_DEPTH
+    raises AletheiaError("MAX_DEPTH_EXCEEDED") when it is reached, before its type is examined,
+    so a float nested more than 64 levels deep reports MAX_DEPTH_EXCEEDED, not FLOAT_FORBIDDEN.
+    The walk is depth-first and stops at the first violation, so an input holding both a shallow
+    float and an over-deep branch reports whichever of the two the walk reaches first.
+    """
     stack: list[tuple[object, int]] = [(obj, 0)]
     while stack:
         item, depth = stack.pop()

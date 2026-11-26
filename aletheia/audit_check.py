@@ -696,6 +696,12 @@ _LEAN4_HARD_LINE_RULES: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"\bLean\.ofReduceBool\b|\bofReduceBool\b"), "LEAN4_OF_REDUCE_BOOL"),
     (re.compile(r"\bLean\.ofReduceNat\b|\bofReduceNat\b"), "LEAN4_OF_REDUCE_NAT"),
     (re.compile(r"\bLean\.trustCompiler\b|\btrustCompiler\b"), "LEAN4_TRUST_COMPILER"),
+    # `panic!` policy: every standalone `panic!` / `unreachable!` is flagged `LEAN4_DBG_FFI_ESCAPE`,
+    # whether glued to its string (`panic!"msg"`) or spaced (`panic! "msg"`, `panic! (e)`). This is
+    # deliberate: verified sources have no reason to call the impure panic path. There is no
+    # "0 FP on panic!" exemption; the lexer's `panic!"` special case in `_strip_lean4_with_report`
+    # only suppresses the extra `LEAN4_UNKNOWN_BANG_STRING` lex issue, so `panic!"..."` yields this
+    # single finding and its argument is lexed as a plain (non-interpolated) string.
     (
         re.compile(
             r"\b(?:dbgTrace|dbgTraceVal|dbgTraceIfShared|dbgSleep|dbgStackTrace|"
@@ -1120,6 +1126,9 @@ def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
                 pending_interp = False
             else:
                 if in_ident and source[i - 1] == "!":
+                    # Standalone `panic!"` takes a plain string, so it is not an unknown bang-string.
+                    # This does not exempt `panic!` itself: `_LEAN4_HARD_LINE_RULES` still reports it
+                    # as `LEAN4_DBG_FFI_ESCAPE` (see the `panic!` policy comment there).
                     is_panic = (
                         i >= 6
                         and source[i - 6 : i] == "panic!"
@@ -1141,6 +1150,8 @@ def _strip_lean4_with_report(source: str) -> tuple[str, list[dict[str, Any]]]:
                 out.append("\n" * source.count("\n", i))
                 break
             inner = source[i + 1 : end_g]
+            # Simple ASCII `«ident»` is kept so `audit_lean4_source` can normalize it to `ident`
+            # (fail-closed: `«sorry»` is then reported even as a declaration name).
             if _LEAN4_SIMPLE_GUILLEMET_INNER_RE.match(inner) is not None and inner != "axioms":
                 out.append(source[i : end_g + 1])
             else:
@@ -1275,8 +1286,17 @@ def audit_lean4_source(
         kernel-proved `@[csimp]` rewrites + `ExistsImplication` / vacuous signatures as notices
       - Parses Lean 4.22 `(public|private|meta)? import` with optional `allow_project_imports`
         and `forbidden_import_prefixes` (enforcing Spec -/-> Proof isolation)
+    Fail-closed choices that can flag legal Lean (by design, documented):
+      - Guillemet identifiers are normalized, so `def «sorry» : Nat := 1` reports `LEAN4_SORRY`.
+      - Every `panic!` / `unreachable!` reports `LEAN4_DBG_FFI_ESCAPE`, glued (`panic!"m"`) or spaced.
+      - `syntax` / `macro` / `notation` and friends report `LEAN4_META_SYNTAX_ESCAPE` wholesale.
     """
     cleaned, unterminated = _strip_lean4_with_report(source)
+    # Guillemet normalization (`«native»` -> `native`) so escaped keywords cannot dodge the rules.
+    # Known fail-closed false positive: a legal escaped identifier that spells a forbidden token,
+    # such as `def «sorry» : Nat := 1` or `«admit»`, is reported (`LEAN4_SORRY` / `LEAN4_ADMIT`).
+    # This is kept on purpose: telling a declaration name apart from a use of the term would need
+    # name resolution, which a static scan cannot do, so the scan rejects rather than guesses.
     cleaned = _LEAN4_GUILLEMET_IDENT_RE.sub(r"\1", cleaned)
     findings: list[dict[str, Any]] = list(unterminated)
     notices: list[dict[str, Any]] = []
