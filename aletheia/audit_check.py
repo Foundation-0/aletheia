@@ -31,7 +31,7 @@ import subprocess
 import sys
 from typing import Any, Mapping, Sequence
 
-from .safety import scan_directory_safety_surface
+from .safety import MAX_SCAN_FILE_BYTES, scan_directory_safety_surface, validate_max_file_bytes
 from .strict_io import (
     AletheiaError,
     canonical_sha256_bytes,
@@ -1630,6 +1630,7 @@ def run_audit_check(
     data_commit: str | None = None,
     safety_scan: bool = False,
     include_host_hygiene: bool = False,
+    safety_max_file_bytes: int | None = None,
     allow_symlinks: bool = False,
     outside_rulings: Path | None = None,
     strict_novelty: bool = False,
@@ -1640,7 +1641,17 @@ def run_audit_check(
     `outside_rulings` (an `outside_observer.rulings.v1` file) and `strict_novelty` feed the novelty
     status of `VERIFIED` `N2` ledger rows (see `validate_audit_log_markdown`): whether a second pass
     (a `G10` entry or an outside ruling) is on record, not what it decided. Both need a ledger.
+
+    `safety_max_file_bytes` overrides the `--safety-scan` per-file byte cap (default
+    `MAX_SCAN_FILE_BYTES`); it must be a strict positive int and requires `safety_scan=True`.
     """
+    if safety_max_file_bytes is not None:
+        validate_max_file_bytes(safety_max_file_bytes)
+        require_ok(
+            safety_scan,
+            "SAFETY_MAX_BYTES_WITHOUT_SCAN",
+            "safety_max_file_bytes / --safety-max-file-bytes requires --safety-scan",
+        )
     root = target_path.resolve()
     require_ok(root.exists(), "TARGET_NOT_FOUND", f"target path does not exist: {root}")
     root_mode = os.stat(root).st_mode
@@ -1811,7 +1822,11 @@ def run_audit_check(
     # Optional v2.0 deterministic static agent-safety scanner (CYA-GAP-01..06, --safety-scan)
     safety_report: dict[str, Any] | None = None
     if safety_scan:
-        safety_report = scan_directory_safety_surface(root, include_host_hygiene=include_host_hygiene)
+        safety_report = scan_directory_safety_surface(
+            root,
+            include_host_hygiene=include_host_hygiene,
+            max_file_bytes=MAX_SCAN_FILE_BYTES if safety_max_file_bytes is None else safety_max_file_bytes,
+        )
 
     fatal_findings = [f for f in path_findings if not (allow_symlinks and f["code"] in _SYMLINK_CODES)]
     non_regular_count = sum(1 for f in path_findings if f["code"] == "NON_REGULAR_FILE")

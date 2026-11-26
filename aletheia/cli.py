@@ -32,10 +32,20 @@ from .installer import VALID_TARGETS, install_adapter
 from .mde import build_aletheia_mde_manifest, run_mde_demo, verify_lineage_dag_file
 from .mutator import run_mutation_suite
 from .ratchet import run_ratchet_demo, verify_ratchet_ledger_file
-from .safety import scan_directory_safety_surface
+from .safety import MAX_SCAN_FILE_BYTES, parse_max_file_bytes_arg, scan_directory_safety_surface
 from .scaffold import init_workspace
 from .strict_io import AletheiaError
 from .twin_check import format_twin_table, resolve_contract_path, resolve_roots, run_twin_check
+
+
+def _max_file_bytes_type(text: str) -> int:
+    """argparse `type=` for byte caps: strict ASCII positive int (see `safety.parse_max_file_bytes_arg`)."""
+    try:
+        return parse_max_file_bytes_arg(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError(
+            f"expected a positive decimal integer (ASCII digits, no sign/spaces/underscores/leading zero), got {text!r}"
+        ) from None
 
 
 def _emit(payload: dict[str, Any], as_json: bool) -> None:
@@ -127,6 +137,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_aud.add_argument("--data-commit", default=None, help="Explicit data/audit commit SHA for --prereg-check")
     p_aud.add_argument("--safety-scan", action="store_true", help="Run CYA-GAP-01..05 deterministic agent safety-surface scan")
     p_aud.add_argument("--include-host-hygiene", action="store_true", help="Include CYA-GAP-06 host-hygiene rules when using --safety-scan")
+    p_aud.add_argument("--safety-max-file-bytes", type=_max_file_bytes_type, default=None, metavar="N", help=f"Per-file byte cap for --safety-scan (default {MAX_SCAN_FILE_BYTES}); larger files are skipped and fail closed. Requires --safety-scan")
     p_aud.add_argument("--allow-symlinks", action="store_true", help="Downgrade SYMLINK_DIR, SYMLINK_OUTSIDE_ROOT and BROKEN_SYMLINK path findings to non-fatal (default: fail closed). NON_REGULAR_FILE and UNREADABLE_FILE stay fatal")
     p_aud.add_argument("--outside-rulings", type=Path, default=None, help="outside_observer.rulings.v1 JSON (e.g. cave-expedition verification/outside/rulings.json): a VERIFIED N2 row that it does not name and that lists no G10 gets novelty status NOT_SHOWN")
     p_aud.add_argument("--strict-novelty", action="store_true", help="Treat N2_NOVELTY_NOT_SHOWN (VERIFIED N2 row with no G10 and no outside ruling) as an error")
@@ -204,6 +215,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_saf = sub.add_parser("safety-scan", help="Scan a file or directory for CYA-GAP-01..06 agent safety-surface hazards")
     p_saf.add_argument("path", type=Path, help="File or directory to scan")
     p_saf.add_argument("--include-host-hygiene", action="store_true", help="Include CYA-GAP-06 alias-rm and cloud-sync rules")
+    p_saf.add_argument("--max-file-bytes", type=_max_file_bytes_type, default=MAX_SCAN_FILE_BYTES, metavar="N", help=f"Per-file byte cap (default {MAX_SCAN_FILE_BYTES}); larger files are skipped and fail closed")
     p_saf.add_argument("--json", action="store_true", help="Emit JSON output")
 
     # 12. twin-check (machine-checked coupling with the sibling cave-expedition repo)
@@ -247,6 +259,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 data_commit=args.data_commit,
                 safety_scan=args.safety_scan,
                 include_host_hygiene=args.include_host_hygiene,
+                safety_max_file_bytes=args.safety_max_file_bytes,
                 allow_symlinks=args.allow_symlinks,
                 outside_rulings=args.outside_rulings,
                 strict_novelty=args.strict_novelty,
@@ -342,7 +355,11 @@ def main(argv: Sequence[str] | None = None) -> int:
 
         if args.command == "safety-scan":
             try:
-                res = scan_directory_safety_surface(args.path, include_host_hygiene=args.include_host_hygiene)
+                res = scan_directory_safety_surface(
+                    args.path,
+                    include_host_hygiene=args.include_host_hygiene,
+                    max_file_bytes=args.max_file_bytes,
+                )
             except (ValueError, OSError) as exc:
                 raise AletheiaError("SAFETY_SCAN_ERROR", str(exc)) from exc
             _emit(res, as_json)
