@@ -1344,6 +1344,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     protocol: dict[str, Any] = {
         "schema": "aletheia.track_s108.locked_protocol.v1",
         "harness_interpreter": f"CPython {platform.python_version()}",
+        "mlos_interpreter": os.environ.get(
+            "MLOS_PYTHON_INTERPRETER",
+            f"CPython {platform.python_version()} (mlos receipt interpreter)",
+        ),
         "created_utc": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "parent_preregistration_sha256": ops.PREREG_S108_SHA256,
         "amendment1_sha256": ops.AMENDMENT1_SHA256,

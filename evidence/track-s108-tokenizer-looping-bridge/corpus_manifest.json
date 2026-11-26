@@ -1,104 +1,1175 @@
 {
- "domains": {
-  "abios_calculus": {
-   "bpe4096_bytes_per_tok": 3.076,
-   "eval_bytes": 87381,
-   "reason": "publish/abios-wire-lists-lossless-fix exists in none of the 4 repos and not on this workstation; no per-file list can be published; the recorded split_sha256 remains the lab value",
-   "rebuildable_on_audit_workstation": false,
-   "source": "ABIOS/3 specs, schemas and SYM-2P JSONL agent traces (104 files: 78 train / 26 eval, i % 4 == 3 held out)",
-   "source_files": null,
-   "source_files_note": "Per-file path/bytes/sha256 cannot be published: the run-time file set is not recoverable from any repo (see `reason`); only the aggregate split_sha256 is recorded. The exact extraction recipe is in `recipe`/`split_rule`.",
-   "split_rule": "sorted file list; train = files with i % 4 != 3 joined by b'\\n', eval = files with i % 4 == 3; each split UTF-8-snapped to 262144 / 87381 B; split_sha256 = sha256(train + b'\\x00' + eval)",
-   "split_sha256": "2773d7b08fba76f5e43b61a20b066b1fe38a8f8d03fbaa964d2cbf1dc1d6c835",
-   "train_bytes": 262144
-  },
-  "arabic": {
-   "bpe4096_bytes_per_tok": 2.238,
-   "eval_bytes": 87381,
-   "reason": "publish/bayt-al-hikma resolves nowhere in the 4 repos; the local expedition copy (10 files) hashes to a different split digest, so the run-time file set is not recoverable \u2014 the recorded split_sha256 remains the lab value; per-file hashes above are of the currently available tree",
-   "rebuildable_on_audit_workstation": false,
-   "source": "bayt-al-hikma markdown/JSON reports + 68 .lean files (i % 4 == 3 held out for eval); NOT the prereg's S92 Classical Arabic (out-of-band substitution, deviation D4)",
-   "source_file_count": 10,
-   "source_files": [
-    {
-     "bytes": 9086,
-     "path": "publish/bayt-al-hikma/PREREGISTERED_HYPOTHESES.md",
-     "sha256": "a28633cb95e66f6b8eb5e1d7cb9224f0ac95ad7aa191edbe8e5532cb08b2468d"
+  "schema": "aletheia.track_s108.corpus_manifest.v1",
+  "note": "Complete per-file manifest (relative path, split assignment, byte length, and SHA-256) for all 4 domains in the 51-run gpu-full evaluation. Both python (CPython 3.12.10/11/12 Lib/) and abios_calculus (public Moissanite-Labs/abios@753300553abd60ceca37915cb016996229ac0a13, 104 files) rebuild byte-exact from public repositories; english rebuilds from HuggingFace wikitext/wikitext-2-v1 (per-file SHA-256s below); arabic lists all 78 exact run-time files (10 from public Foundation-0/bayt-al-hikma@15d48261df82fe010a9731c6cc174001c34f9284 + 68 .lean files) whose split_rule concatenation reproduces split_sha256 byte-exact. gpu-full mode fails closed (CORPUS_SOURCE_MISSING) when any local source is absent.",
+  "harness_interpreter": "CPython 3.12.x (digest-proven: python-domain split sha256 eb47ed59b433... rebuilds byte-exact on CPython 3.12.10/11/12, not on 3.14.8)",
+  "mlos_receipt_interpreter": "CPython 3.14.8",
+  "domains": {
+    "english": {
+      "source": "HuggingFace dataset 'wikitext', config 'wikitext-2-v1' (validation split -> train, test split -> eval)",
+      "train_bytes": 262144,
+      "eval_bytes": 87381,
+      "split_sha256": "c7767b125fd4d942054a261bda43a18f5ec7f92330ae0987b1c5e63f08b6f384",
+      "bpe4096_bytes_per_tok": 3.012,
+      "rebuildable_from_public_source": true,
+      "source_file_count": 2,
+      "source_files": [
+        {
+          "path": "hf_cache/s49b_eval/wikitext2_val.txt",
+          "split": "train",
+          "bytes": 1146708,
+          "sha256": "93abc2e0cd803097893a176fd0de13e75c77a1414c5e64af7bbcf705068938c5"
+        },
+        {
+          "path": "hf_cache/s49b_eval/wikitext2_test.txt",
+          "split": "eval",
+          "bytes": 1290546,
+          "sha256": "430983e5a711fbc4c6576edffecacf47ff23d58f62f3923d2386d798e0a794c9"
+        }
+      ],
+      "recipe": "Load HuggingFace dataset 'wikitext', config 'wikitext-2-v1' (parquet splits validation and test); save validation text as wikitext2_val.txt (1,146,708 B, sha256 93abc2e0cd80...) and test text as wikitext2_test.txt (1,290,546 B, sha256 430983e5a711...); train = _snap_utf8_slice(val, 0, 262144), eval = _snap_utf8_slice(test, 0, 87381); split_sha256 = sha256(train + b'\\x00' + eval). (Note: raw wikitext-2-raw-v1 zip differs; processed wikitext-2-v1 splits match the hashes above.)"
     },
-    {
-     "bytes": 19921,
-     "path": "publish/bayt-al-hikma/README.md",
-     "sha256": "ce4032a849d821a61aff98b66ef78374ed20e5e517b243b77db9b00a7a35622f"
+    "python": {
+      "source": "CPython 3.12 stdlib Lib/ modules, strictly file-disjoint (5 train vs 4 eval)",
+      "public_repo_pin": "python/cpython@v3.12.12 (identical across v3.12.10, v3.12.11, v3.12.12)",
+      "train_bytes": 262144,
+      "eval_bytes": 87381,
+      "split_sha256": "eb47ed59b433f743048487d61734377947b64845ca29bffa247010d029ede340",
+      "bpe4096_bytes_per_tok": 3.294,
+      "rebuildable_on_audit_workstation": true,
+      "source_file_count": 9,
+      "train_modules": [
+        "Lib/ast.py",
+        "Lib/fractions.py",
+        "Lib/decimal.py",
+        "Lib/inspect.py",
+        "Lib/difflib.py"
+      ],
+      "eval_modules": [
+        "Lib/json/decoder.py",
+        "Lib/json/encoder.py",
+        "Lib/argparse.py",
+        "Lib/unittest/case.py"
+      ],
+      "recipe": "Join train_modules in listed order with b'\\n' and UTF-8-snap [0:262144]; join eval_modules in listed order with b'\\n' and UTF-8-snap [0:87381]; split_sha256 = sha256(train + b'\\x00' + eval)."
     },
-    {
-     "bytes": 12616,
-     "path": "publish/bayt-al-hikma/arabic-continuum/ARABIC_CONTINUUM_AUDIT_REPORT.md",
-     "sha256": "e809204ecde8a0f6fd93b36f18e615552a6f348961ec62d2c7a55038306268a6"
+    "arabic": {
+      "source": "10 markdown/JSON files from public Foundation-0/bayt-al-hikma@15d48261df82fe010a9731c6cc174001c34f9284 + 68 .lean files (78 files total: 59 train / 19 eval, i % 4 == 3 held out; deviation D4 from prereg S92)",
+      "public_repo_pin_part1": "Foundation-0/bayt-al-hikma@15d48261df82fe010a9731c6cc174001c34f9284",
+      "train_bytes": 262144,
+      "eval_bytes": 87381,
+      "split_sha256": "6d5afa8819f4520f7e1e738554871d35c196ee5a88da17b9a6acd22ac008e9a5",
+      "bpe4096_bytes_per_tok": 2.238,
+      "rebuildable_on_audit_workstation": false,
+      "reason": "First 10 files resolve byte-exact in public Foundation-0/bayt-al-hikma@15d48261df82; several of the 68 expedition .lean files live in unmerged/local tracks, so all 78 run-time per-file relative paths, byte counts, and SHA-256s are published below.",
+      "source_file_count": 78,
+      "split_rule": "Concatenate bayt-al-hikma sorted (.md, .json) list (10 files) followed by sorted track-s*/**/*.lean list (68 files) -> 78 files; train = files with i % 4 != 3 joined by b'\\n', eval = files with i % 4 == 3 joined by b'\\n'; UTF-8-snap to 262144 / 87381 B; split_sha256 = sha256(train + b'\\x00' + eval).",
+      "source_files": [
+        {
+          "path": "publish/bayt-al-hikma/PREREGISTERED_HYPOTHESES.md",
+          "split": "train",
+          "bytes": 9086,
+          "sha256": "a28633cb95e66f6b8eb5e1d7cb9224f0ac95ad7aa191edbe8e5532cb08b2468d"
+        },
+        {
+          "path": "publish/bayt-al-hikma/README.md",
+          "split": "train",
+          "bytes": 19921,
+          "sha256": "ce4032a849d821a61aff98b66ef78374ed20e5e517b243b77db9b00a7a35622f"
+        },
+        {
+          "path": "publish/bayt-al-hikma/arabic-continuum/ARABIC_CONTINUUM_AUDIT_REPORT.md",
+          "split": "train",
+          "bytes": 12616,
+          "sha256": "e809204ecde8a0f6fd93b36f18e615552a6f348961ec62d2c7a55038306268a6"
+        },
+        {
+          "path": "publish/bayt-al-hikma/arabic-continuum/arabic_continuum_certificate.json",
+          "split": "eval",
+          "bytes": 21058,
+          "sha256": "7081c463ad8ce4cce12f61f29f31f0f4741bbbfb4d43d85824622bcc62ac9069"
+        },
+        {
+          "path": "publish/bayt-al-hikma/arabic-lexicon/ARABIC_LEXICON_TOPOLOGY_REPORT.md",
+          "split": "train",
+          "bytes": 9069,
+          "sha256": "5b3527d80a5b5bc18500973a74bd02693ca7d72dd92deeb506a4ddb349fd7d52"
+        },
+        {
+          "path": "publish/bayt-al-hikma/arabic-lexicon/arabic_lexicon_certificate.json",
+          "split": "train",
+          "bytes": 21659,
+          "sha256": "96d855fac3d017f716adf67f4d8af1a6eb8b620372b93ae5a945ee6a1da62586"
+        },
+        {
+          "path": "publish/bayt-al-hikma/polymath-lineage/BAYT_AL_HIKMA_POLYMATH_REPORT.md",
+          "split": "train",
+          "bytes": 14237,
+          "sha256": "309164abf64ea1a4bb4555f258197e72c439a06778c7d0cac42075bf1805e1b4"
+        },
+        {
+          "path": "publish/bayt-al-hikma/polymath-lineage/bayt_al_hikma_polymath_certificate.json",
+          "split": "eval",
+          "bytes": 10013,
+          "sha256": "76fac8902c7f34a92f309f463a8f584bbc1d26e336791819f0adc722778a2688"
+        },
+        {
+          "path": "publish/bayt-al-hikma/veins-and-branches/BAYT_AL_HIKMA_VEINS_AND_BRANCHES_REPORT.md",
+          "split": "train",
+          "bytes": 13597,
+          "sha256": "c016bb3f0d8a13128904147390f4dc9952bd8ec89b00b24c4f5d4f896290bef9"
+        },
+        {
+          "path": "publish/bayt-al-hikma/veins-and-branches/bayt_al_hikma_veins_certificate.json",
+          "split": "train",
+          "bytes": 9547,
+          "sha256": "236c165d9130cfca5565f57a553cdf5eb69b786a6850efda7d2239b6f99e5714"
+        },
+        {
+          "path": "track-s100-tokenpage-abios-scry-and-m1max-handoff/TokenpageAbiosHandoff.lean",
+          "split": "train",
+          "bytes": 37721,
+          "sha256": "f2300ddf230a3792f59532574dfe6f96aed34c2cd4658b1d02b2fb6fffd9699e"
+        },
+        {
+          "path": "track-s101-bend2-ptx-loom-compiler-tomography/CompilerAndLoomTomography.lean",
+          "split": "eval",
+          "bytes": 22874,
+          "sha256": "9aa1cdc0595a786d8eae8def400ff4e7c4776fa345337864b68d778e3376f427"
+        },
+        {
+          "path": "track-s102-drosophila-malecns-connectome/DrosophilaConnectomeOperators.lean",
+          "split": "train",
+          "bytes": 20838,
+          "sha256": "144440b279d640ffeb32ad1f432339cef7840015892aee5469e30896ca5877a1"
+        },
+        {
+          "path": "track-s103-exoplanets-frontier-audit/ExoplanetsFrontierOperators.lean",
+          "split": "train",
+          "bytes": 23248,
+          "sha256": "6359ee54c2e7fc8592f06b75a419177193fe799df6a6f3ad2427e8d6bb247c55"
+        },
+        {
+          "path": "track-s104-kronecker-factored-embeddings-and-triple-gate/KroneckerFactoredEmbeddings.lean",
+          "split": "train",
+          "bytes": 22558,
+          "sha256": "292b1593d433616b22a309aae12487a11ce1aef3ebc5269f99fc652a5463a740"
+        },
+        {
+          "path": "track-s105-dual-chow-matroid-tomography/DualChowMatroidTomography.lean",
+          "split": "eval",
+          "bytes": 20907,
+          "sha256": "71f98cb504814ee8baddb33d94e75172e4278b8f2f32dbe128e9937f95b5f2b4"
+        },
+        {
+          "path": "track-s106-sphere-denom-pi-forces/formal_and_physics/SphereDenomPiOperators.lean",
+          "split": "train",
+          "bytes": 31902,
+          "sha256": "3184a96268417396b9583bdecfca941a0b2489f57a5eac7f47939e73cab4908d"
+        },
+        {
+          "path": "track-s110-geosphere-weft-conservation/GeosphereWeftConservation.lean",
+          "split": "train",
+          "bytes": 79093,
+          "sha256": "1c0ed76de3eb6fe55e5f3e618a2ea12433ce4ffe4efe158af0a769bac5733fa8"
+        },
+        {
+          "path": "track-s112-natural-systems-stage-b-lean/NaturalSystemsConservation.lean",
+          "split": "train",
+          "bytes": 94542,
+          "sha256": "0f2accb66c6beed16cde96b9b11fdbfbae7d27a5e23bb4070de4835abf65090b"
+        },
+        {
+          "path": "track-s48-lean4-kernel-certified-bridge/AletheiaKernelCerts/Theorem1_HammingF64.lean",
+          "split": "eval",
+          "bytes": 11518,
+          "sha256": "3389bff715bbb2aaede334e43c1930315d0675150ae56ab939630d263c356a2d"
+        },
+        {
+          "path": "track-s48-lean4-kernel-certified-bridge/AletheiaKernelCerts/Theorem2_BlockH2Int8.lean",
+          "split": "train",
+          "bytes": 13480,
+          "sha256": "b28a53bc95cef25b72bc56737212f4146d63c0256906f1aaac8f116e389fdb27"
+        },
+        {
+          "path": "track-s48-lean4-kernel-certified-bridge/AletheiaKernelCerts/Theorem3_CS01BlindWindow.lean",
+          "split": "train",
+          "bytes": 3746,
+          "sha256": "c3cdd902bf000596bcd22e1e7e9cf100361fb6518662206ed6a0967ce22123b4"
+        },
+        {
+          "path": "track-s48-lean4-kernel-certified-bridge/AletheiaKernelCerts/Theorem4_CS21Landauer.lean",
+          "split": "train",
+          "bytes": 5386,
+          "sha256": "63ee34fdb0d1894be3d65ff0528dcd5af449027d1eacf1ff59b7ed8468c3172f"
+        },
+        {
+          "path": "track-s48-lean4-kernel-certified-bridge/AletheiaKernelCerts/Theorem5_PolyaFermatSextic.lean",
+          "split": "eval",
+          "bytes": 12145,
+          "sha256": "afc819355de9609bb9a617a63e4c11398c3e6ae84a2ebbd1dafa5940b5e9cc5b"
+        },
+        {
+          "path": "track-s54-silq-cs21-boundary-compiler/SilqCS21Boundary.lean",
+          "split": "train",
+          "bytes": 11742,
+          "sha256": "0eadcefe247c0ef526b9814b62541641508515a488826a4bf86e6b7b527b0554"
+        },
+        {
+          "path": "track-s55-modular-cert-compressor-lean4/ModularCertSoundness.lean",
+          "split": "train",
+          "bytes": 8043,
+          "sha256": "b5990eaf048919d3e77c037f3cf68067cbf2fd931c93422692256f6448546148"
+        },
+        {
+          "path": "track-s57-lean4-wave2-kernel-certs/Wave2KernelCerts/Theorem1_BallF64CauchySchwarz.lean",
+          "split": "train",
+          "bytes": 11568,
+          "sha256": "12fef5dbbc90e53ac38885cb04ada7428bdf59715473137c591ce000885e67cb"
+        },
+        {
+          "path": "track-s57-lean4-wave2-kernel-certs/Wave2KernelCerts/Theorem2_ZeroDWStateTransport.lean",
+          "split": "eval",
+          "bytes": 16161,
+          "sha256": "d575a529ff6102d6669bb3c4cf6fedbb54a3e6eed11ba8a608218e7c7c8adaeb"
+        },
+        {
+          "path": "track-s57-lean4-wave2-kernel-certs/Wave2KernelCerts/Theorem3_SchurMetrologyObstruction.lean",
+          "split": "train",
+          "bytes": 29363,
+          "sha256": "b9d714a414f9d1b9bfacf1fdcf2655fb30671a124ba687558cc05d0fca6af196"
+        },
+        {
+          "path": "track-s59-exact-e8-vs-a16-hadamard-law/E8VsA16HadamardLaw.lean",
+          "split": "train",
+          "bytes": 9358,
+          "sha256": "8b3d71a139e91290bcbe04ab2a01e740482f088a2febfb905d596331a106eaac"
+        },
+        {
+          "path": "track-s62-ceer-lean4-silicon-recursion/CEERSiliconCerts/CEER_Cycle0_Theory.lean",
+          "split": "train",
+          "bytes": 6653,
+          "sha256": "cd045146e520f1c1955c151c4d8e2c4cc162b3f5c2da8af44552356d7e2154e3"
+        },
+        {
+          "path": "track-s62-ceer-lean4-silicon-recursion/CEERSiliconCerts/CEER_Cycle0_Verdict.lean",
+          "split": "eval",
+          "bytes": 4629,
+          "sha256": "354b305ccc6ad64ef2ddb9dedce72345cff702e7a8328813878ccc45d1165eb6"
+        },
+        {
+          "path": "track-s62-ceer-lean4-silicon-recursion/CEERSiliconCerts/CEER_Cycle1_Theory.lean",
+          "split": "train",
+          "bytes": 5345,
+          "sha256": "4cbdd29f991d29a4d4088ed41f9f5044d0289102c6963e4be9bdb4827ed55457"
+        },
+        {
+          "path": "track-s62-ceer-lean4-silicon-recursion/CEERSiliconCerts/CEER_Cycle1_Verdict.lean",
+          "split": "train",
+          "bytes": 5833,
+          "sha256": "75324d91a25c2c4b9299ef1e5654451158d64206763dea8af7b61b4cc3266422"
+        },
+        {
+          "path": "track-s62-ceer-lean4-silicon-recursion/CEERSiliconCerts/CEER_Cycle2_Theory.lean",
+          "split": "train",
+          "bytes": 11086,
+          "sha256": "11d622de1106c537cf31095163b8cbb140f0a0273049c590970f8bf166de519f"
+        },
+        {
+          "path": "track-s62-ceer-lean4-silicon-recursion/CEERSiliconCerts/CEER_Cycle2_Verdict.lean",
+          "split": "eval",
+          "bytes": 9461,
+          "sha256": "2942e35865f8ae3d995ecadb8f03ed5727ed533e5a60602f7892bedeccfc4812"
+        },
+        {
+          "path": "track-s62b-aletheia-ceer-engine/CEER_Cycle0_Verdict.lean",
+          "split": "train",
+          "bytes": 1100,
+          "sha256": "3e4abcb55f8ac48333ba225636096cf4f6d144d76047af4b6f71bf4305068e2b"
+        },
+        {
+          "path": "track-s62b-aletheia-ceer-engine/CEER_Cycle1_Verdict.lean",
+          "split": "train",
+          "bytes": 1161,
+          "sha256": "c202ec9af325d52fd07372d76e019a98d9156115b31a103fa57e5934f1afc525"
+        },
+        {
+          "path": "track-s62b-aletheia-ceer-engine/CEER_Cycle2_Verdict.lean",
+          "split": "train",
+          "bytes": 1502,
+          "sha256": "d5c303dcde5ed11292cdc8dc7219561681bb2fce89be811c73a54eaa54355878"
+        },
+        {
+          "path": "track-s62c-lean4-dissipative-epistemic-foundations/CEERFoundations/Module1_UniversalHysteresisAndConcavity.lean",
+          "split": "eval",
+          "bytes": 12958,
+          "sha256": "11ca0ce15470ce87dcc97e54ab9582b550615da2d26d45f74f2b92323438adb9"
+        },
+        {
+          "path": "track-s62c-lean4-dissipative-epistemic-foundations/CEERFoundations/Module2_UniversalSchurDarkModeDrop.lean",
+          "split": "train",
+          "bytes": 24166,
+          "sha256": "89d280c8b5d4e771f73a0d0da409381aa48498895a68a06646a122fb6922ecd4"
+        },
+        {
+          "path": "track-s62c-lean4-dissipative-epistemic-foundations/CEERFoundations/Module3_UniversalLaplacianThermalCoupling.lean",
+          "split": "train",
+          "bytes": 21160,
+          "sha256": "0ea5bda245895b0b87b3dac6494c207d19f83dfd51a56f46fd112d4daeebdd6c"
+        },
+        {
+          "path": "track-s65-two-way-barrier-and-jensen-compute-unlock/TwoWayTransfer.lean",
+          "split": "train",
+          "bytes": 33865,
+          "sha256": "ba45f37bf96dab5e580df20aa0c656fdfceb59c69f83d2509ff4f89c226d46ca"
+        },
+        {
+          "path": "track-s70-cross-layer-and-sorted-blockh4-lean4/S70FormalTheory/CrossLayerNonAdditivity.lean",
+          "split": "eval",
+          "bytes": 10835,
+          "sha256": "5824341950d2c1d8723d63e65add314de2ee8a692ecd7e6cc85d093d6aff5a08"
+        },
+        {
+          "path": "track-s70-cross-layer-and-sorted-blockh4-lean4/S70FormalTheory/RegimeTriangleMinimax.lean",
+          "split": "train",
+          "bytes": 8588,
+          "sha256": "e56d15d0d65b9bbca5075409945f0113534f2a6b7707fc7a6b30e41e84db1a5b"
+        },
+        {
+          "path": "track-s70-cross-layer-and-sorted-blockh4-lean4/S70FormalTheory/SortedBlockH4Optimality.lean",
+          "split": "train",
+          "bytes": 17080,
+          "sha256": "282226b1ba9d6cf939115dd7b12fabd156413e96f9ff096ff26636bbaf511743"
+        },
+        {
+          "path": "track-s71-proximity-barrier-silicon-unlock/ProximityBarrierSilicon.lean",
+          "split": "train",
+          "bytes": 17642,
+          "sha256": "e65524d00529a2098cb18fb994a6530989a1dfc0c2ce7989bfa9788b873cd7b1"
+        },
+        {
+          "path": "track-s72b-two-level-saddle-point-lean4/S72bFormalTheory/BallBudgetCannibalization.lean",
+          "split": "eval",
+          "bytes": 13339,
+          "sha256": "4a16b1092a754a6d5742c630f47ea6b743df4da1542de87b0594fe390904b41f"
+        },
+        {
+          "path": "track-s72b-two-level-saddle-point-lean4/S72bFormalTheory/CrossLayerInterferenceAndFloatObstruction.lean",
+          "split": "train",
+          "bytes": 9830,
+          "sha256": "ed889b41f96aa912468a69729bf0b9c41de8804c57cdfea969e0ed2218331992"
+        },
+        {
+          "path": "track-s72b-two-level-saddle-point-lean4/S72bFormalTheory/TwoLevelSaddlePoint.lean",
+          "split": "train",
+          "bytes": 14406,
+          "sha256": "b4432a684b0e1bf4a37c41770a43228c358cb0d7572e802c382ad94b0373e26b"
+        },
+        {
+          "path": "track-s73b-heavy-tail-lpt-starvation-lean4/S73bFormalTheory/HeavyTailLPTStarvation.lean",
+          "split": "train",
+          "bytes": 13479,
+          "sha256": "bf9cf6693494b714ba4ecea01fa8bbcbaba182eceefa20fdde9129a947308f15"
+        },
+        {
+          "path": "track-s73b-heavy-tail-lpt-starvation-lean4/S73bFormalTheory/LoadPowerCompressionPhase.lean",
+          "split": "eval",
+          "bytes": 16404,
+          "sha256": "a0242b19bc467d68c436801db0a53718797b450aaf7f256ff7650a77e8fe3caf"
+        },
+        {
+          "path": "track-s73b-heavy-tail-lpt-starvation-lean4/S73bFormalTheory/LowBitrateAmplificationAndPareto.lean",
+          "split": "train",
+          "bytes": 10234,
+          "sha256": "b0ad408f10a7d7f131c3e782581a639fb333a33b07a0c85eef185b914c0135d4"
+        },
+        {
+          "path": "track-s75-vp-vnp-formal-audit/VpVnpMechanismCerts.lean",
+          "split": "train",
+          "bytes": 15663,
+          "sha256": "b33414b53d4cb82c4c2d47513871d9f4cf74d724e44cdd1b1e4f4edbe296fa67"
+        },
+        {
+          "path": "track-s76-circular-pc-loop-schur-holonomy/CircularPCLoopSchur.lean",
+          "split": "train",
+          "bytes": 30046,
+          "sha256": "573c9ce1a8c6b62882554ea7ebbda10cda19ac7e558def8bb72e7d2a9e15da92"
+        },
+        {
+          "path": "track-s77-mellin-glu-wsp-quantization-tomography/MellinGluQuantMargin.lean",
+          "split": "eval",
+          "bytes": 13402,
+          "sha256": "41d3c044bc08b82cd16c6a5a77109ff4eae122add5efb4e5870678081c91ba7b"
+        },
+        {
+          "path": "track-s78-engram-lora-capacity-siliquant-mdl/LoraCapacityJointMdl.lean",
+          "split": "train",
+          "bytes": 27608,
+          "sha256": "350eea0cd07c47c6b492e0ec289a8b756a1802e68beee7634e0ea69854c34c89"
+        },
+        {
+          "path": "track-s79-2dsd-multipole-dense-sparse-laws/TwoDSDAndDenseSparseLaws.lean",
+          "split": "train",
+          "bytes": 32920,
+          "sha256": "a570018936e24a9ecffeedbf4991743b59a94a93e3d410076b19cf144ceaf69b"
+        },
+        {
+          "path": "track-s80-rocket-songe-unsloth-optimizations/RocketSongeUnslothLaws.lean",
+          "split": "train",
+          "bytes": 25810,
+          "sha256": "356cebee0d6d61bde5c08725589058d4ec11fee491bf2d5b9e793a7a77e715b6"
+        },
+        {
+          "path": "track-s81-motifbench-esmfold-grafting-duality/MotifScaffoldingDuality.lean",
+          "split": "eval",
+          "bytes": 10946,
+          "sha256": "4055a414909e29bf9f0c4a7023772b36c78ff813d3bb6df65535616f7472ea33"
+        },
+        {
+          "path": "track-s82-vpvnp-cross-field-propagation/VpVnpPropagationCerts.lean",
+          "split": "train",
+          "bytes": 14436,
+          "sha256": "5c774b978e9eaf918edfd63b4d85d01ce0740b45469c7c48b934f85c380f1dd8"
+        },
+        {
+          "path": "track-s83-all-to-all-epistemic-mesh/AllToAllEpistemicMesh.lean",
+          "split": "train",
+          "bytes": 17666,
+          "sha256": "b1152734330492fdffcaf2138598c57f91ee575b3854fcc2ab4942a660a8fa2c"
+        },
+        {
+          "path": "track-s84-higher-order-k16-mesh/HigherOrderEpistemicMesh.lean",
+          "split": "train",
+          "bytes": 28960,
+          "sha256": "00238fb5e82cbb64e1b0877c4962a7cac1dec3332871dd9471b3fe6636bdb831"
+        },
+        {
+          "path": "track-s85-mesh-transformations-unlock/MeshTransformationsUnlock.lean",
+          "split": "eval",
+          "bytes": 21131,
+          "sha256": "553a0c63ef82ca696c390cf206d1d20e7ab13ab5b82dc505ce34fc18ca19b8ef"
+        },
+        {
+          "path": "track-s86-sovereign-8gb-fourth-order-stack/SovereignStackFourthOrder.lean",
+          "split": "train",
+          "bytes": 17493,
+          "sha256": "109458fd294d8700304d9a8b168985b8d252409d7f4ebc8dec5052f6acde5cdc"
+        },
+        {
+          "path": "track-s87-universal-higher-order-atlas/UniversalHigherOrderAtlas.lean",
+          "split": "train",
+          "bytes": 32554,
+          "sha256": "fbf5f8f35970923e01f7f31029fc01c8658a0e56aac1f4f19b56728393c918fc"
+        },
+        {
+          "path": "track-s88-aletheia-mesh-cli/AletheiaMeshEngine.lean",
+          "split": "train",
+          "bytes": 27663,
+          "sha256": "f1e8cdab598d7ae81d149ce2564b09bd0c19c477f87d3ad19d4d472d3b4fdb0c"
+        },
+        {
+          "path": "track-s89-islamic-heritage-corpus-atlas/ClassicalHeritageAtlas.lean",
+          "split": "eval",
+          "bytes": 13645,
+          "sha256": "243cb2cfd4b4aee181c481d2f6f154e304bfcd1e3d11eb399ee3a3cc2df4b437"
+        },
+        {
+          "path": "track-s90-heritage-exact-operators-lean4/HeritageExactOperators.lean",
+          "split": "train",
+          "bytes": 56249,
+          "sha256": "1afb85c230b01fe9821a8d7d31cfc1342786ec66a0f4d4508a7a28d973027501"
+        },
+        {
+          "path": "track-s91-transhistorical-k26-convergence/TranshistoricalK26AndTusiCure.lean",
+          "split": "train",
+          "bytes": 22571,
+          "sha256": "81922b3cf483fc42a51e37e3403448db5bbf51987e0158d82ddaee6ed12a1d29"
+        },
+        {
+          "path": "track-s92-raw-arabic-scientific-mesh/RawArabicHigherOrderMesh.lean",
+          "split": "train",
+          "bytes": 12215,
+          "sha256": "07e704dfcc828312190885a1c6aa779670522c6689085c38da3bd7508b800ba9"
+        },
+        {
+          "path": "track-s93-openai-omega94-vs-vpvnp-forensics/OmegaNineFourthsAndSpectrum.lean",
+          "split": "eval",
+          "bytes": 20536,
+          "sha256": "59bb6bc1c798403db69092109575f7772fd8bdfdd0d8026f5d5910947c69a6ab"
+        },
+        {
+          "path": "track-s94-neuron-basis-bonsai-sleep-convergence/Wave6ConvergenceOperators.lean",
+          "split": "train",
+          "bytes": 24376,
+          "sha256": "ac3c812972562a68a5d14b635e265d7d79d66ceac14bd3a0d0ef1898b648a940"
+        },
+        {
+          "path": "track-s95-aletheia-specialist-foundry/SpecialistFoundryCerts.lean",
+          "split": "train",
+          "bytes": 14425,
+          "sha256": "9f502c556636ed6584ad6d31d39e43339a249e49076396f20e7af4a078b16d36"
+        },
+        {
+          "path": "track-s96-beyond-lora-and-inkling2-loop/BeyondLoraAndInklingLoop.lean",
+          "split": "train",
+          "bytes": 25591,
+          "sha256": "c430ffbb2b0ac376a31c35327d05073875f51c47237813fc9d5ab54eeae26b2f"
+        },
+        {
+          "path": "track-s97-recursive-weight-space-hill-climb/RecursiveWeightSpaceHillClimb.lean",
+          "split": "eval",
+          "bytes": 25929,
+          "sha256": "83dd4cac5da4c4c78641415b43e4e63afb9fb0b9b43c0bf8304a380a9268d3cf"
+        },
+        {
+          "path": "track-s98-5org-trust-boundary-unification/TrustBoundaryUnification.lean",
+          "split": "train",
+          "bytes": 23749,
+          "sha256": "d6c4d61a810dc7fd6befc529ed0ca85823c6c7b7502959a294a9dca211674969"
+        },
+        {
+          "path": "track-s99-optifab-5org-convergence/OptiFabFiveOrgConvergence.lean",
+          "split": "train",
+          "bytes": 13871,
+          "sha256": "dea818157f634fd339754bf7b45daf0ce1272714646760f27c5346f18beac485"
+        }
+      ]
     },
-    {
-     "bytes": 21058,
-     "path": "publish/bayt-al-hikma/arabic-continuum/arabic_continuum_certificate.json",
-     "sha256": "7081c463ad8ce4cce12f61f29f31f0f4741bbbfb4d43d85824622bcc62ac9069"
-    },
-    {
-     "bytes": 9069,
-     "path": "publish/bayt-al-hikma/arabic-lexicon/ARABIC_LEXICON_TOPOLOGY_REPORT.md",
-     "sha256": "5b3527d80a5b5bc18500973a74bd02693ca7d72dd92deeb506a4ddb349fd7d52"
-    },
-    {
-     "bytes": 21659,
-     "path": "publish/bayt-al-hikma/arabic-lexicon/arabic_lexicon_certificate.json",
-     "sha256": "96d855fac3d017f716adf67f4d8af1a6eb8b620372b93ae5a945ee6a1da62586"
-    },
-    {
-     "bytes": 14237,
-     "path": "publish/bayt-al-hikma/polymath-lineage/BAYT_AL_HIKMA_POLYMATH_REPORT.md",
-     "sha256": "309164abf64ea1a4bb4555f258197e72c439a06778c7d0cac42075bf1805e1b4"
-    },
-    {
-     "bytes": 10013,
-     "path": "publish/bayt-al-hikma/polymath-lineage/bayt_al_hikma_polymath_certificate.json",
-     "sha256": "76fac8902c7f34a92f309f463a8f584bbc1d26e336791819f0adc722778a2688"
-    },
-    {
-     "bytes": 13597,
-     "path": "publish/bayt-al-hikma/veins-and-branches/BAYT_AL_HIKMA_VEINS_AND_BRANCHES_REPORT.md",
-     "sha256": "c016bb3f0d8a13128904147390f4dc9952bd8ec89b00b24c4f5d4f896290bef9"
-    },
-    {
-     "bytes": 9547,
-     "path": "publish/bayt-al-hikma/veins-and-branches/bayt_al_hikma_veins_certificate.json",
-     "sha256": "236c165d9130cfca5565f57a553cdf5eb69b786a6850efda7d2239b6f99e5714"
+    "abios_calculus": {
+      "source": "Public Moissanite-Labs/abios@753300553abd60ceca37915cb016996229ac0a13 (.md, .jsonl, .json, .py \u2014 104 files: 78 train / 26 eval, i % 4 == 3 held out)",
+      "public_repo_pin": "Moissanite-Labs/abios@753300553abd60ceca37915cb016996229ac0a13",
+      "train_bytes": 262144,
+      "eval_bytes": 87381,
+      "split_sha256": "2773d7b08fba76f5e43b61a20b066b1fe38a8f8d03fbaa964d2cbf1dc1d6c835",
+      "bpe4096_bytes_per_tok": 3.076,
+      "rebuildable_on_audit_workstation": true,
+      "source_file_count": 104,
+      "split_rule": "Clone public Moissanite-Labs/abios at commit 753300553abd60ceca37915cb016996229ac0a13; collect all regular files with suffix in (.md, .jsonl, .json, .py) sorted lexicographically by relative path (104 files); train = files with i % 4 != 3 joined by b'\\n' (78 files), eval = files with i % 4 == 3 joined by b'\\n' (26 files); UTF-8-snap to 262144 / 87381 B; split_sha256 = sha256(train + b'\\x00' + eval).",
+      "source_files": [
+        {
+          "path": ".zenodo.json",
+          "split": "train",
+          "bytes": 1326,
+          "sha256": "d53cbedd6f0fa1335f24a788502f26caaa273b0631972744d9e17ab1ea29fc00"
+        },
+        {
+          "path": "AUDIT/protean-sym2p/README.md",
+          "split": "train",
+          "bytes": 1006,
+          "sha256": "70acd75e440ae09b54c2689ce2fe1f931357947e3bc815bf9fa90919671d7931"
+        },
+        {
+          "path": "AUDIT/protean-sym2p/provenance.md",
+          "split": "train",
+          "bytes": 2298,
+          "sha256": "735fdb12a1c6f6f75f1db5fe4bfaef1f7ab6978ea285fab69e3bb699f6176d24"
+        },
+        {
+          "path": "AUDIT/protean-sym2p/verification-log.md",
+          "split": "eval",
+          "bytes": 3725,
+          "sha256": "bf22ea3fc2e7d210b2baf6cd548441c5ff65ba4f6c5e6775018a3f2d4833c3d0"
+        },
+        {
+          "path": "CHANGELOG.md",
+          "split": "train",
+          "bytes": 4574,
+          "sha256": "3c41a42a29f9dc804277aa35b70039c44bd1a48434d3003f35e32eb6f444272b"
+        },
+        {
+          "path": "CONTRIBUTING.md",
+          "split": "train",
+          "bytes": 2054,
+          "sha256": "a43a52ecbe034229ce889f7112dc9d22f58fd3f510774bb646832272c55f3388"
+        },
+        {
+          "path": "README.md",
+          "split": "train",
+          "bytes": 10476,
+          "sha256": "1525e44b3b768c15da63111a57246fa558c03fd8d1f92d7fbf83dff38eaa813c"
+        },
+        {
+          "path": "SPEC-ABIOS-3.md",
+          "split": "eval",
+          "bytes": 19874,
+          "sha256": "81cbcdb4d1f28e0b849f8251439ff1eb51f96dd60b86ead26eb7e18c6dc6c961"
+        },
+        {
+          "path": "SPEC-V2-DRAFT.md",
+          "split": "train",
+          "bytes": 13542,
+          "sha256": "99b69fb65c355d918cbfbc468c2868b22510184b5df26b8fe6b57d2856380dc5"
+        },
+        {
+          "path": "SPEC.md",
+          "split": "train",
+          "bytes": 29585,
+          "sha256": "44a3dd32e4aba84ebba8d66786c792e3fe28429c1b8365f9a5c60bd879e9b567"
+        },
+        {
+          "path": "VISION.md",
+          "split": "train",
+          "bytes": 3890,
+          "sha256": "bb7ac4b364fca27eaed8a73f6ae9b4a1791bc288e6bdb3a33d748a83c0e12605"
+        },
+        {
+          "path": "bench/EVAL.md",
+          "split": "eval",
+          "bytes": 2904,
+          "sha256": "1833a4ff41013d5a6208154b9b21ad9f60bf9fb66db07f873f590b924a1214ee"
+        },
+        {
+          "path": "bench/README.md",
+          "split": "train",
+          "bytes": 1442,
+          "sha256": "a1dc41067dff44a086fa02423ad600a054c79531d0f1f64b245a8d706a1cfcd0"
+        },
+        {
+          "path": "bench/results/abios-bench.json",
+          "split": "train",
+          "bytes": 62180,
+          "sha256": "65538724842b68e476b5c142fb6deaa102c30b9c3c3e304817cec3c02160fcc1"
+        },
+        {
+          "path": "bench/run-abios-bench.py",
+          "split": "train",
+          "bytes": 638,
+          "sha256": "66521c4f0e3ee8b88b7c84d1b322ea02559988f7378e1c32e4f15f25adcc2a58"
+        },
+        {
+          "path": "bench/sym2-bench.py",
+          "split": "eval",
+          "bytes": 2484,
+          "sha256": "54b9fb770f67f0f8e27e002a7cd93b6955abf85e306b60303164711f97a8b341"
+        },
+        {
+          "path": "bench/sym2-score.py",
+          "split": "train",
+          "bytes": 3754,
+          "sha256": "5e7bfe45bbd41697877dc28981be79f138719c0f4692780509b568389cd516f7"
+        },
+        {
+          "path": "bench/tasks.jsonl",
+          "split": "train",
+          "bytes": 4994,
+          "sha256": "511bc0b55f517260505d8567c0fa5aa2f2858218d66e06b425df2eb5e1bdb660"
+        },
+        {
+          "path": "docs/REPRODUCE.md",
+          "split": "train",
+          "bytes": 1947,
+          "sha256": "77bca3e80562d7eb827348740c87c59d32653ab185d3c500031a3c2c149d2835"
+        },
+        {
+          "path": "docs/SYM-2P-reader-report.md",
+          "split": "eval",
+          "bytes": 50272,
+          "sha256": "79079c55a27cd3f9de5d66a7efcc5a1b24c14300fe00cebf28bb5cbfabc95e70"
+        },
+        {
+          "path": "docs/abios-bench.md",
+          "split": "train",
+          "bytes": 11169,
+          "sha256": "a7e798e75f03c5c65c6c1ae254a033c21bee356700739203e9af77b8cea38484"
+        },
+        {
+          "path": "docs/build-sym2p-reader-report.py",
+          "split": "train",
+          "bytes": 21578,
+          "sha256": "e36e8784749317d8d30d885538c010b42543f8db6dbbaa3c124e9d13128a7778"
+        },
+        {
+          "path": "docs/cache-friendly-operator-guide.md",
+          "split": "train",
+          "bytes": 9308,
+          "sha256": "856673be0007f9096fc8d0f1910cc70e93167917f23687136403a25c3f3fa0d4"
+        },
+        {
+          "path": "docs/council-proposal.md",
+          "split": "eval",
+          "bytes": 14784,
+          "sha256": "fd68021da2e72efaa418a9de5afcd32dc783f143e996320b04fc086e680e9f4c"
+        },
+        {
+          "path": "docs/source-ledger.json",
+          "split": "train",
+          "bytes": 5617,
+          "sha256": "30921bbf31ef9f7587632473a89b7330591ee8ed8da9af86b8f84c89ddd728f3"
+        },
+        {
+          "path": "examples/protean-sym2p/review-fix-verify-merge.jsonl",
+          "split": "train",
+          "bytes": 4531,
+          "sha256": "cee1c4d841d0f6b6d4dc25b9e5e9bb0d58a18b71480236f856cecd88fa7c1ebf"
+        },
+        {
+          "path": "gates/check-internal-names.py",
+          "split": "train",
+          "bytes": 3742,
+          "sha256": "645d2ea0bb86175ba9a9dca94f37ca8e654e5ff8d8a41bf94136b71f1590e794"
+        },
+        {
+          "path": "gates/protean-sym2p/check-internal-names.py",
+          "split": "eval",
+          "bytes": 3919,
+          "sha256": "da42832fe88e9604db164c6bee53b8dc3ea23f852802e107495f7f4ddacffc4a"
+        },
+        {
+          "path": "paper/abios.md",
+          "split": "train",
+          "bytes": 11010,
+          "sha256": "ba3b27f4ec67b35e180f36c04983c7d007d6f19c1eda5a78ea49346b8ff81959"
+        },
+        {
+          "path": "protean-ingredient.json",
+          "split": "train",
+          "bytes": 1253,
+          "sha256": "c302c9b303c58f03ff01f04e81255163873207d9b28ecbc2f2c28df4cf8859f7"
+        },
+        {
+          "path": "scripts/protean-abios/__init__.py",
+          "split": "train",
+          "bytes": 81,
+          "sha256": "19d126c87bda26b89bcfd4bc1477f53e9781187a4f5e14633b8ffc5cd09befb5"
+        },
+        {
+          "path": "scripts/protean-abios/bench.py",
+          "split": "eval",
+          "bytes": 19169,
+          "sha256": "f1fb2405c1f773b634b53c5a90b88f18d57aa384fb697051bcff7fa0c774d14c"
+        },
+        {
+          "path": "scripts/protean-abios/canonical.py",
+          "split": "train",
+          "bytes": 3155,
+          "sha256": "33db521bba473ea08ab35b0f8677596d793522d8a6b2408d481f07f369d0400e"
+        },
+        {
+          "path": "scripts/protean-abios/comprehension.py",
+          "split": "train",
+          "bytes": 2500,
+          "sha256": "fa36f1fb002f2b7d078cb6cbc0d0fd7d9bc4a8f51b08e82c749e420be464f728"
+        },
+        {
+          "path": "scripts/protean-abios/content_store.py",
+          "split": "train",
+          "bytes": 3387,
+          "sha256": "93e4fbef5a8508d89edf7395acc502fa235e59d34e77b3bb67069b61d560664a"
+        },
+        {
+          "path": "scripts/protean-abios/decode_rules.py",
+          "split": "eval",
+          "bytes": 2743,
+          "sha256": "f17e83923d62a2ebe800803695ac6f0bee1b3234d29042a53def1a154173a4dd"
+        },
+        {
+          "path": "scripts/protean-abios/decoder_context.py",
+          "split": "train",
+          "bytes": 14263,
+          "sha256": "5f2c2543ea5c6bd3f85be2cda8c36acdce15d6972d67afb13bf22515d2105dd1"
+        },
+        {
+          "path": "scripts/protean-abios/encoders.py",
+          "split": "train",
+          "bytes": 29979,
+          "sha256": "b7daa0877213b58d66ac456ee00270d42dadb84a5737235e5f2ce88429027e2b"
+        },
+        {
+          "path": "scripts/protean-abios/english.py",
+          "split": "train",
+          "bytes": 4300,
+          "sha256": "5798657f84fa80d220efa88293a0eadead8253f3d68b3fee3ba8df28d549a1a2"
+        },
+        {
+          "path": "scripts/protean-abios/generate_lexicon.py",
+          "split": "eval",
+          "bytes": 8134,
+          "sha256": "0bf07dcbc8f188577c6dc67fa00cc1dda3b4bced7956033acb1cf00fb7865431"
+        },
+        {
+          "path": "scripts/protean-abios/lexicon.json",
+          "split": "train",
+          "bytes": 2511,
+          "sha256": "a5fa243ee3ac736c3fb4b6ecd329db66534339bdfbe70732e5767ed69d11f4c2"
+        },
+        {
+          "path": "scripts/protean-abios/lexicon.py",
+          "split": "train",
+          "bytes": 1356,
+          "sha256": "3068299cf58d581e8b43b249e7d2058d56f3dc1614b533a62d6dd871dff09de6"
+        },
+        {
+          "path": "scripts/protean-abios/post.py",
+          "split": "train",
+          "bytes": 3761,
+          "sha256": "d79e81efc7454b28b95992084eab658e7de1bd63adcbdb82e5f3c6700cb91997"
+        },
+        {
+          "path": "scripts/protean-abios/prior_art.py",
+          "split": "eval",
+          "bytes": 2627,
+          "sha256": "712ad5de01e2870d98b8c4c597893bf7796238cbb97c848739b75cc49aefec4c"
+        },
+        {
+          "path": "scripts/protean-abios/schema.py",
+          "split": "train",
+          "bytes": 389,
+          "sha256": "9884a01850120bf34d06b56c2483f6c1aa8fc93a43194ae8b4d54de62f5c99f3"
+        },
+        {
+          "path": "scripts/protean-abios/schemas/__init__.py",
+          "split": "train",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "scripts/protean-abios/schemas/synbios/__init__.py",
+          "split": "train",
+          "bytes": 153,
+          "sha256": "b441a8347b991da51489e2e81bafd845728552725ac7629fc2b099c114cc09ff"
+        },
+        {
+          "path": "scripts/protean-abios/schemas/synbios/command_fields.py",
+          "split": "eval",
+          "bytes": 1444,
+          "sha256": "08b7a8e4f07dfae85ccb5042279cbe8861cbe3ba7d8e7b1a21c0b217fa8763ce"
+        },
+        {
+          "path": "scripts/protean-abios/schemas/synbios/fixtures.py",
+          "split": "train",
+          "bytes": 8588,
+          "sha256": "fdbb426e01e93b06726945415c2b176d6a5b0191c43b89458f8f4b2956523a61"
+        },
+        {
+          "path": "scripts/protean-abios/schemas/synbios/sym2p/__init__.py",
+          "split": "train",
+          "bytes": 181,
+          "sha256": "00ef04ab1ecfdb3eb9265cde555a76cfb20bfb49777a1c7da82cdcb4064ff7f3"
+        },
+        {
+          "path": "scripts/protean-abios/schemas/synbios/sym2p/adapter.py",
+          "split": "train",
+          "bytes": 1475,
+          "sha256": "ebd6e6f1a564a9f6aee4bb4a465e6488b40a0d18ea6bf7dbfd6db039623a78ae"
+        },
+        {
+          "path": "scripts/protean-abios/schemas/synbios/sym2p/audit.py",
+          "split": "eval",
+          "bytes": 2141,
+          "sha256": "12af1ac4fc81af4ec1447c82db7049a0c86cc920b8705ead199ade20ae046061"
+        },
+        {
+          "path": "scripts/protean-abios/schemas/synbios/sym2p/bench.py",
+          "split": "train",
+          "bytes": 8231,
+          "sha256": "b2d395322fe15e6fcce718e89fe6e867b7f3b6cf7a1f4be3ba592c332d519c4c"
+        },
+        {
+          "path": "scripts/protean-abios/schemas/synbios/sym2p/canonical.py",
+          "split": "train",
+          "bytes": 1394,
+          "sha256": "57d14c8a3d622cfd800d5b9e619b9aebe07bcf7940d0ba8887708d4c3be27803"
+        },
+        {
+          "path": "scripts/protean-abios/schemas/synbios/sym2p/codec.py",
+          "split": "train",
+          "bytes": 5175,
+          "sha256": "85daee991e1bbdfe92ffc4611778b3e7267eafbe54e62095c64e62ae5bf7a787"
+        },
+        {
+          "path": "scripts/protean-abios/schemas/synbios/sym2p/errors.py",
+          "split": "eval",
+          "bytes": 241,
+          "sha256": "98466640c9cbae05c81b015f36102c6cfc97e979630b13139d89e5d11b303689"
+        },
+        {
+          "path": "scripts/protean-abios/schemas/synbios/sym2p/fields.py",
+          "split": "train",
+          "bytes": 9421,
+          "sha256": "85098612a2f9bfabccd02785b0b8012a5a0d214bcb8ecaae58681f2b5b48a1ad"
+        },
+        {
+          "path": "scripts/protean-abios/schemas/synbios/sym2p/ids.py",
+          "split": "train",
+          "bytes": 841,
+          "sha256": "15d07a00ca26e8ca683f87e3815c1a2ec2a33c25e4fee2250a3968ecf68d2659"
+        },
+        {
+          "path": "scripts/protean-abios/schemas/synbios/sym2p/validate.py",
+          "split": "train",
+          "bytes": 2211,
+          "sha256": "0a76f24b36f4535832d17d2a848ff419686c13199d79552693e0fa3c30fbcd31"
+        },
+        {
+          "path": "scripts/protean-abios/state.py",
+          "split": "eval",
+          "bytes": 5010,
+          "sha256": "376ab00af3764036b32408ba02f2125c884e261aff2ba3c0040c7046cdad65f7"
+        },
+        {
+          "path": "scripts/protean-abios/tokens.py",
+          "split": "train",
+          "bytes": 2486,
+          "sha256": "67708aa8ea9cb4824f8f6bdc2b0e1af4656ce6d72dfde41e88c0f9ed8a242e9b"
+        },
+        {
+          "path": "scripts/protean-abios/wire_lists.py",
+          "split": "train",
+          "bytes": 8028,
+          "sha256": "0fb46e8f5d7de448d1477a86449ff1bb9543662eb7e8b2c382c5a5bbd51b5c62"
+        },
+        {
+          "path": "scripts/protean-sym2p/sym-publish.py",
+          "split": "train",
+          "bytes": 26576,
+          "sha256": "c51fc763e4e22d40dd86866422569221d6b442836b2d21fa830e167d256741d3"
+        },
+        {
+          "path": "scripts/protean-sym2p/sym-validate.py",
+          "split": "eval",
+          "bytes": 37848,
+          "sha256": "187dfe6a33d2603f7fa1a782d6005241ae55d870dd739d56aa6e7242a8d35a94"
+        },
+        {
+          "path": "scripts/protean-sym2p/sym2-migrate.py",
+          "split": "train",
+          "bytes": 4769,
+          "sha256": "893f09e2956635ee8bb37d1fd5527ed5321b60d47e2aecc8ad423dfe8f4f9293"
+        },
+        {
+          "path": "scripts/protean-sym2p/sym2-render.py",
+          "split": "train",
+          "bytes": 4823,
+          "sha256": "eafb437657e18c26ae7b4b6c7dcf41c1b5ca098214b42b91bf4129c467d1b747"
+        },
+        {
+          "path": "scripts/protean-sym2p/sym2-validate.py",
+          "split": "train",
+          "bytes": 4028,
+          "sha256": "d3c8e6629862359c7af4796932d5e7362602ccea86c73bc5e331c84d5ebaed86"
+        },
+        {
+          "path": "scripts/protean-sym2p/sym2_parse.py",
+          "split": "eval",
+          "bytes": 9109,
+          "sha256": "4af73a3546bc9527af6c8787651be5b98df1181cbf68aa643819d58ff896b144"
+        },
+        {
+          "path": "site/README.md",
+          "split": "train",
+          "bytes": 957,
+          "sha256": "f00781aace894b833a871cc78f1e6105a2ca0883cc51e7c296dacd88e50e928a"
+        },
+        {
+          "path": "site/inject_version.py",
+          "split": "train",
+          "bytes": 1589,
+          "sha256": "99cf6812077ed3fe19b5141b0b48c807374473d0283182e5a2a68b536bc256e2"
+        },
+        {
+          "path": "skills/sym2p/SKILL.md",
+          "split": "train",
+          "bytes": 13428,
+          "sha256": "d4b8b6b52f13a00035e9edb99087539dc494ce9c6aa7e12e277f3ab125f49e93"
+        },
+        {
+          "path": "templates/protean-sym2p/brief-packet.json",
+          "split": "eval",
+          "bytes": 481,
+          "sha256": "e6cde0b5ba943f57a54d7932a56fa5e8857bc5c0f4d19a71ad83433626d7c428"
+        },
+        {
+          "path": "templates/protean-sym2p/receipt-packet.json",
+          "split": "train",
+          "bytes": 326,
+          "sha256": "f75e9e6d5af39ebbaaf26501d3396d0892c1c5a65e96db816ebe418290c4e5dd"
+        },
+        {
+          "path": "tests/fixtures/invalid/bad-id-grammar.json",
+          "split": "train",
+          "bytes": 78,
+          "sha256": "fc805b037beefd63889006aabf13af4e0e9de5a979148e6e21a6e7b16ea8a029"
+        },
+        {
+          "path": "tests/fixtures/invalid/challenge-without-dissent.json",
+          "split": "train",
+          "bytes": 117,
+          "sha256": "d04c25c75cd6d1bd6d4962f86d0fe2f8c37343fe6910868ef97fc23becdf3dbd"
+        },
+        {
+          "path": "tests/fixtures/invalid/drop-losing-position.json",
+          "split": "eval",
+          "bytes": 637,
+          "sha256": "3ba667310f17842f10b7873aa016ff635f6d381e1201b186ed4a84a48606973b"
+        },
+        {
+          "path": "tests/fixtures/invalid/duplicate-keys.json",
+          "split": "train",
+          "bytes": 83,
+          "sha256": "be665585d7218078b4660326ff3544bd82b8e655cabb9f86cc1dd21e2a50361a"
+        },
+        {
+          "path": "tests/fixtures/invalid/duplicate-packet.jsonl",
+          "split": "train",
+          "bytes": 220,
+          "sha256": "54d06fe37ad71c1926d741ff2c8f79662d159b60e81935e23774eeab2e44977c"
+        },
+        {
+          "path": "tests/fixtures/invalid/expired-authorization.json",
+          "split": "train",
+          "bytes": 249,
+          "sha256": "9dac65415938e00459cb2441fc70c0e28960fd2e72ee3498e93c74d9232bb0e1"
+        },
+        {
+          "path": "tests/fixtures/invalid/extra-property.json",
+          "split": "eval",
+          "bytes": 83,
+          "sha256": "0859b4f1687efd0922ad2ec0fcf2f0f70fc7edba0716fb634282a24ace1a9b4d"
+        },
+        {
+          "path": "tests/fixtures/invalid/float-score.json",
+          "split": "train",
+          "bytes": 96,
+          "sha256": "926e36255688de08d1775f3a4251a69922121845f232fc54098f3bc0478f9367"
+        },
+        {
+          "path": "tests/fixtures/invalid/missing-auth-exec.json",
+          "split": "train",
+          "bytes": 104,
+          "sha256": "581eac02b21d951a301eb2ac8ad7bafc7f21789fba369fcbb5ab013d33c54af9"
+        },
+        {
+          "path": "tests/fixtures/invalid/multi-recipient.json",
+          "split": "train",
+          "bytes": 87,
+          "sha256": "ffcaf80dec389dbb1ceb843d99c70ae1a2d934c1a0ea173555d0122b989b3c6c"
+        },
+        {
+          "path": "tests/fixtures/invalid/noncanonical-whitespace.jsonl",
+          "split": "eval",
+          "bytes": 90,
+          "sha256": "cfb66b8e0f22328529621ff6e251e1ff2c87f5cb679a4a84c22b67101a9d5c54"
+        },
+        {
+          "path": "tests/fixtures/invalid/object-hash-mismatch.json",
+          "split": "train",
+          "bytes": 408,
+          "sha256": "4210fe6f31a83d2eff1662d92adb0a989ee734163cebde505f5750ad761e61b1"
+        },
+        {
+          "path": "tests/fixtures/invalid/protected-dispute-omission.json",
+          "split": "train",
+          "bytes": 264,
+          "sha256": "ca8a494e15dff95405f8ec6cd58bf88a46893a151adf00e0b5ba1b1f6d75c7ae"
+        },
+        {
+          "path": "tests/fixtures/invalid/reordered-keys.json",
+          "split": "train",
+          "bytes": 77,
+          "sha256": "a012f3c566c1c394e48efab98309807827a936e3e34ead26cddf418f509f64ae"
+        },
+        {
+          "path": "tests/fixtures/invalid/stale-base.jsonl",
+          "split": "eval",
+          "bytes": 167,
+          "sha256": "124c6577888be484820e196f097a5dd92151ba051d40349a0b9e80d02f305d82"
+        },
+        {
+          "path": "tests/fixtures/invalid/syntax-truncated.jsonl",
+          "split": "train",
+          "bytes": 76,
+          "sha256": "0e14f157de176e5b6adb63c053df731fc95b940addb1ef1af23f2b1e7714a1cf"
+        },
+        {
+          "path": "tests/fixtures/invalid/unknown-act.json",
+          "split": "train",
+          "bytes": 75,
+          "sha256": "562f212136a94efd137471929d402444729a699dac2edcfbba7c2bec04a7050b"
+        },
+        {
+          "path": "tests/fixtures/invalid/update-without-base.json",
+          "split": "train",
+          "bytes": 151,
+          "sha256": "521d83a6337343b1e2456a7ce8b8f92df5f82965d288080066888aba322d56f2"
+        },
+        {
+          "path": "tests/fixtures/invalid/verify-without-evidence.json",
+          "split": "eval",
+          "bytes": 112,
+          "sha256": "6b6da036df6473e6cf0c74970d8b799a4345f7be42fd6dd11d66cbf14121d041"
+        },
+        {
+          "path": "tests/fixtures/invalid/wrong-major-version.json",
+          "split": "train",
+          "bytes": 77,
+          "sha256": "f886c4e1cd6c988e8e0aa1a7f1cd0d1f3e560a1b57666b547f552be0c28b4e97"
+        },
+        {
+          "path": "tests/fixtures/state/receiver-state.json",
+          "split": "train",
+          "bytes": 29,
+          "sha256": "a090533c7db6860c4ea75f7edd829830233f9147a5cc04405d8b9f3f8ea52a1f"
+        },
+        {
+          "path": "tests/fixtures/valid/object-dispute-open.json",
+          "split": "train",
+          "bytes": 389,
+          "sha256": "b4bb2b585915dd200490f1ac829f1c4c4ed69b2cc12566488f88d0b9849f8509"
+        },
+        {
+          "path": "tests/fixtures/valid/packet-assert.json",
+          "split": "eval",
+          "bytes": 212,
+          "sha256": "38fe69fac0dd6ae6e5a5b9b4dccb07539b801f8798634c54e4c88f500d9fee20"
+        },
+        {
+          "path": "tests/fixtures/valid/packet-error-ver.json",
+          "split": "train",
+          "bytes": 165,
+          "sha256": "dc52ef7db14833e7c115fa2b47b2e4001c69d8230cd7f2eae72824db17d3b9b2"
+        },
+        {
+          "path": "tests/fixtures/valid/packet-update-current.json",
+          "split": "train",
+          "bytes": 167,
+          "sha256": "f4c4e738104d285ba14789c6243160741b05c91d85b96993e75853300c7a37e3"
+        },
+        {
+          "path": "tests/run-tests.py",
+          "split": "train",
+          "bytes": 24664,
+          "sha256": "21413f2afbb45e713a33ab3033120e33ae1ca90c5fd8ab3ac03764dca9a55e76"
+        },
+        {
+          "path": "tests/test_abios.py",
+          "split": "eval",
+          "bytes": 24496,
+          "sha256": "9bd22c095adf425e3e54a5d3495ae7815d29a75861d00508d96a0f071afa9323"
+        },
+        {
+          "path": "tests/test_gates.py",
+          "split": "train",
+          "bytes": 2558,
+          "sha256": "0aa3e7e6a9054605820f5dce6928e3bba47399479579a5fcf50c07431481fd08"
+        },
+        {
+          "path": "tests/test_install.py",
+          "split": "train",
+          "bytes": 1989,
+          "sha256": "3878b11cdc23f1d7bf8e94126f7710015b38474d55340385233c51c1002067a7"
+        },
+        {
+          "path": "tests/test_sym2.py",
+          "split": "train",
+          "bytes": 12299,
+          "sha256": "518b317b2e3fbbbf5b3e1cd9b1e82f46507b0c475338cf05c3fda051ddbc23c5"
+        },
+        {
+          "path": "tests/test_wire_lists_lossless_r5.py",
+          "split": "eval",
+          "bytes": 14079,
+          "sha256": "4ac6f26280402bb6bf683875d398ab05b8401a85abfa6745d61c03b970f72aec"
+        }
+      ]
     }
-   ],
-   "split_rule": "sorted file list; train = files with i % 4 != 3 joined by b'\\n', eval = files with i % 4 == 3; each split UTF-8-snapped to 262144 / 87381 B; split_sha256 = sha256(train + b'\\x00' + eval)",
-   "split_sha256": "6d5afa8819f4520f7e1e738554871d35c196ee5a88da17b9a6acd22ac008e9a5",
-   "train_bytes": 262144
-  },
-  "english": {
-   "bpe4096_bytes_per_tok": 3.012,
-   "eval_bytes": 87381,
-   "reason": "HF cache absent on audit workstation; digest is a lab-recorded value",
-   "rebuildable_on_audit_workstation": false,
-   "recipe": "HuggingFace dataset 'wikitext', config 'wikitext-2-v1': save the validation split as ~/.cache/huggingface/s49b_eval/wikitext2_val.txt and the test split as wikitext2_test.txt; train = first 262144 B of the val file, eval = first 87381 B of the test file, each UTF-8-snapped on character boundaries; split_sha256 = sha256(train + b'\\x00' + eval). The raw wikitext-2 zip (wiki.valid.raw/wiki.test.raw) does NOT reproduce the digest \u2014 the processed HF splits are required.",
-   "source": "WikiText-2 validation split (train) vs WikiText-2 test split (eval), HuggingFace cache",
-   "source_files": null,
-   "source_files_note": "Per-file path/bytes/sha256 cannot be published: the run-time file set is not recoverable from any repo (see `reason`); only the aggregate split_sha256 is recorded. The exact extraction recipe is in `recipe`/`split_rule`.",
-   "split_sha256": "c7767b125fd4d942054a261bda43a18f5ec7f92330ae0987b1c5e63f08b6f384",
-   "train_bytes": 262144
-  },
-  "python": {
-   "bpe4096_bytes_per_tok": 3.294,
-   "eval_bytes": 87381,
-   "rebuildable_on_audit_workstation": true,
-   "recipe": "Concatenate the named CPython 3.12 stdlib .py sources per split in sorted order, truncate train to 262144 B and eval to 87381 B; sha256 of the concatenated split stream must equal split_sha256 (verified byte-exact on CPython 3.12.10/3.12.11/3.12.12).",
-   "source": "CPython 3.12 stdlib modules, strictly file-disjoint: train ast/fractions/decimal/inspect/difflib vs eval json/argparse/unittest",
-   "split_sha256": "eb47ed59b433f743048487d61734377947b64845ca29bffa247010d029ede340",
-   "train_bytes": 262144
   }
- },
- "harness_interpreter": "CPython 3.12.x (digest-proven: python-domain split sha256 eb47ed59b433... rebuilds byte-exact on CPython 3.12.10/11/12, not on 3.14.8)",
- "mlos_receipt_interpreter": "CPython 3.14.8",
- "note": "Recorded corpus inputs for the 51-run gpu-full evaluation. Only the python domain rebuilds byte-exact on an audit workstation; the other three digests are lab-recorded values whose source files resolve nowhere in the 4 repos (foundation-0/aletheia, Moissanite-Labs/siliquant, math0, cave-expedition). gpu-full mode fails closed (CORPUS_SOURCE_MISSING) when a cache is absent. Per-file manifests are published where the source set is recoverable (arabic: 10 files with sha256); english/abios per-file hashes cannot be published because the run-time file sets are unrecoverable \u2014 stated explicitly per domain.",
- "schema": "aletheia.track_s108.corpus_manifest.v1"
 }

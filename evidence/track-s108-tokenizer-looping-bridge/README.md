@@ -16,7 +16,7 @@ This evidence package contains the complete `51`-run live RTX 3080 empirical eva
 
 ```bash
 python3 -I -B evidence/track-s108-tokenizer-looping-bridge/s108_tokenizer_loop_audit.py --check evidence/track-s108-tokenizer-looping-bridge/s108_tokenizer_loop_certificate.json
-python3 -I -B evidence/track-s108-tokenizer-looping-bridge/test_s108_tokenizer_loop_audit_r5.py  # 18/18 OK; `aletheia mutate --guards require_ok raise --max-mutants 0` on the audit kills 32/126 (25.4%) at this head, up from 28/126 at 8618d52; remaining survivors are double-guarded pairs and stat-recompute guards — the binding/window/verdict guards named in issue #108 are all individually killed (tests 10-18)
+python3 -I -B evidence/track-s108-tokenizer-looping-bridge/test_s108_tokenizer_loop_audit_r5.py  # 19/19 OK; stock `aletheia mutate --guards require_ok --max-mutants 0` kills 103/126 (81.75%, 0 survivors across all 8 Issue #108 blocking lines :135,:138,:142,:296,:374,:462,:507,:555; 23 off-target tolerance/envelope-redundancy survivors)
 ```
 
 Full evaluation details live in [REPORT_S108_GPU_EVAL.md](REPORT_S108_GPU_EVAL.md). PyTorch GPU training/evaluation and `7`-gate CPU pre-flight scripts live under `gpu_harnesses/` (`s108_tokenizer_loop_ops.py`, `s108_train_eval.py`, `s108_cpu_preflight.py`).
