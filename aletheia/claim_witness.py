@@ -799,17 +799,32 @@ def _apply_semantic_destruction(
             raise ClaimWitnessError("RESIGN_FIELD_MISSING", f"resign hash field missing: {hfield}")
         body = {k: v for k, v in mutated.items() if k != hfield}
         mutated[hfield] = canonical_sha256(body)
+    if canonical_json_bytes(mutated) == canonical_json_bytes(witness):
+        # A self-cancelling spec (e.g. corrupt_pinned_hash on the very field named by
+        # resign_hash_field) reproduces the valid witness byte-for-byte; testing it would
+        # misreport an exact-equality verifier as HOLLOW_WITNESS_VERIFIER.
+        raise ClaimWitnessError("NOOP_PERTURBATION", "perturbation result is byte-identical to valid_witness")
     return mutated
 
 
-def _invoke_verifier_strict(verifier_fn: Callable[[dict[str, Any]], bool], witness: dict[str, Any]) -> bool:
+def _invoke_verifier_strict(
+    verifier_fn: Callable[[dict[str, Any]], bool],
+    witness: dict[str, Any],
+) -> tuple[bool, bool]:
+    """Return ``(accepted, raised)``.
+
+    Any ``Exception`` raised by ``verifier_fn`` counts as a rejection (fail closed) and is
+    reported as ``raised=True`` so a verifier that merely crashes on destroyed witnesses is
+    distinguishable from one that returns ``False``. ``BaseException`` subclasses outside
+    ``Exception`` (``KeyboardInterrupt``, ``SystemExit``) propagate.
+    """
     try:
         res = verifier_fn(witness)
     except Exception:
-        return False
+        return False, True
     if type(res) is not bool:
         raise ClaimWitnessError("INVALID_VERIFIER_RETURN_TYPE", "verifier_fn must return exact bool")
-    return res
+    return res, False
 
 
 def run_semantic_destruction_gate(
@@ -824,15 +839,18 @@ def run_semantic_destruction_gate(
     validate_json_value(base)
     specs = require_exact_list(perturbations, "perturbations", non_empty=True)
 
-    valid_accepted = _invoke_verifier_strict(verifier_fn, copy.deepcopy(base))
+    valid_accepted, valid_raised = _invoke_verifier_strict(verifier_fn, copy.deepcopy(base))
     if not valid_accepted:
         return {
             "pillar": "pillar3_semantic_destruction_gate",
             "passed": False,
             "verdict": "VALID_WITNESS_REJECTED",
             "valid_witness_accepted": False,
+            "valid_witness_verifier_raised": valid_raised,
             "perturbations_tested": 0,
             "hollow_survivals": 0,
+            "rejected_by_false": 0,
+            "rejected_by_exception": 0,
             "surviving_ids": [],
             "results": [],
         }
@@ -842,18 +860,22 @@ def run_semantic_destruction_gate(
         spec = require_exact_dict(raw_spec, f"perturbations[{idx}]")
         pid = require_str(spec.get("id"), f"perturbations[{idx}].id", non_empty=True)
         destroyed = _apply_semantic_destruction(base, spec)
-        survived = _invoke_verifier_strict(verifier_fn, destroyed)
-        results.append({"id": pid, "op": spec["op"], "survived": survived})
+        survived, raised = _invoke_verifier_strict(verifier_fn, destroyed)
+        results.append({"id": pid, "op": spec["op"], "survived": survived, "verifier_raised": raised})
 
     surviving_ids = [r["id"] for r in results if r["survived"]]
+    rejected_by_exception = sum(1 for r in results if r["verifier_raised"])
     passed = len(surviving_ids) == 0
     return {
         "pillar": "pillar3_semantic_destruction_gate",
         "passed": passed,
         "verdict": "STRICT_SEMANTIC_VERIFIER" if passed else "HOLLOW_WITNESS_VERIFIER",
         "valid_witness_accepted": True,
+        "valid_witness_verifier_raised": False,
         "perturbations_tested": len(results),
         "hollow_survivals": len(surviving_ids),
+        "rejected_by_false": len(results) - len(surviving_ids) - rejected_by_exception,
+        "rejected_by_exception": rejected_by_exception,
         "surviving_ids": surviving_ids,
         "results": results,
     }

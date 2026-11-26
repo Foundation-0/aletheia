@@ -80,6 +80,20 @@ class _StrSub(str):
 
 
 class TestStrictCertIO(unittest.TestCase):
+    def test_is_symlink_at_returns_exact_bool(self) -> None:
+        # R5 guard_except_reject: an OSError from lstat must yield exact False, not a falsy None.
+        with tempfile.TemporaryDirectory() as td:
+            Path(td, "reg").write_bytes(b"x")
+            os.symlink("reg", os.path.join(td, "lnk"))
+            dfd = os.open(td, os.O_RDONLY | os.O_DIRECTORY)
+            try:
+                self.assertIs(mf._is_symlink_at(dfd, "lnk"), True, "symlink -> True")
+                self.assertIs(mf._is_symlink_at(dfd, "reg"), False, "regular file -> False")
+                self.assertIs(mf._is_symlink_at(dfd, "missing"), False, "ENOENT -> exact False")
+                self.assertIs(mf._is_symlink_at(dfd, "reg/child"), False, "ENOTDIR -> exact False")
+            finally:
+                os.close(dfd)
+
     def test_primitives_and_zero_fstring_int_dos(self) -> None:
         max_2048 = (1 << mf.MAX_INT_BITS) - 1
         over_2048 = 1 << mf.MAX_INT_BITS

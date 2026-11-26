@@ -45,6 +45,20 @@ def _rename_exchange(path_a: Path, path_b: Path) -> None:
 
 
 class TestZoneBPrimitives(unittest.TestCase):
+    def test_is_symlink_at_returns_exact_bool(self) -> None:
+        # R5 guard_except_reject: an OSError from lstat must yield exact False, not a falsy None.
+        with tempfile.TemporaryDirectory() as td:
+            Path(td, "reg").write_bytes(b"x")
+            os.symlink("reg", os.path.join(td, "lnk"))
+            dfd = os.open(td, os.O_RDONLY | os.O_DIRECTORY)
+            try:
+                self.assertIs(mod._is_symlink_at(dfd, "lnk"), True, "symlink -> True")
+                self.assertIs(mod._is_symlink_at(dfd, "reg"), False, "regular file -> False")
+                self.assertIs(mod._is_symlink_at(dfd, "missing"), False, "ENOENT -> exact False")
+                self.assertIs(mod._is_symlink_at(dfd, "reg/child"), False, "ENOTDIR -> exact False")
+            finally:
+                os.close(dfd)
+
     def test_parse_capped_int_token_and_json_byte_boundaries(self) -> None:
         max_2048 = (1 << mod.MAX_INT_BITS) - 1
         over_2048 = 1 << mod.MAX_INT_BITS
@@ -331,6 +345,38 @@ def _inprocess_ref_check_run(cmd: list[str], **kwargs: object) -> subprocess.Com
 
 
 class TestFuzzerEnginesAndFoils(unittest.TestCase):
+    def test_atomic_write_oserror_paths_are_typed_without_root_dependence(self) -> None:
+        # R5 guard_except_reject on _open_parent_dir_fd mkdir and temp-file os.open: these OSError
+        # branches must raise typed FILE_WRITE_ERROR even when running as root (chmod is ineffective).
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(os.path.realpath(td))
+            # mkdir fails with ENAMETOOLONG (not FileExistsError) -> FILE_WRITE_ERROR, not a
+            # fallthrough to the ancestor open (which would report FILE_READ_ERROR).
+            long_dir = root / ("d" * 300) / "x.json"
+            with self.assertRaises(mod.ZoneBFuzzError) as ctx:
+                mod._atomic_write_bytes_0600(long_dir, b"{}\n")
+            self.assertEqual(ctx.exception.code, "FILE_WRITE_ERROR")
+
+            # Temp-file creation fails with a non-EEXIST OSError -> FILE_WRITE_ERROR on the first
+            # attempt (not 64 silent retries ending in TEMP_SLOT_EXHAUSTED).
+            target = root / "out.json"
+            real_open = os.open
+            calls = {"n": 0}
+
+            def _deny_tmp(name: object, flags: int, *args: object, **kwargs: object) -> int:
+                if type(name) is str and name.startswith(".zb.") and flags & os.O_CREAT:
+                    calls["n"] += 1
+                    raise PermissionError(13, "denied")
+                return real_open(name, flags, *args, **kwargs)
+
+            with mock.patch.object(mod.os, "open", side_effect=_deny_tmp):
+                with self.assertRaises(mod.ZoneBFuzzError) as ctx:
+                    mod._atomic_write_bytes_0600(target, b"{}\n")
+            self.assertEqual(ctx.exception.code, "FILE_WRITE_ERROR")
+            self.assertEqual(calls["n"], 1)
+            self.assertFalse(target.exists())
+            self.assertEqual(sorted(os.listdir(root)), [])
+
     @classmethod
     def setUpClass(cls) -> None:
         cls.ref_cert = mod.build_reference_cert()

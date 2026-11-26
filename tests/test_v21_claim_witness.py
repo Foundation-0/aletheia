@@ -94,6 +94,20 @@ class _LyingMap(Mapping):
 
 
 class TestZoneBStrictIO(unittest.TestCase):
+    def test_is_symlink_at_returns_exact_bool(self) -> None:
+        # R5 guard_except_reject: an OSError from lstat must yield exact False, not a falsy None.
+        with tempfile.TemporaryDirectory() as td:
+            Path(td, "reg").write_bytes(b"x")
+            os.symlink("reg", os.path.join(td, "lnk"))
+            dfd = os.open(td, os.O_RDONLY | os.O_DIRECTORY)
+            try:
+                _check(cwc._is_symlink_at(dfd, "lnk") is True, "symlink -> True")
+                _check(cwc._is_symlink_at(dfd, "reg") is False, "regular file -> False")
+                _check(cwc._is_symlink_at(dfd, "missing") is False, "ENOENT -> exact False")
+                _check(cwc._is_symlink_at(dfd, "reg/child") is False, "ENOTDIR -> exact False")
+            finally:
+                os.close(dfd)
+
     def test_constants_and_scalar_guards(self) -> None:
         _check(cwc.MAX_JSON_DEPTH == 64, "MAX_JSON_DEPTH")
         _check(cwc.MAX_JSON_BYTES == 2_000_000, "MAX_JSON_BYTES")
@@ -839,6 +853,166 @@ class TestThreePillarsUnitAndBoundary(unittest.TestCase):
         _check(ma["hex_sha"] == "0" + ("a" * 63), "a flips to 0")
         mn = cwc._apply_semantic_destruction(base, {"op": "invert_numeric_claim", "path": ["meta", "count"]})
         _check(mn["meta"]["count"] == 6, "count increments by 1")
+
+        # Crash-vs-reject accounting: strict_v raises on p_list (RuntimeError) and p_drop (KeyError), False on 4.
+        _check(gate["rejected_by_exception"] == 2, "strict_v raised on exactly 2 destroyed witnesses")
+        _check(gate["rejected_by_false"] == 4, "strict_v returned False on exactly 4 destroyed witnesses")
+        _check(gate["valid_witness_verifier_raised"] is False, "valid witness accepted without raising")
+        raised_ids = [r["id"] for r in gate["results"] if r["verifier_raised"]]
+        _check(raised_ids == ["p_list", "p_drop"], f"p_list and p_drop raised, got {raised_ids}")
+        _check(
+            all(type(r["verifier_raised"]) is bool for r in gate["results"]),
+            "verifier_raised is exact bool",
+        )
+        _check(rej["valid_witness_verifier_raised"] is False, "always-false verifier did not raise")
+        _check(
+            rej["rejected_by_false"] == 0 and rej["rejected_by_exception"] == 0,
+            "VALID_WITNESS_REJECTED reports zero rejection counts",
+        )
+
+    def test_pillar3_noop_perturbation_fails_closed(self) -> None:
+        body = {"claim": {"count": 7}, "pin": "b" * 64}
+        w = dict(body)
+        w["h"] = cwc.canonical_sha256(body)
+        snapshot = copy.deepcopy(w)
+
+        # Self-cancelling spec: corrupting the very field that resign_hash_field recomputes.
+        noop_spec = {"id": "noop", "op": "corrupt_pinned_hash", "path": ["h"], "resign_hash_field": "h"}
+        _expect_error("NOOP_PERTURBATION", cwc._apply_semantic_destruction, w, noop_spec)
+        _expect_error(
+            "NOOP_PERTURBATION",
+            cwc.run_semantic_destruction_gate,
+            lambda d: d == w,
+            w,
+            [noop_spec],
+        )
+        # A NOOP spec anywhere in the list fails the whole gate closed (no verdict is issued).
+        good_spec = {"id": "num", "op": "invert_numeric_claim", "path": ["claim", "count"], "resign_hash_field": "h"}
+        _expect_error(
+            "NOOP_PERTURBATION",
+            cwc.run_semantic_destruction_gate,
+            lambda d: d == w,
+            w,
+            [good_spec, noop_spec],
+        )
+        # replace_list_with_arbitrary_dict on a list already equal to the arbitrary payload is a no-op.
+        _expect_error(
+            "NOOP_PERTURBATION",
+            cwc._apply_semantic_destruction,
+            {"l": [{"arbitrary": "not-a-valid-witness-entry"}]},
+            {"op": "replace_list_with_arbitrary_dict", "path": ["l"]},
+        )
+        _check(w == snapshot, "NOOP detection does not mutate valid_witness")
+
+        # Non-cancelling re-signed perturbations still differ from base and are tested normally.
+        pin_spec = {"id": "pin", "op": "corrupt_pinned_hash", "path": ["pin"], "resign_hash_field": "h"}
+        destroyed = cwc._apply_semantic_destruction(w, pin_spec)
+        _check(destroyed != w, "re-signed pin corruption differs from base")
+        _check(destroyed["pin"] == "0" + ("b" * 63), "pin flipped")
+        _check(destroyed["h"] == cwc.canonical_sha256({"claim": {"count": 7}, "pin": "0" + ("b" * 63)}), "re-signed")
+        gate = cwc.run_semantic_destruction_gate(lambda d: d == w, w, [good_spec, pin_spec])
+        _check(
+            gate["passed"] and gate["verdict"] == "STRICT_SEMANTIC_VERIFIER",
+            "exact-equality verifier is strict once no-op specs are excluded",
+        )
+        _check(gate["surviving_ids"] == [] and gate["hollow_survivals"] == 0, "no survivors")
+        _check(gate["rejected_by_false"] == 2 and gate["rejected_by_exception"] == 0, "2 rejected by False")
+
+    def test_pillar3_crash_vs_reject_counts(self) -> None:
+        base = {"a": {"k": 1}, "n": 3}
+        perts = [
+            {"id": "e", "op": "empty_mapping_field", "path": ["a"]},
+            {"id": "d", "op": "drop_required_field", "path": ["n"]},
+            {"id": "i", "op": "invert_numeric_claim", "path": ["n"]},
+        ]
+
+        def crashy(w: dict) -> bool:
+            if w == base:
+                return True
+            raise KeyError("crash on every destroyed witness")
+
+        gate = cwc.run_semantic_destruction_gate(crashy, base, perts)
+        _check(
+            gate == {
+                "pillar": "pillar3_semantic_destruction_gate",
+                "passed": True,
+                "verdict": "STRICT_SEMANTIC_VERIFIER",
+                "valid_witness_accepted": True,
+                "valid_witness_verifier_raised": False,
+                "perturbations_tested": 3,
+                "hollow_survivals": 0,
+                "rejected_by_false": 0,
+                "rejected_by_exception": 3,
+                "surviving_ids": [],
+                "results": [
+                    {"id": "e", "op": "empty_mapping_field", "survived": False, "verifier_raised": True},
+                    {"id": "d", "op": "drop_required_field", "survived": False, "verifier_raised": True},
+                    {"id": "i", "op": "invert_numeric_claim", "survived": False, "verifier_raised": True},
+                ],
+            },
+            f"crashy verifier fails closed with all crashes surfaced: {gate}",
+        )
+
+        def half_hollow(w: dict) -> bool:
+            if "n" not in w:
+                raise KeyError("n")
+            return w["n"] == 3
+
+        hollow = cwc.run_semantic_destruction_gate(half_hollow, base, perts)
+        _check(
+            hollow == {
+                "pillar": "pillar3_semantic_destruction_gate",
+                "passed": False,
+                "verdict": "HOLLOW_WITNESS_VERIFIER",
+                "valid_witness_accepted": True,
+                "valid_witness_verifier_raised": False,
+                "perturbations_tested": 3,
+                "hollow_survivals": 1,
+                "rejected_by_false": 1,
+                "rejected_by_exception": 1,
+                "surviving_ids": ["e"],
+                "results": [
+                    {"id": "e", "op": "empty_mapping_field", "survived": True, "verifier_raised": False},
+                    {"id": "d", "op": "drop_required_field", "survived": False, "verifier_raised": True},
+                    {"id": "i", "op": "invert_numeric_claim", "survived": False, "verifier_raised": False},
+                ],
+            },
+            f"mixed survive/raise/false accounting: {hollow}",
+        )
+
+        def always_raise(_w: dict) -> bool:
+            raise ValueError("boom")
+
+        vr = cwc.run_semantic_destruction_gate(always_raise, base, perts)
+        _check(
+            vr == {
+                "pillar": "pillar3_semantic_destruction_gate",
+                "passed": False,
+                "verdict": "VALID_WITNESS_REJECTED",
+                "valid_witness_accepted": False,
+                "valid_witness_verifier_raised": True,
+                "perturbations_tested": 0,
+                "hollow_survivals": 0,
+                "rejected_by_false": 0,
+                "rejected_by_exception": 0,
+                "surviving_ids": [],
+                "results": [],
+            },
+            f"valid-witness crash surfaced as raised: {vr}",
+        )
+        _check(cwc._invoke_verifier_strict(always_raise, base) == (False, True), "raise -> (False, True)")
+        _check(cwc._invoke_verifier_strict(lambda _w: True, base) == (True, False), "True -> (True, False)")
+        _check(cwc._invoke_verifier_strict(lambda _w: False, base) == (False, False), "False -> (False, False)")
+
+        def interrupt(_w: dict) -> bool:
+            raise KeyboardInterrupt
+
+        try:
+            cwc._invoke_verifier_strict(interrupt, base)
+        except KeyboardInterrupt:
+            pass
+        else:
+            raise RuntimeError("R5_CHECK_FAILED: KeyboardInterrupt must propagate")
 
 
 class TestReferenceEscapesAndTomography(unittest.TestCase):
