@@ -603,18 +603,13 @@ class TestDemoSelfTestCliScaffold(unittest.TestCase):
         self.assertEqual(aletheia.run_context_hygiene_self_test()["passed"], True)
 
     def test_34_json_depth_recursion_surrogate_key_relative_path_and_dual_oversize(self):
-        with mock.patch.object(ch.json, "loads", side_effect=RecursionError("depth")):
-            with self.assertRaises(AletheiaError) as cm:
-                ch._loads_strict_exact('{"a": [1, 2]}', "rec")
-            self.assertEqual(cm.exception.code, "CONTEXT_HYGIENE_JSON_DEPTH")
-        old_limit = sys.getrecursionlimit()
-        try:
-            sys.setrecursionlimit(20)
+        with self.assertRaises(AletheiaError) as cm:
+            ch._loads_strict_exact("[" * 2000 + "1" + "]" * 2000, "rec_2k")
+        self.assertEqual(cm.exception.code, "CONTEXT_HYGIENE_JSON_DEPTH")
+        with mock.patch.object(ch.json, "loads", side_effect=RecursionError("max recursion depth")):
             with self.assertRaises(AletheiaError) as cm2:
-                ch._loads_strict_exact("[" * 100 + "1" + "]" * 100, "rec_lim")
+                ch._loads_strict_exact('{"a": [1, 2]}', "rec")
             self.assertEqual(cm2.exception.code, "CONTEXT_HYGIENE_JSON_DEPTH")
-        finally:
-            sys.setrecursionlimit(old_limit)
         raw = '{"' + chr(0xD800) + '": 1}'
         with self.assertRaises(AletheiaError) as cm3:
             ch._loads_strict_exact(raw, "surr_key")
