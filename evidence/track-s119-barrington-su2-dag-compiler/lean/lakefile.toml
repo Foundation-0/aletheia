@@ -1,0 +1,7 @@
+name = "HoloSphereSpinorBarrington"
+version = "0.1.0"
+defaultTargets = ["HoloSphereSpinorBarrington"]
+
+[[lean_lib]]
+name = "HoloSphereSpinorBarrington"
+srcDir = "."
