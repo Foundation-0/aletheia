@@ -1,0 +1,13 @@
+name = "AletheiaKernelCerts"
+version = "0.1.0"
+defaultTargets = ["AletheiaKernelCerts"]
+
+[[lean_lib]]
+name = "AletheiaKernelCerts"
+roots = [
+  "AletheiaKernelCerts.Theorem1_HammingF64",
+  "AletheiaKernelCerts.Theorem2_BlockH2Int8",
+  "AletheiaKernelCerts.Theorem3_CS01BlindWindow",
+  "AletheiaKernelCerts.Theorem4_CS21Landauer",
+  "AletheiaKernelCerts.Theorem5_PolyaFermatSextic",
+]

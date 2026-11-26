@@ -1,0 +1,5 @@
+name = "OmegaNineFourthsAndSpectrum"
+defaultTargets = ["OmegaNineFourthsAndSpectrum"]
+
+[[lean_lib]]
+name = "OmegaNineFourthsAndSpectrum"

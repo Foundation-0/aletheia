@@ -1,0 +1,6 @@
+name = "AllToAllEpistemicMesh"
+version = "0.1.0"
+defaultTargets = ["AllToAllEpistemicMesh"]
+
+[[lean_lib]]
+name = "AllToAllEpistemicMesh"

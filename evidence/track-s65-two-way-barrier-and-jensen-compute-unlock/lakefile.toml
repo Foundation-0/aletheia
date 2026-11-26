@@ -1,0 +1,6 @@
+name = "TwoWayTransfer"
+version = "0.1.0"
+defaultTargets = ["TwoWayTransfer"]
+
+[[lean_lib]]
+name = "TwoWayTransfer"

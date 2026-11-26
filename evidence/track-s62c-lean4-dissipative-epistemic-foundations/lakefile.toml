@@ -1,0 +1,11 @@
+name = "CEERFoundations"
+version = "0.1.0"
+defaultTargets = ["CEERFoundations"]
+
+[[lean_lib]]
+name = "CEERFoundations"
+roots = [
+  "CEERFoundations.Module1_UniversalHysteresisAndConcavity",
+  "CEERFoundations.Module2_UniversalSchurDarkModeDrop",
+  "CEERFoundations.Module3_UniversalLaplacianThermalCoupling",
+]

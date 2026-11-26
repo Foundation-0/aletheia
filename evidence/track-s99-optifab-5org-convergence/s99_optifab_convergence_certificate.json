@@ -1,0 +1,765 @@
+{
+  "certificate_sha256": "ccab2dcf72bc3c495cdaa8902898d2c0901897fd02a35491135dbff6ddac2aac",
+  "payload": {
+    "all_pillars_verified": true,
+    "novelty_tier": "N1",
+    "oracle_class": "exact_pure_z_q",
+    "pillar_1_optifab14_defects_and_repairs": {
+      "all_five_defects_certified": true,
+      "defect_14_1_outage_constant": {
+        "double_subtracted_const_kw_dec4": "381.5143",
+        "double_subtracted_const_kw_q": "13353/35",
+        "eta_delta_ppm": -18,
+        "eta_v030_buggy_ppm": 914228,
+        "eta_v031_repaired_ppm": 914210,
+        "upstream_status": "fixed_in_v0_3_1_reproduced"
+      },
+      "defect_14_2_outage_fixed_heat": {
+        "false_admit_pcm_kwh": 2350,
+        "false_admit_v030_ppm": 992908,
+        "false_admit_v031_ppm": 1023079,
+        "omitted_heat_kwh_dec4": "70.9022",
+        "omitted_heat_kwh_q": "2658833/37500",
+        "qfix_start_uw": 212706640000,
+        "start_outage_delta_ppm": 28361,
+        "start_outage_v030_buggy_ppm": 933334,
+        "start_outage_v031_repaired_ppm": 961695,
+        "upstream_status": "fixed_in_v0_3_1_reproduced"
+      },
+      "defect_14_3_equal_objective_headroom_decay": {
+        "attack_step_count": 4,
+        "lex_repair_admits_widening_move": true,
+        "lex_repair_admitted_attack_count": 0,
+        "lex_repair_budget_preserved": 64,
+        "lex_repair_widened_headroom_ppm": 59652,
+        "lex_repair_widening_verdict": "ok",
+        "upstream_status": "open_in_v0_3_3_repaired_here",
+        "v033_admitted_count": 4,
+        "v033_eta_unchanged_ppm": 914210,
+        "v033_headroom_after_ppm": 317,
+        "v033_headroom_before_ppm": 38305,
+        "v033_headroom_eroded_ppm": 37988
+      },
+      "defect_14_4_missing_wellformed_predicate": {
+        "bad_shed_ppm": 2000000,
+        "bad_shed_v033_outage_ppm": -1304972,
+        "bad_shed_wellformed_pass": false,
+        "start_genome_wellformed_pass": true,
+        "upstream_status": "open_in_v0_3_3_repaired_here",
+        "zero_floor_v033_margin_ppm": 10000000,
+        "zero_floor_wellformed_at_10m_pass": false
+      },
+      "defect_14_5_asymmetric_distance_and_recovery": {
+        "double_pcm_cand_outage_ppm": 480848,
+        "double_pcm_headroom_after_ppm": 59652,
+        "double_pcm_pos_dist_sq": 0,
+        "double_pcm_radius_sq": 1467273025,
+        "double_pcm_repaired_verdict": "ok_safe_asymmetric",
+        "double_pcm_start_outage_ppm": 961695,
+        "double_pcm_sym_dist_sq": 231213837409,
+        "double_pcm_v033_verdict": "distance",
+        "oob_recovered_max_margin_ppm": 961695,
+        "oob_recovery_repaired_verdict": "ok_lyapunov_recovery",
+        "oob_recovery_v033_verdict": "radius",
+        "oob_start_headroom_ppm": -23079,
+        "oob_start_max_margin_ppm": 1023079,
+        "upstream_status": "open_in_v0_3_3_repaired_here"
+      },
+      "start_headroom_ppm": 38305,
+      "upstream_commit": "401e081f72476b13fdbf3d8fe7a1686c3a4be851",
+      "upstream_version": "0.3.3"
+    },
+    "pillar_2_coupled_physical_digital_gate": {
+      "all_verified": true,
+      "carnot_recooling_max_15c_dec4": "40.1092",
+      "carnot_recooling_max_15c_q": "19792395/493463",
+      "carnot_recooling_max_18c_dec4": "41.4579",
+      "carnot_recooling_max_18c_q": "20582334/496463",
+      "frame_bytes": 64,
+      "frame_contract_checks": [
+        {
+          "admitted": true,
+          "case_id": "design_nominal_coupled",
+          "violations": []
+        },
+        {
+          "admitted": false,
+          "case_id": "recooling_missing",
+          "violations": [
+            "recooling_not_measured"
+          ]
+        },
+        {
+          "admitted": false,
+          "case_id": "idle_below_load_floor",
+          "violations": [
+            "below_load_floor"
+          ]
+        },
+        {
+          "admitted": false,
+          "case_id": "recooling_above_41p46C",
+          "violations": [
+            "recooling_above_limit"
+          ]
+        },
+        {
+          "admitted": false,
+          "case_id": "punching_collar_exceeded",
+          "violations": [
+            "limit_exceeded"
+          ]
+        },
+        {
+          "admitted": false,
+          "case_id": "thermal_budget_exhausted",
+          "violations": [
+            "thermal_budget_exhausted"
+          ]
+        },
+        {
+          "admitted": false,
+          "case_id": "vram_residency_cliff_exceeded",
+          "violations": [
+            "silicon_vram_cliff_exceeded"
+          ]
+        },
+        {
+          "admitted": false,
+          "case_id": "schur_cross_coupling_unstable",
+          "violations": [
+            "schur_cross_coupling_unstable"
+          ]
+        }
+      ],
+      "frame_slot_count": 16,
+      "load_floor_p_min_mw_dec6": "0.564209",
+      "load_floor_p_min_mw_q": "2658833/4712500",
+      "pcm_budget_kwh": 2500,
+      "physical_binding_headroom_dec6": "0.198948",
+      "physical_binding_headroom_q": "27419/137820",
+      "physical_binding_limit_state": "floor_punching_collar",
+      "physical_limit_state_count": 12,
+      "physical_limit_states": [
+        {
+          "capacity_q": "1/2000",
+          "demand_q": "1791/20000000",
+          "headroom_dec6": "0.820900",
+          "headroom_q": "8209/10000",
+          "limit_state": "rack_vibration",
+          "source": "funi-frame",
+          "utilisation_dec6": "0.179100",
+          "utilisation_q": "1791/10000"
+        },
+        {
+          "capacity_q": "1",
+          "demand_q": "563/1000",
+          "headroom_dec6": "0.437000",
+          "headroom_q": "437/1000",
+          "limit_state": "storey_drift",
+          "source": "funi-frame",
+          "utilisation_dec6": "0.563000",
+          "utilisation_q": "563/1000"
+        },
+        {
+          "capacity_q": "99/4",
+          "demand_q": "48/5",
+          "headroom_dec6": "0.612121",
+          "headroom_q": "101/165",
+          "limit_state": "roof_crown_compression",
+          "source": "funi-frame",
+          "utilisation_dec6": "0.387879",
+          "utilisation_q": "64/165"
+        },
+        {
+          "capacity_q": "783",
+          "demand_q": "92109/200",
+          "headroom_dec6": "0.411820",
+          "headroom_q": "21497/52200",
+          "limit_state": "roof_tornado_uplift_factored",
+          "source": "funi-frame",
+          "utilisation_dec6": "0.588180",
+          "utilisation_q": "30703/52200"
+        },
+        {
+          "capacity_q": "200/3",
+          "demand_q": "587/50",
+          "headroom_dec6": "0.823900",
+          "headroom_q": "8239/10000",
+          "limit_state": "roof_service_deflection_mm",
+          "source": "funi-frame",
+          "utilisation_dec6": "0.176100",
+          "utilisation_q": "1761/10000"
+        },
+        {
+          "capacity_q": "17/2",
+          "demand_q": "2419/1000",
+          "headroom_dec6": "0.715412",
+          "headroom_q": "6081/8500",
+          "limit_state": "sorption_drive_heat",
+          "source": "funi-frame",
+          "utilisation_dec6": "0.284588",
+          "utilisation_q": "2419/8500"
+        },
+        {
+          "capacity_q": "13782/5",
+          "demand_q": "110401/50",
+          "headroom_dec6": "0.198948",
+          "headroom_q": "27419/137820",
+          "limit_state": "floor_punching_collar",
+          "source": "funi-floors",
+          "utilisation_dec6": "0.801052",
+          "utilisation_q": "110401/137820"
+        },
+        {
+          "capacity_q": "1/2",
+          "demand_q": "77/250",
+          "headroom_dec6": "0.384000",
+          "headroom_q": "48/125",
+          "limit_state": "floor_walking_vibration",
+          "source": "funi-floors",
+          "utilisation_dec6": "0.616000",
+          "utilisation_q": "77/125"
+        },
+        {
+          "capacity_q": "45/2",
+          "demand_q": "13669/1000",
+          "headroom_dec6": "0.392489",
+          "headroom_q": "8831/22500",
+          "limit_state": "floor_crown_compression",
+          "source": "funi-floors",
+          "utilisation_dec6": "0.607511",
+          "utilisation_q": "13669/22500"
+        },
+        {
+          "capacity_q": "78059/20",
+          "demand_q": "29299/25",
+          "headroom_dec6": "0.699725",
+          "headroom_q": "273099/390295",
+          "limit_state": "floor_fire_120min_thrust",
+          "source": "funi-floors",
+          "utilisation_dec6": "0.300275",
+          "utilisation_q": "117196/390295"
+        },
+        {
+          "capacity_q": "9337/25",
+          "demand_q": "928/5",
+          "headroom_dec6": "0.503052",
+          "headroom_q": "4697/9337",
+          "limit_state": "floor_duct_hole_shear",
+          "source": "funi-floors",
+          "utilisation_dec6": "0.496948",
+          "utilisation_q": "4640/9337"
+        },
+        {
+          "capacity_q": "13/125",
+          "demand_q": "2311/28875",
+          "headroom_dec6": "0.230436",
+          "headroom_q": "692/3003",
+          "limit_state": "sensor_power_at_airflow_turndown",
+          "source": "venturi-collars",
+          "utilisation_dec6": "0.769564",
+          "utilisation_q": "2311/3003"
+        }
+      ],
+      "schur_coupled_gate": {
+        "digital_block_dim": 2,
+        "matrix_dim": 6,
+        "nominal_eta1": {
+          "block_det_identity_exact": true,
+          "decoupled_blocks_both_spd": true,
+          "det_a_q": "1559/100",
+          "det_full_q": "99267947/2000000",
+          "det_schur_q": "99267947/31180000",
+          "eta_q": "1",
+          "haynsworth_additivity_exact": true,
+          "inertia_a": [
+            4,
+            0,
+            0
+          ],
+          "inertia_d": [
+            2,
+            0,
+            0
+          ],
+          "inertia_full": [
+            6,
+            0,
+            0
+          ],
+          "inertia_schur": [
+            2,
+            0,
+            0
+          ],
+          "negative_witness_quad_form_q": null,
+          "negative_witness_vec_q": null,
+          "r5_coupled_verdict": "ADMIT"
+        },
+        "overload_eta3": {
+          "block_det_identity_exact": true,
+          "decoupled_blocks_both_spd": true,
+          "det_a_q": "1559/100",
+          "det_full_q": "-43868493/2000000",
+          "det_schur_q": "-43868493/31180000",
+          "eta_q": "3",
+          "haynsworth_additivity_exact": true,
+          "inertia_a": [
+            4,
+            0,
+            0
+          ],
+          "inertia_d": [
+            2,
+            0,
+            0
+          ],
+          "inertia_full": [
+            5,
+            0,
+            1
+          ],
+          "inertia_schur": [
+            1,
+            0,
+            1
+          ],
+          "negative_witness_quad_form_q": "-464071/1247200",
+          "negative_witness_vec_q": [
+            "-3/10",
+            "-2091/3118",
+            "-990/1559",
+            "-3885/12472",
+            "1",
+            "0"
+          ],
+          "r5_coupled_verdict": "REFUSE_SCHUR_NEGATIVE_INERTIA"
+        },
+        "physical_block_dim": 4
+      },
+      "silicon_compute_anchors": {
+        "s53_dynamic_channels": 48,
+        "s53_signal_over_null_ratio_dec4": "10.7384",
+        "s53_signal_over_null_ratio_q": "103215570329/9611835995",
+        "s58_energy_reduction_ratio_dec4": "4.9079",
+        "s58_energy_reduction_ratio_q": "51170755/10426237",
+        "s58_sm86_tok_s_dec2": "400.58",
+        "s58_sm86_tok_s_q": "20029/50",
+        "s61_landauer_net_core_gap_ceil": 345639005232,
+        "s86_r128_vram_headroom_dec6": "0.195001",
+        "s86_r128_vram_headroom_q": "1635789/8388608",
+        "s86_r128_vram_util_dec6": "0.804999",
+        "s86_r128_vram_util_q": "6752819/8388608",
+        "s94_b_crit_bpw_dec4": "1.9006",
+        "s94_b_crit_bpw_q": "325/171",
+        "s94_bonsai_cliff_util_dec4": "0.9260",
+        "s94_bonsai_cliff_util_q": "7524/8125",
+        "s94_quadsnake_3bpw_cliff_util_dec4": "1.5785",
+        "s94_quadsnake_3bpw_cliff_util_q": "513/325",
+        "vram_tighter_than_physical_collar": true
+      }
+    },
+    "pillar_3_proposals_k8_5org_mesh": {
+      "all_verified": true,
+      "borromean_5org_obstruction": {
+        "four_org_failure_witnesses": [
+          {
+            "broken_proposals": [
+              "P1",
+              "P2",
+              "P3",
+              "P4",
+              "P5",
+              "P6",
+              "P7",
+              "P8"
+            ],
+            "closed_interface_count": 0,
+            "closed_proposal_count": 0,
+            "dropped_org": "aska-physical"
+          },
+          {
+            "broken_proposals": [
+              "P5",
+              "P7"
+            ],
+            "closed_interface_count": 8,
+            "closed_proposal_count": 6,
+            "dropped_org": "proven-commons"
+          },
+          {
+            "broken_proposals": [
+              "P6",
+              "P7"
+            ],
+            "closed_interface_count": 8,
+            "closed_proposal_count": 6,
+            "dropped_org": "siliconcordat"
+          },
+          {
+            "broken_proposals": [
+              "P1",
+              "P2",
+              "P3",
+              "P6",
+              "P8"
+            ],
+            "closed_interface_count": 3,
+            "closed_proposal_count": 3,
+            "dropped_org": "Moissanite-Labs"
+          },
+          {
+            "broken_proposals": [
+              "P1",
+              "P2",
+              "P3",
+              "P4",
+              "P5",
+              "P8"
+            ],
+            "closed_interface_count": 2,
+            "closed_proposal_count": 2,
+            "dropped_org": "Foundation-0"
+          }
+        ],
+        "full_closure_subset_count": 1,
+        "nonempty_subsets_checked": 31,
+        "public_orgs": [
+          "Foundation-0",
+          "Moissanite-Labs",
+          "siliconcordat",
+          "proven-commons",
+          "aska-physical"
+        ],
+        "strict_borromean_necessity": true
+      },
+      "foster_effective_resistance_q": "1/4",
+      "foster_identity_exact": true,
+      "foster_sum_q": "7",
+      "mesh_edge_count": 28,
+      "mesh_node_count": 8,
+      "nonzero_triangle_holonomy_count": 50,
+      "proposals": [
+        {
+          "closes_interfaces": [
+            "L1",
+            "L2"
+          ],
+          "execution_node": "client-omarchy",
+          "issue_number": 4,
+          "node_id": 0,
+          "primary_org": "aska-physical",
+          "proposal_id": "P1",
+          "required_orgs": [
+            "aska-physical",
+            "Foundation-0",
+            "Moissanite-Labs"
+          ],
+          "sector": "physical",
+          "title": "Plant sense: two sensors and a frame emitter",
+          "upstream_anchor": "S53+venturi-collars+impedence-analyzers"
+        },
+        {
+          "closes_interfaces": [
+            "L4",
+            "L5"
+          ],
+          "execution_node": "aletheion",
+          "issue_number": 5,
+          "node_id": 1,
+          "primary_org": "Moissanite-Labs",
+          "proposal_id": "P2",
+          "required_orgs": [
+            "Moissanite-Labs",
+            "Foundation-0",
+            "aska-physical"
+          ],
+          "sector": "digital",
+          "title": "Load control with an energy reading",
+          "upstream_anchor": "S58+S61+weft+optifab"
+        },
+        {
+          "closes_interfaces": [
+            "L10"
+          ],
+          "execution_node": "m1-max",
+          "issue_number": 6,
+          "node_id": 2,
+          "primary_org": "Moissanite-Labs",
+          "proposal_id": "P3",
+          "required_orgs": [
+            "Moissanite-Labs",
+            "Foundation-0",
+            "aska-physical"
+          ],
+          "sector": "digital",
+          "title": "A model as the proposer",
+          "upstream_anchor": "S86+S94+siliquant+abios+optifab"
+        },
+        {
+          "closes_interfaces": [
+            "L7"
+          ],
+          "execution_node": "client-omarchy",
+          "issue_number": 7,
+          "node_id": 3,
+          "primary_org": "aska-physical",
+          "proposal_id": "P4",
+          "required_orgs": [
+            "aska-physical",
+            "Foundation-0"
+          ],
+          "sector": "physical",
+          "title": "Structural genes",
+          "upstream_anchor": "S51+funi-frame+funi-floors+fibral-rigidity"
+        },
+        {
+          "closes_interfaces": [
+            "L3"
+          ],
+          "execution_node": "client-omarchy",
+          "issue_number": 8,
+          "node_id": 4,
+          "primary_org": "proven-commons",
+          "proposal_id": "P5",
+          "required_orgs": [
+            "proven-commons",
+            "aska-physical",
+            "Foundation-0"
+          ],
+          "sector": "digital",
+          "title": "Specification review for the gate",
+          "upstream_anchor": "proven-commons/mission+optifab/formal+math0"
+        },
+        {
+          "closes_interfaces": [
+            "L9"
+          ],
+          "execution_node": "m1-max",
+          "issue_number": 9,
+          "node_id": 5,
+          "primary_org": "siliconcordat",
+          "proposal_id": "P6",
+          "required_orgs": [
+            "siliconcordat",
+            "Moissanite-Labs",
+            "aska-physical"
+          ],
+          "sector": "digital",
+          "title": "Signed ledger and command channel",
+          "upstream_anchor": "siliconcordat+synmerit+ethos+optifab/ledger"
+        },
+        {
+          "closes_interfaces": [
+            "L8"
+          ],
+          "execution_node": "client-omarchy",
+          "issue_number": 10,
+          "node_id": 6,
+          "primary_org": "aska-physical",
+          "proposal_id": "P7",
+          "required_orgs": [
+            "aska-physical",
+            "siliconcordat",
+            "proven-commons"
+          ],
+          "sector": "physical",
+          "title": "First fabrication cell under the gate",
+          "upstream_anchor": "funi-floors-FeSMA+cfrp-truss+siliconcordat"
+        },
+        {
+          "closes_interfaces": [
+            "L6"
+          ],
+          "execution_node": "aletheion",
+          "issue_number": 11,
+          "node_id": 7,
+          "primary_org": "Foundation-0",
+          "proposal_id": "P8",
+          "required_orgs": [
+            "Foundation-0",
+            "aska-physical",
+            "Moissanite-Labs"
+          ],
+          "sector": "physical",
+          "title": "Network of campuses",
+          "upstream_anchor": "S83+S51+optifab-network-first-look+exo"
+        }
+      ],
+      "schur_compounding_count": 28,
+      "schur_compounding_gain_q": "3",
+      "schur_effective_conductance_q": "4",
+      "silo_cut_4x4": {
+        "cross_boundary_edges": 16,
+        "digital_node_ids": [
+          1,
+          2,
+          4,
+          5
+        ],
+        "lambda2_cut": 0,
+        "lambda2_intact": 8,
+        "physical_node_ids": [
+          0,
+          3,
+          6,
+          7
+        ]
+      },
+      "tetrahedral_bianchi_z2_zero_count": 70,
+      "tetrahedral_bianchi_z_zero_count": 70,
+      "tetrahedron_count": 70,
+      "three_node_execution_plan": {
+        "full_execution_subset_count": 1,
+        "nodes": [
+          {
+            "assigned_proposals": [
+              "P3",
+              "P6"
+            ],
+            "hardware_profile": "Apple Silicon M1 Max 64 GiB unified memory + powermetrics",
+            "host_role": "m1-max",
+            "memory_budget_gib_q": "64",
+            "primary_deliverables": "27B/70B model proposer (headroom > 37 GiB), Apple Silicon powermetrics energy/shed, human-in-the-loop Synmerit signing"
+          },
+          {
+            "assigned_proposals": [
+              "P2",
+              "P8"
+            ],
+            "hardware_profile": "RTX 3080 8 GiB VRAM + 32 GiB RAM + Intel i9-11900H AVX-512 RAPL",
+            "host_role": "aletheion",
+            "memory_budget_gib_q": "8",
+            "primary_deliverables": "x86 RAPL energy()/shed() calibration (S58/S61), sovereign 8 GiB LoRA/Bonsai cliff verification (S86/S94), multi-campus Schur/LP dispatch"
+          },
+          {
+            "assigned_proposals": [
+              "P1",
+              "P4",
+              "P5",
+              "P7"
+            ],
+            "hardware_profile": "CPU-only Linux workstation + live Lean 4.36.0 + aletheia R10+ harness",
+            "host_role": "client-omarchy",
+            "memory_budget_gib_q": "32",
+            "primary_deliverables": "64-byte sensor frame & S53 dark-mode verification, funi-frame/funi-floors --inputs harness, live Lean 4.36.0 proof/audit gate, Fe-SMA bench model"
+          }
+        ],
+        "nonempty_host_subsets_checked": 7,
+        "strict_3node_borromean_necessity": true
+      },
+      "triangle_count": 56
+    },
+    "pillar_4_lean4_and_provenance": {
+      "all_verified": true,
+      "epistemic_scope": {
+        "n0_scaffolding_count": 2,
+        "n1_synthesis_count": 4,
+        "n2_claims_count": 0,
+        "novelty_tier": "N1",
+        "public_repos_only": true,
+        "zero_gpu_touch": true
+      },
+      "law5_non_commutativity": {
+        "decoupled_vs_schur_flip_eta_q": "3",
+        "steady_vs_transient_outage_flip_pcm_kwh": 2350,
+        "sym_vs_pos_distance_delta": 231213837409,
+        "witness_count": 3
+      },
+      "lean4_companion": {
+        "all_theorems_universally_quantified": true,
+        "allowed_axioms": [
+          "propext",
+          "Quot.sound"
+        ],
+        "file": "OptiFabFiveOrgConvergence.lean",
+        "lakefile": "lakefile.toml",
+        "lakefile_sha256": "d4a8183d2caaa2f4eebd45c3abc3ed9a7c775d8415f06d84a01373feb3759e0a",
+        "namespace": "S99OptiFabFiveOrgConvergence",
+        "pure_init_zero_external_imports": true,
+        "sha256": "dea818157f634fd339754bf7b45daf0ce1272714646760f27c5346f18beac485",
+        "theorem_count": 18,
+        "theorems": [
+          "defect14_1_outage_constant_positive_error",
+          "defect14_1_buggy_used_strictly_less",
+          "defect14_2_fixed_heat_raises_outage_num",
+          "defect14_3_lex_forbids_tie_headroom_decay",
+          "defect14_4_wellformed_nonneg_outage_and_pos_den",
+          "defect14_5_pos_dist_sq_preserves_limit",
+          "defect14_5_pure_safety_move_zero_pos_dist",
+          "defect14_5_lyapunov_recovery_strict_descent",
+          "pillar2_carnot_recooling_ceiling_monotone",
+          "pillar2_load_floor_monotone_in_qfix",
+          "pillar2_residency_cliff_split",
+          "pillar2_schur_2x2_negative_inertia_witness",
+          "pillar2_haynsworth_square_completion",
+          "pillar3_foster_complete_graph_cleared",
+          "pillar3_schur_compounding_strict_gain",
+          "pillar3_tetrahedral_bianchi_exact_zero",
+          "pillar3_silo_cut_am_gm_bound",
+          "pillar4_law5_non_commutativity_pos_vs_sym"
+        ],
+        "toolchain_file": "lean-toolchain",
+        "toolchain_sha256": "582a63f8f9c5128067b688778c1051cf1464c3ca9d57b9325025c051c29b774a"
+      },
+      "pinned_upstream_provenance": {
+        "aska_public_sibling_heads": {
+          "cfrp-masts": "0334351721",
+          "cfrp-truss": "0b9ae3b8e2",
+          "fibral-rigidity": "d66ea4f32e",
+          "funi-floors": "ae324547e0",
+          "funi-frame": "17d05bb376",
+          "graph-fab": "d669f23321",
+          "impedence-analyzers": "5f95cc16f9",
+          "venturi-collars": "73e1c7de24"
+        },
+        "expedition_certificates": {
+          "S51": {
+            "rel_path": "track-s51-optifab-schur-metrology-closure/optifab_schur_metrology_certificate.json",
+            "sha256": "412a6ff68d687536288718970e9cabbfc2defc4476a5c2faa4fed3623a3d033e"
+          },
+          "S53": {
+            "rel_path": "track-s53-beyond-language-sensor-tomography/phase2_controlled_certificate.json",
+            "sha256": "6379283a41723d96637c83a7217e099da477baddc9715ef68dcbb55913c47338"
+          },
+          "S58": {
+            "rel_path": "track-s58-aletheion-live-llm-engine/aletheion_live_llm_certificate.json",
+            "sha256": "9b6c720c783cac8aaa3793e80ee5df87710c07bfc859f702cdabf428d3727620"
+          },
+          "S61": {
+            "rel_path": "track-s61-rapl-landauer-cmos-tomography/rapl_landauer_certificate.json",
+            "sha256": "6de0a116cf30eba53f32b210290aa83e389a8eaa72efcba6ffb014dcbb3c1856"
+          },
+          "S83": {
+            "rel_path": "track-s83-all-to-all-epistemic-mesh/s83_epistemic_mesh_certificate.json",
+            "sha256": "74d269c5c1c35665fc835df796e6f94cdbd118ca4ce580a20310c5c969deabdb"
+          },
+          "S86": {
+            "rel_path": "track-s86-sovereign-8gb-fourth-order-stack/s86_sovereign_stack_certificate.json",
+            "sha256": "675bf68c1291a3cf7aeef9beb9a5efc316b55f44a6823a0a94f2ffef7754cb12"
+          },
+          "S94": {
+            "rel_path": "track-s94-neuron-basis-bonsai-sleep-convergence/s94_wave6_convergence_certificate.json",
+            "sha256": "1ad705c23646b65df0dc9ac928d3a4070deef61f5d17f8e8f249b4f75f51335b"
+          }
+        },
+        "optifab": {
+          "branch": "main",
+          "certificate_sha256": "55fcf0e7259291b52e475af0faf931eb7b4ddc1d4bb105d742538b5574a7d5fc",
+          "commit": "401e081f72476b13fdbf3d8fe7a1686c3a4be851",
+          "funi_floors_cert_sha256": "85878c416fed3c290c1321ec0dc27af5a152d8ca4d264b8f802add2e5995d186",
+          "funi_frame_cert_sha256": "1c57555060c742c6e1eeb6ac8df38b7bf6ad7e3a7770bb851b345cb6ce3f4ede",
+          "repo": "aska-physical/optifab",
+          "unmerged_branch_audit": "origin/claude/intelligence-network-convergence-q5ti6q@128f857 has zero tree diff against origin/main (merged in PR #20)",
+          "version": "0.3.3"
+        }
+      }
+    },
+    "schema_version": "aletheia.track_s99.optifab_5org_convergence.certificate.v1",
+    "track_id": "TRACK-S99-OPTIFAB-5ORG-CONVERGENCE"
+  },
+  "payload_sha256": "7936716486bfd45f5a4344e816e7c8f2845a25994057d59691341d4618c7416f",
+  "schema_version": "aletheia.track_s99.optifab_5org_convergence.certificate.v1",
+  "track_id": "TRACK-S99-OPTIFAB-5ORG-CONVERGENCE"
+}

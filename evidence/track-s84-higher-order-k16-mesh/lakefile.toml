@@ -1,0 +1,6 @@
+name = "HigherOrderEpistemicMesh"
+version = "0.1.0"
+defaultTargets = ["HigherOrderEpistemicMesh"]
+
+[[lean_lib]]
+name = "HigherOrderEpistemicMesh"
