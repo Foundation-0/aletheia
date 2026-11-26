@@ -42,3 +42,7 @@ When spawning an Antigravity swarm (`swarm{action:"add", ...}`), pair this plugi
 - `synthesizer` ([`../../prompts/synthesizer.md`](../../prompts/synthesizer.md)) — exact cross-domain operator bridges
 - `verifier` ([`../../prompts/verifier-tomography.md`](../../prompts/verifier-tomography.md)) — zero-shared-code adversarial tomography
 - `peer-weaver` ([`../../prompts/peer-weaver.md`](../../prompts/peer-weaver.md)) — live peer PR mapping & Wave 2+ handoff
+
+## Context Lifecycle (`CS-26`)
+
+Spawn swarm workers as ephemeral: when a worker's output has landed on disk with no background task running, remove it and add a fresh zero-context replacement briefed by file paths. Do not leave a bloated worker idle past prompt-cache TTL to wake cold, keep payloads in external files (board posts `<= 12` lines: verdict + path + digest + action), and rotate portal-keeper/verifier/peer-weaver across waves. See `python3 -m aletheia context-hygiene --help`.

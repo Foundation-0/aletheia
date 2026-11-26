@@ -62,3 +62,11 @@ Ask yourself (or run `python3 -m aletheia diagnose .`):
 - Did I re-enter the raw portals after my last anomaly, or am I running on autopilot? *(Static-Map Trap)*
 - Did I test a toy proxy instead of the real upstream equation/dataset? *(Substitution Shadow)*
 - Did I claim cross-domain unity using shared words without an executable map? *(Language Smuggling)*
+
+---
+
+## Context Lifecycle (`CS-26`)
+
+- End each phase by writing its state to disk; begin the next phase in a fresh window reading those files. Fresh context is both an independence device and the cheapest cache policy.
+- Before a long pause in a bloated window, write a compact summary file and close the window; resuming the full stale history after the cache expires is the expensive path.
+- Reference logs, diffs, and data by external file name plus digest; paste only the verdict and the next action.

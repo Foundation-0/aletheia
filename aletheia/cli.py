@@ -13,11 +13,13 @@ Subcommands:
   - mde          Emit/verify Plane-1 `zone-canon-v0` Aletheia-MDE manifests, lineage DAGs & SYM-2P packets
   - calculus     List, evaluate, or self-test the 8-glyph Aletheia Operator Calculus
   - twin-check   Machine-check the claims aletheia and cave-expedition make about each other
+  - context-hygiene  CS-26 ephemeral lifecycle, cold-cache guard & external-file discipline audit
 """
 from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 import sys
 from typing import Any, Sequence
@@ -25,6 +27,7 @@ from typing import Any, Sequence
 from . import __version__
 from .audit_check import run_audit_check
 from .calculus import eval_calculus_expression, list_glyphs, run_calculus_self_test
+from .context_hygiene import audit_context_hygiene, run_context_hygiene_demo, run_context_hygiene_self_test
 from .diagnose import diagnose_expedition
 from .gates_v2 import run_v2_gates_self_test
 from .handoff import create_handoff_template, validate_handoff_manifest
@@ -225,6 +228,21 @@ def build_parser() -> argparse.ArgumentParser:
     p_twin.add_argument("--contract", type=Path, default=None, help="Twin contract JSON (default: <aletheia-root>/spec/twin_contract.json, else the packaged one)")
     p_twin.add_argument("--json", action="store_true", help="Emit the machine-readable report as JSON")
 
+    # 13. context-hygiene (CS-26 ephemeral lifecycle & cold-cache guard)
+    p_ctx = sub.add_parser("context-hygiene", help="CS-26 context-lifecycle & cold-cache hygiene audit (pure-Q retire/respawn, pre-idle compact, external-file discipline)")
+    ctx_grp = p_ctx.add_mutually_exclusive_group(required=False)
+    ctx_grp.add_argument("--demo", action="store_true", help="Run deterministic zero-file retire/respawn vs compact vs warm demo")
+    ctx_grp.add_argument("--self-test", action="store_true", help="Run deterministic pure-Q self-test with fail-closed negative controls")
+    p_ctx.add_argument("--board", type=Path, default=None, help="Swarm board JSONL file to scan for inline bloat")
+    p_ctx.add_argument("--workers", type=Path, default=None, help="Workers JSON file ({workers: [{id, context_tokens, idle_seconds, compactions}]})")
+    p_ctx.add_argument("--max-board-lines", type=int, default=12, help="Maximum lines per board message (default: 12)")
+    p_ctx.add_argument("--max-board-chars", type=int, default=2000, help="Maximum characters per board message (default: 2000)")
+    p_ctx.add_argument("--cold-context-tokens", type=int, default=150000, help="Context size above which a worker counts as bloated (default: 150000)")
+    p_ctx.add_argument("--cache-ttl-seconds", type=int, default=300, help="Prompt-cache TTL in seconds (default: 300)")
+    p_ctx.add_argument("--max-compactions", type=int, default=5, help="Maximum compactions per worker before rotation (default: 5)")
+    p_ctx.add_argument("--fail-on-warning", action="store_true", help="Return non-zero on WARNING as well as ALERT")
+    p_ctx.add_argument("--json", action="store_true", help="Emit zero-float JSON output")
+
     return parser
 
 
@@ -374,6 +392,31 @@ def main(argv: Sequence[str] | None = None) -> int:
                 print(format_twin_table(res))
             return 0 if res["passed"] else 1
 
+        if args.command == "context-hygiene":
+            if args.demo:
+                res = run_context_hygiene_demo()
+                _emit(res, as_json)
+                return 0 if res["passed"] else 1
+            if args.self_test:
+                res = run_context_hygiene_self_test()
+                _emit(res, as_json)
+                return 0 if res["passed"] else 1
+            res = audit_context_hygiene(
+                board_path=args.board,
+                workers_path=args.workers,
+                max_board_lines=args.max_board_lines,
+                max_board_chars=args.max_board_chars,
+                cold_context_tokens=args.cold_context_tokens,
+                cache_ttl_seconds=args.cache_ttl_seconds,
+                max_compactions=args.max_compactions,
+            )
+            _emit(res, as_json)
+            if res["status"] == "ALERT":
+                return 1
+            if args.fail_on_warning and res["status"] == "WARNING":
+                return 1
+            return 0
+
         raise AletheiaError("UNKNOWN_COMMAND", f"unknown command: {args.command}")
 
     except AletheiaError as exc:
@@ -382,6 +425,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(json.dumps(err_payload, indent=2))
         else:
             print(f"[aletheia] ERROR {exc.code}: {exc.message}", file=sys.stderr)
+        return 2
+    except BrokenPipeError:
+        try:
+            devnull_fd = os.open(os.devnull, os.O_WRONLY)
+            os.dup2(devnull_fd, sys.stdout.fileno())
+        except OSError:
+            pass
         return 2
 
 

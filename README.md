@@ -87,6 +87,11 @@ PYTHONPATH=. python3 -m aletheia mutate path/to/verifier.py --work-root . --add-
 # Diagnose all 12 automated Cave-Shadow relapse patterns (CS-01..CS-12, incl. root frontier_portals.md & --portals-path)
 PYTHONPATH=. python3 -m aletheia diagnose /tmp/my-expedition
 
+# CS-26 context lifecycle & cold-cache hygiene: ephemeral retire/respawn, pre-idle compaction,
+# external-file-in-place board discipline (spec/proposals/CONTEXT_LIFECYCLE_AND_CACHE_HYGIENE.md)
+PYTHONPATH=. python3 -m aletheia context-hygiene --self-test --json
+PYTHONPATH=. python3 -m aletheia context-hygiene --board board.jsonl --workers workers.json --json
+
 # Run the 5-gate anti-Goodhart, noise-immune, CS-08-capped autonomous ratchet demo (AUDIT-026R + AUDIT-023)
 PYTHONPATH=. python3 -m aletheia ratchet --demo
 

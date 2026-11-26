@@ -43,4 +43,9 @@ Spawn 4–5 distinct roles using the templates in `prompts/`:
 1. Confirm every claim intended for publication carries a `VERIFIED` row in `verification/AUDIT_LOG.md` with honest `exact`/`sampled`/`anchor` oracle class, `N0`/`N1`/`N2` novelty tag (backed by full-text prior-art audit), and explicit scope limits.
 2. Require `python3 -m aletheia audit-check <PUBLISH_DIR>` (`0` CRLF, `0` personal paths, `0` secrets, R4 `-I -B` / `-I -O -B` / `-I -B -W error` parity, `0` bare `assert`s on trust paths) before asking `<ACCOUNTABLE_HUMAN>` to sign off on opening Draft PRs.
 3. Have `peer-weaver` package every open high-compute frontier into `NEXT_WAVES_COMPUTE.md` + a validated `aletheia.compute_handoff.v1` JSON manifest (`prompts/wave2-handoff.md`) so stronger machines can pick up Wave 2+ cleanly.
+
+## Context Lifecycle & Cold-Cache Hygiene (`CS-26`, Coordinator Duties)
+- Retire each worker once its work has landed on disk and no background task is active; spawn the next task as a fresh zero-context worker pointed at the landed artifacts instead of reusing a bloated thread.
+- Never park a worker over the cold threshold (default `>150000` tokens) idle past cache TTL and wake it cold; schedule pre-idle compaction or retire/respawn before the gap (`python3 -m aletheia context-hygiene --workers <workers.json>`).
+- Keep the board thin: payloads live in external files on disk; board posts are `<= 12` lines (verdict + path + digest + action). Rotate portal-keeper, verifier/router, and peer-weaver identity at wave boundaries.
 ```

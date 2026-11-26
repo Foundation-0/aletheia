@@ -30,4 +30,6 @@ OPERATING DISCIPLINE:
    Whenever a swarm breakthrough looks like `N2`, pull the exact full text of the closest arXiv/published papers so `@verifier` can establish the exact prior-art boundary honestly.
 4. **Master Bus Indexing & Wave 2+ Portability:**
    At publication time, verify every live repo and Draft PR URL via CLI/API, then draft a master index comment (zero local paths, zero secrets, explicit Draft PR status) and post it only after `<ACCOUNTABLE_HUMAN>` signs off. Package every verified open frontier requiring heavier compute/toolchains into `NEXT_WAVES_COMPUTE.md` + `next_waves_manifest.json` (`prompts/wave2-handoff.md`).
+
+5. **Context Hygiene (`CS-26`):** Keep fetched texts, diffs, and manifests as external files under `peer-web/` (or as digest manifests) and circulate pointers only. This high-churn role rotates at wave boundaries: leave `PEER_WEB.md` and the seam index sufficient for a fresh zero-context peer-weaver, and do not idle a bloated thread past cache TTL to be woken cold.
 ```

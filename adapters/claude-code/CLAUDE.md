@@ -20,3 +20,9 @@ Follow **The Aletheia Method** (*Portal-Driven Resonance & Adversarial Tomograph
 - Invoke `portal-keeper` whenever a probe discovers a surprise, exact cancellation, or obstruction.
 - Invoke `verifier-tomography` before accepting any claim or opening any Draft PR.
 - Before pushing: run `python3 -m aletheia audit-check .` and `python3 -m aletheia diagnose .`; open Draft PRs on feature branches only (never merge to default branches).
+
+## Context Lifecycle (`CS-26`)
+
+- Subagents are ephemeral: once a subagent's work is on disk and nothing runs in its background, do not reuse its bloated thread; start a fresh subagent briefed by exact file paths.
+- Before idling a large session past cache TTL, run `/compact` or end it and resume from disk artifacts; a cold wake re-bills the whole stale history (`python3 -m aletheia context-hygiene --self-test`).
+- Keep logs, diffs, and manifests in external files; messages carry verdict + path + digest + action only.

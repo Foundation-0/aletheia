@@ -147,6 +147,12 @@ def _protocol_markdown(domain: str) -> str:
 8. **Gate 8 — Pre-Adaptation Subspace Latch & Hashed Preregistration:** Record misspecification diagnostics before adaptation; commit and hash preregistrations before reading code or data; keep every miss.
 9. **Gate 9 — Mechanism-First Prior Art:** Before `N1` or `N2`, restate the mechanism in plain terms and in the vocabulary of at least two neighbouring fields, search full texts under each restatement, and record what was tried. A match on mechanism sets the label.
 10. **Gate 10 — Second-Pass Advocate for Narrowing Findings:** Every `FALSIFIED` or `PARTIAL/FRAGILE` verdict, and every finding that lowers a novelty label or narrows a claim, gets a second independent verifier who rebuilds the evidence and rules `stands`, `stands_narrowed`, or `falls`. Before publishing any label above `N0`, seek an independent outside observer where feasible.
+
+## Context Lifecycle & Cold-Cache Hygiene (`CS-26`)
+- **Retire & respawn:** Once a worker's work has landed cleanly on disk and its history is irrelevant to the next task, retire it (zero active background tasks) and spawn a fresh zero-context worker pointing at the exact disk artifacts.
+- **Cold-cache guard:** Never park a bloated worker (default `>150000` context tokens) idle past the prompt-cache TTL and reactivate it cold; retire/respawn, or compact before the idle gap (`aletheia context-hygiene --self-test`).
+- **External files in place:** Keep long text, raw logs, full diffs, manifests, and large JSON on disk (`verification/`, `scratch/`); filter command output and keep board messages to `<= 12` lines (verdict + disk path + digest + action).
+- **Rotate at wave boundaries:** Rotate high-churn operational roles (portal-keeper, verifier/router, peer-weaver) between waves instead of stacking compactions in one thread; audit with `aletheia context-hygiene --board <jsonl> --workers <json>`.
 """
 
 
@@ -173,6 +179,7 @@ def _frontier_portals_markdown(domain: str) -> str:
 2. **Stage A (Label-Stripping):** Strip disciplinary nouns and base-10/coordinate numerology to perceive raw relational geometry, dualities, fixed points, and obstructions.
 3. **Stage B (Coordinate-Free Null-Equivalence):** Compress each silhouette into a unit-free, basis-free, radix-free exact invariant or provable obstruction before testing.
 4. Separate prototype bugs from underlying mathematical/scientific structures: write down the **strongest repaired formulation** before testing or dismissing, and elevate exact obstructions into a theorem or spawn a follow-up branch.
+5. **Context hygiene (`CS-26`):** Write every finding to disk in place (never paste long payloads into board messages; post verdict + path + digest + action in `<= 12` lines), and at each wave boundary hand this file to a fresh portal-keeper instead of compacting one bloated thread indefinitely. A bloated idle thread reactivated past cache TTL pays the full stale history as a cache miss—retire and respawn against these disk artifacts instead.
 
 ---
 

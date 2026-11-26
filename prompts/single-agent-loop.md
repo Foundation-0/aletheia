@@ -35,4 +35,8 @@ To prevent confirmation bias and premature dismissal, strictly separate each res
   (d) package compute-limited frontiers into a portable Wave 2+ manifest (`python3 -m aletheia handoff`).
 
 Run `python3 -m aletheia audit-check .` and `python3 -m aletheia diagnose .` at the end of every cycle.
+
+## Context Lifecycle (`CS-26`, Single Agent)
+- At each phase boundary, write state to disk (`frontier_portals.md`, `AUDIT_LOG.md`, probe outputs) so the next phase can start from a fresh context; long logs and payloads stay in external files, summarized by verdict + path + digest.
+- Before a long idle gap on a bloated thread (default `>150000` tokens, TTL `300` s), compact or close the thread and reopen against the disk artifacts rather than paying a cold full-history reactivation (`python3 -m aletheia context-hygiene --self-test`).
 ```

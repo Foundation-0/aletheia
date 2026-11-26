@@ -27,3 +27,6 @@ Execute **The Aletheia Method** on `$ARGUMENTS` using strict phase separation (o
 
 6. **Automated Hygiene Check:**
    Run `python3 -m aletheia audit-check .` and `python3 -m aletheia diagnose .` before reporting results or opening a Draft PR.
+
+7. **Context Hygiene (`CS-26`):**
+   Between phases, persist state to disk and prefer fresh `portal-keeper` / `verifier-tomography` subagents over reusing bloated threads. Compact before long idle gaps instead of waking a large thread cold past cache TTL, keep payloads in external files (concise pointers in chat), and run `python3 -m aletheia context-hygiene --self-test` with the hygiene check.

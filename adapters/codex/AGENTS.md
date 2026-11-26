@@ -31,3 +31,7 @@ python3 -m aletheia mutate path/to/verifier.py --test-cmd "python3 -I -O -B path
 ```
 
 Publish cross-repo work strictly on feature branches as **Draft PRs** (never merge to default branches), with zero CRLF, zero personal paths, zero secrets, and zero `__pycache__`.
+
+## Context Lifecycle (`CS-26`)
+
+Treat agent threads as ephemeral and disk as state: after a task lands (no background work active), continue in a fresh zero-context thread briefed by file paths. Never idle a bloated thread (default `>150000` tokens) past cache TTL and wake it cold; compact before the gap or respawn. Board/chat messages stay `<= 12` lines (verdict + path + digest + action) with payloads in external files; audit via `python3 -m aletheia context-hygiene --board <jsonl> --workers <json>`.
