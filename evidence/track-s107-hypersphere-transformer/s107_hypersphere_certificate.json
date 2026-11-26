@@ -1,6 +1,11 @@
 {
-  "certificate_sha256": "a431e42a21adce1ebfc337fc57ced8a5b2b19706b150e83a60aa0ffdeebabbe8",
+  "certificate_sha256": "ce4969a6fa51ace889f5bf02efebffc57a06a185df5ada27f6b1522157f5907b",
   "payload": {
+    "corpus_manifest": {
+      "file": "corpus_manifest.json",
+      "reconstructible_from_repo_alone": false,
+      "sha256": "8519c6c3e308285c91ca93b96996417e08f9600dd68ff17bac8f434464e9cc57"
+    },
     "cpu_preflight": {
       "gates_passed": 9,
       "gates_total": 9,
@@ -13,112 +18,128 @@
           "bpb_pass": false,
           "kl_pass": false,
           "vs_cyl_bpb": {
+            "df": 2,
             "mean_diff": 0.08614,
             "paired_se": 0.032996,
-            "rel_diff_pct": 3.3999,
-            "z_score": 2.6106
+            "paired_t": 2.6106,
+            "rel_diff_pct": 3.3999
           },
           "vs_cyl_kl": {
+            "df": 2,
             "mean_diff": 0.000622,
             "paired_se": 0.001071,
-            "rel_diff_pct": 3.7583,
-            "z_score": 0.5811
+            "paired_t": 0.5811,
+            "rel_diff_pct": 3.7583
           },
           "vs_perm_bpb": {
+            "df": 2,
             "mean_diff": 0.043107,
             "paired_se": 0.013453,
-            "rel_diff_pct": 1.673,
-            "z_score": 3.2041
+            "paired_t": 3.2041,
+            "rel_diff_pct": 1.673
           },
           "vs_perm_kl": {
+            "df": 2,
             "mean_diff": 0.001987,
             "paired_se": 0.001742,
-            "rel_diff_pct": 13.0799,
-            "z_score": 1.1404
+            "paired_t": 1.1404,
+            "rel_diff_pct": 13.0799
           }
         },
         "S3-Equatorial-nGPT": {
           "bpb_pass": false,
           "kl_pass": false,
           "vs_cyl_bpb": {
+            "df": 2,
             "mean_diff": -0.025513,
             "paired_se": 0.016667,
-            "rel_diff_pct": -1.0243,
-            "z_score": -1.5307
+            "paired_t": -1.5307,
+            "rel_diff_pct": -1.0243
           },
           "vs_cyl_kl": {
+            "df": 2,
             "mean_diff": -0.000969,
             "paired_se": 0.001186,
-            "rel_diff_pct": -4.7965,
-            "z_score": -0.8173
+            "paired_t": -0.8173,
+            "rel_diff_pct": -4.7965
           },
           "vs_perm_bpb": {
+            "df": 2,
             "mean_diff": -0.014147,
             "paired_se": 0.013136,
-            "rel_diff_pct": -0.5706,
-            "z_score": -1.0769
+            "paired_t": -1.0769,
+            "rel_diff_pct": -0.5706
           },
           "vs_perm_kl": {
+            "df": 2,
             "mean_diff": 0.000741,
             "paired_se": 0.00098,
-            "rel_diff_pct": 4.0053,
-            "z_score": 0.7556
+            "paired_t": 0.7556,
+            "rel_diff_pct": 4.0053
           }
         },
         "S3-Polar-Std": {
           "bpb_pass": false,
           "kl_pass": false,
           "vs_cyl_bpb": {
+            "df": 2,
             "mean_diff": -0.021666,
             "paired_se": 0.018506,
-            "rel_diff_pct": -0.8552,
-            "z_score": -1.1707
+            "paired_t": -1.1707,
+            "rel_diff_pct": -0.8552
           },
           "vs_cyl_kl": {
+            "df": 2,
             "mean_diff": 0.000512,
             "paired_se": 0.000983,
-            "rel_diff_pct": 3.094,
-            "z_score": 0.521
+            "paired_t": 0.521,
+            "rel_diff_pct": 3.094
           },
           "vs_perm_bpb": {
+            "df": 2,
             "mean_diff": -0.010378,
             "paired_se": 0.021627,
-            "rel_diff_pct": -0.4114,
-            "z_score": -0.4799
+            "paired_t": -0.4799,
+            "rel_diff_pct": -0.4114
           },
           "vs_perm_kl": {
+            "df": 2,
             "mean_diff": -0.00087,
             "paired_se": 0.000551,
-            "rel_diff_pct": -4.8476,
-            "z_score": -1.5783
+            "paired_t": -1.5783,
+            "rel_diff_pct": -4.8476
           }
         },
         "S3-Polar-nGPT": {
           "bpb_pass": false,
           "kl_pass": false,
           "vs_cyl_bpb": {
+            "df": 2,
             "mean_diff": -0.004505,
             "paired_se": 0.012571,
-            "rel_diff_pct": -0.1809,
-            "z_score": -0.3584
+            "paired_t": -0.3584,
+            "rel_diff_pct": -0.1809
           },
           "vs_cyl_kl": {
+            "df": 2,
             "mean_diff": -0.001465,
             "paired_se": 0.001469,
-            "rel_diff_pct": -7.2545,
-            "z_score": -0.9974
+            "paired_t": -0.9974,
+            "rel_diff_pct": -7.2545
           },
           "vs_perm_bpb": {
+            "df": 2,
             "mean_diff": -0.005825,
             "paired_se": 0.016875,
-            "rel_diff_pct": -0.2337,
-            "z_score": -0.3452
+            "paired_t": -0.3452,
+            "rel_diff_pct": -0.2337
           },
           "vs_perm_kl": {
+            "df": 2,
             "mean_diff": -0.00096,
             "paired_se": 0.001607,
-            "rel_diff_pct": -4.8729,
-            "z_score": -0.5971
+            "paired_t": -0.5971,
+            "rel_diff_pct": -4.8729
           }
         }
       },
@@ -133,21 +154,27 @@
         "train_num_bytes": 2568794,
         "train_sha256": "43a81400291ee8fe50f3d88b226b9577e8d7284e7bc1b235498578a418b3aa6b"
       },
+      "graded_verdict": "FALSIFIED",
       "literal_prereg_verdict": "FALSIFIED",
       "max_flop_diff_pct": 0.0,
       "max_non_emb_param_diff_pct": 0.1631,
       "mlos": {
         "anomalies_count": 0,
-        "bound_results_sha256": "561572d9ace9df3cf76c1ba6e2a52b62809c6c9df2698fdd18e7904c5f4bede6",
         "clean_hardware_run": true,
         "determinism_zone": "B",
+        "duration_ms": 2268284.763,
+        "ended_utc": "2026-11-25T15:27:26Z",
+        "exit_code": 0,
         "file": "mlos_zone_b_h7a.json",
-        "receipt_sha256_verified": true,
-        "sha256": "e3b632b2e8e590a17acb4a331ab1aa5ec29e0347b746e143d1489f47a86b5786"
+        "gpu_telemetry_clean": true,
+        "receipt_sha256": "b6165dfe34f3ca8861f5c94e6dca2c7d6654cd0e06dcdd241e3ea223fce0e6c4",
+        "schema": "mlos-run-receipt/v0.1",
+        "sha256": "f246750c415f2a30672f745928a2f3f84a56f4599d9b71f46f57ddf6d677948e",
+        "started_utc": "2026-11-25T14:49:38Z"
       },
+      "post_hoc_reason": null,
       "results_sha256": "561572d9ace9df3cf76c1ba6e2a52b62809c6c9df2698fdd18e7904c5f4bede6",
-      "runs_count": 30,
-      "verdict": "FALSIFIED"
+      "runs_count": 30
     },
     "h7b": {
       "corpus": {
@@ -161,70 +188,82 @@
         "train_num_bytes": 2590339,
         "train_sha256": "ea2f47fad9c28635bee8834989d9fd7958c2889d65334945b990067be81d3d70"
       },
-      "extrapolation_t2048_gate": true,
-      "graded_reason": "length-extrapolation axis wins strongly, but T=512 in-distribution BPB regresses vs RoPE (prereg CONFIRMED requires no standard-BPB regression) -> literal FALSIFIED, graded PARTIAL",
+      "extrap_t2048_strong": true,
+      "graded_verdict": "PARTIAL",
       "literal_prereg_verdict": "FALSIFIED",
       "max_flop_diff_pct": 0.8739,
       "max_non_emb_param_diff_pct": 0.1628,
       "mlos": {
         "anomalies_count": 0,
-        "bound_results_sha256": "0775dd1c4bf14311f84714f1681a0944fb9775fefe1d2e3c80c5d78f54e606d5",
         "clean_hardware_run": true,
         "determinism_zone": "B",
+        "duration_ms": 2592505.755,
+        "ended_utc": "2026-11-25T16:40:38Z",
+        "exit_code": 0,
         "file": "mlos_zone_b_h7b.json",
-        "receipt_sha256_verified": true,
-        "sha256": "0c35f414a1a7e3bc844fd5d737e78991f2213cf87b75104aff90d434c099d602"
+        "gpu_telemetry_clean": true,
+        "receipt_sha256": "1b5d9ce8691288fe4b35e9bce63ac5ec17747ab3635a32c42c45a6c19b9c05af",
+        "schema": "mlos-run-receipt/v0.1",
+        "sha256": "a9aeecbf9b4e71dea5f188a236ec8974021d56099c259bb9519df94dfbeaa556",
+        "started_utc": "2026-11-25T15:57:25Z"
       },
       "no_t512_regression": false,
+      "post_hoc_reason": "paired arm-vs-arm T=2048 win beats both RoPE-2D-nGPT and Block4-RandOrtho-nGPT by >5%, but T=512 BPB trails RoPE-2D-nGPT (failing literal no-regression clause), S3/A5 shows zero gain, and eager PyTorch wall-clock is 3.91x slower",
       "probes_count": 30,
       "results_sha256": "0775dd1c4bf14311f84714f1681a0944fb9775fefe1d2e3c80c5d78f54e606d5",
       "runs_count": 15,
-      "s3_tracking_gate": false,
+      "s3_group_win": false,
       "su2_over_rope_wall_clock_ratio": 3.9125,
       "su2_vs_liere_t2048_bpb": {
+        "df": 2,
         "mean_diff": -0.14232,
         "paired_se": 0.036421,
-        "rel_diff_pct": -4.927,
-        "z_score": -3.9076
+        "paired_t": -3.9076,
+        "rel_diff_pct": -4.927
       },
       "su2_vs_randortho_t2048_bpb": {
+        "df": 2,
         "mean_diff": -0.243092,
         "paired_se": 0.01338,
-        "rel_diff_pct": -8.132,
-        "z_score": -18.1687
+        "paired_t": -18.1687,
+        "rel_diff_pct": -8.132
       },
       "su2_vs_randortho_t512_bpb": {
+        "df": 2,
         "mean_diff": 0.02634,
         "paired_se": 0.016888,
-        "rel_diff_pct": 0.9654,
-        "z_score": 1.5597
+        "paired_t": 1.5597,
+        "rel_diff_pct": 0.9654
       },
       "su2_vs_rope_s3_id_acc": {
+        "df": 2,
         "mean_diff": -0.002088,
         "paired_se": 0.00411,
-        "rel_diff_pct": -0.9395,
-        "z_score": -0.5079
+        "paired_t": -0.5079,
+        "rel_diff_pct": -0.9395
       },
       "su2_vs_rope_t2048_bpb": {
+        "df": 2,
         "mean_diff": -0.218576,
         "paired_se": 0.016412,
-        "rel_diff_pct": -7.3723,
-        "z_score": -13.318
+        "paired_t": -13.318,
+        "rel_diff_pct": -7.3723
       },
       "su2_vs_rope_t512_bpb": {
+        "df": 2,
         "mean_diff": 0.033075,
         "paired_se": 0.025912,
-        "rel_diff_pct": 1.2153,
-        "z_score": 1.2764
+        "paired_t": 1.2764,
+        "rel_diff_pct": 1.2153
       },
       "su2_vs_std_t2048_bpb": {
+        "df": 2,
         "mean_diff": -0.499061,
         "paired_se": 0.040575,
-        "rel_diff_pct": -15.3779,
-        "z_score": -12.2997
+        "paired_t": -12.2997,
+        "rel_diff_pct": -15.3779
       },
-      "t512_gate": false,
-      "verdict": "PARTIAL"
+      "t512_win": false
     },
     "h7c": {
       "beats_randrot_adversarial_control": false,
@@ -240,69 +279,89 @@
         "train_sha256": "ea2f47fad9c28635bee8834989d9fd7958c2889d65334945b990067be81d3d70"
       },
       "criterion1_raw_fires": true,
-      "graded_reason": "prereg OR-gate criterion 1 fires (literal CONFIRMED), but post-hoc adversarial control SphereLoop-RandRotClock (not preregistered) is not beaten -> PARTIAL",
+      "graded_verdict": "PARTIAL",
       "hopf_vs_flat_m1h1_4b": {
+        "df": 2,
         "mean_diff": -0.513133,
         "paired_se": 0.049568,
-        "rel_diff_pct": -14.3348,
-        "z_score": -10.3521
+        "paired_t": -10.3521,
+        "rel_diff_pct": -14.3348
       },
       "hopf_vs_flat_r3_bpb": {
+        "df": 2,
         "mean_diff": -0.148772,
         "paired_se": 0.031986,
-        "rel_diff_pct": -5.2927,
-        "z_score": -4.6511
+        "paired_t": -4.6511,
+        "rel_diff_pct": -5.2927
       },
       "hopf_vs_flat_r6_bpb": {
+        "df": 2,
         "mean_diff": 4.71938,
         "paired_se": 0.110905,
-        "rel_diff_pct": 140.8534,
-        "z_score": 42.5532
+        "paired_t": 42.5532,
+        "rel_diff_pct": 140.8534
       },
       "hopf_vs_noclock_r3_bpb": {
+        "df": 2,
         "mean_diff": -0.277508,
         "paired_se": 0.006536,
-        "rel_diff_pct": -9.4401,
-        "z_score": -42.4583
+        "paired_t": -42.4583,
+        "rel_diff_pct": -9.4401
       },
       "hopf_vs_randrot_r3_bpb": {
+        "df": 2,
         "mean_diff": 0.02431,
         "paired_se": 0.01305,
-        "rel_diff_pct": 0.9216,
-        "z_score": 1.8629
+        "paired_t": 1.8629,
+        "rel_diff_pct": 0.9216
       },
       "hopf_vs_unlooped16L_r3_bpb": {
+        "df": 2,
         "mean_diff": -0.381368,
         "paired_se": 0.026407,
-        "rel_diff_pct": -12.5305,
-        "z_score": -14.4421
+        "paired_t": -14.4421,
+        "rel_diff_pct": -12.5305
       },
       "literal_prereg_verdict": "CONFIRMED",
-      "m1_quantized_drift_pass": false,
+      "m1_h1_4bit_pass": false,
       "max_looped_vs_16L_flop_diff_pct": 1.3273,
       "max_looped_vs_8L_param_diff_pct": 0.2023,
       "mlos": {
         "anomalies_count": 0,
-        "bound_results_sha256": "81f00fd481a5c146b02568d1da3124cb0c60f77fe2b2f545940200c505a38bd9",
         "clean_hardware_run": true,
         "determinism_zone": "B",
+        "duration_ms": 1460058.423,
+        "ended_utc": "2026-11-25T15:52:30Z",
+        "exit_code": 0,
         "file": "mlos_zone_b_h7c.json",
-        "receipt_sha256_verified": true,
-        "sha256": "b8c0070e632098095fad25ffcf4e0bdafd6e78ae9859dd0645e8598036d4afca"
+        "gpu_telemetry_clean": true,
+        "receipt_sha256": "1adafc333c06905cbe70a99e895a6c8220ba71477063d9fb50a306e440b0a694",
+        "schema": "mlos-run-receipt/v0.1",
+        "sha256": "7ec656018d8458a530fa211aa32e83f9ec5b6928caa384192775d03f2bf7968b",
+        "started_utc": "2026-11-25T15:28:10Z"
       },
+      "post_hoc_reason": "post-hoc SphereLoop-RandRotClock (Haar O(d)) matches or beats CliffordTorus-HopfLoop at R=3; R_test=6 extrapolation fails via antipodal phase flip phi_5=10*pi/11; 4-bit M1-H1 loop-drift cut misses 20% threshold and stays above 2.0",
       "probes_count": 18,
       "r6_extrapolation_pass": false,
       "results_sha256": "81f00fd481a5c146b02568d1da3124cb0c60f77fe2b2f545940200c505a38bd9",
-      "runs_count": 18,
-      "verdict": "PARTIAL"
+      "runs_count": 18
+    },
+    "prereg_provenance": {
+      "amendment1_file": "PREREG_S107_S108_AMENDMENT1.md",
+      "amendment1_sha256": "5a9ddf089adb378c339d6f0e85b40cab673e80e6161f0f6725aef52728483194",
+      "pre_run_lock_verifiable_from_git_history": false,
+      "prereg_file": "PREREG_S107_HYPERSPHERE_TRANSFORMER.md",
+      "prereg_sha256": "6e197152372fb08a4f239d2132b990b0e61ce77db772951cb4e48931fb9289cd"
     },
     "protocol_id": "PREREG-S107-AMENDMENT1",
-    "schema_version": "aletheia.track_s107.hypersphere_transformer.certificate.v1",
+    "schema_version": "aletheia.track_s107.hypersphere_transformer.certificate.v2",
     "scorecard": {
-      "H7a": "FALSIFIED",
-      "H7b": "PARTIAL",
-      "H7c": "PARTIAL",
-      "literal_prereg_verdicts": {
+      "graded_verdict": {
+        "H7a": "FALSIFIED",
+        "H7b": "PARTIAL",
+        "H7c": "PARTIAL"
+      },
+      "literal_prereg_verdict": {
         "H7a": "FALSIFIED",
         "H7b": "FALSIFIED",
         "H7c": "CONFIRMED"
@@ -313,6 +372,6 @@
     "total_live_gpu_runs": 111,
     "track_id": "track-s107-hypersphere-transformer"
   },
-  "payload_sha256": "c164bb894f72a8b53918a10be087d5f121122dd0626ac9c62d42d577b1961f97",
-  "schema_version": "aletheia.track_s107.hypersphere_transformer.certificate.v1"
+  "payload_sha256": "b13014a432d0c27011077c3863161878563153d43876c2fd5b583d336db9985e",
+  "schema_version": "aletheia.track_s107.hypersphere_transformer.certificate.v2"
 }
