@@ -24,7 +24,7 @@ import re
 from typing import Any
 
 from .audit_check import SKIP_DIRS, validate_audit_log_markdown
-from .strict_io import loads_strict_json, require_ok
+from .strict_io import AletheiaError, loads_strict_json, require_ok
 
 _BUZZWORDS = (
     "sheaf", "duality", "curvature", "emergence", "holonomy",
@@ -33,6 +33,13 @@ _BUZZWORDS = (
 _OPERATOR_MARKERS = re.compile(r"(=|:=|->|\\to|\\ge|\\le|\\equiv|def\s+\w+|\.py\b|check_[0-9]+|```)")
 _FLOAT_CUTOFF_RE = re.compile(r"(?:1e-(?:9|10|11|12|13|14|15)|math\.isclose|np\.allclose|eigvalsh)")
 _PROXY_HINT_RE = re.compile(r"\b(?:synthetic\s+proxy|toy\s+stub|mock\s+matrix|placeholder\s+model)\b", re.IGNORECASE)
+# CS-04 is passing a proxy off as the real target. A proxy line is exempt when it records a repaired or
+# rejected substitution (substring markers below), or when it names rights, consent or authorization as
+# words (domains/biology-and-life-sciences.md, "Data Rights, Consent & Disclosure"). The rights match is
+# word-bounded, so "copyrights" and "unauthorized" do not exempt a line; it is still only a heuristic and
+# cannot tell whether the stated reason is true.
+_CS04_ADDRESSED_MARKERS = ("replaced", "rejected", "falsified", "caught", "avoid", "never", "anti-pattern")
+_CS04_RIGHTS_RE = re.compile(r"\b(?:rights|consent\w*|authori[sz]\w*)\b", re.IGNORECASE)
 _OBSTRUCTION_RE = re.compile(r"\b(?:sharpness\s+wall|obstructions?|counterexamples?|no-go|impossib\w*)\b", re.IGNORECASE)
 _ELEVATION_RE = re.compile(r"\b(?:theorems?|higher[- ]moment|spawn\w*|branch(?:es)?|elevat\w*|new\s+invariants?|generaliz\w*)\b", re.IGNORECASE)
 _PORTAL_HEADING_RE = re.compile(r"^#{1,3}\s+Portal\s+[0-9A-Za-z]+", re.MULTILINE)
@@ -65,20 +72,37 @@ _TRAILING_NEWLINE_DIGEST_RE = re.compile(
 )
 
 
+def _require_board_seq(msg: dict[str, Any], fallback_seq: int, context: str) -> int:
+    if "seq" not in msg:
+        return fallback_seq
+    raw = msg["seq"]
+    require_ok(
+        type(raw) is int and raw >= 0,
+        "INVALID_BOARD_SEQ",
+        f"{context}: board seq must be non-negative int, got {raw!r} ({type(raw).__name__})",
+    )
+    return raw
+
+
 def _load_board_jsonl(board_path: Path | None) -> list[dict[str, Any]]:
     if board_path is None:
         return []
     require_ok(board_path.is_file(), "BOARD_NOT_FOUND", f"board file not found: {board_path}")
+    try:
+        raw_text = board_path.read_text(encoding="utf-8")
+    except UnicodeDecodeError as exc:
+        raise AletheiaError("INVALID_BOARD_UTF8", f"invalid UTF-8 in {board_path}: {exc}") from exc
     msgs: list[dict[str, Any]] = []
-    for lineno, line in enumerate(board_path.read_text(encoding="utf-8").splitlines(), start=1):
+    for lineno, line in enumerate(raw_text.splitlines(), start=1):
         s = line.strip()
         if not s:
             continue
         try:
             obj = loads_strict_json(s, allow_float=True, require_object=False)
         except Exception as exc:
-            raise ValueError(f"invalid JSONL on line {lineno} of {board_path}: {exc}") from exc
+            raise AletheiaError("INVALID_BOARD_JSONL", f"invalid JSONL on line {lineno} of {board_path}: {exc}") from exc
         if isinstance(obj, dict):
+            _require_board_seq(obj, len(msgs) + 1, f"{board_path}:{lineno}")
             msgs.append(obj)
     return msgs
 
@@ -139,12 +163,12 @@ def diagnose_expedition(
             r1 += 50
             ev1.append("board JSONL has 0 posts from cartographer / portal-keeper")
         else:
-            last_seq = max(int(m.get("seq", i + 1)) for i, m in enumerate(keeper_msgs))
-            max_seq = max(int(m.get("seq", i + 1)) for i, m in enumerate(board_msgs))
+            last_seq = max(_require_board_seq(m, i + 1, "keeper_msg") for i, m in enumerate(keeper_msgs))
+            max_seq = max(_require_board_seq(m, i + 1, "board_msg") for i, m in enumerate(board_msgs))
             if len(keeper_msgs) == 1 and "[done]" in str(keeper_msgs[0].get("text", "")).lower() and max_seq >= 4:
                 r1 += 60
                 ev1.append("portal-keeper posted [done] once in Round 1 and went silent")
-            elif max_seq >= 8 and last_seq < max_seq * 0.35:
+            elif max_seq >= 8 and last_seq * 20 < max_seq * 7:
                 r1 += 35
                 ev1.append(f"portal-keeper last posted at seq {last_seq}/{max_seq} (inactive in later waves)")
 
@@ -243,9 +267,11 @@ def diagnose_expedition(
             continue
         for lineno, line in enumerate(mf.read_text(encoding="utf-8", errors="replace").splitlines(), start=1):
             if _PROXY_HINT_RE.search(line) is not None:
-                # Ignore lines explicitly noting a repaired/rejected substitution shadow!
+                # Ignore lines explicitly noting a repaired/rejected substitution shadow, and
+                # lines that disclose a synthetic input used because rights or authorization
+                # for the real data are not in place (disclosed, so not passed off as the target).
                 low = line.lower()
-                if any(ok in low for ok in ("replaced", "rejected", "falsified", "caught", "avoid", "never", "anti-pattern")):
+                if any(ok in low for ok in _CS04_ADDRESSED_MARKERS) or _CS04_RIGHTS_RE.search(line) is not None:
                     continue
                 r4 += 40
                 ev4.append(f"{mf.relative_to(root)}:{lineno}: possible unaddressed toy/proxy substitution")
@@ -256,7 +282,11 @@ def diagnose_expedition(
         "risk_score": r4,
         "status": _status_from_risk(r4),
         "evidence": ev4,
-        "remediation": "Run verifiers directly against real upstream equations, data, or reference simulators (zero synthetic proxy substitution).",
+        "remediation": (
+            "Run verifiers directly against real upstream equations, data, or reference simulators where rights "
+            "and authorization allow; otherwise label the synthetic input as synthetic in the same sentence and "
+            "state why the real data were not used (zero undisclosed proxy substitution)."
+        ),
     })
 
     # ------------------------------------------------------------------

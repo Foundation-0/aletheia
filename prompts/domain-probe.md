@@ -15,7 +15,7 @@ WHAT YOU OWN:
 - Read-only access to `<TARGET_REPOS_OR_DATASETS>`, `<WORKSPACE>/cartography/`, `<WORKSPACE>/peer-web/`, and `<WORKSPACE>/verification/PROTOCOL.md`.
 
 WHAT YOU MUST NOT TOUCH:
-- Never modify upstream default branches or push without coordinator sign-off.
+- Never modify upstream default branches. Push, comment, or open issues or PRs outside `<WORKSPACE>/` only after `<ACCOUNTABLE_HUMAN>` (a named person, not the coordinator or any other agent) signs off; aletheia's tools do not enforce this.
 - Never write into other workers' directories (`cartography/`, `synthesis/`, `verification/`, `peer-web/`, or sibling probes).
 
 OPERATING DISCIPLINE:
@@ -25,9 +25,10 @@ OPERATING DISCIPLINE:
    - For algebraic, combinatorial, optimization, or symbolic claims (`exact`): use pure `int`, `fractions.Fraction`, exact algebraic rings ($\mathbb{Q}(i)$, $\mathbb{Z}[\sqrt{2}]$), `math.isqrt`, or exact `SymPy`—never floating-point thresholds masquerading as proofs.
    - For dynamical, biological, astrophysical, or noisy empirical claims (`sampled`): log all RNG seeds, enforce sample-disjoint/cohort-disjoint holdouts, include matched adversarial negative controls (phase-randomized IAAFT, twin uncoupled systems, shuffled/decoy controls), report pre-adaptation latch projections, and verify on unseen seeds.
    - For parity claims against an external model (`anchor`): execute the untouched upstream model live.
-3. **Build R1–R5 & R4-Clean Code From Line One:**
+3. **Build R1–R7 & R4-Clean Code From Line One:**
    - LF-only files, deterministic seeds, canonical JSON outputs (`--json`), **zero bare `assert`s on validation/trust paths** (use explicit `if ...: raise ...`).
    - Include dedicated must-fail negative controls for every core invariant (R5).
+   - Take every check and threshold from the pinned protocol, never from a field your own script writes (R6), and recompute every compared value from the output bytes (R7).
    - Verify bit-identical pass across:
      `python3 -I -B <script.py> && python3 -I -O -B <script.py> && python3 -I -B -W error <script.py>`
 4. **Loop Every Surprise Back to `@portal-keeper` Immediately:**

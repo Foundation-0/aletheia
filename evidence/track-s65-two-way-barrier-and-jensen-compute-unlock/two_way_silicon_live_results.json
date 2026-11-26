@@ -1,0 +1,33 @@
+{
+  "schema": "aletheia.track_s65_live_silicon_probe.v1",
+  "measured_live_silicon": true,
+  "host_cpu_model": "Intel Core i9-11900H (8 physical cores 0..7 + 8 SMT siblings 8..15)",
+  "rapl_max_energy_range_uj": 262143328850,
+  "tile_words_u64": 4096,
+  "inner_rounds": 64,
+  "ops_per_block": 1048576,
+  "exp_a_total_blocks": 4800,
+  "exp_a_total_ops": 5033164800,
+  "exp_a_window_ms": 1500,
+  "exp_a_threads": 4,
+  "exp_b_total_blocks": 3360,
+  "exp_b_total_ops": 3523215360,
+  "idle_pre_1500ms": {"wall_us":1500428,"pkg_uj":93791752,"core_uj":86823752,"uncore_uj":716307,"psys_uj":6501692,"freq_khz_start":4262121,"freq_khz_end":4400000,"temp_mc_end":94000,"checksum_hex":"0000000000000000"},
+  "idle_post_1500ms": {"wall_us":1500380,"pkg_uj":99983874,"core_uj":92860052,"uncore_uj":609617,"psys_uj":6806013,"freq_khz_start":758149,"freq_khz_end":4400657,"temp_mc_end":93000,"checksum_hex":"0000000000000000"},
+  "exp_a_pacing_vs_bursty": [
+    {"arm":"race_to_sleep_free","slices":1,"window_ms":0,"trials":[{"wall_us":490692,"pkg_uj":43051769,"core_uj":40344440,"uncore_uj":314574,"psys_uj":2702386,"freq_khz_start":4434442,"freq_khz_end":3900000,"temp_mc_end":95000,"checksum_hex":"b2da26c4ad818ec3"},{"wall_us":503956,"pkg_uj":33889684,"core_uj":31075726,"uncore_uj":740476,"psys_uj":2279963,"freq_khz_start":777453,"freq_khz_end":3679956,"temp_mc_end":94000,"checksum_hex":"b2da26c4ad818ec3"}]},
+    {"arm":"bursty_1_pulse_1500ms","slices":1,"window_ms":1500,"trials":[{"wall_us":1500475,"pkg_uj":94275577,"core_uj":87174093,"uncore_uj":847898,"psys_uj":6501632,"freq_khz_start":4000000,"freq_khz_end":1748907,"temp_mc_end":95000,"checksum_hex":"b2da26c4ad818ec3"},{"wall_us":1500899,"pkg_uj":96119139,"core_uj":89283219,"uncore_uj":385131,"psys_uj":6635969,"freq_khz_start":4200000,"freq_khz_end":2064348,"temp_mc_end":94000,"checksum_hex":"b2da26c4ad818ec3"}]},
+    {"arm":"bursty_4_pulses_1500ms","slices":4,"window_ms":1500,"trials":[{"wall_us":1500664,"pkg_uj":106971101,"core_uj":100001209,"uncore_uj":884519,"psys_uj":7049177,"freq_khz_start":4200000,"freq_khz_end":1473995,"temp_mc_end":94000,"checksum_hex":"b2da26c4ad818ec3"},{"wall_us":1500848,"pkg_uj":97843927,"core_uj":90088636,"uncore_uj":1124387,"psys_uj":6748274,"freq_khz_start":800692,"freq_khz_end":4199957,"temp_mc_end":95000,"checksum_hex":"b2da26c4ad818ec3"}]},
+    {"arm":"paced_40_slices_1500ms","slices":40,"window_ms":1500,"trials":[{"wall_us":1500506,"pkg_uj":106212191,"core_uj":99299856,"uncore_uj":450683,"psys_uj":7060712,"freq_khz_start":801608,"freq_khz_end":4300000,"temp_mc_end":94000,"checksum_hex":"b2da26c4ad818ec3"},{"wall_us":1502193,"pkg_uj":97590631,"core_uj":90599011,"uncore_uj":833861,"psys_uj":6659895,"freq_khz_start":4000000,"freq_khz_end":4200042,"temp_mc_end":95000,"checksum_hex":"b2da26c4ad818ec3"}]},
+    {"arm":"paced_100_slices_1500ms","slices":100,"window_ms":1500,"trials":[{"wall_us":1500549,"pkg_uj":99379018,"core_uj":92192818,"uncore_uj":890988,"psys_uj":6742719,"freq_khz_start":799721,"freq_khz_end":1302260,"temp_mc_end":95000,"checksum_hex":"b2da26c4ad818ec3"},{"wall_us":1500459,"pkg_uj":106920198,"core_uj":100085987,"uncore_uj":395141,"psys_uj":7096417,"freq_khz_start":4553715,"freq_khz_end":1000886,"temp_mc_end":95000,"checksum_hex":"b2da26c4ad818ec3"}]}
+  ],
+  "exp_b_concurrency_impedance": [
+    {"threads":1,"physical_cores_used":1,"smt_siblings_used":0,"trials":[{"wall_us":1037065,"pkg_uj":78572125,"core_uj":73195980,"uncore_uj":387695,"psys_uj":5163927,"freq_khz_start":800000,"freq_khz_end":4300000,"temp_mc_end":95000,"checksum_hex":"a0f68ce8e7c05f78"},{"wall_us":970309,"pkg_uj":61612940,"core_uj":56711952,"uncore_uj":892210,"psys_uj":4237416,"freq_khz_start":1494458,"freq_khz_end":4000040,"temp_mc_end":95000,"checksum_hex":"a0f68ce8e7c05f78"}]},
+    {"threads":2,"physical_cores_used":2,"smt_siblings_used":0,"trials":[{"wall_us":436575,"pkg_uj":28467579,"core_uj":26490167,"uncore_uj":201782,"psys_uj":1938960,"freq_khz_start":1411169,"freq_khz_end":800690,"temp_mc_end":95000,"checksum_hex":"a0f68ce8e7c05f78"},{"wall_us":485497,"pkg_uj":32644387,"core_uj":30173384,"uncore_uj":207641,"psys_uj":2222529,"freq_khz_start":3470433,"freq_khz_end":979642,"temp_mc_end":95000,"checksum_hex":"a0f68ce8e7c05f78"}]},
+    {"threads":4,"physical_cores_used":4,"smt_siblings_used":0,"trials":[{"wall_us":382640,"pkg_uj":26766960,"core_uj":24951108,"uncore_uj":0,"psys_uj":1802974,"freq_khz_start":4100000,"freq_khz_end":1089770,"temp_mc_end":95000,"checksum_hex":"a0f68ce8e7c05f78"},{"wall_us":354102,"pkg_uj":25998041,"core_uj":24288878,"uncore_uj":208252,"psys_uj":1701534,"freq_khz_start":1287837,"freq_khz_end":800000,"temp_mc_end":95000,"checksum_hex":"a0f68ce8e7c05f78"}]},
+    {"threads":6,"physical_cores_used":6,"smt_siblings_used":0,"trials":[{"wall_us":273418,"pkg_uj":20643501,"core_uj":19328991,"uncore_uj":0,"psys_uj":1354733,"freq_khz_start":1007132,"freq_khz_end":3085250,"temp_mc_end":95000,"checksum_hex":"a0f68ce8e7c05f78"},{"wall_us":234790,"pkg_uj":15624228,"core_uj":14578759,"uncore_uj":0,"psys_uj":1061887,"freq_khz_start":3472780,"freq_khz_end":1389597,"temp_mc_end":95000,"checksum_hex":"a0f68ce8e7c05f78"}]},
+    {"threads":8,"physical_cores_used":8,"smt_siblings_used":0,"trials":[{"wall_us":170857,"pkg_uj":10879977,"core_uj":10117771,"uncore_uj":115234,"psys_uj":740294,"freq_khz_start":4000040,"freq_khz_end":925470,"temp_mc_end":95000,"checksum_hex":"a0f68ce8e7c05f78"},{"wall_us":247225,"pkg_uj":19274731,"core_uj":18018814,"uncore_uj":130615,"psys_uj":1244076,"freq_khz_start":4100000,"freq_khz_end":3896267,"temp_mc_end":95000,"checksum_hex":"a0f68ce8e7c05f78"}]},
+    {"threads":12,"physical_cores_used":8,"smt_siblings_used":4,"trials":[{"wall_us":119526,"pkg_uj":9501013,"core_uj":8847756,"uncore_uj":215454,"psys_uj":601194,"freq_khz_start":1752620,"freq_khz_end":800000,"temp_mc_end":95000,"checksum_hex":"a0f68ce8e7c05f78"},{"wall_us":135530,"pkg_uj":11649262,"core_uj":10977816,"uncore_uj":56152,"psys_uj":733152,"freq_khz_start":3092795,"freq_khz_end":4000000,"temp_mc_end":95000,"checksum_hex":"a0f68ce8e7c05f78"}]},
+    {"threads":16,"physical_cores_used":8,"smt_siblings_used":8,"trials":[{"wall_us":116888,"pkg_uj":9804846,"core_uj":9337318,"uncore_uj":0,"psys_uj":612974,"freq_khz_start":2411024,"freq_khz_end":4200000,"temp_mc_end":95000,"checksum_hex":"a0f68ce8e7c05f78"},{"wall_us":117997,"pkg_uj":8569192,"core_uj":8090617,"uncore_uj":0,"psys_uj":559264,"freq_khz_start":3900000,"freq_khz_end":3905320,"temp_mc_end":95000,"checksum_hex":"a0f68ce8e7c05f78"}]}
+  ]
+}

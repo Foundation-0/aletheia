@@ -1,0 +1,6 @@
+name = "drosophila_connectome_operators"
+version = "0.1.0"
+defaultTargets = ["DrosophilaConnectomeOperators"]
+
+[[lean_lib]]
+name = "DrosophilaConnectomeOperators"

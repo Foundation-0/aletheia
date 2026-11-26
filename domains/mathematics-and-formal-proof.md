@@ -15,7 +15,7 @@ A static critical prior reads a rough proof sketch or messy exploratory script, 
 |---|---|---|
 | **Law 1 — Active Portal Keeper** | Treating raw proof drafts, exploratory notebooks, and messy preprints as finished papers to grade once and file away. | Keep an active navigator re-entering rough notes and peer repos whenever a calculation uncovers a new algebraic invariant (e.g., $C_4^{\mathrm{nilp}}$ triggering $F_8 \to E_8$; linear-vs-tropical split triggering $\mathbb{Q}[q]$ Maslov–Doob homotopy). |
 | **Law 2 — Steelman Before Falsify** | Dismissing an inequality or construction because the prototype code omits a guard (e.g., missing $P \succeq 0$ check in `AUDIT-001`) or an initial lemma assumes an over-strong premise. | Log the prototype bug honestly (`FALSIFIED` / `PARTIAL`), then repair and **strengthen** the underlying mathematical target via block decomposition, explicit slack identities, or hypothesis tightening (`AUDIT-002`, `AUDIT-020R`). |
-| **Law 3 — Multi-Basis Observer Tomography ($\mathcal{G}_{\mathrm{obs}}$)** | Verifying an algebraic certificate using the same solver that produced it, or checking equality/positivity up to `1e-12` IEEE float noise. | Run independent, **zero-shared-code** exact oracles over exact rings ($\mathbb{Z}$, $\mathbb{Q}$, $\mathbb{Q}(i)$, $\mathbb{Z}[\sqrt{2}]$, `SymPy`), enforce strict R1–R5 gate integrity, and verify every boundary guard with must-fail controls and refusal-site mutation tests. |
+| **Law 3 — Multi-Basis Observer Tomography ($\mathcal{G}_{\mathrm{obs}}$)** | Verifying an algebraic certificate using the same solver that produced it, or checking equality/positivity up to `1e-12` IEEE float noise. | Run independent, **zero-shared-code** exact oracles over exact rings ($\mathbb{Z}$, $\mathbb{Q}$, $\mathbb{Q}(i)$, $\mathbb{Z}[\sqrt{2}]$, `SymPy`), enforce strict R1–R7 gate integrity, and verify every boundary guard with must-fail controls and refusal-site mutation tests. |
 | **Law 4 — Honest `N0`/`N1`/`N2` & Full-Text Prior Art** | Judging novelty from titles/abstracts in memory, or claiming "proven in Lean" when no compiler was run. | Default every theorem to `N0` until full-text comparison against exact lemmas in prior papers/PRs establishes the exact delta. Tag uncompiled formalization files strictly as `uncompiled_source` and state every scope boundary explicitly. |
 | **Law 5 — Exact-Operator Cross-Pollination** | Claiming two fields are unified because both mention "sheaves", "duality", or "curvature". | Bridge fields *only* through an explicit operator identity or functorial map transferring a quantitative bound or obstruction (e.g., Schur-complement fiber elimination unifying spectral inertia, cellular elastic sheaves, tropical peeling, and Lindblad dynamics). |
 
@@ -74,7 +74,7 @@ In mathematics, **Oracle Class `exact`** requires that every inequality, sign, r
 | One-parameter homotopies & symbolic superoperators | Polynomial ring $\mathbb{Q}[q]$ / `SymPy` symbolic rational functions | Independent clean-room symbolic derivation from upstream definitions + exact rational specialization checks | `AUDIT-008R`, `011R`, `018` |
 | Formal proof assistants | Lean 4 / Coq / Isabelle source files | Actual compiler invocation (`lake build`, `coqc`, `isabelle build`) with zero `sorry`/`admit`/unreviewed axioms | `AUDIT-016R` (tagged `uncompiled_source` when `lean` absent) |
 
-### Strict R1–R5 Gate Contracts for Mathematical Certifiers
+### Strict R1–R7 Gate Contracts for Mathematical Certifiers
 Every executable mathematical verifier in an Aletheia project must satisfy:
 - **R1 (Default-Reject):** Every certificate returns an explicit structured refusal unless *all* hypotheses pass. Never fall through silently on edge cases.
 - **R2 (Omission Monotonicity):** Deleting any required field, moment, or certificate component must strictly produce a rejection, never a weaker fallback pass.
@@ -93,6 +93,8 @@ Every executable mathematical verifier in an Aletheia project must satisfy:
 - **R5 (Must-Fail Controls & Refusal-Site Mutation Suite):**
   - Ship concrete negative controls covering every failure mode (non-PSD $P$, non-Hermitian $H$, negative Hankel weights $a_k < 0$, wrong dimensions, `bool`/`float` leaks, boundary violations).
   - Verify via an automated mutation suite that **deleting or weakening any single guard causes at least one control to fail** (`41/41` mutants killed, `0` survivors in `AUDIT-015R`/`016R`).
+- **R6 (Pinned Checks):** The certificate checker's rules, ranges and thresholds are fixed before any certificate is submitted; no field written by the prover may choose or override them.
+- **R7 (Measured, Not Declared):** The checker recomputes every compared value (rank, inertia, digest, count) from the submitted objects themselves; a declared value may be checked against the recomputed one but never replaces it (`spec/LAWS_AND_GATES.md` §4).
 
 ### Strict Formal-Proof Standing Rule (`uncompiled_source`)
 Writing a `.lean` or `.v` file next to a Python verifier does **not** earn a "formally verified in Lean" badge unless the actual compiler checked it with zero `sorry` / `admit` placeholders and zero custom axioms in a reproducible build log. When the compiler is unavailable in the current environment, Aletheia enforces **strict provenance honesty**:

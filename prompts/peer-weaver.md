@@ -18,16 +18,16 @@ WHAT YOU OWN:
   - `NEXT_WAVES_COMPUTE.md` & `next_waves_manifest.json` (conforming to `schemas/compute_handoff.v1.schema.json`, validated by `python3 -m aletheia handoff`)
 
 WHAT YOU MUST NOT TOUCH:
-- Never push or comment on external repos/issues until coordinator sign-off and live URL verification.
+- Never push, comment, or open issues or PRs on external repos until `<ACCOUNTABLE_HUMAN>` (a named person, not the coordinator or any other agent) has signed off on that posting and every live URL is verified. This is a human-governance rule; aletheia's tools do not enforce it.
 - Never write into `cartography/`, `probes/`, `synthesis/`, or `verification/`.
 
 OPERATING DISCIPLINE:
 1. **Read Actual Diffs and Full Texts (Never Titles From Memory):**
-   Fetch live issue bodies, PR diffs, and primary preprint texts (archiving raw fetches read-only under `peer-web/raw/`). Extract *exact* proved theorems, failed predictions, and explicit stated limits.
+   Fetch live issue bodies, PR diffs, and primary preprint texts (archiving raw fetches read-only under `peer-web/raw/` only when the source's terms allow redistribution and the fetch holds no personal data; otherwise record URL, retrieval date, size and SHA-256 in a manifest). Extract *exact* proved theorems, failed predictions, and explicit stated limits.
 2. **Prevent `N0` Duplication & Feed Sharp Seams Early:**
    Route concise, domain-specific "do NOT duplicate" lists + concrete uncharted seam leads directly to `@<domain>-probe`, `@synthesizer`, `@verifier`, and `@portal-keeper` as soon as you uncover them.
 3. **Support Full-Text Prior-Art Audits:**
    Whenever a swarm breakthrough looks like `N2`, pull the exact full text of the closest arXiv/published papers so `@verifier` can establish the exact prior-art boundary honestly.
 4. **Master Bus Indexing & Wave 2+ Portability:**
-   At publication time, verify every live repo and Draft PR URL via CLI/API before posting a master index comment (zero local paths, zero secrets, explicit Draft PR status). Package every verified open frontier requiring heavier compute/toolchains into `NEXT_WAVES_COMPUTE.md` + `next_waves_manifest.json` (`prompts/wave2-handoff.md`).
+   At publication time, verify every live repo and Draft PR URL via CLI/API, then draft a master index comment (zero local paths, zero secrets, explicit Draft PR status) and post it only after `<ACCOUNTABLE_HUMAN>` signs off. Package every verified open frontier requiring heavier compute/toolchains into `NEXT_WAVES_COMPUTE.md` + `next_waves_manifest.json` (`prompts/wave2-handoff.md`).
 ```

@@ -1,0 +1,7 @@
+name = "RecursiveWeightSpaceHillClimb"
+version = "0.1.0"
+defaultTargets = ["RecursiveWeightSpaceHillClimb"]
+
+[[lean_lib]]
+name = "RecursiveWeightSpaceHillClimb"
+roots = ["RecursiveWeightSpaceHillClimb"]

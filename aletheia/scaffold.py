@@ -1,11 +1,12 @@
 """
 `aletheia init <dir> [--domain <name>]`: Scaffold a clean, non-colliding Aletheia
 research expedition workspace with exclusive write boundaries, active portals,
-9-gate verification protocol, audit ledger, and Wave 2+ handoff template.
+10-gate verification protocol, audit ledger, and Wave 2+ handoff template.
 """
 from __future__ import annotations
 
 from datetime import date
+import errno
 import json
 import os
 from pathlib import Path
@@ -19,28 +20,74 @@ from .strict_io import AletheiaError, require_ok, write_lf_text
 _DOMAIN_RE = re.compile(r"\A[a-z0-9][a-z0-9_-]{0,47}\Z", re.ASCII)
 
 
-def _require_no_symlink_target(target: Path, *, role: str) -> Path:
-    """Refuse symlinked targets (and symlinked relative components) before resolve().
-
-    Absolute paths are checked at the leaf so OS-level symlinks (such as macOS
-    /var -> /private/var) never false-positive; relative paths are walked
-    component by component below Path.cwd() so caller-supplied symlinked
-    parents are always rejected before resolve() can hide them."""
-    if target.is_symlink():
+def _lstat_refuse_symlink(path: Path, *, role: str, detail: str) -> None:
+    """Refuse a path with SYMLINK_REFUSED when lstat reports a symlink or symlink loop."""
+    try:
+        st = os.lstat(path)
+    except OSError as exc:
+        if exc.errno == errno.ELOOP:
+            raise AletheiaError(
+                "SYMLINK_REFUSED",
+                f"refusing to traverse symlink loop in {role} {detail} {path} (force never follows links; pass a real directory)",
+            ) from exc
+        return
+    if stat.S_ISLNK(st.st_mode):
         raise AletheiaError(
             "SYMLINK_REFUSED",
-            f"refusing to use symlinked {role} {target} (force never follows links; pass a real directory)",
+            f"refusing to traverse symlinked {role} {detail} {path} (force never follows links; pass a real directory)",
         )
-    if not target.is_absolute():
-        current = Path.cwd()
-        for part in target.parts:
-            current = current / part
-            if current.is_symlink():
-                raise AletheiaError(
-                    "SYMLINK_REFUSED",
-                    f"refusing to traverse symlinked {role} component {current} (force never follows links; pass a real directory)",
-                )
-    return target.resolve()
+
+
+def _require_no_symlink_target(
+    target: Path,
+    *,
+    role: str,
+    anchor_root: Path | None = None,
+) -> Path:
+    """Refuse symlinked targets and symlinked ancestors via a single left-to-right stack walk.
+
+    Boundary:
+      - Checks `target` itself with `os.lstat()` first (catching leaf symlinks
+        and direct `ELOOP` chains).
+      - Walks `target` (anchored at `Path.cwd()` when relative, or the
+        filesystem root / `anchor_root` when absolute) strictly left-to-right
+        with an explicit component stack.
+      - Every pushed component at depth >= 2 below the root is checked
+        immediately with `os.lstat()` BEFORE any subsequent `..` can pop it,
+        so nonexistent segments (`no_such/..`), regular files (`reg_file/..`),
+        and trailing `..` (`link_sub/..`) cannot mask a symlink or loop.
+      - The depth-1 root entry (such as macOS `/var -> /private/var`,
+        `/tmp -> /private/tmp`, `/etc -> /private/etc`) is permitted solely as
+        a strict downward ancestor; traversing `..` directly out of a depth-1
+        symlink (e.g. `/var/..`) and targeting a symlink leaf at any depth are
+        both refused with `SYMLINK_REFUSED`.
+      - Resolves and returns the verified `..`-free stack path.
+    """
+    target = Path(target)
+    _lstat_refuse_symlink(target, role=role, detail="target")
+    base = target if target.is_absolute() else Path.cwd()
+    root = Path(base.anchor) if anchor_root is None else anchor_root
+    if target.is_absolute():
+        stack: list[str] = []
+        raw_parts = target.relative_to(root).parts
+    else:
+        stack = list(base.relative_to(root).parts)
+        raw_parts = target.parts
+
+    for part in raw_parts:
+        if part == "..":
+            if len(stack) == 1:
+                _lstat_refuse_symlink(root / stack[0], role=role, detail="component")
+            if stack:
+                stack.pop()
+            continue
+        stack.append(part)
+        if len(stack) >= 2:
+            _lstat_refuse_symlink(root.joinpath(*stack), role=role, detail="component")
+
+    final_path = root.joinpath(*stack) if stack else root
+    _lstat_refuse_symlink(final_path, role=role, detail="target")
+    return final_path.resolve()
 
 
 def _symlink_offenders(root: Path, rel_paths: Iterable[str]) -> list[str]:
@@ -67,32 +114,39 @@ def _symlink_offenders(root: Path, rel_paths: Iterable[str]) -> list[str]:
 
 
 def _protocol_markdown(domain: str) -> str:
-    return f"""# Anti-Shadow Adversarial Verification Protocol (Aletheia v1)
+    return f"""# Anti-Shadow Adversarial Verification Protocol (Aletheia v2)
 
 **Domain:** `{domain}`
 **Scope:** All instruments, calculations, proofs, certificates, and cross-domain bridges in this expedition.
+**Source of truth:** `spec/LAWS_AND_GATES.md` (`aletheia.spec.v2.0`) in `Foundation-0/aletheia`. This file is a summary; where the two differ, the spec governs.
 
 ## Verdict, Oracle-Class, and Novelty Taxonomy
 - **Verdicts:** `VERIFIED`, `PARTIAL/FRAGILE`, `FALSIFIED`, `NOT_SHOWN`, `EXPOSED`
 - **Oracle Classes:**
-  - `exact`: universal proof, exact rational/integer/symbolic certificate, or exhaustive finite search.
-  - `sampled`: finite statistical, multi-seed, or out-of-sample check (`not_shown` outside tested inputs).
-  - `anchor`: independent held-out specification/simulator replay.
-- **Novelty Bar (default `N0` until full-text prior-art audit confirms higher):**
+  - `exact`: formal proof, symbolic identity, per-input certificate, or exhaustive finite enumeration. Finite random samples decided in exact arithmetic are still `sampled`.
+  - `sampled`: finite statistical, randomized, multi-seed, or numerical-grid check (`not_shown` outside tested inputs).
+  - `anchor`: external domain data testing the specification itself; a failure indicts the specification and is routed to its owner, not fed back to the proposer.
+  - `reference_replay`: live agreement with an untouched upstream implementation or simulator; upstream bugs are not ground truth about nature.
+- **Novelty Bar (default `N0` until full-text, mechanism-first prior-art audit confirms higher):**
   - `N0` (Known / Repackaging)
-  - `N1` (Concrete Local Advance / Tightening / Verified Defect)
-  - `N2` (Genuine New Ground — new theorem, sharp invariant, or exact cross-domain operator transfer)
+  - `N1` (Concrete Local Advance / Repair / Counterexample / Rigorous Empirical Falsification)
+  - `N2` (Genuine New Ground — new theorem, sharp invariant, exact obstruction, or non-trivial cross-domain operator transfer surviving Gates 1–10)
 
-## The Nine Verification Gates
-1. **Gate 1 — Exact Reproducibility:** Explicit logged RNG seeds; clean-room replay from scratch.
-2. **Gate 2 — Coordinate / Basis / Gauge / Scale Invariance:** Survives representation transformations.
-3. **Gate 3 — Negative Controls & Null Models:** Matched adversarial nulls, boundary cases, falsification criteria.
-4. **Gate 4 — Exact Arithmetic & Certified Checks:** Zero uncalibrated float thresholds for algebraic claims.
-5. **Gate 5 — Anti-Language-Smuggling:** Typed objects, executable operator maps, quantitative closure defects.
-6. **Gate 6 — Anti-Circularity & Non-Vacuity:** Beat trivial baselines; survive fresh out-of-sample seeds.
-7. **Gate 7 — Gate Integrity (R1–R5):** Default-reject (R1), omission monotonicity (R2), canonical strict parsing (R3), `-I -B` / `-I -O -B` / `-I -B -W error` parity with zero bare `assert`s (R4), refusal-site mutation testing (R5).
-8. **Gate 8 — Pre-Adaptation Latch & Permanent Miss Logging:** Record pre-fit diagnostics; never delete misses.
-9. **Gate 9 — Strict Novelty & Prior-Art Bar:** Full-text prior-art comparison before awarding `N2`.
+## Law 2b and Own-Terms-First
+- **Law 2b — Transformational Steelman:** Before closing a theorem or formula as `FALSIFIED`, search the seven morphism families `T1`–`T7` under the anti-epicycle guards `G0`–`G4`. `aletheia.gates_v2.certify_transformational_steelman` checks a caller-supplied record's form and inequalities, not that the search was run.
+- **Own-Terms-First:** Phase 1 tests a pattern on its own terms (raw rerun, held-out unseen data, second instrument); Phase 2 compares it with existing mathematics separately afterwards. Adopted as a flexible rule; see spec section 1.1 for the ruling on when judgment applies.
+
+## The Ten Verification Gates
+1. **Gate 1 — Exact Reproducibility & Clean-Room Replay:** Explicit logged RNG seeds; clean execution from scratch against pinned commit SHAs.
+2. **Gate 2 — Coordinate, Gauge, Basis, Metric & Discretization Invariance:** Survives similarity transforms, permutations, sign/phase flips, unit rescaling, metric swaps, and mesh refinement.
+3. **Gate 3 — Negative Controls, Null Models & Adversarial Edge Cases:** Pre-declared margins against matched adversarial nulls, boundary cases, explicit falsification criteria.
+4. **Gate 4 — Exact Arithmetic, Symbolic & Interval-Certified Checks:** Exact integer/rational/algebraic arithmetic or directed intervals for algebraic claims; never float epsilon cutoffs.
+5. **Gate 5 — Anti-Language-Smuggling & Cross-Domain Bridge Audit:** Typed objects, an executable map, an exact identity or quantitative closure defect beating nulls, and non-trivial predictive transfer.
+6. **Gate 6 — Anti-Circularity, Non-Vacuity & Fresh-Seed Out-of-Sample Check:** Beat trivial baselines; re-test on unseen draws without re-tuning.
+7. **Gate 7 — Gate Integrity, Optimizer Parity & Mutation Isolation (`R1`–`R7`):** Default-reject (R1), omission monotonicity (R2), two-direction canonical encoding and type strictness (R3), `-I -B` / `-I -O -B` / `-I -B -W error` parity with zero bare `assert`s (R4), refusal-site mutation isolation (R5), checks pinned by the gate owner before any submission (R6), and every compared value measured from the bytes, never declared (R7). R1–R5 are necessary, not sufficient.
+8. **Gate 8 — Pre-Adaptation Subspace Latch & Hashed Preregistration:** Record misspecification diagnostics before adaptation; commit and hash preregistrations before reading code or data; keep every miss.
+9. **Gate 9 — Mechanism-First Prior Art:** Before `N1` or `N2`, restate the mechanism in plain terms and in the vocabulary of at least two neighbouring fields, search full texts under each restatement, and record what was tried. A match on mechanism sets the label.
+10. **Gate 10 — Second-Pass Advocate for Narrowing Findings:** Every `FALSIFIED` or `PARTIAL/FRAGILE` verdict, and every finding that lowers a novelty label or narrows a claim, gets a second independent verifier who rebuilds the evidence and rules `stands`, `stands_narrowed`, or `falls`. Before publishing any label above `N0`, seek an independent outside observer where feasible.
 """
 
 
@@ -137,7 +191,13 @@ def init_workspace(
     domain: str = "general",
     force: bool = False,
 ) -> dict[str, Any]:
-    """Scaffold a clean Aletheia expedition workspace in `target_dir`."""
+    """Scaffold a clean Aletheia expedition workspace in `target_dir`.
+
+    Refuses symlinked targets, symlinked relative components, symlinked
+    absolute ancestors at depth >= 2 (exempting only depth-1 OS-managed root
+    links such as macOS /var, /tmp, /etc), and symlinked workspace subpaths,
+    with or without `force`.
+    """
     require_ok(
         isinstance(domain, str) and _DOMAIN_RE.match(domain) is not None,
         "INVALID_DOMAIN_NAME",

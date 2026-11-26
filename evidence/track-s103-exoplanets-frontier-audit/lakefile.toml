@@ -1,0 +1,5 @@
+name = "ExoplanetsFrontierOperators"
+defaultTargets = ["ExoplanetsFrontierOperators"]
+
+[[lean_lib]]
+name = "ExoplanetsFrontierOperators"
