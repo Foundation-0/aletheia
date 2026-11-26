@@ -1,0 +1,7 @@
+name = "HoloSphereCrossSpineBridges"
+version = "0.1.0"
+defaultTargets = ["HoloSphereCrossSpineBridges"]
+
+[[lean_lib]]
+name = "HoloSphereCrossSpineBridges"
+srcDir = "."
