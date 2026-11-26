@@ -21,6 +21,7 @@ pure Python 3 stdlib deterministic scanners integrated into `aletheia audit-chec
 """
 from __future__ import annotations
 
+from bisect import bisect_right
 import errno
 import json
 import os
@@ -657,6 +658,31 @@ def _pipeline_has_printf_to_shell(stages: list[str]) -> bool:
     return False
 
 
+def _shell_c_script_runs_rm(interp_args: list[str]) -> bool:
+    """Return True if `<shell> [-flags] -c SCRIPT ...` (given the tokens after the interpreter) runs rm.
+
+    Covers positional-parameter shell scripts that are only dangerous through their caller: a find
+    exec action or an xargs invocation whose command is `sh -c` with an rm script operating on
+    `"$1"` / `{}`. The script token is unquoted once and every pipeline stage of it is parsed for
+    an rm command.
+    """
+    n = len(interp_args)
+    j = 0
+    while j < n and interp_args[j].startswith("-") and not interp_args[j].startswith("--"):
+        flag = interp_args[j]
+        j += 1
+        if "c" in flag[1:]:
+            if j >= n:
+                return False
+            body = _unquote_eval_arg(interp_args[j])
+            return any(
+                _parse_shell_stage_command(stage.strip())[0] == "rm"
+                for pipeline in _split_shell_pipelines(body)
+                for stage in pipeline
+            )
+    return False
+
+
 def _find_tokens_exec_rm(find_tokens: list[str]) -> bool:
     """Return True if any find -exec/-execdir/-ok/-okdir action invokes rm (directly or via wrapper)."""
     n = len(find_tokens)
@@ -670,15 +696,46 @@ def _find_tokens_exec_rm(find_tokens: list[str]) -> bool:
                 return True
             if cmd_idx < n and _strip_cmd_token(find_tokens[cmd_idx]) == "rm":
                 return True
+            if (
+                cmd_idx < n
+                and _strip_cmd_token(find_tokens[cmd_idx]) in _SHELL_INTERPRETERS
+                and _shell_c_script_runs_rm(find_tokens[cmd_idx + 1 :])
+            ):
+                return True
             idx = cmd_idx + 1
             continue
         idx += 1
     return False
 
 
+def _build_span_cover_index(spans: list[tuple[int, int]]) -> tuple[list[int], list[int]]:
+    """Index spans for O(log m) containment queries: sorted starts plus the running max of their ends.
+
+    A query `[start, end)` lies inside some span `(es, ee)` with `es <= start` and `end <= ee` iff the
+    running max of `ee` over all spans with `es <= start` (the first `bisect_right(starts, start)`
+    spans in start order) is `>= end`. This keeps `_extract_quoted_subcommands` O((q + m) log m)
+    instead of O(q * m) on adversarial inputs such as `"sh -c '" * n` (Foundation-0/aletheia#35).
+    """
+    starts: list[int] = []
+    cover_ends: list[int] = []
+    running_max = -1
+    for es, ee in sorted(spans):
+        running_max = max(running_max, ee)
+        starts.append(es)
+        cover_ends.append(running_max)
+    return starts, cover_ends
+
+
+def _span_is_covered(start: int, end: int, starts: list[int], cover_ends: list[int]) -> bool:
+    """Return True iff `[start, end)` is contained in some indexed span (see `_build_span_cover_index`)."""
+    idx = bisect_right(starts, start)
+    return idx > 0 and cover_ends[idx - 1] >= end
+
+
 def _extract_quoted_subcommands(stage: str, excluded_spans: list[tuple[int, int]]) -> list[str]:
     """Extract non-excluded quoted string contents containing whitespace for subcommand scanning."""
     subcmds: list[str] = []
+    span_starts, span_cover_ends = _build_span_cover_index(excluded_spans)
     n = len(stage)
     i = 0
     while i < n:
@@ -714,7 +771,7 @@ def _extract_quoted_subcommands(stage: str, excluded_spans: list[tuple[int, int]
         end = i
         if not closed:
             break
-        if any(start >= es and end <= ee for es, ee in excluded_spans):
+        if _span_is_covered(start, end, span_starts, span_cover_ends):
             continue
         inner = "".join(buf)
         if any(c.isspace() for c in inner):
@@ -781,6 +838,10 @@ def _scan_shell_segment_findings(seg: str, parent_nounset: bool) -> list[str]:
                         details.append("find_delete")
                     if _find_tokens_exec_rm(find_tokens):
                         details.append("find_exec_rm")
+                    continue
+
+                if saw_xargs and cmd in _SHELL_INTERPRETERS and _shell_c_script_runs_rm(rest_tokens):
+                    details.append("xargs_rm")
                     continue
 
                 if cmd == "rm":

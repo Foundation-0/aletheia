@@ -11,6 +11,7 @@ import errno
 import json
 import os
 from pathlib import Path
+import random
 import socket
 import stat
 import subprocess
@@ -893,6 +894,89 @@ class TestSafetyEvasionsAndBounds(unittest.TestCase):
             with mock.patch("sys.stdout") as _out:
                 rc_cli = cli_main(["safety-scan", str(cli_dir), "--json"])
             self.assertEqual(rc_cli, 1)
+
+    def test_08_quoted_subcommand_span_exclusion_is_exact_and_subquadratic(self) -> None:
+        # Exact oracle: the pre-fix O(q*m) containment predicate, re-implemented with zero shared code.
+        def _covered_ref(start: int, end: int, spans: list[tuple[int, int]]) -> bool:
+            return any(start >= es and end <= ee for es, ee in spans)
+
+        rng = random.Random(20261126)
+        for _trial in range(3000):
+            spans = []
+            for _k in range(rng.randint(0, 6)):
+                a = rng.randint(0, 12)
+                spans.append((a, a + rng.randint(0, 8)))
+            starts, cover_ends = safety._build_span_cover_index(spans)
+            for _q in range(8):
+                qs = rng.randint(0, 14)
+                qe = qs + rng.randint(0, 8)
+                self.assertEqual(
+                    safety._span_is_covered(qs, qe, starts, cover_ends),
+                    _covered_ref(qs, qe, spans),
+                    msg=f"spans={spans} query=({qs},{qe})",
+                )
+        # Unsorted input, nested spans, and both equality boundaries (es == start, ee == end)
+        st, ce = safety._build_span_cover_index([(10, 20), (0, 5), (2, 30), (40, 41)])
+        self.assertEqual(st, [0, 2, 10, 40])
+        self.assertEqual(ce, [5, 30, 30, 41])
+        self.assertTrue(safety._span_is_covered(2, 30, st, ce))
+        self.assertTrue(safety._span_is_covered(0, 5, st, ce))
+        self.assertFalse(safety._span_is_covered(1, 31, st, ce))
+        self.assertFalse(safety._span_is_covered(30, 41, st, ce))
+        self.assertTrue(safety._span_is_covered(40, 41, st, ce))
+        self.assertFalse(safety._span_is_covered(40, 42, st, ce))
+        self.assertEqual(safety._build_span_cover_index([]), ([], []))
+        self.assertFalse(safety._span_is_covered(0, 0, [], []))
+
+        # _extract_quoted_subcommands: a quoted string exactly equal to a span is excluded; one byte wider is not
+        stage = "x 'a b' y"
+        self.assertEqual(safety._extract_quoted_subcommands(stage, []), ["a b"])
+        self.assertEqual(safety._extract_quoted_subcommands(stage, [(2, 7)]), [])
+        self.assertEqual(safety._extract_quoted_subcommands(stage, [(3, 7)]), ["a b"])
+        self.assertEqual(safety._extract_quoted_subcommands(stage, [(2, 6)]), ["a b"])
+        self.assertEqual(safety._extract_quoted_subcommands(stage, [(0, 3), (5, 9)]), ["a b"])
+
+        # Complexity regression (review 6059703038): q quoted strings x m disjoint non-covering spans.
+        # The pre-fix predicate walks every span per quote (q*m = 4e8 steps, ~13 s CPU measured locally); the indexed
+        # check is O((q + m) log m). CPU-time bounds are far above the measured linear cost, robust to CI load.
+        q = 20000
+        flood = "'a b' " * q
+        far_spans = [(len(flood) + 10 * i, len(flood) + 10 * i + 5) for i in range(q)]
+        t0 = time.process_time()
+        got = safety._extract_quoted_subcommands(flood, far_spans)
+        self.assertLess(time.process_time() - t0, 3.0)
+        self.assertEqual(len(got), q)
+        # End-to-end: `sh -c '` flood (one excluded span per match), linear after the fix
+        t1 = time.process_time()
+        res = safety.scan_text_safety_surface((_SH + " -c '") * 64000, "flood.sh")
+        self.assertLess(time.process_time() - t1, 15.0)
+        self.assertTrue(res["clean"])
+
+    def test_10_positional_shell_c_scripts_under_find_exec_and_xargs(self) -> None:
+        # Previously missed: the rm script only sees "$1" / {} so no named variable fires
+        self._assert_hits(f"{_FN} . -exec {_SH} -c '{_RM} {_RF} \"$1\"' _ {{}} \\;\n", "a.sh", "CYA-GAP-03", "find_exec_rm")
+        self._assert_hits(f"{_FN} . -execdir {_BASH} -ec '{_RM} {_RF} \"$1\"' _ {{}} +\n", "a.sh", "CYA-GAP-03", "find_exec_rm")
+        self._assert_hits(f"{_FN} . -exec {_SH} -c 'cd x; {_RM} \"$1\"' _ {{}} \\;\n", "a.sh", "CYA-GAP-03", "find_exec_rm")
+        self._assert_hits(f"{_XA} -I{{}} {_SH} -c '{_RM} {_RF} {{}}'\n", "a.sh", "CYA-GAP-03", "xargs_rm")
+        self._assert_hits(f"ls | {_XA} -0 {_DASH} -xc '{_RM} {_RF} \"$@\"' _\n", "a.sh", "CYA-GAP-03", "xargs_rm")
+        # Benign controls: no rm in the script, no -c script, flags only, or a long option before -c
+        for benign in (
+            f"{_FN} . -exec {_SH} -c 'echo \"$1\"' _ {{}} \\;\n",
+            f"{_FN} . -exec {_SH} -x \\;\n",
+            f"ls | {_XA} {_SH} -c 'echo hi'\n",
+            f"{_XA} {_SH} -c\n",
+            f"{_XA} {_SH} -e\n",
+            f"{_XA} {_SH} --login -c 'x'\n",
+        ):
+            res = safety.scan_text_safety_surface(benign, "b.sh")
+            self.assertTrue(res["clean"], msg=f"unexpected hit for {benign!r}: {res['findings']}")
+        # Direct helper: the -c flag is found in a combined cluster; missing script and flag-free args refuse
+        self.assertTrue(safety._shell_c_script_runs_rm(["-e", "-uc", f"'{_RM} x'"]))
+        self.assertFalse(safety._shell_c_script_runs_rm(["-c"]))
+        self.assertFalse(safety._shell_c_script_runs_rm(["-x"]))
+        self.assertFalse(safety._shell_c_script_runs_rm([f"'{_RM} x'"]))
+        self.assertFalse(safety._shell_c_script_runs_rm(["--rcfile", "-c", f"'{_RM} x'"]))
+        self.assertFalse(safety._shell_c_script_runs_rm([]))
 
 
 if __name__ == "__main__":
