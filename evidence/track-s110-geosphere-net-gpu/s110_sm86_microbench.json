@@ -1,0 +1,152 @@
+{
+  "amp_bf16": true,
+  "device": "cuda",
+  "gpu_name": "NVIDIA GeForce RTX 3080 Laptop GPU",
+  "microbench": {
+    "all_operators_clear_15pct_gate": false,
+    "baseline_block_ms": 1.9632,
+    "baseline_block_vram_mib": 75.67,
+    "baseline_gemm_ms": 0.3255,
+    "device": "cuda",
+    "dtype": "torch.bfloat16",
+    "full_model_train_step_bench": {
+      "H10a_Baseline_Loop": {
+        "core_seq_passes_executed": 16.0,
+        "final_loss_finite": true,
+        "params": 14999424,
+        "peak_vram_mib": 1349.04,
+        "step_overhead_pct_vs_baseline": 0.0,
+        "train_step_ms": 73.939,
+        "train_tok_per_sec": 55397.4
+      },
+      "H10a_Shell1_Cayley2x2": {
+        "core_seq_passes_executed": 16.0,
+        "final_loss_finite": true,
+        "params": 15037056,
+        "peak_vram_mib": 1637.51,
+        "step_overhead_pct_vs_baseline": 15.55,
+        "train_step_ms": 85.433,
+        "train_tok_per_sec": 47943.8
+      },
+      "H10a_Shell2_BinghamProx": {
+        "core_seq_passes_executed": 16.0,
+        "final_loss_finite": true,
+        "params": 14999424,
+        "peak_vram_mib": 1362.4,
+        "step_overhead_pct_vs_baseline": 1.41,
+        "train_step_ms": 74.98,
+        "train_tok_per_sec": 54628.0
+      },
+      "H10a_Shell3_DarcyEMA": {
+        "core_seq_passes_executed": 16.0,
+        "final_loss_finite": true,
+        "params": 15002496,
+        "peak_vram_mib": 1638.1,
+        "step_overhead_pct_vs_baseline": 20.97,
+        "train_step_ms": 89.445,
+        "train_tok_per_sec": 45793.3
+      },
+      "H10a_Shell4_ACTPlume_MTP8": {
+        "core_seq_passes_executed": 16.0,
+        "final_loss_finite": true,
+        "params": 14999810,
+        "peak_vram_mib": 1534.56,
+        "step_overhead_pct_vs_baseline": 10.04,
+        "train_step_ms": 81.362,
+        "train_tok_per_sec": 50343.1
+      },
+      "H10b_Geosphere_Full": {
+        "core_seq_passes_executed": 16.0,
+        "final_loss_finite": true,
+        "params": 15040514,
+        "peak_vram_mib": 2128.47,
+        "step_overhead_pct_vs_baseline": 62.31,
+        "train_step_ms": 120.01,
+        "train_tok_per_sec": 34130.6
+      }
+    },
+    "iters": 20,
+    "operators": {
+      "op1_cayley_2x2_so": {
+        "all_finite": true,
+        "baseline_gemm_ms": 0.3255,
+        "fp32_vs_dtype_max_abs_diff": 0.028344,
+        "gate_status": "PRUNE_OVERHEAD_GT_15PCT",
+        "kill_gate_limit_pct": 15.0,
+        "op_ms": 0.5667,
+        "overhead_pct": 28.87,
+        "overhead_ratio": 0.2887,
+        "overhead_vs_gemm_pct": 174.11,
+        "peak_vram_mib": 57.17,
+        "ref_block_ms": 1.9632,
+        "scope": "per_core_block"
+      },
+      "op2_bingham_vector_prox": {
+        "all_finite": true,
+        "baseline_gemm_ms": 0.3255,
+        "fp32_vs_dtype_max_abs_diff": 0.02562,
+        "gate_status": "PASS",
+        "kill_gate_limit_pct": 15.0,
+        "op_ms": 0.2605,
+        "overhead_pct": 13.27,
+        "overhead_ratio": 0.1327,
+        "overhead_vs_gemm_pct": 80.04,
+        "peak_vram_mib": 37.72,
+        "ref_block_ms": 1.9632,
+        "scope": "per_core_block"
+      },
+      "op3_darcy_diagonal_ema": {
+        "all_finite": true,
+        "baseline_gemm_ms": 0.3255,
+        "fp32_vs_dtype_max_abs_diff": 0.018256,
+        "gate_status": "PRUNE_OVERHEAD_GT_15PCT",
+        "kill_gate_limit_pct": 15.0,
+        "op_ms": 0.9265,
+        "overhead_pct": 47.19,
+        "overhead_ratio": 0.4719,
+        "overhead_vs_gemm_pct": 284.64,
+        "peak_vram_mib": 76.0,
+        "ref_block_ms": 1.9632,
+        "scope": "per_core_block"
+      },
+      "op4a_act_controller": {
+        "all_finite": true,
+        "baseline_gemm_ms": 0.3255,
+        "fp32_vs_dtype_max_abs_diff": 0.015062,
+        "gate_status": "PASS",
+        "kill_gate_limit_pct": 15.0,
+        "op_ms": 0.285,
+        "overhead_pct": 1.21,
+        "overhead_ratio": 0.0121,
+        "overhead_vs_gemm_pct": 87.56,
+        "peak_vram_mib": 51.72,
+        "ref_block_ms": 23.5588,
+        "scope": "per_forward_12eff"
+      },
+      "op4b_mtp8_surface_draft": {
+        "all_finite": true,
+        "baseline_gemm_ms": 0.3255,
+        "fp32_vs_dtype_max_abs_diff": 0.403091,
+        "gate_status": "PASS",
+        "kill_gate_limit_pct": 15.0,
+        "op_ms": 1.0667,
+        "overhead_pct": 4.53,
+        "overhead_ratio": 0.0453,
+        "overhead_vs_gemm_pct": 327.69,
+        "peak_vram_mib": 98.08,
+        "ref_block_ms": 23.5588,
+        "scope": "per_forward_12eff"
+      }
+    },
+    "shape": [
+      8,
+      512,
+      384
+    ]
+  },
+  "payload_sha256": "733c8c33e8f4ddfbc75bd9a2ee51ac1012881846d353b2d05cce15f8b755fd01",
+  "prereg_s110_amend1_sha256": "a41399fdb888167288a63cefa540778d921574197f721b8d5322bd8825d0928a",
+  "prereg_s110_sha256": "2e645597e81a330159b2183caf670f685821a9451a37223a782936e88e30d0fe",
+  "schema": "aletheia.track_s110.geosphere_net_run.v1",
+  "weights_saved": 0
+}
