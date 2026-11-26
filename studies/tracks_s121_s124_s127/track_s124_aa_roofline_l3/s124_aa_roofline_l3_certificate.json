@@ -1,0 +1,94 @@
+{
+  "certificate_sha256": "024edcdc7d153c9d254be3365ae24b7d6492eb1a7f9d59d64b18f27ef03dc091",
+  "experiment": "EXP-Q30a",
+  "float_ops_used": 0,
+  "g1_aa_illusion_and_mirage_gate": {
+    "combinatorial_proof": {
+      "alpha_target_q": "1/20",
+      "m_triple_false_win_prob_q": "1/27",
+      "min_independent_triples_for_alpha": 3,
+      "pr11_empirical_false_win_ratio_q": "15/43",
+      "pr11_minus_exact_third_q": "2/129",
+      "s3_candidate_top_permutations": 2,
+      "s3_total_permutations": 6,
+      "single_triple_false_win_prob_q": "1/3"
+    },
+    "genuine_25pct_candidate_accepted": true,
+    "pr11_calibrated_floor": {
+      "aa_runs": 12,
+      "false_win_fraction_q": "2/5",
+      "false_wins": 4,
+      "interior_triples": 10,
+      "max_adjacent_rel_spread_q": "77/5000",
+      "max_false_win_rel_margin_q": "77/5000"
+    },
+    "sub_floor_1pct_candidate_rejected": true,
+    "zero_false_win_jitter_candidate_rejected": true
+  },
+  "g2_looped_and_batched_draft_rooflines": {
+    "pr12_loop_aware_moe_vram_roi": {
+      "boundary_mb_per_tok_per_gb_q": "125/2",
+      "core_active_mb_per_tok_q": "1290/1",
+      "core_mb_per_tok_per_gb_q": "375/2",
+      "core_share_of_active_traffic_q": "1032/1427",
+      "core_vs_boundary_roi_ratio_q": "3/1",
+      "postlude_active_mb_per_tok_q": "1115/4",
+      "prelude_active_mb_per_tok_q": "215/1"
+    },
+    "pr13_batched_single_read_draft": {
+      "buggy_aggregate_ceiling_tok_s_q": "400/1",
+      "buggy_step_bytes_gb_q": "2/1",
+      "relative_underestimate_q": "3/8",
+      "true_aggregate_ceiling_tok_s_q": "640/1",
+      "true_step_bytes_gb_q": "5/4"
+    },
+    "pr22_inkling2_mini_visits": {
+      "decode_overstatement_ratio_q": "2/1",
+      "logical_layer_visits": 48,
+      "naive_physical_decode_tok_s_q": "2350/3",
+      "physical_layers": 24,
+      "prefill_sparse_phys_vs_dense_visit_ratio_q": "4/1",
+      "true_visit_decode_tok_s_q": "1175/3",
+      "visit_to_physical_ratio_q": "2/1"
+    }
+  },
+  "g3_holosphere_v3_15m_l3_roofline": {
+    "a16_total_codewords": 945280,
+    "fits_in_24mib_l3": true,
+    "footprint_reduction_vs_llm_asm_qwen3_q": "278659072/2306297",
+    "hugepages_2mib_needed_holosphere_v3": 5,
+    "hugepages_2mib_needed_llm_asm_qwen3": 532,
+    "i9_1c_l3_is_compute_bound": true,
+    "i9_1c_practical_fma_compute_ceiling_tok_s_q": "33600000000/15234817",
+    "i9_24mib_l3_occupancy_q": "2306297/6291456",
+    "i9_ddr4_ceiling_tok_s_q": "1500000000/338327",
+    "i9_l3_1c_ceiling_tok_s_q": "16000000000/2368289",
+    "i9_l3_8c_ceiling_tok_s_q": "80000000000/2368289",
+    "i9_l3_vs_ddr4_bandwidth_lift_q": "160/21",
+    "input_embedding_bytes": 0,
+    "kv_bytes_per_token": 0,
+    "live_v3_46468_over_gddr6_tied_q": "27294943073/22287500000",
+    "live_v3_46468_over_l2_tied_q": "27294943073/32841250000",
+    "lm_head_a16_bytes": 74880,
+    "pages_4kib_needed_holosphere_v3": 2253,
+    "pages_4kib_needed_llm_asm_qwen3": 272128,
+    "persistent_o1_state_bytes": 262144,
+    "resident_mib_q": "2306297/262144",
+    "resident_total_bytes": 9225188,
+    "rtx3080_gddr6_ceiling_tied_tok_s_q": "89150000000/2349569",
+    "rtx3080_gddr6_ceiling_untied_tok_s_q": "89150000000/2368289",
+    "rtx3080_l2_pinned_ceiling_tied_tok_s_q": "131365000000/2349569",
+    "rtx3080_l2_pinned_ceiling_untied_tok_s_q": "131365000000/2368289",
+    "safetensors_file_bytes": 8963044,
+    "safetensors_header_bytes": 14176,
+    "tensor_payload_bytes": 8948868
+  },
+  "preregistration_sha256": "871900e5d6c860ac159f43ca6b4767e7c128d0b4f7748edf788d56e9cb535d3e",
+  "schema": "aletheia.track_s124.aa_roofline_l3_oracle.v1",
+  "track": "S124",
+  "verdicts": {
+    "G1": "CONFIRMED",
+    "G2": "CONFIRMED",
+    "G3": "CONFIRMED"
+  }
+}
