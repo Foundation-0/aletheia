@@ -1,0 +1,5 @@
+name = "SphereDenomPiOperators"
+defaultTargets = ["SphereDenomPiOperators"]
+
+[[lean_lib]]
+name = "SphereDenomPiOperators"
