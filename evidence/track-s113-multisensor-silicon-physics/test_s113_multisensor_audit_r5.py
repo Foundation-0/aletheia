@@ -91,9 +91,9 @@ class TestS113MultisensorAuditR5(unittest.TestCase):
         )
         _ensure(
             bres["ok"] is True
-            and bres["total_surviving_anomalies"] == 2
-            and bres["holm_rejected"] == 191
-            and bres["receipt_payload_sha256"] == "ffdf68f9baae840f5e7e9d69fd70ad1498b9240f4006a765e63644b5d60f8a1e",
+            and bres["total_surviving_anomalies"] == 0
+            and bres["holm_rejected"] == 421
+            and bres["receipt_payload_sha256"] == "ff21fd7bfe4662018e071af49d7a68b63093f0dd72b4daae2de5acd2fbf2bb31",
             f"Unexpected blind result: {bres}",
         )
 
@@ -104,8 +104,8 @@ class TestS113MultisensorAuditR5(unittest.TestCase):
         parsed = json.loads(buf.getvalue())
         _ensure(
             parsed["ok"] is True
-            and parsed["blind_surviving_anomalies"] == 2
-            and parsed["blind_holm_rejected"] == 191,
+            and parsed["blind_surviving_anomalies"] == 0
+            and parsed["blind_holm_rejected"] == 421,
             f"CLI output mismatch: {parsed}",
         )
 
@@ -458,22 +458,22 @@ class TestS113MultisensorAuditR5(unittest.TestCase):
             "BLIND_MANIFEST_BINDING_MISMATCH",
         )
 
-        # 3) Control C2: overwrite ONE surviving row's half2_p_holm with its raw p (0.00125) and re-seal -> MUST FAIL
+        # 3) Control C2: overwrite ONE row's half2_p_holm with its raw p (0.00125) and re-seal -> MUST FAIL
         b_c2 = json.loads(audit.canonical_json(base_b))
-        b_c2["anomalies_by_phase"]["A"][0]["half2_p_holm"] = 0.00125
+        a3_first = next(r for r in b_c2["holm_rejected"] if r["lens"] == "A3_TIME_REVERSAL_ASYMMETRY")
+        a3_first["half2_p_holm"] = 0.00125
         _expect_audit_error(lambda: audit.verify_blind_receipt_dict(_resign_blind(b_c2)), "BLIND_HOLM_RECOMPUTE_MISMATCH")
 
-        # 4) Control C6: set ALL rows of a multi-member family to raw p and bump ONE row by +1/800 -> MUST FAIL
+        # 4) Control C6: set ALL rows of multi-member families (A3 m=13 and A1 m=51) to raw p and re-seal -> MUST FAIL
         b_c6 = json.loads(audit.canonical_json(base_b))
-        b_c6["anomalies_by_phase"]["A"][0]["half2_p_holm"] = 0.00125
-        b_c6["anomalies_by_phase"]["E2"][0]["half2_p_holm"] = 0.00250
+        for i, r in enumerate([x for x in b_c6["holm_rejected"] if x["lens"] == "A3_TIME_REVERSAL_ASYMMETRY"]):
+            r["half2_p_holm"] = 0.0025 if i == 0 else float(r["half2_p_iaaft"])
         _expect_audit_error(lambda: audit.verify_blind_receipt_dict(_resign_blind(b_c6)), "BLIND_HOLM_RECOMPUTE_MISMATCH")
 
-        # Also test C6 on a large rejected family (A1_BICOHERENCE, m=17)
         b_c6_rej = json.loads(audit.canonical_json(base_b))
         a1_rows = [r for r in b_c6_rej["holm_rejected"] if r["lens"] == "A1_BICOHERENCE"]
         for i, r in enumerate(a1_rows):
-            r["half2_p_holm"] = 0.0025 if i == 0 else 0.00125
+            r["half2_p_holm"] = 0.0025 if i == 0 else float(r["half2_p_iaaft"])
         _expect_audit_error(lambda: audit.verify_blind_receipt_dict(_resign_blind(b_c6_rej)), "BLIND_HOLM_RECOMPUTE_MISMATCH")
 
         # 5) Promote a holm_rejected row into surviving anomalies_by_phase -> BLIND_HOLM_GATE_MISMATCH
@@ -488,7 +488,7 @@ class TestS113MultisensorAuditR5(unittest.TestCase):
 
         # 6) Wrong holm_family_size -> BLIND_HOLM_FAMILY_MISMATCH
         b_fsize = json.loads(audit.canonical_json(base_b))
-        b_fsize["anomalies_by_phase"]["A"][0]["holm_family_size"] = 1
+        b_fsize["holm_rejected"][0]["holm_family_size"] = 1
         _expect_audit_error(lambda: audit.verify_blind_receipt_dict(_resign_blind(b_fsize)), "BLIND_HOLM_FAMILY_MISMATCH")
 
         # 7) Bad holm_family_scope -> BLIND_BAD_HOLM_SCOPE
@@ -498,19 +498,21 @@ class TestS113MultisensorAuditR5(unittest.TestCase):
 
         # 8) Low surrogates, non-integer empirical rank on raw p, missing raw p, total/lens mismatches
         b_low_n = json.loads(audit.canonical_json(base_b))
-        b_low_n["anomalies_by_phase"]["A"][0]["n_surrogates_confirm"] = 199
+        b_low_n["holm_rejected"][0]["n_surrogates_confirm"] = 199
         _expect_audit_error(lambda: audit.verify_blind_receipt_dict(_resign_blind(b_low_n)), "BLIND_LOW_SURROGATES")
 
         b_nonint = json.loads(audit.canonical_json(base_b))
-        b_nonint["anomalies_by_phase"]["A"][0]["half2_p_iaaft"] = 0.0019
+        a3_nonint = next(r for r in b_nonint["holm_rejected"] if "half2_p_iaaft" in r)
+        a3_nonint["half2_p_iaaft"] = 0.0019
         _expect_audit_error(lambda: audit.verify_blind_receipt_dict(_resign_blind(b_nonint)), "BLIND_NONINTEGER_EMPIRICAL_RANK")
 
         b_noraw = json.loads(audit.canonical_json(base_b))
-        del b_noraw["anomalies_by_phase"]["A"][0]["half2_p_iaaft"]
+        a3_noraw = next(r for r in b_noraw["holm_rejected"] if "half2_p_iaaft" in r)
+        del a3_noraw["half2_p_iaaft"]
         _expect_audit_error(lambda: audit.verify_blind_receipt_dict(_resign_blind(b_noraw)), "BLIND_MISSING_RAW_P")
 
         b_cnt = json.loads(audit.canonical_json(base_b))
-        b_cnt["total_surviving_anomalies"] = 174
+        b_cnt["total_surviving_anomalies"] = 2
         _expect_audit_error(lambda: audit.verify_blind_receipt_dict(_resign_blind(b_cnt)), "BLIND_TOTAL_MISMATCH")
 
         b_rcnt = json.loads(audit.canonical_json(base_b))
@@ -522,8 +524,93 @@ class TestS113MultisensorAuditR5(unittest.TestCase):
         _expect_audit_error(lambda: audit.verify_blind_receipt_dict(_resign_blind(b_ccnt)), "BLIND_CANDIDATE_TOTAL_MISMATCH")
 
         b_lcnt = json.loads(audit.canonical_json(base_b))
-        b_lcnt["counts_by_lens"]["A3_TIME_REVERSAL_ASYMMETRY"] = 99
+        b_lcnt["counts_by_lens"]["A3_TIME_REVERSAL_ASYMMETRY"] = 2
         _expect_audit_error(lambda: audit.verify_blind_receipt_dict(_resign_blind(b_lcnt)), "BLIND_LENS_COUNTS_MISMATCH")
+
+        # 8b) Family-shrink + reseal, drop-row + reseal, phase-JSON digest edit + reseal, and stale summary checks
+        b_shrink = json.loads(audit.canonical_json(base_b))
+        a2_kept = [r for r in b_shrink["holm_rejected"] if r["lens"] == "A2_CHIRAL_4X4_CSD"][:2]
+        b_shrink["holm_rejected"] = [r for r in b_shrink["holm_rejected"] if r["lens"] != "A2_CHIRAL_4X4_CSD"]
+        for r in a2_kept:
+            r["holm_family_size"] = 2
+            r["half2_p_holm"] = 0.0025
+            r["replicated_anomaly"] = True
+            b_shrink["anomalies_by_phase"][r["phase"]].append(r)
+        b_shrink["counts_by_lens"]["A2_CHIRAL_4X4_CSD"] = 2
+        b_shrink["total_surviving_anomalies"] = 2
+        b_shrink["total_holm_rejected"] = len(b_shrink["holm_rejected"])
+        b_shrink["total_candidates_evaluated"] = 2 + len(b_shrink["holm_rejected"])
+        b_shrink["pooled_lens_family_summary"]["A2_CHIRAL_4X4_CSD"] = {
+            "family_size": 2,
+            "min_raw_p": 0.00125,
+            "min_p_holm": 0.0025,
+            "surviving_count": 2,
+            "rejected_count": 0,
+        }
+        _expect_audit_error(
+            lambda: audit.verify_blind_receipt_dict(
+                _resign_blind(b_shrink),
+                expected_cert_payload_sha256=base_c["payload_sha256"],
+                expected_manifest_digests=base_c["payload"]["manifest_digests"],
+            ),
+            "BLIND_FAMILY_SIZE_PIN_MISMATCH",
+        )
+
+        # Drop 1 row from A3_POST_LOAD_AFTERGLOW (m: 2 -> 1) + fix summary/totals + reseal -> BLIND_FAMILY_SIZE_PIN_MISMATCH
+        b_drop = json.loads(audit.canonical_json(base_b))
+        ag_rows = [r for r in b_drop["holm_rejected"] if r["lens"] == "A3_POST_LOAD_AFTERGLOW"]
+        b_drop["holm_rejected"] = [r for r in b_drop["holm_rejected"] if r["lens"] != "A3_POST_LOAD_AFTERGLOW"]
+        kept_ag = ag_rows[0]
+        kept_ag["holm_family_size"] = 1
+        kept_ag["half2_p_holm"] = float(kept_ag["rep2_p_iaaft"])
+        kept_ag["rep2_p_holm"] = float(kept_ag["rep2_p_iaaft"])
+        b_drop["holm_rejected"].append(kept_ag)
+        b_drop["total_holm_rejected"] = len(b_drop["holm_rejected"])
+        b_drop["total_candidates_evaluated"] = len(b_drop["holm_rejected"])
+        b_drop["pooled_lens_family_summary"]["A3_POST_LOAD_AFTERGLOW"] = {
+            "family_size": 1,
+            "min_raw_p": float(kept_ag["rep2_p_iaaft"]),
+            "min_p_holm": float(kept_ag["rep2_p_iaaft"]),
+            "surviving_count": 0,
+            "rejected_count": 1,
+        }
+        _expect_audit_error(
+            lambda: audit.verify_blind_receipt_dict(
+                _resign_blind(b_drop),
+                expected_cert_payload_sha256=base_c["payload_sha256"],
+                expected_manifest_digests=base_c["payload"]["manifest_digests"],
+            ),
+            "BLIND_FAMILY_SIZE_PIN_MISMATCH",
+        )
+
+        # Phase-JSON digest edit + reseal -> BLIND_PHASE_JSON_PIN_MISMATCH
+        b_pjson = json.loads(audit.canonical_json(base_b))
+        b_pjson["source_phase_json_sha256s"]["phase_a_json_sha256"] = "0" * 64
+        _expect_audit_error(
+            lambda: audit.verify_blind_receipt_dict(
+                _resign_blind(b_pjson),
+                expected_cert_payload_sha256=base_c["payload_sha256"],
+                expected_manifest_digests=base_c["payload"]["manifest_digests"],
+            ),
+            "BLIND_PHASE_JSON_PIN_MISMATCH",
+        )
+
+        # Stale / malformed pooled_lens_family_summary checks -> BLIND_SUMMARY_MISMATCH
+        for mut_fn in (
+            lambda d: d.update({"pooled_lens_family_summary": []}),
+            lambda d: d["pooled_lens_family_summary"].pop("A1_BICOHERENCE"),
+            lambda d: d["pooled_lens_family_summary"].update({"A1_BICOHERENCE": "bad"}),
+            lambda d: d["pooled_lens_family_summary"]["A1_BICOHERENCE"].update({"family_size": 999}),
+            lambda d: d["pooled_lens_family_summary"]["A1_BICOHERENCE"].update({"surviving_count": 1}),
+            lambda d: d["pooled_lens_family_summary"]["A1_BICOHERENCE"].update({"rejected_count": 0}),
+            lambda d: d["pooled_lens_family_summary"]["A1_BICOHERENCE"].pop("min_raw_p"),
+            lambda d: d["pooled_lens_family_summary"]["A1_BICOHERENCE"].update({"min_raw_p": 0.5}),
+            lambda d: d["pooled_lens_family_summary"]["A1_BICOHERENCE"].pop("min_p_holm"),
+            lambda d: d["pooled_lens_family_summary"]["A1_BICOHERENCE"].update({"min_p_holm": 0.5}),
+        ):
+            b_sum = json.loads(audit.canonical_json(base_b))
+            mut_fn(b_sum)
+            _expect_audit_error(lambda s=b_sum: audit.verify_blind_receipt_dict(_resign_blind(s)), "BLIND_SUMMARY_MISMATCH")
 
         # 9) Structural / header / boundary guards
         with tempfile.TemporaryDirectory() as td:
@@ -560,7 +647,7 @@ class TestS113MultisensorAuditR5(unittest.TestCase):
         _expect_audit_error(lambda: audit.verify_blind_receipt_dict(_resign_blind(b_badrow)), "BLIND_BAD_ROW")
 
         b_elens = json.loads(audit.canonical_json(base_b))
-        b_elens["anomalies_by_phase"]["A"][0]["lens"] = ""
+        b_elens["anomalies_by_phase"]["A"].append({"lens": ""})
         _expect_audit_error(lambda: audit.verify_blind_receipt_dict(_resign_blind(b_elens)), "BLIND_EMPTY_LENS")
 
         b_badrej = json.loads(audit.canonical_json(base_b))
@@ -571,7 +658,7 @@ class TestS113MultisensorAuditR5(unittest.TestCase):
         b_erej["holm_rejected"][0]["lens"] = ""
         _expect_audit_error(lambda: audit.verify_blind_receipt_dict(_resign_blind(b_erej)), "BLIND_EMPTY_LENS")
 
-        # Boundary: 1-character lens name (len == 1) + exact 1e-6 tolerance on blind Holm recompute
+        # Boundary: 1-character lens name (len == 1) + exact 1e-6 tolerance on blind Holm recompute & summary
         b_min_ok = _resign_blind({
             "prereg_amendment": audit.AMENDMENT_ID,
             "parent_prereg_sha256": audit.EXPECTED_PARENT_PREREG_SHA256,
@@ -581,6 +668,22 @@ class TestS113MultisensorAuditR5(unittest.TestCase):
             "total_surviving_anomalies": 1,
             "total_holm_rejected": 1,
             "counts_by_lens": {"X": 1},
+            "pooled_lens_family_summary": {
+                "X": {
+                    "family_size": 1,
+                    "min_raw_p": 2e-6,
+                    "min_p_holm": 2e-6,
+                    "surviving_count": 1,
+                    "rejected_count": 0,
+                },
+                "Y": {
+                    "family_size": 1,
+                    "min_raw_p": 0.01,
+                    "min_p_holm": 0.01,
+                    "surviving_count": 0,
+                    "rejected_count": 1,
+                },
+            },
             "anomalies_by_phase": {
                 "A": [{
                     "lens": "X",

@@ -42,6 +42,31 @@ SCHEMA_ID = "aletheia.track_s113.multisensor_silicon_certificate.v1"
 PREREG_ID = "PREREG-S113"
 AMENDMENT_ID = "PREREG-S113-AMENDMENT1"
 EXPECTED_PARENT_PREREG_SHA256 = "cebe48326461ef048c6e8ccfb51f76f661f33b44c32d7e0178777d2ad8221e67"
+EXPECTED_LIVE_CERT_PAYLOAD_SHA256 = "e8e3da5f45cb3331e0b29ac51d08496d6c3ef1b17e9bf27c9e5ad213908ac574"
+EXPECTED_POOLED_LENS_FAMILY_SIZES: dict[str, int] = {
+    "A1_BICOHERENCE": 51,
+    "A1_CPU_GPU_INTERMODULATION": 8,
+    "A1_SLOW_TO_ULTRASONIC_PAC": 26,
+    "A2_CHIRAL_4X4_CSD": 45,
+    "A2_TDOA_COCYCLE_AND_HOLONOMY": 21,
+    "A3_POST_LOAD_AFTERGLOW": 2,
+    "A3_TIME_REVERSAL_ASYMMETRY": 13,
+    "A4_2D_SPATIAL_WAVE_PEAK": 48,
+    "A4_PERSISTENT_TELEGRAPHER_PIXELS": 16,
+    "A4_SYNCHRONIZED_MULTIPIXEL_BURSTS": 16,
+    "A5_RARE_EVENT_COINCIDENCE": 24,
+    "A6_UNINVITED_SPECTRAL_LINE": 127,
+    "A7_NONLINEAR_RESIDUAL_COPULA_MI": 24,
+}
+EXPECTED_SOURCE_PHASE_JSON_SHA256S: dict[str, str] = {
+    "phase_a_json_sha256": "9c8883719611a5158d8c827aa60ba073299a11158bcaefc627c34146a99d2269",
+    "phase_b_json_sha256": "75e2d13e6abfcdae63770e32cb2b5d0a04dfe9fd3d564756493d77541a9e6761",
+    "phase_c_json_sha256": "7c51d682a7990af0a389e5f7bf0dd0afa545be0ce48568d94fdae2b6bedb0d09",
+    "phase_d_json_sha256": "f723f6cf739e567694c489aefebc5ae0ff95a40a5de94b2d5366c7c84d8af526",
+    "phase_e1_json_sha256": "cc39d5cb950d8e52612e231414b7bf29298675f1de4959900e20fa3bc73bb40c",
+    "phase_e2_json_sha256": "aa47bc39451f5c530c6a271d5d76c178a78c3c88c56c4672999110942b2f3695",
+    "phase_idle_json_sha256": "e6279fabfadf865e9d1e18333c9eb7d4ba7a67ee4234be6a7637a981a4277e12",
+}
 MAX_SERIALIZED_INT_BITS = 14000
 
 QMat = tuple[tuple[Fraction, ...], ...]
@@ -725,7 +750,7 @@ def verify_certificate_dict(cert: dict[str, Any]) -> dict[str, Any]:
 
 
 def _extract_raw_confirm_p(row: dict[str, Any]) -> float:
-    for key in ("half2_p_surr", "half2_p_shift", "half2_p_iaaft", "rep2_p"):
+    for key in ("half2_p_surr", "half2_p_shift", "half2_p_iaaft", "rep2_p_iaaft", "rep2_p"):
         if key in row and row[key] is not None:
             return float(row[key])
     raise S113AuditError("BLIND_MISSING_RAW_P", f"Missing raw Half-2 confirm p field in row: {sorted(row.keys())}")
@@ -811,6 +836,13 @@ def verify_blind_receipt_dict(
         require_ok(len(lens) > 0, "BLIND_EMPTY_LENS", "Missing lens identifier in holm_rejected")
         pooled_by_lens.setdefault(lens, []).append((row, False))
 
+    summary_obj = receipt.get("pooled_lens_family_summary")
+    require_ok(
+        isinstance(summary_obj, dict) and set(summary_obj.keys()) == set(pooled_by_lens.keys()),
+        "BLIND_SUMMARY_MISMATCH",
+        "pooled_lens_family_summary missing or lens key set mismatch",
+    )
+
     # Full exact step-down Holm-Bonferroni recomputation per pooled lens family
     for lens, items in pooled_by_lens.items():
         fam_n = len(items)
@@ -847,6 +879,34 @@ def verify_blind_receipt_dict(
                 "BLIND_HOLM_GATE_MISMATCH",
                 f"Lens {lens} survival/replicated_anomaly contradicts recomputed p_Holm={exp_holm}",
             )
+
+        s_entry = summary_obj[lens]
+        n_surv_lens = recounted_lenses.get(lens, 0)
+        require_ok(
+            isinstance(s_entry, dict)
+            and s_entry.get("family_size") == fam_n
+            and s_entry.get("surviving_count") == n_surv_lens
+            and s_entry.get("rejected_count") == fam_n - n_surv_lens
+            and "min_raw_p" in s_entry
+            and abs(float(s_entry["min_raw_p"]) - min(raw_pvals)) <= 1e-6
+            and "min_p_holm" in s_entry
+            and abs(float(s_entry["min_p_holm"]) - min(exp_holm_list)) <= 1e-6,
+            "BLIND_SUMMARY_MISMATCH",
+            f"pooled_lens_family_summary mismatch for lens {lens}",
+        )
+
+    if expected_cert_payload_sha256 == EXPECTED_LIVE_CERT_PAYLOAD_SHA256:
+        recomputed_family_sizes = {lens: len(items) for lens, items in pooled_by_lens.items()}
+        require_ok(
+            recomputed_family_sizes == EXPECTED_POOLED_LENS_FAMILY_SIZES,
+            "BLIND_FAMILY_SIZE_PIN_MISMATCH",
+            "Pooled per-lens tested candidate counts do not match pinned Track S113 family sizes",
+        )
+        require_ok(
+            receipt.get("source_phase_json_sha256s") == EXPECTED_SOURCE_PHASE_JSON_SHA256S,
+            "BLIND_PHASE_JSON_PIN_MISMATCH",
+            "Blind receipt source_phase_json_sha256s does not match pinned phase JSON digests",
+        )
 
     require_ok(receipt.get("total_surviving_anomalies") == recounted_total, "BLIND_TOTAL_MISMATCH", "total_surviving_anomalies mismatch")
     require_ok(receipt.get("total_holm_rejected") == len(rejected), "BLIND_REJECTED_TOTAL_MISMATCH", "total_holm_rejected mismatch")

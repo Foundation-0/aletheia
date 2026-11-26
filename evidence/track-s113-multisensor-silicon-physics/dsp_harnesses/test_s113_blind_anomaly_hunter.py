@@ -22,6 +22,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from s113_blind_anomaly_hunter import (
     _analyze_2d_stack_blind,
     apply_pooled_lens_family_holm,
+    extract_phase_tested_candidates,
     lens_a1_bicoherence_and_pac,
     lens_a2_chiral_cross_spectrum,
     lens_a3_time_reversal_and_afterglow,
@@ -176,6 +177,52 @@ class BlindAnomalyHunterTests(unittest.TestCase):
             raise AssertionError(f"Bad pooled Holm p for A1: {rej[0]}")
         if summary["A1_BICOHERENCE"]["family_size"] != 4 or diag["total_surviving_all_lenses"] != 6:
             raise AssertionError(f"Unexpected summary/diag: {summary} / {diag}")
+
+        # Verify extract_phase_tested_candidates includes non-surviving tested_candidates,
+        # nested subphases, afterglow rep2_p_iaaft, cocycle_probes, and intermod_probes.
+        phase_a_mock = {
+            "phase": "A",
+            "lenses": {
+                "A3": {
+                    "tested_candidates": [
+                        {"lens": "A3_TIME_REVERSAL_ASYMMETRY", "half2_p_iaaft": 0.00125, "same_sign_replicated": True, "half2_z_iaaft": 4.2, "replicated_anomaly": True},
+                        {"lens": "A3_TIME_REVERSAL_ASYMMETRY", "half2_p_iaaft": 0.60, "same_sign_replicated": True, "half2_z_iaaft": -0.2, "replicated_anomaly": False},
+                        {"lens": "A3_TIME_REVERSAL_ASYMMETRY", "half2_p_iaaft": 0.70, "same_sign_replicated": False, "half2_z_iaaft": -0.5, "replicated_anomaly": False},
+                        {"lens": "A3_POST_LOAD_AFTERGLOW", "rep2_p_iaaft": 0.42625, "rep2_p_holm": 0.42625, "rep2_z_iaaft": 0.27, "replicated_anomaly": False},
+                    ],
+                    "surviving_anomalies": [],
+                }
+            },
+        }
+        phase_e2_mock = {
+            "phase": "E2",
+            "subphases": {
+                "E2B": {
+                    "lenses": {
+                        "A3": {
+                            "tested_candidates": [
+                                {"lens": "A3_TIME_REVERSAL_ASYMMETRY", "half2_p_iaaft": 0.00125, "same_sign_replicated": True, "half2_z_iaaft": 8.1, "replicated_anomaly": True},
+                            ]
+                        },
+                        "A1_A2_STRUCTURED_PROBES": {
+                            "cocycle_probes": [{"lens": "A2_TDOA_COCYCLE_AND_HOLONOMY", "half2_p_surr": 0.965, "half1_phase_holonomy_rad": 0.1, "half2_phase_holonomy_rad": 0.1, "half2_cocycle_defect_us": 25.0, "half2_z_surr": -1.2}],
+                            "intermod_probes": [{"lens": "A1_CPU_GPU_INTERMODULATION", "half2_p_surr": 0.45875, "half1_prominence_x_median": 1.1, "half2_z_surr": 0.03}],
+                        },
+                    }
+                }
+            },
+        }
+        rows_full = {
+            "A": extract_phase_tested_candidates(phase_a_mock),
+            "E2": extract_phase_tested_candidates(phase_e2_mock),
+        }
+        surv2, rej2, counts2, summary2, _ = apply_pooled_lens_family_holm(["A", "E2"], rows_full)
+        # Because A3_TIME_REVERSAL_ASYMMETRY has 4 Half-2-tested candidates (not 2 pre-filtered survivors),
+        # min p_Holm = 4 * 0.00125 = 0.005 >= 0.005 -> 0 pooled survivors!
+        if counts2 != {} or sum(len(v) for v in surv2.values()) != 0 or len(rej2) != 7:
+            raise AssertionError(f"Unfiltered m=4 A3 family must yield 0 survivors: {counts2} / {surv2}")
+        if summary2["A3_TIME_REVERSAL_ASYMMETRY"]["min_p_holm"] != 0.005:
+            raise AssertionError(f"Expected min_p_holm=0.005 for m=4 A3, got {summary2['A3_TIME_REVERSAL_ASYMMETRY']}")
 
 
 if __name__ == "__main__":

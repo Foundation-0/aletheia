@@ -68,10 +68,79 @@ def wait_for_capture_quiet(max_wait_s: float = 120.0) -> bool:
 
 def _extract_raw_confirm_p(row: dict[str, Any]) -> float:
     """Return the raw Half-2 empirical confirm p-value for a blind-hunter row."""
-    for key in ("half2_p_surr", "half2_p_shift", "half2_p_iaaft", "rep2_p"):
+    for key in ("half2_p_surr", "half2_p_shift", "half2_p_iaaft", "rep2_p_iaaft", "rep2_p"):
         if key in row and row[key] is not None:
             return float(row[key])
     raise ValueError(f"Missing raw Half-2 confirm p field in row: {sorted(row.keys())}")
+
+
+def _passes_secondary_effect_gate(row: dict[str, Any]) -> bool:
+    """Evaluate non-p-value Half-1/Half-2 effect-size and sign criteria from raw row fields."""
+    lens = str(row.get("lens", ""))
+    if lens == "A3_TIME_REVERSAL_ASYMMETRY" and "same_sign_replicated" in row and "half2_z_iaaft" in row:
+        return bool(row["same_sign_replicated"]) and float(row["half2_z_iaaft"]) >= 3.5
+    if lens == "A3_POST_LOAD_AFTERGLOW" and "rep2_z_iaaft" in row:
+        return float(row["rep2_z_iaaft"]) >= 3.5
+    if lens in (
+        "A1_BICOHERENCE",
+        "A1_SLOW_TO_ULTRASONIC_PAC",
+        "A2_CHIRAL_4X4_CSD",
+        "A7_NONLINEAR_RESIDUAL_COPULA_MI",
+        "A7_TAKENS_NONLINEAR_PREDICTABILITY",
+    ) and "half2_z_iaaft" in row:
+        return float(row["half2_z_iaaft"]) >= 3.5
+    if lens in ("A4_2D_SPATIAL_WAVE_PEAK", "A4_SYNCHRONIZED_MULTIPIXEL_BURSTS") and "half2_z_surr" in row:
+        return float(row["half2_z_surr"]) >= 4.0
+    if lens == "A4_PERSISTENT_TELEGRAPHER_PIXELS" and "half2_z_surr" in row and "half2_locked_excess_kurtosis" in row:
+        return float(row["half2_z_surr"]) >= 4.0 and float(row["half2_locked_excess_kurtosis"]) >= 1.0
+    if lens == "A4_INVERTED_SHOT_NOISE_VARIANCE" and "half2_z_surr" in row and "half2_off_over_on_var_ratio" in row:
+        return float(row["half2_z_surr"]) >= 4.0 and float(row["half2_off_over_on_var_ratio"]) > 2.0
+    if lens == "A5_RARE_EVENT_COINCIDENCE" and "half2_z_shift" in row:
+        return float(row["half2_z_shift"]) >= 3.5
+    if lens == "A6_UNINVITED_SPECTRAL_LINE" and "half2_z_surr" in row and "half2_prominence_x_median" in row:
+        return float(row["half2_z_surr"]) >= 4.0 and float(row["half2_prominence_x_median"]) >= 5.0
+    if (
+        lens == "A2_TDOA_COCYCLE_AND_HOLONOMY"
+        and "half1_phase_holonomy_rad" in row
+        and "half2_phase_holonomy_rad" in row
+        and "half2_cocycle_defect_us" in row
+        and "half2_z_surr" in row
+    ):
+        same_hol = float(row["half1_phase_holonomy_rad"]) * float(row["half2_phase_holonomy_rad"]) > 0.0
+        return (same_hol or abs(float(row["half2_cocycle_defect_us"])) >= 20.0) and float(row["half2_z_surr"]) >= 3.5
+    if lens == "A1_CPU_GPU_INTERMODULATION" and "half1_prominence_x_median" in row and "half2_z_surr" in row:
+        return float(row["half1_prominence_x_median"]) >= 3.5 and float(row["half2_z_surr"]) >= 4.0
+    return bool(row.get("replicated_anomaly", True))
+
+
+def extract_phase_tested_candidates(res: dict[str, Any]) -> list[dict[str, Any]]:
+    """Collect every Half-2-tested candidate across all lenses and subphases of a phase result."""
+    collected: list[dict[str, Any]] = []
+
+    def _collect_lenses(lenses_obj: Any, subphase_tag: str | None = None) -> None:
+        if not isinstance(lenses_obj, dict):
+            return
+        for lens_val in lenses_obj.values():
+            if not isinstance(lens_val, dict):
+                continue
+            for list_key in ("tested_candidates", "cocycle_probes", "intermod_probes"):
+                rows = lens_val.get(list_key)
+                if not isinstance(rows, list):
+                    continue
+                for row in rows:
+                    if isinstance(row, dict):
+                        cloned = json.loads(json.dumps(row))
+                        if subphase_tag is not None and "subphase" not in cloned:
+                            cloned["subphase"] = subphase_tag
+                        collected.append(cloned)
+
+    if isinstance(res.get("lenses"), dict):
+        _collect_lenses(res["lenses"])
+    elif isinstance(res.get("subphases"), dict):
+        for sub_key, sub_val in res["subphases"].items():
+            if isinstance(sub_val, dict):
+                _collect_lenses(sub_val.get("lenses"), subphase_tag=str(sub_key))
+    return collected
 
 
 def _apply_lens_family_holm(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -86,9 +155,11 @@ def _apply_lens_family_holm(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         adj = holm_bonferroni(pvals)
         for m, a in zip(members, adj):
             m["half2_p_holm"] = round(a, 8)
+            if "rep2_p_holm" in m:
+                m["rep2_p_holm"] = round(a, 8)
             m["holm_family"] = lens
             m["holm_family_size"] = len(members)
-            if a < 0.005 and m.get("replicated_anomaly"):
+            if a < 0.005 and _passes_secondary_effect_gate(m):
                 m["replicated_anomaly"] = True
                 surviving.append(m)
             else:
@@ -102,7 +173,9 @@ def apply_pooled_lens_family_holm(
 ) -> tuple[dict[str, list[dict[str, Any]]], list[dict[str, Any]], dict[str, int], dict[str, Any], dict[str, Any]]:
     """Apply exact step-down Holm-Bonferroni pooled per lens across ALL analyzed phases.
 
-    Returns (surviving_by_phase, holm_rejected, counts_by_lens, pooled_summary, per_phase_diag).
+    Input rows_by_phase must contain every Half-2-tested candidate per phase (not pre-filtered
+    first-stage survivors). Returns (surviving_by_phase, holm_rejected, counts_by_lens,
+    pooled_summary, per_phase_diag).
     """
     tagged: list[tuple[str, dict[str, Any]]] = []
     for ph in phase_order:
@@ -111,14 +184,14 @@ def apply_pooled_lens_family_holm(
             cloned["phase"] = ph
             tagged.append((ph, cloned))
 
-    # 1. Exact per-(phase, lens) diagnostic reference (computed before mutating for pooled output)
+    # 1. Exact per-(phase, lens) diagnostic reference over all Half-2-tested candidates in (phase, lens)
     per_phase_fams: dict[tuple[str, str], list[dict[str, Any]]] = {}
     for ph, row in tagged:
         per_phase_fams.setdefault((ph, str(row.get("lens", ""))), []).append(row)
     per_phase_surv_by_lens: dict[str, int] = {}
     for (_, lens), members in per_phase_fams.items():
         adj_ph = holm_bonferroni([_extract_raw_confirm_p(m) for m in members])
-        n_ok = sum(1 for m, a in zip(members, adj_ph) if a < 0.005 and m.get("replicated_anomaly"))
+        n_ok = sum(1 for m, a in zip(members, adj_ph) if a < 0.005 and _passes_secondary_effect_gate(m))
         if n_ok > 0:
             per_phase_surv_by_lens[lens] = per_phase_surv_by_lens.get(lens, 0) + n_ok
     non_rts_burst = {
@@ -133,7 +206,7 @@ def apply_pooled_lens_family_holm(
         "surviving_by_lens": dict(sorted(per_phase_surv_by_lens.items())),
     }
 
-    # 2. Primary pooled per-lens Holm across ALL phases
+    # 2. Primary pooled per-lens Holm across ALL Half-2-tested candidates in ALL phases
     pooled_fams: dict[str, list[tuple[str, dict[str, Any]]]] = {}
     for ph, row in tagged:
         pooled_fams.setdefault(str(row.get("lens", "")), []).append((ph, row))
@@ -151,9 +224,11 @@ def apply_pooled_lens_family_holm(
         n_rej = 0
         for (ph, row), a in zip(items, adj_pvals):
             row["half2_p_holm"] = round(a, 8)
+            if "rep2_p_holm" in row:
+                row["rep2_p_holm"] = round(a, 8)
             row["holm_family"] = lens
             row["holm_family_size"] = len(items)
-            if a < 0.005 and row.get("replicated_anomaly"):
+            if a < 0.005 and _passes_secondary_effect_gate(row):
                 row["replicated_anomaly"] = True
                 surviving_by_phase[ph].append(row)
                 counts_by_lens[lens] = counts_by_lens.get(lens, 0) + 1
@@ -2295,20 +2370,24 @@ def finalize_pooled_blind_receipt(
     total_surv = sum(len(v) for v in surviving_by_phase.values())
     total_rej = len(holm_rejected)
 
+    min_pooled_holm = min((v["min_p_holm"] for v in pooled_summary.values()), default=1.0)
     unsigned: dict[str, Any] = {
         "prereg_amendment": "PREREG-S113-AMENDMENT1",
         "parent_prereg_sha256": "cebe48326461ef048c6e8ccfb51f76f661f33b44c32d7e0178777d2ad8221e67",
         "generated_utc": generated_utc or time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "holm_family_scope": "pooled_across_all_phases",
+        "holm_candidate_universe": "all_half2_tested_candidates",
         "holm_family_note": (
-            "Step-down Holm-Bonferroni is applied across each lens family pooled over ALL analyzed phases "
-            "(every row's half2_p_holm is computed from its raw Half-2 empirical confirm p-value across the full "
-            "pooled lens family size m). At N_confirm=799 (empirical floor p_min=1/800=0.00125), any lens family "
-            "with m>=4 has minimum possible Holm p >= 4/800 = 0.005 and cannot clear p_Holm < 0.005. Under this "
-            f"pooled family, {total_surv} rows survive (A3_TIME_REVERSAL_ASYMMETRY, m=2, p_Holm=0.0025) and "
-            f"{total_rej} split-half candidates are recorded in holm_rejected (p_Holm >= 0.005). For transparency, "
-            "per_phase_lens_holm_diagnostic also reports per-(phase, lens) Holm survival counts "
-            f"({per_phase_diag['total_surviving_all_lenses']} across all 9 lens keys; "
+            "Step-down Holm-Bonferroni is applied across each lens family pooled over ALL Half-2-tested "
+            "candidates (tested_candidates + cocycle_probes + intermod_probes, unfiltered by Half-2 significance) "
+            f"across all {len(phase_order)} analyzed phases ({len(pooled_summary)} lens families, "
+            f"{total_surv + total_rej} total Half-2-tested hypotheses). At N_confirm=799 (empirical floor "
+            "p_min=1/800=0.00125), any lens family with m>=4 has minimum possible Holm p >= 4/800 = 0.005 "
+            f"and cannot clear p_Holm < 0.005. Under the full tested candidate universe, {total_surv} rows "
+            f"survive pooled p_Holm < 0.005 (smallest pooled min_p_holm={min_pooled_holm:.6f}) and "
+            f"{total_rej} Half-2-tested candidates are recorded in holm_rejected. For transparency, "
+            "per_phase_lens_holm_diagnostic also reports per-(phase, lens) Holm counts over the same "
+            f"unfiltered tested candidates ({per_phase_diag['total_surviving_all_lenses']} across all lenses; "
             f"{per_phase_diag['total_surviving_excluding_a4_rts_burst']} excluding A4 RTS/burst rows)."
         ),
         "phase_e_reentry_caveat": (
@@ -2388,7 +2467,7 @@ def main() -> int:
             res = analyze_phase(track_dir, ph, polite=args.polite, max_wait_s=args.max_wait_s)
         phase_json_shas[f"phase_{ph.lower()}_json_sha256"] = _sha256_bytes(pjson.read_bytes())
         phase_order.append(ph_up)
-        raw_rows_by_phase[ph_up] = list(res.get("all_surviving_anomalies", []))
+        raw_rows_by_phase[ph_up] = extract_phase_tested_candidates(res)
 
     cert_payload_sha: str | None = None
     if args.certificate is not None:
