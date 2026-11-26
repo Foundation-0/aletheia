@@ -1,0 +1,7 @@
+name = "HoloSphereCellOpInvariants"
+version = "0.1.0"
+defaultTargets = ["HoloSphereCellOpInvariants"]
+
+[[lean_lib]]
+name = "HoloSphereCellOpInvariants"
+srcDir = "."
