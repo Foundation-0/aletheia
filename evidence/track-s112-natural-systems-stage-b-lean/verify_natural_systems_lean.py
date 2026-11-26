@@ -718,7 +718,7 @@ def verify_external_pins(root_dir: Path | None = None) -> dict[str, Any]:
             "pins": checked,
             "unverifiable_pins": unverifiable,
         }
-    return {"status": "PINS_OK", "external": len(checked), "pins": checked}
+    return {"status": "PINS_OK", "external": len(checked), "unverifiable": 0, "pins": checked}
 
 
 S102_CERT_REL = "track-s102-drosophila-malecns-connectome/s102_malecns_connectome_certificate.json"
@@ -786,7 +786,7 @@ def main(argv: list[str] | None = None) -> int:
             if res["status"] == "PINS_UNVERIFIABLE":
                 sys.stdout.write(f"PINS_UNVERIFIABLE external={res['external']} unverifiable={res['unverifiable']}\n")
             else:
-                sys.stdout.write(f"PINS_OK external={res['external']}\n")
+                sys.stdout.write(f"PINS_OK external={res['external']} unverifiable={res['unverifiable']}\n")
         elif mode == "--verify-lean":
             sys.stdout.write(f"LEAN_OK theorems={res['theorems_verified']} sha256={res['lean_source_sha256']}\n")
         else:

@@ -404,21 +404,32 @@ theorem p1_anisotropic_input_shatters_nullspace :
   decide
 
 /-- Theorem 6 (Portal 1 Obstruction P1-O5 & Cosine Repair):
-    Multiplicative scaling by 0 < num/den < 1 preserves positive sign yet crosses any
-    nonzero safety margin tau whenever num * m < den * tau (witness: 3/4 * 5/2 = 15/8 < 2),
-    while squared cosine (dot^2 / norm^2) and its threshold gate are identically invariant
-    for ALL λ != 0. The fixed `decide` conjuncts (3*5 < 4*4, 0 < 3*5) are literal witnesses,
-    not quantified structural statements. -/
-theorem p1_mult_safety_margin_crossing_and_cos_repair (lam dotVal normSq cNum cDen : Int)
-    (hlam : lam ≠ 0) :
-    ((3 : Int) * 5 < 4 * 4 ∧ 0 < (3 : Int) * 5) ∧
+    For all positive rational contractions 0 < sNum < sDen and positive margins mNum > 0,
+    scaling strictly attenuates magnitude (sNum * mNum < sDen * mNum) while preserving positive
+    sign (0 < sNum * mNum) and admits threshold-crossing instances (tau * mDen < mNum yet
+    sNum * mNum < sDen * (tau * mDen)), whereas squared cosine (dot^2 / norm^2) and its
+    threshold gate are identically invariant for ALL λ != 0. -/
+theorem p1_mult_safety_margin_crossing_and_cos_repair
+    (sNum sDen mNum lam dotVal normSq cNum cDen : Int)
+    (hsPos : 0 < sNum) (hsLt : sNum < sDen) (hmPos : 0 < mNum) (hlam : lam ≠ 0) :
+    (0 < sNum * mNum ∧ sNum * mNum < sDen * mNum) ∧
+    (∃ a b m d tau : Int,
+      0 < a ∧ a < b ∧ 0 < d ∧ 0 < tau ∧ tau * d < m ∧ a * m < b * (tau * d)) ∧
     ((lam * dotVal) * (lam * dotVal) * normSq = dotVal * dotVal * (lam * lam * normSq)) ∧
     (dotVal * dotVal * cDen ≤ cNum * normSq ↔
       (lam * dotVal) * (lam * dotVal) * cDen ≤ cNum * (lam * lam * normSq)) := by
+  have hpos : 0 < sNum * mNum := Int.mul_pos hsPos hmPos
+  have hdiff : 0 < (sDen - sNum) * mNum := Int.mul_pos (by omega) hmPos
+  have hlt : sNum * mNum < sDen * mNum := by
+    rw [Int.sub_mul] at hdiff
+    omega
+  have hex : ∃ a b m d tau : Int,
+      0 < a ∧ a < b ∧ 0 < d ∧ 0 < tau ∧ tau * d < m ∧ a * m < b * (tau * d) :=
+    ⟨3, 4, 5, 2, 2, by omega, by omega, by omega, by omega, by omega, by omega⟩
   have h1 : (lam * dotVal) * (lam * dotVal) = (lam * lam) * (dotVal * dotVal) := by
     rw [Int.mul_assoc lam dotVal, ← Int.mul_assoc dotVal lam dotVal, Int.mul_comm dotVal lam,
         Int.mul_assoc lam dotVal dotVal, ← Int.mul_assoc lam lam]
-  refine ⟨⟨by omega, by omega⟩, ?_, ?_⟩
+  refine ⟨⟨hpos, hlt⟩, hex, ?_, ?_⟩
   · rw [h1, Int.mul_assoc (lam * lam), Int.mul_comm (lam * lam) (dotVal * dotVal * normSq),
         Int.mul_assoc (dotVal * dotVal) normSq (lam * lam), Int.mul_comm normSq (lam * lam)]
   · rw [h1]
@@ -1247,21 +1258,26 @@ theorem p4_physarum_gamma1_global_ratio_increase (D1 D2 : Int) (h1 : 0 < D1) (h2
   rw [h1eq, h2eq]
   omega
 
+def physarumGamma2FixedPoint (D1 D2 scale : Int) : Prop :=
+  let S := 2 * D1 + D2
+  D1 * (S * S) + 4 * scale * (D1 * D1) = 2 * D1 * (S * S) ∧
+  D2 * (S * S) + scale * (D2 * D2) = 2 * D2 * (S * S)
+
 /-- Theorem 25 (Portal 4 Obstruction P4-O1 — Physarum gamma=2 Two-Sided Separatrix Instability):
-    On L_1 = 1 < L_2 = 2 with gamma=2, for EVERY positive (D1, D2):
+    On L_1 = 1 < L_2 = 2 with gamma=2, for EVERY positive (D1, D2) and scale:
     1. Above the separatrix (D2 > 4*D1), the ratio D1'/D2' STRICTLY DECREASES (suboptimal lock-in),
     2. Below the separatrix (D2 < 4*D1), the ratio D1'/D2' STRICTLY INCREASES (optimal basin),
-    3. Exact unstable separatrix fixed point at (D1, D2) = (1/9, 4/9).
-    Conjunct 3 is a fixed literal fixed-point witness (`decide`), not a quantified statement. -/
-theorem p4_physarum_gamma2_separatrix_lockin (D1 D2 : Int)
+    3. On the separatrix (D2 = 4*D1), D1'/D2' = D1/D2 identically, and (D1/scale, 4*D1/scale)
+       is a fixed point iff scale = 9*D1 (uniquely pinning (1/9, 4/9)). -/
+theorem p4_physarum_gamma2_separatrix_lockin (D1 D2 scale : Int)
     (h1 : 0 < D1) (h2 : 0 < D2) :
     let S := 2 * D1 + D2
     let num1 := D1 * (S * S) + 4 * (D1 * D1)
     let num2 := D2 * (S * S) + D2 * D2
     (4 * D1 < D2 → D2 * num1 < D1 * num2) ∧
     (D2 < 4 * D1 → D1 * num2 < D2 * num1) ∧
-    (let fpS := 2 * 1 + 4; (1 * (fpS * fpS) + 4 * 9 * (1 * 1) = 2 * 1 * (fpS * fpS)) ∧
-                           (4 * (fpS * fpS) + 9 * (4 * 4) = 2 * 4 * (fpS * fpS))) := by
+    (D2 = 4 * D1 → D2 * num1 = D1 * num2) ∧
+    (physarumGamma2FixedPoint D1 (4 * D1) scale ↔ scale = 9 * D1) := by
   let S := 2 * D1 + D2
   have hdiff : D1 * (D2 * (S * S) + D2 * D2) - D2 * (D1 * (S * S) + 4 * (D1 * D1)) =
       (D1 * D2) * (D2 - 4 * D1) := by
@@ -1278,7 +1294,7 @@ theorem p4_physarum_gamma2_separatrix_lockin (D1 D2 : Int)
   have hprod_pos : 0 < D1 * D2 := Int.mul_pos h1 h2
   dsimp only [S] at hdiff
   dsimp only
-  refine ⟨?_, ?_, ⟨by decide, by decide⟩⟩
+  refine ⟨?_, ?_, ?_, ?_⟩
   · intro hsep
     have hpos : 0 < (D1 * D2) * (D2 - 4 * D1) := Int.mul_pos hprod_pos (by omega)
     omega
@@ -1289,29 +1305,143 @@ theorem p4_physarum_gamma2_separatrix_lockin (D1 D2 : Int)
       have : D2 - 4 * D1 = -(4 * D1 - D2) := by omega
       rw [this]
     omega
+  · intro hsep
+    have hz : D2 - 4 * D1 = 0 := by omega
+    rw [hz, Int.mul_zero] at hdiff
+    omega
+  · unfold physarumGamma2FixedPoint
+    dsimp only
+    have hs6 : 2 * D1 + 4 * D1 = 6 * D1 := by omega
+    rw [hs6]
+    have h36 : (6 * D1) * (6 * D1) = 36 * (D1 * D1) := by
+      rw [Int.mul_assoc 6 D1, ← Int.mul_assoc D1 6 D1, Int.mul_comm D1 6,
+          Int.mul_assoc 6 D1 D1, ← Int.mul_assoc 6 6]
+      rfl
+    have h16 : (4 * D1) * (4 * D1) = 16 * (D1 * D1) := by
+      rw [Int.mul_assoc 4 D1, ← Int.mul_assoc D1 4 D1, Int.mul_comm D1 4,
+          Int.mul_assoc 4 D1 D1, ← Int.mul_assoc 4 4]
+      rfl
+    rw [h36, h16]
+    have hd2_nz : D1 * D1 ≠ 0 := by
+      have hp := Int.mul_pos h1 h1
+      omega
+    have heq1 :
+        (D1 * (36 * (D1 * D1)) + 4 * scale * (D1 * D1) = 2 * D1 * (36 * (D1 * D1))) ↔
+          4 * scale = 36 * D1 := by
+      have hl : 4 * scale * (D1 * D1) = (D1 * D1) * (4 * scale) := Int.mul_comm _ _
+      have hr1 : D1 * (36 * (D1 * D1)) = (D1 * D1) * (36 * D1) := by
+        simp only [Int.mul_comm, Int.mul_left_comm]
+      have hr2 : 2 * D1 * (36 * (D1 * D1)) = (D1 * D1) * (72 * D1) := by
+        have h72 : (2 : Int) * 36 = 72 := rfl
+        rw [Int.mul_assoc 2 D1, ← Int.mul_assoc D1 36, Int.mul_comm D1 36,
+            Int.mul_assoc 36 D1, ← Int.mul_assoc 2 36, h72,
+            ← Int.mul_assoc 72 D1 (D1 * D1), Int.mul_comm (72 * D1) (D1 * D1)]
+      constructor
+      · intro hfp
+        rw [hl, hr1, hr2] at hfp
+        have hc : (D1 * D1) * (4 * scale) = (D1 * D1) * (36 * D1) := by
+          have hsub : (D1 * D1) * (72 * D1) - (D1 * D1) * (36 * D1) = (D1 * D1) * (36 * D1) := by
+            rw [← Int.mul_sub]
+            have h36d : 72 * D1 - 36 * D1 = 36 * D1 := by omega
+            rw [h36d]
+          omega
+        exact int_mul_cancel_left_nz (D1 * D1) (4 * scale) (36 * D1) hd2_nz hc
+      · intro hsc
+        rw [hl, hr1, hr2, hsc]
+        rw [← Int.mul_add]
+        have hadd : 36 * D1 + 36 * D1 = 72 * D1 := by omega
+        rw [hadd]
+    constructor
+    · intro hboth
+      have h4 := heq1.mp hboth.1
+      omega
+    · intro hsc
+      refine ⟨heq1.mpr (by omega), ?_⟩
+      rw [hsc]
+      have t1 : 4 * D1 * (36 * (D1 * D1)) = 144 * (D1 * (D1 * D1)) := by
+        have c1 : (4 : Int) * 36 = 144 := rfl
+        rw [Int.mul_assoc 4 D1, ← Int.mul_assoc D1 36, Int.mul_comm D1 36,
+            Int.mul_assoc 36 D1, ← Int.mul_assoc 4 36, c1]
+      have t2 : 9 * D1 * (16 * (D1 * D1)) = 144 * (D1 * (D1 * D1)) := by
+        have c2 : (9 : Int) * 16 = 144 := rfl
+        rw [Int.mul_assoc 9 D1, ← Int.mul_assoc D1 16, Int.mul_comm D1 16,
+            Int.mul_assoc 16 D1, ← Int.mul_assoc 9 16, c2]
+      have t3 : 2 * (4 * D1) * (36 * (D1 * D1)) = 288 * (D1 * (D1 * D1)) := by
+        have c3 : (2 : Int) * 4 = 8 := rfl
+        have c4 : (8 : Int) * 36 = 288 := rfl
+        rw [← Int.mul_assoc 2 4 D1, c3, Int.mul_assoc 8 D1, ← Int.mul_assoc D1 36,
+            Int.mul_comm D1 36, Int.mul_assoc 36 D1, ← Int.mul_assoc 8 36, c4]
+      rw [t1, t2, t3]
+      omega
+
+-- Wheatstone 4-node Dirichlet energy (scaled by 2) and exact effective resistance R_eff(g_b) = (3 + 4 g_b)/(2 + 3 g_b),
+-- paired with Braess 4-node Wardrop path latency (total demand F = 2: pre-bridge latency 3 vs post-bridge Nash latency 4).
+def wheatstoneDirichlet2 (gb phi0 phi1 phi2 phi3 : Int) : Int :=
+  2 * ((phi0 - phi1) * (phi0 - phi1)) + (phi1 - phi3) * (phi1 - phi3) +
+  (phi0 - phi2) * (phi0 - phi2) + 2 * ((phi2 - phi3) * (phi2 - phi3)) +
+  2 * gb * ((phi1 - phi2) * (phi1 - phi2))
+
+def wheatstoneReffNum (gb : Int) : Int := 3 + 4 * gb
+def wheatstoneReffDen (gb : Int) : Int := 2 + 3 * gb
+
+def braessZigzagLatency (fZig : Int) : Int := fZig + fZig
+def braessSideLatency (fSide : Int) : Int := fSide + 2
 
 /-- Theorem 26 (Portal 4 Obstruction P4-O2 — Rayleigh Monotonicity vs Braess Paradox):
-    Exact rational cross-product witnesses separating Ohmic Wheatstone resistance reduction
-    (4/3 < 43/32 < 3/2, improvement 3/2 - 43/32 = 5/32) from selfish Wardrop latency
-    degradation (3/2 -> 2, penalty +1/2). All five conjuncts are fixed literal witnesses
-    (`decide`), not quantified structural statements. -/
-theorem p4_rayleigh_vs_braess_separation :
-    (4 * 32 < 43 * 3) ∧ (43 * 2 < 3 * 32) ∧ (3 * 16 - 43 = 5) ∧
-    (3 < 2 * 2) ∧ (2 * 2 - 3 = 1) := by
-  decide
+    1. Universal Rayleigh conductance monotonicity: for all g1 <= g2 and any node potentials phi,
+       wheatstoneDirichlet2 g1 phi <= wheatstoneDirichlet2 g2 phi, and R_eff(g_b) = (3 + 4 g_b)/(2 + 3 g_b)
+       strictly decreases for all g1 < g2 (with R_eff(10) = 43/32 < R_eff(0) = 3/2 and R_eff(g_b) > 4/3).
+    2. Selfish Braess paradox (demand F = 2): without bridge (fSide = 1), equilibrium latency is 3;
+       with zero-cost bridge, zigzag flow fZig = 2 is a strict Wardrop equilibrium with latency 4 > 3. -/
+theorem p4_rayleigh_vs_braess_separation
+    (g1 g2 phi0 phi1 phi2 phi3 : Int) (hle : g1 ≤ g2) :
+    (wheatstoneDirichlet2 g1 phi0 phi1 phi2 phi3 ≤
+      wheatstoneDirichlet2 g2 phi0 phi1 phi2 phi3) ∧
+    (g1 < g2 →
+      wheatstoneReffNum g2 * wheatstoneReffDen g1 <
+        wheatstoneReffNum g1 * wheatstoneReffDen g2) ∧
+    (4 * wheatstoneReffDen g1 < 3 * wheatstoneReffNum g1) ∧
+    (braessSideLatency 1 < braessZigzagLatency 2 ∧
+      braessZigzagLatency 2 ≤ braessSideLatency 0 + 2) := by
+  refine ⟨?_, ?_, ?_, ?_⟩
+  · unfold wheatstoneDirichlet2
+    have hsq := int_sq_nonneg (phi1 - phi2)
+    have hmul := int_mul_le_left_nonneg ((phi1 - phi2) * (phi1 - phi2)) (2 * g1) (2 * g2) hsq (by omega)
+    rw [Int.mul_comm _ (2 * g1), Int.mul_comm _ (2 * g2)] at hmul
+    omega
+  · intro hlt
+    unfold wheatstoneReffNum wheatstoneReffDen
+    have hdiff :
+        (3 + 4 * g1) * (2 + 3 * g2) - (3 + 4 * g2) * (2 + 3 * g1) = g2 - g1 := by
+      simp only [Int.add_mul, Int.mul_add]
+      have h12 : (4 * g1) * (3 * g2) = (4 * g2) * (3 * g1) := by
+        simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
+      omega
+    omega
+  · unfold wheatstoneReffNum wheatstoneReffDen
+    omega
+  · unfold braessSideLatency braessZigzagLatency
+    exact ⟨by decide, by decide⟩
+
+def portalBMinEdges (n0 : Nat) : Nat := 1000 * n0
+def spanningTreeEdges (n0 : Nat) : Nat := n0 - 1
 
 /-- Theorem 27 (Portal 4 Obstruction P4-O3 — Portal-B Density Chasm & Conductance Floor):
-    For ALL vertex counts n0 >= 2001 (m_PB = 1000*n0 vs spanning tree m_tree = n0 - 1),
-    the exact density ratio m_PB / m_tree satisfies 1000 < m_PB / m_tree <= 2001/2
-    (tight iff n0 = 2001, where 2*m_PB = 2001*m_tree), and floor D_min = 1/16 gives 32/33 < 1.
-    The last two conjuncts are fixed literal witnesses (`decide`/`omega` on constants),
-    not quantified structural statements. -/
-theorem p4_physarum_tree_portal_b_density_chasm (n0 : Nat) (hn : 2001 ≤ n0) :
-    (1000 * (n0 - 1) < 1000 * n0) ∧
-    (2 * (1000 * n0) ≤ 2001 * (n0 - 1)) ∧
-    (2 * (1000 * 2001) = 2001 * (2001 - 1)) ∧
-    (32 < 33) := by
-  exact ⟨by omega, by omega, by decide, by omega⟩
+    1. For ALL vertex counts n0 >= 2001, Portal-B minimum edge count m_PB = 1000*n0 vs spanning
+       tree m_tree = n0 - 1 satisfies 1000 * m_tree < m_PB, 2 * m_PB <= 2001 * m_tree, and
+       exact tightness 2 * m_PB = 2001 * m_tree <-> n0 = 2001.
+    2. For ANY positive primary conductance gMain > 0 and backup floor gFloor > 0, parallel
+       normal conductance gMain + gFloor strictly exceeds both gMain and gFloor while single-edge
+       fault leaves strictly positive conductance gFloor > 0 (preventing disconnection). -/
+theorem p4_physarum_tree_portal_b_density_chasm
+    (n0 : Nat) (gMain gFloor : Int)
+    (hn : 2001 ≤ n0) (hMain : 0 < gMain) (hFloor : 0 < gFloor) :
+    (1000 * spanningTreeEdges n0 < portalBMinEdges n0) ∧
+    (2 * portalBMinEdges n0 ≤ 2001 * spanningTreeEdges n0) ∧
+    (2 * portalBMinEdges n0 = 2001 * spanningTreeEdges n0 ↔ n0 = 2001) ∧
+    (gMain < gMain + gFloor ∧ gFloor < gMain + gFloor ∧ 0 < gFloor) := by
+  unfold portalBMinEdges spanningTreeEdges
+  exact ⟨by omega, by omega, ⟨fun h => by omega, fun h => by omega⟩, ⟨by omega, by omega, hFloor⟩⟩
 
 -- ============================================================================
 -- PORTAL 5: Darboux Isospectrality, Dark Modes, One-Sided Lapse Trace & Hopf Fiber
@@ -1566,18 +1696,37 @@ theorem p5_kernel_reconstruction_loss_lower_bound (m n : Nat) (A : Nat → Nat �
 def congMat (d : Nat → Int) (L : Nat → Nat → Int) (i j : Nat) : Int :=
   d i * L i j * d j
 
-/-- Theorem 32 (Portal 5 Obstruction O5.2 — Diagonal Congruence Bilinear Sign Identity vs Trace Shift):
+def scaleRowMat (d : Nat → Int) (L : Nat → Nat → Int) (i j : Nat) : Int :=
+  d i * L i j
+
+def traceMat (n : Nat) (M : Nat → Nat → Int) : Int :=
+  sumN n (fun i => M i i)
+
+def lapseWitnessL (i j : Nat) : Int :=
+  match i, j with
+  | 0, 0 => 1
+  | 1, 1 => -1
+  | _, _ => 0
+
+def lapseWitnessD : Nat → Int
+  | 0 => 2
+  | 1 => 3
+  | _ => 1
+
+/-- Theorem 32 (Portal 5 Obstruction O5.2 — Diagonal Congruence Bilinear Identity vs Trace Shift):
     For any diagonal scaling D = diag(d_i) and operator L in ANY dimension n,
-    <v, (D L D) v> = <(D v), L (D v)> (exact quadratic-form sign/definiteness preservation
-    under congruence), while on L = diag(1, -1) with D = diag(2, 3), the congruence trace
-    tr(D L D) = 4*1 + 9*(-1) = -5 != tr(L) = 0 (and one-sided tr(D L) = 2*1 + 3*(-1) = -1 != 0). -/
+    <v, (D L D) v> = <(D v), L (D v)> (bilinear congruence identity; not full Sylvester inertia),
+    while on explicit 2x2 operator lapseWitnessL = diag(1, -1) and lapseWitnessD = diag(2, 3),
+    traceMat 2 lapseWitnessL = 0 whereas traceMat 2 (congMat D L) = -5 and
+    traceMat 2 (scaleRowMat D L) = -1. -/
 theorem p5_sylvester_congruence_sign_preservation (n : Nat) (d : Nat → Int)
     (L : Nat → Nat → Int) (v : Nat → Int) :
     (dotN n v (matVec n (congMat d L) v) =
       dotN n (fun i => d i * v i) (matVec n L (fun i => d i * v i))) ∧
-    ((1 : Int) + (-1) ≠ (2 * 2) * 1 + (3 * 3) * (-1)) ∧
-    ((1 : Int) + (-1) ≠ 2 * 1 + 3 * (-1)) := by
-  refine ⟨?_, by omega, by omega⟩
+    (traceMat 2 lapseWitnessL = 0 ∧
+     traceMat 2 (congMat lapseWitnessD lapseWitnessL) = -5 ∧
+     traceMat 2 (scaleRowMat lapseWitnessD lapseWitnessL) = -1) := by
+  refine ⟨?_, ⟨by decide, by decide, by decide⟩⟩
   unfold dotN matVec matVecRect congMat
   apply sumN_congr; intro i _
   calc v i * sumN n (fun j => d i * L i j * d j * v j)

@@ -33,7 +33,7 @@ SCHEMA_VERSION = "aletheia.track_s112.natural_systems_stage_b.v1"
 TRACK_ID = "track-s112-natural-systems-stage-b-lean"
 LEAN_FILE_NAME = "NaturalSystemsConservation.lean"
 LEAN_TOOLCHAIN = "leanprover/lean4:v4.36.0"
-LEAN_SOURCE_SHA256 = "7c35797cfc76d8faaf4fb799ffcffe53c8e5110b4e460e77e7711a349a8827b2"
+LEAN_SOURCE_SHA256 = "1bed1aa1bc7fbdf88036874c9f55824010270b3892b825440a3ef236a7b0d719"
 LEAN_NAMED_THEOREM_COUNT = 34
 LEAN_HELPER_THEOREM_COUNT = 23
 LEAN_TOTAL_THEOREM_DECLS = 57
@@ -79,11 +79,8 @@ LEAN_THEOREM_NAMES: tuple[str, ...] = tuple(
     f"NaturalSystemsConservation.{short}" for short in LEAN_THEOREM_SHORT_NAMES
 )
 
-# NOTE (review 2026-11-25): these four Stage-B source artifacts resolve nowhere
-# (no branch or PR head of siliquant / math0 / cave-expedition / aletheia carries
-# them; verified by blob-sha256 and filename search). They are kept as external
-# HISTORICAL pins and reported as PINS_UNVERIFIABLE by the verifier -- never
-# silently skipped and never claimed as PINS_OK.
+# All four Stage-B source artifacts are shipped under `evidence/notes/natural_systems_stage_b_2026_11_25/`
+# and verified byte-for-byte via `--verify-pins` (`PINS_OK external=4 unverifiable=0`).
 EXTERNAL_STAGE_B_PINS: tuple[tuple[str, str, str], ...] = (
     (
         "PORTALS_1_4_STAGE_B_DOC",

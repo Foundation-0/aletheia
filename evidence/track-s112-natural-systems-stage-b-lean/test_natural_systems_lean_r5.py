@@ -23,6 +23,7 @@ TRACK_DIR = Path(__file__).resolve().parent
 if str(TRACK_DIR) not in sys.path:
     sys.path.insert(0, str(TRACK_DIR))
 
+import s112_natural_systems_audit as audit_cli
 import s112_natural_systems_oracle as oracle
 import verify_natural_systems_lean as ver
 
@@ -600,11 +601,11 @@ class Test05ExhaustiveLeafSweepAndEnvelope(unittest.TestCase):
 
 class Test06CLIAndPins(unittest.TestCase):
     def test_12_external_pins_and_tamper(self) -> None:
-        # The 4 Stage-B pins may be shipped (PINS_OK) or not (PINS_UNVERIFIABLE), but the
-        # verifier must always account for all 4 -- never silently skip any of them.
+        # All 4 Stage-B source files are shipped in evidence/notes/natural_systems_stage_b_2026_11_25/.
         pins = ver.verify_external_pins()
-        self.assertEqual(pins["external"] + pins.get("unverifiable", 0), 4)
-        self.assertEqual(pins["status"], "PINS_OK" if pins["external"] == 4 else "PINS_UNVERIFIABLE")
+        self.assertEqual(pins["status"], "PINS_OK")
+        self.assertEqual(pins["external"], 4)
+        self.assertEqual(pins["unverifiable"], 0)
         with tempfile.TemporaryDirectory(prefix="s112_pins_") as td:
             root = Path(td)
             sample = root / "pin.md"
@@ -616,7 +617,20 @@ class Test06CLIAndPins(unittest.TestCase):
                 ok_res = ver.verify_external_pins(root)
                 self.assertEqual(ok_res["status"], "PINS_OK")
                 self.assertEqual(ok_res["external"], 1)
+                self.assertEqual(ok_res["unverifiable"], 0)
                 self.assertEqual(ok_res["pins"][0]["sha256"], good_sha)
+
+                # Partial-ship state: 1 present + 1 absent -> PINS_UNVERIFIABLE (external=1, unverifiable=1)
+                oracle.EXTERNAL_STAGE_B_PINS = (
+                    ("TEST_PIN", "pin.md", good_sha),
+                    ("MISSING_PIN", "absent.md", good_sha),
+                )
+                part_res = ver.verify_external_pins(root)
+                self.assertEqual(part_res["status"], "PINS_UNVERIFIABLE")
+                self.assertEqual(part_res["external"], 1)
+                self.assertEqual(part_res["unverifiable"], 1)
+
+                oracle.EXTERNAL_STAGE_B_PINS = (("TEST_PIN", "pin.md", good_sha),)
                 sample.write_bytes(b"TAMPERED")
                 with self.assertRaises(ver.S112Error) as cm:
                     ver.verify_external_pins(root)
@@ -635,6 +649,15 @@ class Test06CLIAndPins(unittest.TestCase):
                 sys.stdout, sys.stderr = old_out, old_err
             return rc, out_buf.getvalue(), err_buf.getvalue()
 
+        all_or_none_4_re = r"^PINS_(OK external=4 unverifiable=0|UNVERIFIABLE external=0 unverifiable=4)\n$"
+        for partial_sample in (
+            "PINS_UNVERIFIABLE external=1 unverifiable=3\n",
+            "PINS_UNVERIFIABLE external=2 unverifiable=2\n",
+            "PINS_UNVERIFIABLE external=3 unverifiable=1\n",
+            "PINS_OK external=2 unverifiable=2\n",
+        ):
+            self.assertNotRegex(partial_sample, all_or_none_4_re)
+
         rc, out, _ = _run_cli([])
         self.assertEqual(rc, 0)
         self.assertIn(FROZEN_CERT["certificate_sha256"], out)
@@ -649,18 +672,15 @@ class Test06CLIAndPins(unittest.TestCase):
 
         rc, out, _ = _run_cli(["--verify-pins"])
         self.assertEqual(rc, 0)
-        # Partial shipments must NOT pass: the only accepted verdicts are the exact
-        # all-shipped (PINS_OK external=4) or all-unverifiable (external=0 unverifiable=4);
-        # a split (e.g. external=2 unverifiable=2) matches neither pattern.
-        self.assertRegex(out, r"PINS_(OK external=4|UNVERIFIABLE external=0 unverifiable=4)\b")
-        self.assertNotRegex(out, r"PINS_UNVERIFIABLE external=[1-3] ")
+        self.assertRegex(out, all_or_none_4_re)
+        self.assertEqual(out, "PINS_OK external=4 unverifiable=0\n")
         rc, out, _ = _run_cli(["--verify-pins", "--json"])
         self.assertEqual(rc, 0)
         parsed = json.loads(out)
-        self.assertEqual(parsed["external"] + parsed.get("unverifiable", 0), 4)
-        self.assertIn(parsed["status"], ("PINS_OK", "PINS_UNVERIFIABLE"))
-        self.assertEqual(parsed["status"] == "PINS_OK", parsed["external"] == 4)
-        self.assertEqual(parsed["status"] == "PINS_UNVERIFIABLE", parsed.get("unverifiable") == 4 and parsed["external"] == 0)
+        self.assertEqual(parsed["external"] + parsed["unverifiable"], 4)
+        self.assertEqual(parsed["external"], 4)
+        self.assertEqual(parsed["unverifiable"], 0)
+        self.assertEqual(parsed["status"], "PINS_OK")
         # S102 MaleCNS cross-check: payload constants must equal the sha256-pinned
         # S102 certificate values (fail-closed, SEC_P1_DALE_S102).
         s102 = ver.s102_malecns_crosscheck()
@@ -677,15 +697,27 @@ class Test06CLIAndPins(unittest.TestCase):
 
             pin_f = d / "p.md"
             pin_f.write_bytes(b"ok-pin")
+            good_pin_sha = oracle.sha256_hex(b"ok-pin")
             orig_pins = oracle.EXTERNAL_STAGE_B_PINS
             try:
-                oracle.EXTERNAL_STAGE_B_PINS = (("P1", "p.md", oracle.sha256_hex(b"ok-pin")),)
+                oracle.EXTERNAL_STAGE_B_PINS = (("P1", "p.md", good_pin_sha),)
                 rc, out, _ = _run_cli(["--verify-pins", str(d)])
                 self.assertEqual(rc, 0)
-                self.assertIn("PINS_OK external=1", out)
+                self.assertEqual(out, "PINS_OK external=1 unverifiable=0\n")
                 rc, out, _ = _run_cli(["--verify-pins", str(d), "--json"])
                 self.assertEqual(rc, 0)
                 self.assertEqual(json.loads(out)["external"], 1)
+
+                oracle.EXTERNAL_STAGE_B_PINS = (("P1", "p.md", good_pin_sha), ("P2", "missing.md", good_pin_sha))
+                rc, out, _ = _run_cli(["--verify-pins", str(d)])
+                self.assertEqual(rc, 0)
+                self.assertEqual(out, "PINS_UNVERIFIABLE external=1 unverifiable=1\n")
+                self.assertNotRegex(out, r"^PINS_(OK external=2 unverifiable=0|UNVERIFIABLE external=0 unverifiable=2)\n$")
+                rc, out, _ = _run_cli(["--verify-pins", str(d), "--json"])
+                self.assertEqual(rc, 0)
+                part_json = json.loads(out)
+                self.assertEqual((part_json["external"], part_json["unverifiable"]), (1, 1))
+                self.assertEqual(part_json["status"], "PINS_UNVERIFIABLE")
             finally:
                 oracle.EXTERNAL_STAGE_B_PINS = orig_pins
 
@@ -698,21 +730,79 @@ class Test06CLIAndPins(unittest.TestCase):
             self.assertEqual(rc, 2)
             self.assertIn(code, err)
 
+    def test_16_audit_wrapper_cli_and_tamper_refusal(self) -> None:
+        def _run_wrapper(argv: list[str] | tuple[str, ...] | None) -> tuple[int, str, str]:
+            out_buf, err_buf = io.StringIO(), io.StringIO()
+            old_out, old_err = sys.stdout, sys.stderr
+            try:
+                sys.stdout, sys.stderr = out_buf, err_buf
+                rc = audit_cli.main(argv)
+            finally:
+                sys.stdout, sys.stderr = old_out, old_err
+            return rc, out_buf.getvalue(), err_buf.getvalue()
+
+        rc, out, _ = _run_wrapper([])
+        self.assertEqual(rc, 0)
+        self.assertIn(FROZEN_CERT["certificate_sha256"], out)
+
+        rc, out, _ = _run_wrapper(("--verify-pins",))
+        self.assertEqual(rc, 0)
+        self.assertEqual(out, "PINS_OK external=4 unverifiable=0\n")
+
+        proc_ok = subprocess.run(
+            [sys.executable, "-I", "-B", str(TRACK_DIR / "s112_natural_systems_audit.py"), "--check", str(CERT_PATH)],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            check=False,
+        )
+        self.assertEqual(proc_ok.returncode, 0, proc_ok.stderr)
+        self.assertIn(FROZEN_CERT["certificate_sha256"], proc_ok.stdout)
+
+        proc_json = subprocess.run(
+            [sys.executable, "-I", "-B", str(TRACK_DIR / "s112_natural_systems_audit.py"), "--check", str(CERT_PATH), "--json"],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            check=False,
+        )
+        self.assertEqual(proc_json.returncode, 0, proc_json.stderr)
+        self.assertEqual(json.loads(proc_json.stdout)["status"], "OK")
+
+        proc_pins = subprocess.run(
+            [sys.executable, "-I", "-B", str(TRACK_DIR / "s112_natural_systems_audit.py"), "--verify-pins", "--json"],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            check=False,
+        )
+        self.assertEqual(proc_pins.returncode, 0, proc_pins.stderr)
+        pins_payload = json.loads(proc_pins.stdout)
+        self.assertEqual(pins_payload["status"], "PINS_OK")
+        self.assertEqual((pins_payload["external"], pins_payload["unverifiable"]), (4, 0))
+
+        with tempfile.TemporaryDirectory(prefix="s112_wrap_") as td:
+            bad_cert = Path(td) / "tampered.json"
+            tampered = copy.deepcopy(FROZEN_CERT)
+            orig_psha = tampered["payload_sha256"]
+            tampered["payload_sha256"] = ("0" if orig_psha[0] != "0" else "1") + orig_psha[1:]
+            bad_cert.write_bytes(oracle.canonical_json_bytes(tampered) + b"\n")
+            rc_bad, _, err_bad = _run_wrapper(["--check", str(bad_cert)])
+            self.assertEqual(rc_bad, 2)
+            self.assertIn("PAYLOAD_HASH_MISMATCH", err_bad)
+            proc_bad = subprocess.run(
+                [sys.executable, "-I", "-B", str(TRACK_DIR / "s112_natural_systems_audit.py"), "--check", str(bad_cert)],
+                capture_output=True,
+                text=True,
+                timeout=60,
+                check=False,
+            )
+            self.assertEqual(proc_bad.returncode, 2)
+            self.assertIn("PAYLOAD_HASH_MISMATCH", proc_bad.stderr)
+
 
 class Test07LiveLeanAndPoisonedEnvHijack(unittest.TestCase):
     def test_14_live_lean_and_cli_verify_lean(self) -> None:
-        # The CI-discovery audit entrypoint (s112_natural_systems_audit.py) delegates
-        # to the verifier CLI: exercise it as a real subprocess, not just in-process.
-        audit_path = TRACK_DIR / "s112_natural_systems_audit.py"
-        proc_a = subprocess.run([sys.executable, "-I", "-B", str(audit_path), "--check", str(CERT_PATH), "--json"],
-                                capture_output=True, text=True, timeout=120, check=False)
-        self.assertEqual(proc_a.returncode, 0, proc_a.stderr)
-        self.assertEqual(json.loads(proc_a.stdout)["status"], "OK")
-        proc_b = subprocess.run([sys.executable, "-I", "-B", str(audit_path), "--verify-pins", "--json"],
-                                capture_output=True, text=True, timeout=120, check=False)
-        self.assertEqual(proc_b.returncode, 0, proc_b.stderr)
-        self.assertIn(json.loads(proc_b.stdout)["status"], ("PINS_OK", "PINS_UNVERIFIABLE"))
-
         res = ver.verify_lean4_file_live(LEAN_PATH, check_sha=True)
         self.assertEqual(res["theorems_verified"], 34)
         self.assertEqual(res["lean_source_sha256"], oracle.LEAN_SOURCE_SHA256)
