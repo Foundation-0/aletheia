@@ -1,0 +1,22 @@
+# Evidence Track S108 — Tokenizer-Looping Bridge (`PREREG-S108` + `AMENDMENT1`)
+
+This evidence package contains the complete `51`-run live RTX 3080 empirical evaluation (`+ 3`-seed `Part 3` `nullmodem` benchmark), locked preregistration and amendment documents, `3/3` clean Zone-B `mlos` provenance receipts (`WEIGHTS=0`), GPU training/pre-flight harnesses under `gpu_harnesses/`, and a pure-stdlib fail-closed certificate auditor for `Track S108` (`H8a`, `H8b`, `H8c`).
+
+## Honest Literal-Gate Scorecard (`3` Seeds `[42, 137, 2026]`, `n2_claims = 0`)
+
+| Sub-Track | Scope (`3` Seeds) | Verdict | Key Machine-Verified Finding |
+| :--- | :--- | :---: | :--- |
+| **`H8a`** | `6 × 3` (`18` runs) | **`FALSIFIED`** | Unit-norm `HybridKronSphereEmbedding` + `BlockStructuredProj` eliminates scale-gauge collapse and compresses embeddings **`28.98×`** (`1,572,864 -> 54,272`; `-14.85%` params, `+0.00%` FLOPs), but loses to `flat_bpe` by **`+8.55%` (`t=+30.43`)** on `arabic+abios` (`2.6878` vs `2.4762` BPB; the `arabic` domain is bayt-al-hikma markdown/JSON + Lean sources, not Classical Arabic) and **`+5.28%` (`t=+35.04`)** on `english+python` (`2.7968` vs `2.6565`); `hybrid_kron_sphere_reinvest` (`L=7`, `-3.31%` params, **`+14.00%`** FLOPs) still trails (`2.7092`). |
+| **`H8b`** | `5 × 3` (`15` runs) | **`FALSIFIED`** | Zero-`arccos` 2nd-order geodesic turning (`spherepatch_geodesic2`) collapses to measured **`avg_plen = 1.020`** (`4.9569` BPB, losing **`+11.18%` `t=+6.17`** vs `hnet_cosine`, **`+14.10%` `t=+9.81`** vs `fixed_byte4`, **`+17.40%` `t=+16.16`** vs `blt_entropy`, **`+87.85%` `t=+40.59`** vs `bpe_std`). Independently, the Portal-2 Turing diagnostic nucleates for `D=(1,10)` (`growth_ratio=1.3318`, `mean_boundary_period=3.2222` in `[2.60, 3.45]`) and decays for `D=(5,5)` (`growth_ratio=0.0`, `num_peaks=0`, `mean_boundary_period=32.0` sentinel). |
+| **`H8c` Part 1** | `3 × 3` (`9` runs) | **`FALSIFIED`** | Exact-budget adaptive loop pacing maintains `exact_mean_r = 2.0000` and contractive `SafeHopfLoopCore` (`rho = 0.8765–0.9601`), but `adaptive` (`3.6329` BPB) is indistinguishable from `uniform` (`3.6338`, `-0.026%`, `t=-0.18`) and `random` (`3.6309`, `+0.054%`, `t=+0.54`). |
+| **`H8c` Part 2** | `3 × 3` (`9` runs) | **`FALSIFIED`** *(preregistered gate; coupling leg exploratory N0)* | Under PREREG:89 as written Part 2 is **FALSIFIED**: the BPE leg was never run, primary multi-domain BPB improves only `-1.66%` (`3.6316` vs `3.6930`, under the 5% bar), and head params spread ~18% (1,610,119 / 1,756,423 / 1,905,415). The `-19.34%` teacher-forced coupling leg (`3.7008` vs `4.5879`) and the unrolled `-12.37%` are kept as post-hoc N0 exploratory; `local_ar` leads TF (`3.6088`, `+2.55%`). |
+| **`H8c` Part 3** | `3` seeds (`256` eval/seed) | **`FALSIFIED`** *(preregistered total-wire gate; payload-only result exploratory N0)* | Unconfounded `nullmodem` Block-8 `E_8` `RAM==WIRE==HASH` cell bus achieves `100.0%` SHA-256 verification, **`99.74%`** frozen-judge field acc, **`98.96%`** exact 4-field acc, and **`99.87%`** counterfactual edit acc in **`32` payload bits** (`4.5×` smaller than `ABIOS/3` `144` bits), and the prereg's required gauge-gap reduction was never measured. Under PREREG:90 + AMENDMENT §6 (total wire bits = payload + framing + hash), ABIOS/3 (`144` bits, acc `1.0`) beats NullModem (`352` bits, exact acc `0.9896`), so the preregistered verdict is **FALSIFIED**; the `32`-payload-bit result (`4.5×` smaller than ABIOS/3) is post-hoc N0 exploratory and the `>= 4`-state batching argument is an untested design change. |
+
+## Verification (Pure Python Stdlib, Zero External Dependencies)
+
+```bash
+python3 -I -B evidence/track-s108-tokenizer-looping-bridge/s108_tokenizer_loop_audit.py --check evidence/track-s108-tokenizer-looping-bridge/s108_tokenizer_loop_certificate.json
+python3 -I -B evidence/track-s108-tokenizer-looping-bridge/test_s108_tokenizer_loop_audit_r5.py  # 19/19 OK; stock `aletheia mutate --guards require_ok --max-mutants 0` kills 103/126 (81.75%, 0 survivors across all 8 Issue #108 blocking lines :135,:138,:142,:296,:374,:462,:507,:555; 23 off-target tolerance/envelope-redundancy survivors)
+```
+
+Full evaluation details live in [REPORT_S108_GPU_EVAL.md](REPORT_S108_GPU_EVAL.md). PyTorch GPU training/evaluation and `7`-gate CPU pre-flight scripts live under `gpu_harnesses/` (`s108_tokenizer_loop_ops.py`, `s108_train_eval.py`, `s108_cpu_preflight.py`).
