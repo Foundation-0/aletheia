@@ -478,10 +478,11 @@ class TestS115SiliSenseR5(unittest.TestCase):
                     )
 
         # CLI deterministic self-checks exit 0 when optional numpy/scipy stack is installed
+        # (omit -I here so user/site-packages numpy & scipy remain visible under `python3 -B test_s115_r5.py`)
         if _HAS_NUMPY_SCIPY:
             for script_name in ("s115_silisense_profiler.py", "s115_feedback_autotuner.py"):
                 proc = subprocess.run(
-                    [sys.executable, "-I", "-B", str(THIS_DIR / script_name), "--demo-synthetic"],
+                    [sys.executable, "-B", str(THIS_DIR / script_name), "--demo-synthetic"],
                     capture_output=True,
                     text=True,
                     timeout=30.0,

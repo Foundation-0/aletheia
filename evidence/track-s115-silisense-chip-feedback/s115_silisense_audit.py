@@ -361,6 +361,24 @@ def _resolve_prereg_path(track_dir: Path) -> Optional[Path]:
     return None
 
 
+def holm_bonferroni_adjust(p_vals: Sequence[float]) -> List[float]:
+    """Exact step-down Holm-Bonferroni multiplicity adjustment over m >= 1 p-values."""
+    m = len(p_vals)
+    require_ok(m >= 1, "HOLM_EMPTY", "Holm-Bonferroni requires >= 1 p-value")
+    clean: List[float] = []
+    for idx, pv in enumerate(p_vals):
+        pf = _as_float(pv, f"holm.p[{idx}]")
+        require_ok(0.0 <= pf <= 1.0, "HOLM_P_BOUNDS", f"p-value {pf} outside [0, 1]")
+        clean.append(pf)
+    order = sorted(range(m), key=lambda i: clean[i])
+    adjusted = [0.0] * m
+    running_max = 0.0
+    for rank, orig_idx in enumerate(order):
+        running_max = max(running_max, min(1.0, float(m - rank) * clean[orig_idx]))
+        adjusted[orig_idx] = running_max
+    return adjusted
+
+
 def _verify_zone_b_receipt(track_dir: Path, result_data: Mapping[str, Any]) -> Dict[str, Any]:
     receipt_path = track_dir / ZONE_B_FILENAME
     rec = _load_json_dict(receipt_path)
@@ -370,6 +388,25 @@ def _verify_zone_b_receipt(track_dir: Path, result_data: Mapping[str, Any]) -> D
     require_ok(rec.get("clean_hardware_run") is True, "RECEIPT_UNCLEAN", f"Receipt {ZONE_B_FILENAME} clean_hardware_run != True")
     require_ok(rec.get("anomalies") == [], "RECEIPT_ANOMALIES", f"Receipt {ZONE_B_FILENAME} has non-empty anomalies")
     require_ok(rec.get("gpu_telemetry_available") is True, "RECEIPT_NO_GPU_TEL", "Missing GPU telemetry in Zone-B receipt")
+
+    orig_receipt_sha = rec.get("original_unmodified_run_receipt_sha256")
+    require_ok(
+        isinstance(orig_receipt_sha, str) and len(orig_receipt_sha) == 64,
+        "RECEIPT_ORIG_SHA",
+        f"Missing 64-hex original_unmodified_run_receipt_sha256 in {ZONE_B_FILENAME}",
+    )
+    require_ok(
+        rec.get("preregistration_sha256") == PREREG_SHA256,
+        "RECEIPT_PREREG_BIND",
+        f"{ZONE_B_FILENAME} preregistration_sha256 mismatch",
+    )
+    results_file_sha = _sha256_file(track_dir / RESULTS_FILENAME)
+    require_ok(
+        rec.get("result_sha256") == result_data.get("result_sha256")
+        and rec.get("bound_result_file_sha256") == results_file_sha,
+        "RECEIPT_RESULT_BIND",
+        f"{ZONE_B_FILENAME} does not bind current {RESULTS_FILENAME} digest",
+    )
 
     exe = rec.get("execution")
     require_ok(isinstance(exe, dict) and exe.get("exit_code") == 0, "RECEIPT_EXIT_CODE", "Non-zero exit_code in Zone-B receipt")
@@ -395,8 +432,10 @@ def _verify_zone_b_receipt(track_dir: Path, result_data: Mapping[str, Any]) -> D
         "receipt_file": ZONE_B_FILENAME,
         "receipt_file_sha256": _sha256_file(receipt_path),
         "receipt_sha256": receipt_sha,
+        "original_unmodified_run_receipt_sha256": orig_receipt_sha,
+        "preregistration_sha256": PREREG_SHA256,
         "bound_result_file": RESULTS_FILENAME,
-        "bound_result_file_sha256": _sha256_file(track_dir / RESULTS_FILENAME),
+        "bound_result_file_sha256": results_file_sha,
         "bound_result_inner_sha256": str(result_data["result_sha256"]),
         "started_utc": str(exe["started_utc"]),
         "completed_utc": str(result_data["completed_utc"]),
@@ -449,6 +488,24 @@ def _check_exact_q_ops(block: Mapping[str, Any], label: str) -> None:
     require_ok(isinstance(block.get("frame64_merkle_sha256"), str) and len(block["frame64_merkle_sha256"]) == 64, "FRAME64_HASH", f"Bad frame64 hash in {label}")
 
 
+def _verify_h15a_arm_holm(arm: Mapping[str, Any], label: str) -> Tuple[float, float, float, bool, bool, bool]:
+    p_a3 = _as_float(arm.get("p_holm_A3"), f"{label}.p_holm_A3")
+    p_a5 = _as_float(arm.get("A5_p_circ"), f"{label}.A5_p_circ")
+    p_a7 = _as_float(arm.get("p_emp_A7"), f"{label}.p_emp_A7")
+    h3 = holm_bonferroni_adjust([p_a3, p_a5, p_a7])
+    min_h3 = round(min(h3), 6)
+    rec_min_h3 = _as_float(arm.get("min_family_holm_p"), f"{label}.min_family_holm_p")
+    sig_m3 = min_h3 < H15B_P_CIRC_MAX
+    require_ok(
+        rec_min_h3 == min_h3 and (arm.get("any_non_textbook_sig_0p005") is sig_m3),
+        "H15A_PER_TRACE_HOLM_TAMPER",
+        f"Shipped per-trace Holm flag mismatch in {label}: recomputed ({min_h3}, {sig_m3})",
+    )
+    a3_only = bool(sig_m3 and h3[1] >= H15B_P_CIRC_MAX and h3[2] >= H15B_P_CIRC_MAX)
+    a5_a7_m2_sig = min(holm_bonferroni_adjust([p_a5, p_a7])) < H15B_P_CIRC_MAX
+    return p_a3, p_a5, p_a7, sig_m3, a3_only, a5_a7_m2_sig
+
+
 def _recompute_h15a(h15a: Mapping[str, Any], top_verdicts: Mapping[str, Any]) -> Dict[str, Any]:
     std_pairs = h15a.get("standard_pairs")
     eqw_pairs = h15a.get("equal_watt_pairs")
@@ -462,7 +519,14 @@ def _recompute_h15a(h15a: Mapping[str, Any], top_verdicts: Mapping[str, Any]) ->
     fused_a3: List[float] = []
     eager_a7: List[float] = []
     fused_a7: List[float] = []
-    any_sig = False
+    std_p_a7: List[float] = []
+    all_p_a3: List[float] = []
+    all_p_a5: List[float] = []
+    all_p_a7: List[float] = []
+    any_std_per_trace_sig = False
+    per_trace_m3_flagged_total = 0
+    per_trace_a3_only_total = 0
+    per_trace_a5_a7_m2_total = 0
 
     for idx, row in enumerate(std_pairs):
         e = row["eager_h7b"]
@@ -474,8 +538,19 @@ def _recompute_h15a(h15a: Mapping[str, Any], top_verdicts: Mapping[str, Any]) ->
         require_ok(_as_float(f["A7_max_residual_lin_corr"], "f.lin_corr") <= A7_SCHUR_CORR_MAX, "H15A_SCHUR_F", "Fused A7 residual not orthogonal")
         _check_exact_q_ops(e, f"h15a.std[{idx}].eager")
         _check_exact_q_ops(f, f"h15a.std[{idx}].fused")
-        if bool(e["any_non_textbook_sig_0p005"]) or bool(f["any_non_textbook_sig_0p005"]):
-            any_sig = True
+        for sub_lbl, arm_obj in (("eager", e), ("fused", f)):
+            pa3, pa5, pa7, sig3, a3_only, sig_a5a7 = _verify_h15a_arm_holm(arm_obj, f"h15a.std[{idx}].{sub_lbl}")
+            std_p_a7.append(pa7)
+            all_p_a3.append(pa3)
+            all_p_a5.append(pa5)
+            all_p_a7.append(pa7)
+            if sig3:
+                any_std_per_trace_sig = True
+                per_trace_m3_flagged_total += 1
+            if a3_only:
+                per_trace_a3_only_total += 1
+            if sig_a5a7:
+                per_trace_a5_a7_m2_total += 1
         eager_a3.append(_as_float(e["abs_A3"], f"h15a.std[{idx}].e.a3"))
         fused_a3.append(_as_float(f["abs_A3"], f"h15a.std[{idx}].f.a3"))
         eager_a7.append(_as_float(e["A7_copula_mi_nats"], f"h15a.std[{idx}].e.a7"))
@@ -495,10 +570,29 @@ def _recompute_h15a(h15a: Mapping[str, Any], top_verdicts: Mapping[str, Any]) ->
         rel_w = abs(we - wf) / wf
         if rel_w > max_eqw_diff:
             max_eqw_diff = rel_w
+        for sub_lbl, arm_obj in (("eager_paced", e), ("fused", f)):
+            pa3, pa5, pa7, sig3, a3_only, sig_a5a7 = _verify_h15a_arm_holm(arm_obj, f"h15a.eqw[{idx}].{sub_lbl}")
+            all_p_a3.append(pa3)
+            all_p_a5.append(pa5)
+            all_p_a7.append(pa7)
+            if sig3:
+                per_trace_m3_flagged_total += 1
+            if a3_only:
+                per_trace_a3_only_total += 1
+            if sig_a5a7:
+                per_trace_a5_a7_m2_total += 1
         eqw_e_a3.append(_as_float(e["abs_A3"], f"h15a.eqw[{idx}].e.a3"))
         eqw_f_a3.append(_as_float(f["abs_A3"], f"h15a.eqw[{idx}].f.a3"))
         eqw_e_a7.append(_as_float(e["A7_copula_mi_nats"], f"h15a.eqw[{idx}].e.a7"))
         eqw_f_a7.append(_as_float(f["A7_copula_mi_nats"], f"h15a.eqw[{idx}].f.a7"))
+
+    holm_std_a7_m18 = holm_bonferroni_adjust(std_p_a7)
+    holm_a7_m36 = holm_bonferroni_adjust(all_p_a7)
+    holm_a3_m36 = holm_bonferroni_adjust(all_p_a3)
+    holm_non_zoh_a5_a7_m72 = holm_bonferroni_adjust(all_p_a5 + all_p_a7)
+    holm_all_lenses_m108 = holm_bonferroni_adjust(all_p_a3 + all_p_a5 + all_p_a7)
+
+    campaign_sig_0p005 = bool(min(holm_non_zoh_a5_a7_m72) < H15B_P_CIRC_MAX)
 
     st_a3 = recompute_paired_stats(eager_a3, fused_a3)
     st_a7 = recompute_paired_stats(eager_a7, fused_a7)
@@ -506,7 +600,7 @@ def _recompute_h15a(h15a: Mapping[str, Any], top_verdicts: Mapping[str, Any]) ->
     eq_a7 = recompute_paired_stats(eqw_e_a7, eqw_f_a7)
 
     graded_pure = grade_h15a_pure(
-        any_sig_0p005=any_sig,
+        any_sig_0p005=campaign_sig_0p005,
         a3_rel_pct=st_a3["rel_change_pct"],
         a3_z=st_a3["z_paired"],
         a7_rel_pct=st_a7["rel_change_pct"],
@@ -517,7 +611,12 @@ def _recompute_h15a(h15a: Mapping[str, Any], top_verdicts: Mapping[str, Any]) ->
     )
 
     rec_graded = h15a["graded"]
-    for gk in ("criterion_1_non_gaussian_activity_0p005", "criterion_2_both_a3_and_a7_reduced_20pct", "criterion_3_equal_watt_non_confound"):
+    require_ok(
+        rec_graded.get("criterion_1_non_gaussian_activity_0p005") is any_std_per_trace_sig,
+        "H15A_GATE_MISMATCH",
+        "H15a raw unpooled per-trace C1 flag mismatch",
+    )
+    for gk in ("criterion_2_both_a3_and_a7_reduced_20pct", "criterion_3_equal_watt_non_confound"):
         require_ok(rec_graded.get(gk) is graded_pure[gk], "H15A_GATE_MISMATCH", f"H15a {gk} mismatch: {graded_pure[gk]} != {rec_graded.get(gk)}")
     require_ok(
         graded_pure["verdict"] == rec_graded.get("verdict") == top_verdicts.get("H15a"),
@@ -527,6 +626,22 @@ def _recompute_h15a(h15a: Mapping[str, Any], top_verdicts: Mapping[str, Any]) ->
     return {
         "verdict": graded_pure["verdict"],
         "gates": {k: v for k, v in graded_pure.items() if k != "verdict"},
+        "campaign_holm_multiplicity": {
+            "alpha": H15B_P_CIRC_MAX,
+            "standard_A7_m18_min_holm_p": round(min(holm_std_a7_m18), 6),
+            "standard_A7_m18_survivors": sum(1 for x in holm_std_a7_m18 if x < H15B_P_CIRC_MAX),
+            "campaign_A7_m36_min_holm_p": round(min(holm_a7_m36), 6),
+            "campaign_A7_m36_survivors": sum(1 for x in holm_a7_m36 if x < H15B_P_CIRC_MAX),
+            "campaign_A3_m36_min_holm_p": round(min(holm_a3_m36), 6),
+            "campaign_A3_m36_survivors": sum(1 for x in holm_a3_m36 if x < H15B_P_CIRC_MAX),
+            "campaign_non_zoh_A5_A7_m72_min_holm_p": round(min(holm_non_zoh_a5_a7_m72), 6),
+            "campaign_non_zoh_A5_A7_m72_survivors": sum(1 for x in holm_non_zoh_a5_a7_m72 if x < H15B_P_CIRC_MAX),
+            "campaign_all_A3_A5_A7_m108_min_holm_p": round(min(holm_all_lenses_m108), 6),
+            "campaign_all_A3_A5_A7_m108_survivors": sum(1 for x in holm_all_lenses_m108 if x < H15B_P_CIRC_MAX),
+            "unpooled_per_trace_m3_flagged_arms_of_36": per_trace_m3_flagged_total,
+            "unpooled_per_trace_a3_only_arms": per_trace_a3_only_total,
+            "unpooled_per_trace_a5_a7_m2_arms": per_trace_a5_a7_m2_total,
+        },
         "max_equal_watt_rel_diff": round(max_eqw_diff, 6),
         "standard_abs_A3": st_a3,
         "standard_A7_copula_mi": st_a7,

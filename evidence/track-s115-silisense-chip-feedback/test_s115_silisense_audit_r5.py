@@ -52,6 +52,7 @@ class TestS115SiliSenseAuditR5(unittest.TestCase):
         resign_results: bool = True,
         mutate_zoneb: Callable[[Dict[str, Any]], None] | None = None,
         resign_zoneb: bool = True,
+        bind_zoneb_to_results: bool = True,
         report_text: str | None = None,
         include_prereg: bool = True,
     ) -> Path:
@@ -62,18 +63,24 @@ class TestS115SiliSenseAuditR5(unittest.TestCase):
             mutate_results(res)
         if resign_results:
             res = _resign(res, "result_sha256")
+        if include_prereg:
+            (d / aud.PREREG_FILENAME).write_bytes(self.base_prereg)
+        (d / aud.RESULTS_FILENAME).write_text(json.dumps(res, sort_keys=True), encoding="utf-8")
+
         zb = copy.deepcopy(self.base_zoneb)
+        if bind_zoneb_to_results:
+            zb["result_sha256"] = res.get("result_sha256")
+            zb["bound_result_file_sha256"] = hashlib.sha256((d / aud.RESULTS_FILENAME).read_bytes()).hexdigest()
         if mutate_zoneb is not None:
             mutate_zoneb(zb)
         if resign_zoneb:
             zb = _resign(zb, "receipt_sha256")
         rep = self.base_report if report_text is None else report_text
-        if mutate_zoneb is not None and report_text is None:
-            rep = rep + f"\n<!-- updated receipt {zb['receipt_sha256']} -->\n"
+        if report_text is None and zb.get("receipt_sha256") != self.base_zoneb.get("receipt_sha256"):
+            rep = rep.replace(str(self.base_zoneb["receipt_sha256"]), str(zb.get("receipt_sha256")))
+            if str(zb.get("receipt_sha256")) not in rep:
+                rep = rep + f"\n<!-- updated receipt {zb.get('receipt_sha256')} -->\n"
 
-        if include_prereg:
-            (d / aud.PREREG_FILENAME).write_bytes(self.base_prereg)
-        (d / aud.RESULTS_FILENAME).write_text(json.dumps(res, sort_keys=True), encoding="utf-8")
         (d / aud.ZONE_B_FILENAME).write_text(json.dumps(zb, sort_keys=True), encoding="utf-8")
         (d / aud.REPORT_FILENAME).write_text(rep, encoding="utf-8")
         return d
@@ -87,6 +94,20 @@ class TestS115SiliSenseAuditR5(unittest.TestCase):
         cert = aud.build_certificate(_HERE)
         self.assertEqual(cert["schema"], aud.SCHEMA_VERSION)
         self.assertEqual(cert["verdicts"], {"H15a": "FALSIFIED", "H15b": "FALSIFIED", "H15c": "FALSIFIED"})
+        self.assertFalse(cert["h15a"]["gates"]["criterion_1_non_gaussian_activity_0p005"])
+        self.assertEqual(cert["h15a"]["campaign_holm_multiplicity"]["standard_A7_m18_min_holm_p"], 0.0225)
+        self.assertEqual(cert["h15a"]["campaign_holm_multiplicity"]["standard_A7_m18_survivors"], 0)
+        self.assertEqual(cert["h15a"]["campaign_holm_multiplicity"]["campaign_A7_m36_min_holm_p"], 0.045)
+        self.assertEqual(cert["h15a"]["campaign_holm_multiplicity"]["campaign_A7_m36_survivors"], 0)
+        self.assertEqual(cert["h15a"]["campaign_holm_multiplicity"]["campaign_A3_m36_min_holm_p"], 0.045)
+        self.assertEqual(cert["h15a"]["campaign_holm_multiplicity"]["campaign_A3_m36_survivors"], 0)
+        self.assertEqual(cert["h15a"]["campaign_holm_multiplicity"]["campaign_non_zoh_A5_A7_m72_min_holm_p"], 0.09)
+        self.assertEqual(cert["h15a"]["campaign_holm_multiplicity"]["campaign_non_zoh_A5_A7_m72_survivors"], 0)
+        self.assertEqual(cert["h15a"]["campaign_holm_multiplicity"]["campaign_all_A3_A5_A7_m108_min_holm_p"], 0.135)
+        self.assertEqual(cert["h15a"]["campaign_holm_multiplicity"]["campaign_all_A3_A5_A7_m108_survivors"], 0)
+        self.assertEqual(cert["h15a"]["campaign_holm_multiplicity"]["unpooled_per_trace_m3_flagged_arms_of_36"], 28)
+        self.assertEqual(cert["h15a"]["campaign_holm_multiplicity"]["unpooled_per_trace_a3_only_arms"], 19)
+        self.assertEqual(cert["h15a"]["campaign_holm_multiplicity"]["unpooled_per_trace_a5_a7_m2_arms"], 9)
         self.assertEqual(cert["hygiene"], {"weights_count": 0, "av_count": 0, "elf_count": 0})
         self.assertEqual(cert["sensor_airlock"]["sensor_violations"], 0)
         self.assertEqual(len(cert["cert_sha256"]), 64)
@@ -105,6 +126,22 @@ class TestS115SiliSenseAuditR5(unittest.TestCase):
                 self.assertEqual(rc_c_rel, 0)
                 rc_plain = aud.main(["--track-dir", str(d)])
                 self.assertEqual(rc_plain, 0)
+
+                # Same-UTC-window results swap attack (resigned result_sha256, original receipt) MUST fail BOTH --check and --write!
+                orig_res_bytes = (d / aud.RESULTS_FILENAME).read_bytes()
+                swapped = copy.deepcopy(self.base_results)
+                swapped["nvidia_smi_post"]["injected"] = "swap-test"
+                swapped = _resign(swapped, "result_sha256")
+                (d / aud.RESULTS_FILENAME).write_text(json.dumps(swapped, sort_keys=True), encoding="utf-8")
+                buf_err.seek(0)
+                buf_err.truncate(0)
+                self.assertEqual(aud.main(["--track-dir", str(d), "--check"]), 2)
+                self.assertIn("RECEIPT_RESULT_BIND", buf_err.getvalue())
+                buf_err.seek(0)
+                buf_err.truncate(0)
+                self.assertEqual(aud.main(["--track-dir", str(d), "--write"]), 2)
+                self.assertIn("RECEIPT_RESULT_BIND", buf_err.getvalue())
+                (d / aud.RESULTS_FILENAME).write_bytes(orig_res_bytes)
 
                 bad_cert = json.loads(cert_p.read_text(encoding="utf-8"))
                 bad_cert["n2_claims"] = 1
@@ -302,6 +339,11 @@ class TestS115SiliSenseAuditR5(unittest.TestCase):
             (lambda z: z.update({"clean_hardware_run": False}), "RECEIPT_UNCLEAN"),
             (lambda z: z.update({"anomalies": ["THROTTLE"]}), "RECEIPT_ANOMALIES"),
             (lambda z: z.update({"gpu_telemetry_available": False}), "RECEIPT_NO_GPU_TEL"),
+            (lambda z: z.update({"original_unmodified_run_receipt_sha256": "short"}), "RECEIPT_ORIG_SHA"),
+            (lambda z: z.update({"original_unmodified_run_receipt_sha256": None}), "RECEIPT_ORIG_SHA"),
+            (lambda z: z.update({"preregistration_sha256": "0" * 64}), "RECEIPT_PREREG_BIND"),
+            (lambda z: z.update({"result_sha256": "0" * 64}), "RECEIPT_RESULT_BIND"),
+            (lambda z: z.update({"bound_result_file_sha256": "0" * 64}), "RECEIPT_RESULT_BIND"),
             (lambda z: z["execution"].update({"exit_code": 1}), "RECEIPT_EXIT_CODE"),
             (lambda z: z["execution"].update({"started_utc": "2099-01-01T00:00:00Z"}), "RECEIPT_TIME_WINDOW"),
             (lambda z: z["execution"].update({"started_utc": 12345}), "BAD_TIMESTAMP"),
@@ -353,6 +395,9 @@ class TestS115SiliSenseAuditR5(unittest.TestCase):
             (lambda r: r["h15a"]["standard_pairs"][0]["eager_h7b"]["OP3_F3"].update({"kappa_f3_exact_q": "-1/3"}), "OP3_BOUNDS"),
             (lambda r: r["h15a"]["standard_pairs"][0]["eager_h7b"].update({"frame64_merkle_sha256": "short"}), "FRAME64_HASH"),
             (lambda r: r["h15a"]["equal_watt_pairs"][0]["holosphere_v2_sm86"].update({"mean_gpu_power_w": 0.0}), "H15A_EQW_POS"),
+            (lambda r: r["h15a"]["standard_pairs"][0]["eager_h7b"].update({"any_non_textbook_sig_0p005": False}), "H15A_PER_TRACE_HOLM_TAMPER"),
+            (lambda r: r["h15a"]["standard_pairs"][0]["eager_h7b"].update({"min_family_holm_p": 0.999}), "H15A_PER_TRACE_HOLM_TAMPER"),
+            (lambda r: r["h15a"]["graded"].update({"criterion_1_non_gaussian_activity_0p005": False}), "H15A_GATE_MISMATCH"),
             (lambda r: r["h15a"]["graded"].update({"criterion_2_both_a3_and_a7_reduced_20pct": True}), "H15A_GATE_MISMATCH"),
             (lambda r: r["verdicts"].update({"H15a": "CONFIRMED"}), "H15A_VERDICT_MISMATCH"),
             # H15b guards
@@ -429,7 +474,26 @@ class TestS115SiliSenseAuditR5(unittest.TestCase):
             cert_pos = aud.build_certificate(d_pos)
             self.assertTrue(cert_pos["prereg_verified"])
 
-        # Student-t df=1, odd/even df coverage & paired_stats length guard
+        # Student-t df=1, odd/even df coverage, Holm-Bonferroni bounds & paired_stats length guard
+        self._expect_audit_code(lambda: aud.holm_bonferroni_adjust([]), "HOLM_EMPTY")
+        self._expect_audit_code(lambda: aud.holm_bonferroni_adjust([-0.001]), "HOLM_P_BOUNDS")
+        self._expect_audit_code(lambda: aud.holm_bonferroni_adjust([1.001]), "HOLM_P_BOUNDS")
+        self.assertEqual(aud.holm_bonferroni_adjust([0.25]), [0.25])
+        self.assertEqual(aud.holm_bonferroni_adjust([0.0, 1.0]), [0.0, 1.0])
+        self.assertEqual(
+            aud._verify_h15a_arm_holm(
+                {"p_holm_A3": 0.001, "A5_p_circ": 0.0025, "p_emp_A7": 0.5, "min_family_holm_p": 0.003, "any_non_textbook_sig_0p005": True},
+                "boundary_arm",
+            )[3:],
+            (True, True, False),
+        )
+        self.assertEqual(
+            aud._verify_h15a_arm_holm(
+                {"p_holm_A3": 0.005 / 3.0, "A5_p_circ": 0.5, "p_emp_A7": 0.5, "min_family_holm_p": 0.005, "any_non_textbook_sig_0p005": False},
+                "exact_0p005_arm",
+            )[3:],
+            (False, False, False),
+        )
         self._expect_audit_code(lambda: aud.recompute_paired_stats([1.0, 2.0], [1.0, 2.0]), "PAIRED_LEN")
         self._expect_audit_code(lambda: aud._student_t_two_sided_p(2.0, 0), "BAD_DF")
         self.assertGreater(aud._student_t_two_sided_p(1.0, 1), 0.49)
