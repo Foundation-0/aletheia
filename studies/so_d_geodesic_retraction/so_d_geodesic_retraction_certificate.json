@@ -1,0 +1,157 @@
+{
+  "bound_artifacts_sha256": {
+    "phase1_binary_gate_results.json": "9b6ae98da15ee62324ac5b98a4b57cd5c6730b9ffd21e182473b8964e5465ec8",
+    "phase1_hardware_determinism.json": "591abc9a8a5f38d1590f409fb33e767a47ed1074ccf696ee909b578a87a4b815",
+    "phase2_geodesic_retraction_results.json": "278bbeb7959d1995b90aad65707893137a73b71d2f621c7c0cc03eb040e2e19d",
+    "phase2_hardware_determinism.json": "e3e1cc0054e5a3284f43659ae3e3977dc1737e37bb78df99299b95c41afc83c7",
+    "preregistration_phase1_binary_gate.md": "441867f0a81cf4323542ec1bf5a915140fedc3bc3e0e0aae72f2f677291c4d40",
+    "preregistration_phase2_geodesic_retraction.md": "41df4e46669f17a42da33351ea3e6180d44499e99255955006d76e197091ced9"
+  },
+  "certificate_sha256": "ef1cda74445458021f148cafc1a9f618eac909122da876143d73a9316ed56146",
+  "energy_power_status": "UNCONTROLLED_LAPTOP_NOT_CLAIMED",
+  "exact_q_cayley_oracle": {
+    "dim": 6,
+    "flow_dim": 2,
+    "gamma_ladder": [
+      {
+        "cayley_contraction_upper_bound_q": "3757/1440",
+        "det_q": "1/1",
+        "flow_subspace_drift_sq_q": "0/1",
+        "gamma_q": "1/1",
+        "orthogonality_exact": true,
+        "shell_norm_sq_residual_q": "0/1",
+        "step_displacement_frob_sq_q": "686384/310869"
+      },
+      {
+        "cayley_contraction_upper_bound_q": "3757/5760",
+        "det_q": "1/1",
+        "flow_subspace_drift_sq_q": "0/1",
+        "gamma_q": "1/2",
+        "orthogonality_exact": true,
+        "shell_norm_sq_residual_q": "0/1",
+        "step_displacement_frob_sq_q": "2489744/3992289"
+      },
+      {
+        "cayley_contraction_upper_bound_q": "3757/23040",
+        "det_q": "1/1",
+        "flow_subspace_drift_sq_q": "0/1",
+        "gamma_q": "1/4",
+        "orthogonality_exact": true,
+        "shell_norm_sq_residual_q": "0/1",
+        "step_displacement_frob_sq_q": "9703184/60189969"
+      }
+    ],
+    "non_axis_aligned_subspace": true,
+    "nullspace_dim": 4,
+    "retraction_monotone_strict": true
+  },
+  "oracle_ast_purity": {
+    "ast_div": 0,
+    "bare_asserts": 0,
+    "float_or_complex": 0,
+    "forbidden_import": 0,
+    "forbidden_pow_or_call": 0,
+    "fraction_str_or_from_float": 0,
+    "oracle_functions_checked": 7
+  },
+  "payload_sha256": "9c96cf0ac5fd8aec6c9aec25b264059da94e4a14cc7dde51d0b04c41ee6179a6",
+  "phase1_binary_gate_prerequisite": {
+    "G1_prose_kl_cure": false,
+    "G2_reserve_commits_and_holdout_gain": false,
+    "G3_shell_norm_and_spinor16b_rollback": true,
+    "determinism_receipt_file": "phase1_hardware_determinism.json",
+    "determinism_receipt_sha256": "ba118e853b4cfa6c85d828545dc95e1742fc4112d2d8a07855c3207d9d7291a4",
+    "kl_ratio_a_over_d": 131.7959,
+    "max_arm_d_kl_nats": 0.002841,
+    "max_cayley_shell_norm_err": 7.629e-06,
+    "max_rollback_drift": 0.0,
+    "mean_holdout_a_pct": 58.4201,
+    "mean_holdout_d_pct": 49.9132,
+    "mean_holdout_gain_vs_base_pp": 7.2917,
+    "p_holm_g1": 0.06029486,
+    "p_holm_g2": 0.06073209,
+    "parsed_prereg_thresholds": {
+      "exp_poison": 18,
+      "hold_margin_pp": 1.0,
+      "kl_ceil_nats": 0.005,
+      "kl_ratio_min": 2.0,
+      "min_commits": 4,
+      "min_gain_pp": 5.0,
+      "p_holm_alpha": 0.01,
+      "shell_err_max": 1e-05
+    },
+    "poison_blocked": 18,
+    "poison_total": 18,
+    "preregistration_file": "preregistration_phase1_binary_gate.md",
+    "preregistration_sha256": "441867f0a81cf4323542ec1bf5a915140fedc3bc3e0e0aae72f2f677291c4d40",
+    "result_sha256": "2ed70928f39063aa8e576cfb1a2540c69364190d7717113a31598bb7b55e0bb7",
+    "results_file": "phase1_binary_gate_results.json",
+    "seed_ids": [
+      0,
+      1,
+      2
+    ],
+    "verdict": "FALSIFIED"
+  },
+  "phase2_geodesic_retraction": {
+    "G1_prose_kl_cure": true,
+    "G2_reserve_commits_and_holdout_gain": true,
+    "G3_shell_norm_and_spinor16b_rollback": true,
+    "determinism_receipt_file": "phase2_hardware_determinism.json",
+    "determinism_receipt_sha256": "742dfaefd29195cb67a0a28d7812de7d0077a385dff3f58388904e36afa3ce9b",
+    "kl_ratio_a_over_d": 77.6953,
+    "max_arm_d_kl_nats": 0.004879,
+    "max_cayley_shell_norm_err": 7.629e-06,
+    "max_rollback_drift": 0.0,
+    "mean_holdout_a_pct": 57.3437,
+    "mean_holdout_d_pct": 60.3125,
+    "mean_holdout_gain_vs_base_pp": 18.8021,
+    "p_holm_g1": 0.00080578,
+    "p_holm_g2": 1.739e-05,
+    "parsed_prereg_thresholds": {
+      "exp_poison": 30,
+      "hold_margin_pp": 2.0,
+      "kl_ceil_nats": 0.005,
+      "kl_ratio_min": 2.0,
+      "min_commits": 4,
+      "min_gain_pp": 5.0,
+      "p_holm_alpha": 0.01,
+      "shell_err_max": 1e-05
+    },
+    "passes_stricter_phase1_g1_margin": true,
+    "poison_blocked": 30,
+    "poison_total": 30,
+    "preregistration_file": "preregistration_phase2_geodesic_retraction.md",
+    "preregistration_sha256": "41df4e46669f17a42da33351ea3e6180d44499e99255955006d76e197091ced9",
+    "result_sha256": "e08caa0093833953c6a427a1746411d95854b9416ede4dc5cc095aef614077db",
+    "results_file": "phase2_geodesic_retraction_results.json",
+    "retraction_rescues_total": 4,
+    "seed_ids": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "unseen_fresh_seeds_summary": {
+      "fresh_seed_ids": [
+        3,
+        4
+      ],
+      "kl_ratio_a_over_d": 72.8251,
+      "mean_holdout_a_pct": 55.7292,
+      "mean_holdout_base_pct": 39.8438,
+      "mean_holdout_d_minus_a_pp": 3.5156,
+      "mean_holdout_d_minus_base_pp": 19.401,
+      "mean_holdout_d_pct": 59.2448,
+      "reused_seed_ids": [
+        0,
+        1,
+        2
+      ]
+    },
+    "verdict": "CONFIRMED"
+  },
+  "schema": "so_d_geodesic_retraction_certificate_v1",
+  "status": "PASS"
+}

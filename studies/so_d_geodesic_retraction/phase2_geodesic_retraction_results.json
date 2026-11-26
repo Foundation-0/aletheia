@@ -1,0 +1,2652 @@
+{
+  "backbone": {
+    "allow_tf32": false,
+    "d_model": 960,
+    "device_name": "NVIDIA GeForce RTX 3080 Laptop GPU",
+    "dtype": "float32",
+    "edit_layers": [
+      29,
+      30,
+      31
+    ],
+    "edit_rank": 16,
+    "flow_rank": 320,
+    "flow_variance_explained_wikitext2_val": {
+      "layer_29": 0.932798,
+      "layer_30": 0.966804,
+      "layer_31": 0.998281
+    },
+    "model_id": "HuggingFaceTB/SmolLM2-360M",
+    "snapshot": "f8027fd0eaeea54caa13c31d31b9fdc459c38b49"
+  },
+  "determinism_receipt_file": "phase2_hardware_determinism.json",
+  "determinism_receipt_sha256": "742dfaefd29195cb67a0a28d7812de7d0077a385dff3f58388904e36afa3ce9b",
+  "energy_power_status": "UNCONTROLLED_LAPTOP_NOT_CLAIMED",
+  "frozen_specialist_editor": {
+    "editor_sha256_final": "15181aad0318b4017975fed6cf7d6620896098f50cfba62ab18542893201e63b",
+    "editor_sha256_init": "15181aad0318b4017975fed6cf7d6620896098f50cfba62ab18542893201e63b",
+    "editor_sha256_invariant": true
+  },
+  "gates": {
+    "G1_prose_kl_cure": true,
+    "G2_reserve_commits_and_holdout_gain": true,
+    "G3_shell_norm_and_spinor16b_rollback": true,
+    "all_rollback_weights_sha_exact": true,
+    "max_cayley_shell_norm_err": 7.629e-06,
+    "max_rollback_logit_drift": 0.0,
+    "max_rollback_param_drift": 0.0,
+    "max_rollback_spinor_drift": 0.0,
+    "poison_attacks_blocked": 30,
+    "poison_attacks_total": 30,
+    "retraction_rescues_total": 4,
+    "verdict": "CONFIRMED"
+  },
+  "kl_reduction_ratios": {
+    "Arm_A_over_Arm_D": 77.6954,
+    "Arm_B_over_Arm_D": 1.8613,
+    "Arm_C_over_Arm_D": 92.2184
+  },
+  "lr": 0.003,
+  "matched_param_budget": {
+    "arms": {
+      "Arm_A_Naive_Additive_DeltaW": {
+        "delta_pct": 0.0,
+        "edit_params_per_layer": 30720,
+        "total_edit_params": 92160
+      },
+      "Arm_B_Projected_Additive_FlowNull": {
+        "delta_pct": 0.0,
+        "edit_params_per_layer": 30720,
+        "total_edit_params": 92160
+      },
+      "Arm_C_Cayley_Tangent_Unprojected": {
+        "delta_pct": 0.0,
+        "edit_params_per_layer": 30720,
+        "total_edit_params": 92160
+      },
+      "Arm_D_Cayley_FlowNull_Retract_Spinor16B": {
+        "delta_pct": 0.0,
+        "edit_params_per_layer": 30720,
+        "total_edit_params": 92160
+      }
+    },
+    "d_model": 960,
+    "edit_rank": 16,
+    "flow_rank": 320,
+    "max_param_delta_pct": 0.0,
+    "max_retractions_per_round": 2,
+    "n_edit_layers": 3,
+    "parity_pass": true,
+    "retraction_gammas": [
+      0.5,
+      0.25
+    ]
+  },
+  "per_seed": [
+    {
+      "arms": {
+        "Arm_A_Naive_Additive_DeltaW": {
+          "commits": 6,
+          "final_b0_retained_count": 100,
+          "final_b0_retention_pct": 100.0,
+          "final_pi16_hex": "7fb17f3f9b0b37bcb3a1323dc70c9d3c",
+          "final_prose_kl_nats": 0.07558453,
+          "final_shell_norm_err": 0.193585873,
+          "holdout_by_round_pct": {
+            "R1_phase": 28.125,
+            "R2_unit_scale": 75.0,
+            "R3_logic": 60.9375,
+            "R4_compass": 26.5625,
+            "R5_chrono": 50.0,
+            "R6_triage": 100.0
+          },
+          "holdout_gain_vs_base_pp": 14.5833,
+          "holdout_mean_pct": 56.7708,
+          "max_real_act_rel_shell_err": 0.032957673,
+          "max_shell_norm_err": 0.193585873,
+          "max_valid_rollback_logit_drift": 0.0,
+          "max_valid_rollback_param_drift": 0.0,
+          "max_valid_rollback_spinor_drift": 0.0,
+          "poison_rollback_audit": null,
+          "retraction_evals_total": 0,
+          "retraction_rescues": 0,
+          "rounds": [
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.01769141,
+              "reserve_after_pct": 34.375,
+              "reserve_before_pct": 34.375,
+              "retraction_evals": 0,
+              "round": "R1_phase",
+              "shell_norm_err": 0.055012703
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.09189221,
+              "reserve_after_pct": 68.75,
+              "reserve_before_pct": 46.875,
+              "retraction_evals": 0,
+              "round": "R2_unit_scale",
+              "shell_norm_err": 0.052955151
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.07060459,
+              "reserve_after_pct": 59.375,
+              "reserve_before_pct": 65.625,
+              "retraction_evals": 0,
+              "round": "R3_logic",
+              "shell_norm_err": 0.075613022
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.07794533,
+              "reserve_after_pct": 50.0,
+              "reserve_before_pct": 25.0,
+              "retraction_evals": 0,
+              "round": "R4_compass",
+              "shell_norm_err": 0.087748528
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.06546115,
+              "reserve_after_pct": 56.25,
+              "reserve_before_pct": 71.875,
+              "retraction_evals": 0,
+              "round": "R5_chrono",
+              "shell_norm_err": 0.155012608
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.07558453,
+              "reserve_after_pct": 100.0,
+              "reserve_before_pct": 56.25,
+              "retraction_evals": 0,
+              "round": "R6_triage",
+              "shell_norm_err": 0.193585873
+            }
+          ],
+          "valid_rollbacks": 0,
+          "wall_s": 31.197
+        },
+        "Arm_B_Projected_Additive_FlowNull": {
+          "commits": 6,
+          "final_b0_retained_count": 100,
+          "final_b0_retention_pct": 100.0,
+          "final_pi16_hex": "bdb07f3f2eae1bbc3377343d15efa03c",
+          "final_prose_kl_nats": 0.00665945,
+          "final_shell_norm_err": 0.133270741,
+          "holdout_by_round_pct": {
+            "R1_phase": 29.6875,
+            "R2_unit_scale": 87.5,
+            "R3_logic": 68.75,
+            "R4_compass": 21.875,
+            "R5_chrono": 45.3125,
+            "R6_triage": 100.0
+          },
+          "holdout_gain_vs_base_pp": 16.6667,
+          "holdout_mean_pct": 58.8542,
+          "max_real_act_rel_shell_err": 0.024446828,
+          "max_shell_norm_err": 0.133270741,
+          "max_valid_rollback_logit_drift": 0.0,
+          "max_valid_rollback_param_drift": 0.0,
+          "max_valid_rollback_spinor_drift": 0.0,
+          "poison_rollback_audit": null,
+          "retraction_evals_total": 0,
+          "retraction_rescues": 0,
+          "rounds": [
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 8.302e-05,
+              "reserve_after_pct": 28.125,
+              "reserve_before_pct": 34.375,
+              "retraction_evals": 0,
+              "round": "R1_phase",
+              "shell_norm_err": 0.012913227
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.00085374,
+              "reserve_after_pct": 96.875,
+              "reserve_before_pct": 46.875,
+              "retraction_evals": 0,
+              "round": "R2_unit_scale",
+              "shell_norm_err": 0.048204899
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.00110823,
+              "reserve_after_pct": 68.75,
+              "reserve_before_pct": 59.375,
+              "retraction_evals": 0,
+              "round": "R3_logic",
+              "shell_norm_err": 0.046974182
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.00186854,
+              "reserve_after_pct": 34.375,
+              "reserve_before_pct": 25.0,
+              "retraction_evals": 0,
+              "round": "R4_compass",
+              "shell_norm_err": 0.045301914
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.00379972,
+              "reserve_after_pct": 56.25,
+              "reserve_before_pct": 71.875,
+              "retraction_evals": 0,
+              "round": "R5_chrono",
+              "shell_norm_err": 0.04584074
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.00665945,
+              "reserve_after_pct": 100.0,
+              "reserve_before_pct": 56.25,
+              "retraction_evals": 0,
+              "round": "R6_triage",
+              "shell_norm_err": 0.133270741
+            }
+          ],
+          "valid_rollbacks": 0,
+          "wall_s": 29.261
+        },
+        "Arm_C_Cayley_Tangent_Unprojected": {
+          "commits": 6,
+          "final_b0_retained_count": 100,
+          "final_b0_retention_pct": 100.0,
+          "final_pi16_hex": "3ab37f3fef5d2ebc7111313d30539b3c",
+          "final_prose_kl_nats": 0.41064523,
+          "final_shell_norm_err": 4.768e-06,
+          "holdout_by_round_pct": {
+            "R1_phase": 35.9375,
+            "R2_unit_scale": 76.5625,
+            "R3_logic": 70.3125,
+            "R4_compass": 25.0,
+            "R5_chrono": 53.125,
+            "R6_triage": 100.0
+          },
+          "holdout_gain_vs_base_pp": 17.9688,
+          "holdout_mean_pct": 60.1562,
+          "max_real_act_rel_shell_err": 5.76e-07,
+          "max_shell_norm_err": 6.676e-06,
+          "max_valid_rollback_logit_drift": 0.0,
+          "max_valid_rollback_param_drift": 0.0,
+          "max_valid_rollback_spinor_drift": 0.0,
+          "poison_rollback_audit": null,
+          "retraction_evals_total": 0,
+          "retraction_rescues": 0,
+          "rounds": [
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.15771517,
+              "reserve_after_pct": 37.5,
+              "reserve_before_pct": 34.375,
+              "retraction_evals": 0,
+              "round": "R1_phase",
+              "shell_norm_err": 6.676e-06
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.18153459,
+              "reserve_after_pct": 96.875,
+              "reserve_before_pct": 46.875,
+              "retraction_evals": 0,
+              "round": "R2_unit_scale",
+              "shell_norm_err": 3.338e-06
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.26976127,
+              "reserve_after_pct": 56.25,
+              "reserve_before_pct": 56.25,
+              "retraction_evals": 0,
+              "round": "R3_logic",
+              "shell_norm_err": 4.768e-06
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.09007083,
+              "reserve_after_pct": 31.25,
+              "reserve_before_pct": 25.0,
+              "retraction_evals": 0,
+              "round": "R4_compass",
+              "shell_norm_err": 3.815e-06
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.13184914,
+              "reserve_after_pct": 28.125,
+              "reserve_before_pct": 71.875,
+              "retraction_evals": 0,
+              "round": "R5_chrono",
+              "shell_norm_err": 4.768e-06
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.41064523,
+              "reserve_after_pct": 100.0,
+              "reserve_before_pct": 84.375,
+              "retraction_evals": 0,
+              "round": "R6_triage",
+              "shell_norm_err": 4.768e-06
+            }
+          ],
+          "valid_rollbacks": 0,
+          "wall_s": 32.851
+        },
+        "Arm_D_Cayley_FlowNull_Retract_Spinor16B": {
+          "commits": 5,
+          "final_b0_retained_count": 100,
+          "final_b0_retention_pct": 100.0,
+          "final_pi16_hex": "5ed77c3fcfe6923d2fb182bd9e63fd3d",
+          "final_prose_kl_nats": 0.00443109,
+          "final_shell_norm_err": 4.768e-06,
+          "holdout_by_round_pct": {
+            "R1_phase": 34.375,
+            "R2_unit_scale": 84.375,
+            "R3_logic": 71.875,
+            "R4_compass": 29.6875,
+            "R5_chrono": 51.5625,
+            "R6_triage": 100.0
+          },
+          "holdout_gain_vs_base_pp": 19.7917,
+          "holdout_mean_pct": 61.9792,
+          "max_real_act_rel_shell_err": 6.43e-07,
+          "max_shell_norm_err": 6.676e-06,
+          "max_valid_rollback_logit_drift": 0.0,
+          "max_valid_rollback_param_drift": 0.0,
+          "max_valid_rollback_spinor_drift": 0.0,
+          "poison_rollback_audit": {
+            "all_weights_sha_exact": true,
+            "attacks_blocked": 6,
+            "attacks_total": 6,
+            "details": [
+              {
+                "attack": "POISON_1_PROSE_KL_BOMB",
+                "blocked": true,
+                "logit_rollback_drift": 0.0,
+                "param_rollback_drift": 0.0,
+                "reason": "kl_all_gammas=[0.4164, 0.2246, 0.149]>0.005",
+                "spinor_rollback_drift": 0.0,
+                "weights_sha_restored_exact": true
+              },
+              {
+                "attack": "POISON_2_ANCHOR_FLIP",
+                "blocked": true,
+                "logit_rollback_drift": 0.0,
+                "param_rollback_drift": 0.0,
+                "reason": "b0=99/100_kl=0.5266",
+                "spinor_rollback_drift": 0.0,
+                "weights_sha_restored_exact": true
+              },
+              {
+                "attack": "POISON_3_RADIAL_H3B_BLOWUP",
+                "blocked": true,
+                "logit_rollback_drift": 0.0,
+                "param_rollback_drift": 0.0,
+                "reason": "shell_err=3.8489e+00>=1e-5",
+                "spinor_rollback_drift": 0.0,
+                "weights_sha_restored_exact": true
+              },
+              {
+                "attack": "POISON_4_NONFINITE_NAN",
+                "blocked": true,
+                "logit_rollback_drift": 0.0,
+                "param_rollback_drift": 0.0,
+                "reason": "non_finite_weight_detected",
+                "spinor_rollback_drift": 0.0,
+                "weights_sha_restored_exact": true
+              },
+              {
+                "attack": "POISON_5_PI16_HEADER_TAMPER",
+                "blocked": true,
+                "logit_rollback_drift": 0.0,
+                "param_rollback_drift": 0.0,
+                "reason": "PI_T0_SHA_MISMATCH",
+                "spinor_rollback_drift": 0.0,
+                "weights_sha_restored_exact": true
+              },
+              {
+                "attack": "POISON_6_STEALTH_RESERVE_SABOTAGE",
+                "blocked": true,
+                "logit_rollback_drift": 0.0,
+                "param_rollback_drift": 0.0,
+                "reason": "resv_delta=-43.75pp_kl=0.005034",
+                "spinor_rollback_drift": 0.0,
+                "weights_sha_restored_exact": true
+              }
+            ],
+            "max_logit_rollback_drift": 0.0,
+            "max_param_rollback_drift": 0.0,
+            "max_spinor_rollback_drift": 0.0
+          },
+          "retraction_evals_total": 1,
+          "retraction_rescues": 1,
+          "rounds": [
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "COMMIT",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.00041949,
+              "reserve_after_pct": 37.5,
+              "reserve_before_pct": 34.375,
+              "retraction_evals": 0,
+              "round": "R1_phase",
+              "shell_norm_err": 6.676e-06
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "COMMIT",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.00123116,
+              "reserve_after_pct": 96.875,
+              "reserve_before_pct": 50.0,
+              "retraction_evals": 0,
+              "round": "R2_unit_scale",
+              "shell_norm_err": 3.815e-06
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "COMMIT",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.00162323,
+              "reserve_after_pct": 71.875,
+              "reserve_before_pct": 59.375,
+              "retraction_evals": 0,
+              "round": "R3_logic",
+              "shell_norm_err": 4.292e-06
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "COMMIT",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.00284126,
+              "reserve_after_pct": 43.75,
+              "reserve_before_pct": 25.0,
+              "retraction_evals": 0,
+              "round": "R4_compass",
+              "shell_norm_err": 3.815e-06
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "ROLLBACK",
+              "gamma_used": 0.0,
+              "prose_kl_nats": 0.00445763,
+              "reserve_after_pct": 56.25,
+              "reserve_before_pct": 71.875,
+              "retraction_evals": 0,
+              "round": "R5_chrono",
+              "shell_norm_err": 3.815e-06
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "COMMIT_RETRACTED",
+              "gamma_used": 0.5,
+              "prose_kl_nats": 0.00443109,
+              "reserve_after_pct": 100.0,
+              "reserve_before_pct": 56.25,
+              "retraction_evals": 1,
+              "round": "R6_triage",
+              "shell_norm_err": 4.768e-06
+            }
+          ],
+          "valid_rollbacks": 1,
+          "wall_s": 53.365
+        }
+      },
+      "base_b0_retention_pct": 100.0,
+      "base_holdout_by_round_pct": {
+        "R1_phase": 29.6875,
+        "R2_unit_scale": 53.125,
+        "R3_logic": 65.625,
+        "R4_compass": 18.75,
+        "R5_chrono": 51.5625,
+        "R6_triage": 34.375
+      },
+      "base_holdout_mean_pct": 42.1875,
+      "base_prose_kl_nats": 0.0,
+      "gen0_control": {
+        "b0_retention_pct": 100.0,
+        "commits": 0,
+        "holdout_gain_vs_base_pp": 0.0,
+        "holdout_mean_pct": 42.1875,
+        "prose_kl_nats": 0.0
+      },
+      "seed": 0
+    },
+    {
+      "arms": {
+        "Arm_A_Naive_Additive_DeltaW": {
+          "commits": 6,
+          "final_b0_retained_count": 100,
+          "final_b0_retention_pct": 100.0,
+          "final_pi16_hex": "a1d07f3f0aa604bdc464843cf9783e3c",
+          "final_prose_kl_nats": 0.70687215,
+          "final_shell_norm_err": 0.244146824,
+          "holdout_by_round_pct": {
+            "R1_phase": 31.25,
+            "R2_unit_scale": 96.875,
+            "R3_logic": 60.9375,
+            "R4_compass": 31.25,
+            "R5_chrono": 48.4375,
+            "R6_triage": 89.0625
+          },
+          "holdout_gain_vs_base_pp": 17.9688,
+          "holdout_mean_pct": 59.6354,
+          "max_real_act_rel_shell_err": 0.042640552,
+          "max_shell_norm_err": 0.244146824,
+          "max_valid_rollback_logit_drift": 0.0,
+          "max_valid_rollback_param_drift": 0.0,
+          "max_valid_rollback_spinor_drift": 0.0,
+          "poison_rollback_audit": null,
+          "retraction_evals_total": 0,
+          "retraction_rescues": 0,
+          "rounds": [
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.54575373,
+              "reserve_after_pct": 40.625,
+              "reserve_before_pct": 21.875,
+              "retraction_evals": 0,
+              "round": "R1_phase",
+              "shell_norm_err": 0.036594391
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.60397354,
+              "reserve_after_pct": 100.0,
+              "reserve_before_pct": 53.125,
+              "retraction_evals": 0,
+              "round": "R2_unit_scale",
+              "shell_norm_err": 0.070337296
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.58028096,
+              "reserve_after_pct": 59.375,
+              "reserve_before_pct": 56.25,
+              "retraction_evals": 0,
+              "round": "R3_logic",
+              "shell_norm_err": 0.062962532
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.51572205,
+              "reserve_after_pct": 25.0,
+              "reserve_before_pct": 12.5,
+              "retraction_evals": 0,
+              "round": "R4_compass",
+              "shell_norm_err": 0.069057465
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.51143352,
+              "reserve_after_pct": 56.25,
+              "reserve_before_pct": 59.375,
+              "retraction_evals": 0,
+              "round": "R5_chrono",
+              "shell_norm_err": 0.138495445
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.70687215,
+              "reserve_after_pct": 78.125,
+              "reserve_before_pct": 31.25,
+              "retraction_evals": 0,
+              "round": "R6_triage",
+              "shell_norm_err": 0.244146824
+            }
+          ],
+          "valid_rollbacks": 0,
+          "wall_s": 31.692
+        },
+        "Arm_B_Projected_Additive_FlowNull": {
+          "commits": 6,
+          "final_b0_retained_count": 100,
+          "final_b0_retention_pct": 100.0,
+          "final_pi16_hex": "c4da7f3f34d3dbbcf2b9873cb8ca423c",
+          "final_prose_kl_nats": 0.00776524,
+          "final_shell_norm_err": 0.477617264,
+          "holdout_by_round_pct": {
+            "R1_phase": 28.125,
+            "R2_unit_scale": 89.0625,
+            "R3_logic": 60.9375,
+            "R4_compass": 28.125,
+            "R5_chrono": 59.375,
+            "R6_triage": 100.0
+          },
+          "holdout_gain_vs_base_pp": 19.2708,
+          "holdout_mean_pct": 60.9375,
+          "max_real_act_rel_shell_err": 0.07974764,
+          "max_shell_norm_err": 0.477617264,
+          "max_valid_rollback_logit_drift": 0.0,
+          "max_valid_rollback_param_drift": 0.0,
+          "max_valid_rollback_spinor_drift": 0.0,
+          "poison_rollback_audit": null,
+          "retraction_evals_total": 0,
+          "retraction_rescues": 0,
+          "rounds": [
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.00012638,
+              "reserve_after_pct": 34.375,
+              "reserve_before_pct": 21.875,
+              "retraction_evals": 0,
+              "round": "R1_phase",
+              "shell_norm_err": 0.006901264
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.00052152,
+              "reserve_after_pct": 81.25,
+              "reserve_before_pct": 53.125,
+              "retraction_evals": 0,
+              "round": "R2_unit_scale",
+              "shell_norm_err": 0.020013809
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.00055126,
+              "reserve_after_pct": 53.125,
+              "reserve_before_pct": 56.25,
+              "retraction_evals": 0,
+              "round": "R3_logic",
+              "shell_norm_err": 0.018198013
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.00097551,
+              "reserve_after_pct": 18.75,
+              "reserve_before_pct": 12.5,
+              "retraction_evals": 0,
+              "round": "R4_compass",
+              "shell_norm_err": 0.024069786
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.00128439,
+              "reserve_after_pct": 40.625,
+              "reserve_before_pct": 59.375,
+              "retraction_evals": 0,
+              "round": "R5_chrono",
+              "shell_norm_err": 0.024512291
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.00776524,
+              "reserve_after_pct": 100.0,
+              "reserve_before_pct": 31.25,
+              "retraction_evals": 0,
+              "round": "R6_triage",
+              "shell_norm_err": 0.477617264
+            }
+          ],
+          "valid_rollbacks": 0,
+          "wall_s": 38.442
+        },
+        "Arm_C_Cayley_Tangent_Unprojected": {
+          "commits": 6,
+          "final_b0_retained_count": 100,
+          "final_b0_retention_pct": 100.0,
+          "final_pi16_hex": "cbc67f3f9d6215bde351883cf379403c",
+          "final_prose_kl_nats": 0.6374259,
+          "final_shell_norm_err": 7.629e-06,
+          "holdout_by_round_pct": {
+            "R1_phase": 31.25,
+            "R2_unit_scale": 81.25,
+            "R3_logic": 60.9375,
+            "R4_compass": 32.8125,
+            "R5_chrono": 51.5625,
+            "R6_triage": 89.0625
+          },
+          "holdout_gain_vs_base_pp": 16.1458,
+          "holdout_mean_pct": 57.8125,
+          "max_real_act_rel_shell_err": 6.43e-07,
+          "max_shell_norm_err": 7.629e-06,
+          "max_valid_rollback_logit_drift": 0.0,
+          "max_valid_rollback_param_drift": 0.0,
+          "max_valid_rollback_spinor_drift": 0.0,
+          "poison_rollback_audit": null,
+          "retraction_evals_total": 0,
+          "retraction_rescues": 0,
+          "rounds": [
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.03470424,
+              "reserve_after_pct": 37.5,
+              "reserve_before_pct": 21.875,
+              "retraction_evals": 0,
+              "round": "R1_phase",
+              "shell_norm_err": 4.768e-06
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.21681503,
+              "reserve_after_pct": 68.75,
+              "reserve_before_pct": 53.125,
+              "retraction_evals": 0,
+              "round": "R2_unit_scale",
+              "shell_norm_err": 4.768e-06
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.39675385,
+              "reserve_after_pct": 68.75,
+              "reserve_before_pct": 50.0,
+              "retraction_evals": 0,
+              "round": "R3_logic",
+              "shell_norm_err": 7.629e-06
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.20922028,
+              "reserve_after_pct": 18.75,
+              "reserve_before_pct": 12.5,
+              "retraction_evals": 0,
+              "round": "R4_compass",
+              "shell_norm_err": 5.722e-06
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.30934758,
+              "reserve_after_pct": 31.25,
+              "reserve_before_pct": 46.875,
+              "retraction_evals": 0,
+              "round": "R5_chrono",
+              "shell_norm_err": 4.768e-06
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.6374259,
+              "reserve_after_pct": 78.125,
+              "reserve_before_pct": 34.375,
+              "retraction_evals": 0,
+              "round": "R6_triage",
+              "shell_norm_err": 7.629e-06
+            }
+          ],
+          "valid_rollbacks": 0,
+          "wall_s": 40.416
+        },
+        "Arm_D_Cayley_FlowNull_Retract_Spinor16B": {
+          "commits": 5,
+          "final_b0_retained_count": 100,
+          "final_b0_retention_pct": 100.0,
+          "final_pi16_hex": "4b087e3f88d3783d5f60acbd4df7893d",
+          "final_prose_kl_nats": 0.00412317,
+          "final_shell_norm_err": 7.629e-06,
+          "holdout_by_round_pct": {
+            "R1_phase": 34.375,
+            "R2_unit_scale": 92.1875,
+            "R3_logic": 60.9375,
+            "R4_compass": 31.25,
+            "R5_chrono": 48.4375,
+            "R6_triage": 93.75
+          },
+          "holdout_gain_vs_base_pp": 18.4896,
+          "holdout_mean_pct": 60.1562,
+          "max_real_act_rel_shell_err": 8.65e-07,
+          "max_shell_norm_err": 7.629e-06,
+          "max_valid_rollback_logit_drift": 0.0,
+          "max_valid_rollback_param_drift": 0.0,
+          "max_valid_rollback_spinor_drift": 0.0,
+          "poison_rollback_audit": {
+            "all_weights_sha_exact": true,
+            "attacks_blocked": 6,
+            "attacks_total": 6,
+            "details": [
+              {
+                "attack": "POISON_1_PROSE_KL_BOMB",
+                "blocked": true,
+                "logit_rollback_drift": 0.0,
+                "param_rollback_drift": 0.0,
+                "reason": "kl_all_gammas=[0.4159, 0.2254, 0.1503]>0.005",
+                "spinor_rollback_drift": 0.0,
+                "weights_sha_restored_exact": true
+              },
+              {
+                "attack": "POISON_2_ANCHOR_FLIP",
+                "blocked": true,
+                "logit_rollback_drift": 0.0,
+                "param_rollback_drift": 0.0,
+                "reason": "b0=100/100_kl=0.5476",
+                "spinor_rollback_drift": 0.0,
+                "weights_sha_restored_exact": true
+              },
+              {
+                "attack": "POISON_3_RADIAL_H3B_BLOWUP",
+                "blocked": true,
+                "logit_rollback_drift": 0.0,
+                "param_rollback_drift": 0.0,
+                "reason": "shell_err=3.8489e+00>=1e-5",
+                "spinor_rollback_drift": 0.0,
+                "weights_sha_restored_exact": true
+              },
+              {
+                "attack": "POISON_4_NONFINITE_NAN",
+                "blocked": true,
+                "logit_rollback_drift": 0.0,
+                "param_rollback_drift": 0.0,
+                "reason": "non_finite_weight_detected",
+                "spinor_rollback_drift": 0.0,
+                "weights_sha_restored_exact": true
+              },
+              {
+                "attack": "POISON_5_PI16_HEADER_TAMPER",
+                "blocked": true,
+                "logit_rollback_drift": 0.0,
+                "param_rollback_drift": 0.0,
+                "reason": "PI_T0_SHA_MISMATCH",
+                "spinor_rollback_drift": 0.0,
+                "weights_sha_restored_exact": true
+              },
+              {
+                "attack": "POISON_6_STEALTH_RESERVE_SABOTAGE",
+                "blocked": true,
+                "logit_rollback_drift": 0.0,
+                "param_rollback_drift": 0.0,
+                "reason": "resv_delta=-50.00pp_kl=0.004741",
+                "spinor_rollback_drift": 0.0,
+                "weights_sha_restored_exact": true
+              }
+            ],
+            "max_logit_rollback_drift": 0.0,
+            "max_param_rollback_drift": 0.0,
+            "max_spinor_rollback_drift": 0.0
+          },
+          "retraction_evals_total": 1,
+          "retraction_rescues": 1,
+          "rounds": [
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "COMMIT",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.00089128,
+              "reserve_after_pct": 37.5,
+              "reserve_before_pct": 21.875,
+              "retraction_evals": 0,
+              "round": "R1_phase",
+              "shell_norm_err": 4.768e-06
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "COMMIT",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.00185877,
+              "reserve_after_pct": 81.25,
+              "reserve_before_pct": 53.125,
+              "retraction_evals": 0,
+              "round": "R2_unit_scale",
+              "shell_norm_err": 3.815e-06
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "COMMIT",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.00224185,
+              "reserve_after_pct": 65.625,
+              "reserve_before_pct": 59.375,
+              "retraction_evals": 0,
+              "round": "R3_logic",
+              "shell_norm_err": 4.768e-06
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "COMMIT",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.00269721,
+              "reserve_after_pct": 25.0,
+              "reserve_before_pct": 12.5,
+              "retraction_evals": 0,
+              "round": "R4_compass",
+              "shell_norm_err": 3.815e-06
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "ROLLBACK",
+              "gamma_used": 0.0,
+              "prose_kl_nats": 0.00313966,
+              "reserve_after_pct": 53.125,
+              "reserve_before_pct": 59.375,
+              "retraction_evals": 0,
+              "round": "R5_chrono",
+              "shell_norm_err": 5.722e-06
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "COMMIT_RETRACTED",
+              "gamma_used": 0.5,
+              "prose_kl_nats": 0.00412317,
+              "reserve_after_pct": 87.5,
+              "reserve_before_pct": 40.625,
+              "retraction_evals": 1,
+              "round": "R6_triage",
+              "shell_norm_err": 7.629e-06
+            }
+          ],
+          "valid_rollbacks": 1,
+          "wall_s": 55.797
+        }
+      },
+      "base_b0_retention_pct": 100.0,
+      "base_holdout_by_round_pct": {
+        "R1_phase": 39.0625,
+        "R2_unit_scale": 43.75,
+        "R3_logic": 59.375,
+        "R4_compass": 26.5625,
+        "R5_chrono": 48.4375,
+        "R6_triage": 32.8125
+      },
+      "base_holdout_mean_pct": 41.6667,
+      "base_prose_kl_nats": 0.0,
+      "gen0_control": {
+        "b0_retention_pct": 100.0,
+        "commits": 0,
+        "holdout_gain_vs_base_pp": 0.0,
+        "holdout_mean_pct": 41.6667,
+        "prose_kl_nats": 0.0
+      },
+      "seed": 1
+    },
+    {
+      "arms": {
+        "Arm_A_Naive_Additive_DeltaW": {
+          "commits": 6,
+          "final_b0_retained_count": 100,
+          "final_b0_retention_pct": 100.0,
+          "final_pi16_hex": "8abf7f3fee252abd19763dbce072293c",
+          "final_prose_kl_nats": 0.19052943,
+          "final_shell_norm_err": 0.246870041,
+          "holdout_by_round_pct": {
+            "R1_phase": 34.375,
+            "R2_unit_scale": 75.0,
+            "R3_logic": 67.1875,
+            "R4_compass": 21.875,
+            "R5_chrono": 54.6875,
+            "R6_triage": 100.0
+          },
+          "holdout_gain_vs_base_pp": 14.8438,
+          "holdout_mean_pct": 58.8542,
+          "max_real_act_rel_shell_err": 0.044627555,
+          "max_shell_norm_err": 0.246870041,
+          "max_valid_rollback_logit_drift": 0.0,
+          "max_valid_rollback_param_drift": 0.0,
+          "max_valid_rollback_spinor_drift": 0.0,
+          "poison_rollback_audit": null,
+          "retraction_evals_total": 0,
+          "retraction_rescues": 0,
+          "rounds": [
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.18403017,
+              "reserve_after_pct": 37.5,
+              "reserve_before_pct": 40.625,
+              "retraction_evals": 0,
+              "round": "R1_phase",
+              "shell_norm_err": 0.035078049
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.29461049,
+              "reserve_after_pct": 53.125,
+              "reserve_before_pct": 46.875,
+              "retraction_evals": 0,
+              "round": "R2_unit_scale",
+              "shell_norm_err": 0.055722237
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.26444345,
+              "reserve_after_pct": 59.375,
+              "reserve_before_pct": 56.25,
+              "retraction_evals": 0,
+              "round": "R3_logic",
+              "shell_norm_err": 0.060650349
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.13671151,
+              "reserve_after_pct": 34.375,
+              "reserve_before_pct": 21.875,
+              "retraction_evals": 0,
+              "round": "R4_compass",
+              "shell_norm_err": 0.093341827
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.19215596,
+              "reserve_after_pct": 28.125,
+              "reserve_before_pct": 31.25,
+              "retraction_evals": 0,
+              "round": "R5_chrono",
+              "shell_norm_err": 0.097052574
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.19052943,
+              "reserve_after_pct": 100.0,
+              "reserve_before_pct": 68.75,
+              "retraction_evals": 0,
+              "round": "R6_triage",
+              "shell_norm_err": 0.246870041
+            }
+          ],
+          "valid_rollbacks": 0,
+          "wall_s": 38.818
+        },
+        "Arm_B_Projected_Additive_FlowNull": {
+          "commits": 6,
+          "final_b0_retained_count": 100,
+          "final_b0_retention_pct": 100.0,
+          "final_pi16_hex": "5acf7f3f160f11bd03ba3abc0dda233c",
+          "final_prose_kl_nats": 0.01002073,
+          "final_shell_norm_err": 0.158581734,
+          "holdout_by_round_pct": {
+            "R1_phase": 35.9375,
+            "R2_unit_scale": 90.625,
+            "R3_logic": 67.1875,
+            "R4_compass": 21.875,
+            "R5_chrono": 45.3125,
+            "R6_triage": 100.0
+          },
+          "holdout_gain_vs_base_pp": 16.1458,
+          "holdout_mean_pct": 60.1562,
+          "max_real_act_rel_shell_err": 0.027322557,
+          "max_shell_norm_err": 0.158581734,
+          "max_valid_rollback_logit_drift": 0.0,
+          "max_valid_rollback_param_drift": 0.0,
+          "max_valid_rollback_spinor_drift": 0.0,
+          "poison_rollback_audit": null,
+          "retraction_evals_total": 0,
+          "retraction_rescues": 0,
+          "rounds": [
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.00026315,
+              "reserve_after_pct": 31.25,
+              "reserve_before_pct": 40.625,
+              "retraction_evals": 0,
+              "round": "R1_phase",
+              "shell_norm_err": 0.018537521
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.00053692,
+              "reserve_after_pct": 100.0,
+              "reserve_before_pct": 46.875,
+              "retraction_evals": 0,
+              "round": "R2_unit_scale",
+              "shell_norm_err": 0.020971775
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.00057821,
+              "reserve_after_pct": 53.125,
+              "reserve_before_pct": 50.0,
+              "retraction_evals": 0,
+              "round": "R3_logic",
+              "shell_norm_err": 0.021430492
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.00060358,
+              "reserve_after_pct": 28.125,
+              "reserve_before_pct": 21.875,
+              "retraction_evals": 0,
+              "round": "R4_compass",
+              "shell_norm_err": 0.019937515
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.00086517,
+              "reserve_after_pct": 59.375,
+              "reserve_before_pct": 31.25,
+              "retraction_evals": 0,
+              "round": "R5_chrono",
+              "shell_norm_err": 0.023089886
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.01002073,
+              "reserve_after_pct": 100.0,
+              "reserve_before_pct": 50.0,
+              "retraction_evals": 0,
+              "round": "R6_triage",
+              "shell_norm_err": 0.158581734
+            }
+          ],
+          "valid_rollbacks": 0,
+          "wall_s": 34.37
+        },
+        "Arm_C_Cayley_Tangent_Unprojected": {
+          "commits": 6,
+          "final_b0_retained_count": 100,
+          "final_b0_retention_pct": 100.0,
+          "final_pi16_hex": "08bf7f3f8e012bbd47d941bc9fc8223c",
+          "final_prose_kl_nats": 0.34931488,
+          "final_shell_norm_err": 4.768e-06,
+          "holdout_by_round_pct": {
+            "R1_phase": 25.0,
+            "R2_unit_scale": 82.8125,
+            "R3_logic": 67.1875,
+            "R4_compass": 21.875,
+            "R5_chrono": 54.6875,
+            "R6_triage": 100.0
+          },
+          "holdout_gain_vs_base_pp": 14.5833,
+          "holdout_mean_pct": 58.5938,
+          "max_real_act_rel_shell_err": 7.86e-07,
+          "max_shell_norm_err": 5.722e-06,
+          "max_valid_rollback_logit_drift": 0.0,
+          "max_valid_rollback_param_drift": 0.0,
+          "max_valid_rollback_spinor_drift": 0.0,
+          "poison_rollback_audit": null,
+          "retraction_evals_total": 0,
+          "retraction_rescues": 0,
+          "rounds": [
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.02630464,
+              "reserve_after_pct": 37.5,
+              "reserve_before_pct": 40.625,
+              "retraction_evals": 0,
+              "round": "R1_phase",
+              "shell_norm_err": 4.292e-06
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.11710027,
+              "reserve_after_pct": 68.75,
+              "reserve_before_pct": 46.875,
+              "retraction_evals": 0,
+              "round": "R2_unit_scale",
+              "shell_norm_err": 3.815e-06
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.17021766,
+              "reserve_after_pct": 46.875,
+              "reserve_before_pct": 56.25,
+              "retraction_evals": 0,
+              "round": "R3_logic",
+              "shell_norm_err": 5.722e-06
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.22717437,
+              "reserve_after_pct": 25.0,
+              "reserve_before_pct": 25.0,
+              "retraction_evals": 0,
+              "round": "R4_compass",
+              "shell_norm_err": 4.768e-06
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.25279087,
+              "reserve_after_pct": 62.5,
+              "reserve_before_pct": 31.25,
+              "retraction_evals": 0,
+              "round": "R5_chrono",
+              "shell_norm_err": 4.768e-06
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.34931488,
+              "reserve_after_pct": 100.0,
+              "reserve_before_pct": 68.75,
+              "retraction_evals": 0,
+              "round": "R6_triage",
+              "shell_norm_err": 4.768e-06
+            }
+          ],
+          "valid_rollbacks": 0,
+          "wall_s": 39.001
+        },
+        "Arm_D_Cayley_FlowNull_Retract_Spinor16B": {
+          "commits": 5,
+          "final_b0_retained_count": 100,
+          "final_b0_retention_pct": 100.0,
+          "final_pi16_hex": "6eba7c3f05a101be627425bd562eb4bd",
+          "final_prose_kl_nats": 0.00341156,
+          "final_shell_norm_err": 4.768e-06,
+          "holdout_by_round_pct": {
+            "R1_phase": 37.5,
+            "R2_unit_scale": 87.5,
+            "R3_logic": 70.3125,
+            "R4_compass": 20.3125,
+            "R5_chrono": 50.0,
+            "R6_triage": 100.0
+          },
+          "holdout_gain_vs_base_pp": 16.9271,
+          "holdout_mean_pct": 60.9375,
+          "max_real_act_rel_shell_err": 7.86e-07,
+          "max_shell_norm_err": 5.722e-06,
+          "max_valid_rollback_logit_drift": 0.0,
+          "max_valid_rollback_param_drift": 0.0,
+          "max_valid_rollback_spinor_drift": 0.0,
+          "poison_rollback_audit": {
+            "all_weights_sha_exact": true,
+            "attacks_blocked": 6,
+            "attacks_total": 6,
+            "details": [
+              {
+                "attack": "POISON_1_PROSE_KL_BOMB",
+                "blocked": true,
+                "logit_rollback_drift": 0.0,
+                "param_rollback_drift": 0.0,
+                "reason": "kl_all_gammas=[0.4168, 0.2249, 0.1495]>0.005",
+                "spinor_rollback_drift": 0.0,
+                "weights_sha_restored_exact": true
+              },
+              {
+                "attack": "POISON_2_ANCHOR_FLIP",
+                "blocked": true,
+                "logit_rollback_drift": 0.0,
+                "param_rollback_drift": 0.0,
+                "reason": "b0=97/100_kl=0.5132",
+                "spinor_rollback_drift": 0.0,
+                "weights_sha_restored_exact": true
+              },
+              {
+                "attack": "POISON_3_RADIAL_H3B_BLOWUP",
+                "blocked": true,
+                "logit_rollback_drift": 0.0,
+                "param_rollback_drift": 0.0,
+                "reason": "shell_err=3.8489e+00>=1e-5",
+                "spinor_rollback_drift": 0.0,
+                "weights_sha_restored_exact": true
+              },
+              {
+                "attack": "POISON_4_NONFINITE_NAN",
+                "blocked": true,
+                "logit_rollback_drift": 0.0,
+                "param_rollback_drift": 0.0,
+                "reason": "non_finite_weight_detected",
+                "spinor_rollback_drift": 0.0,
+                "weights_sha_restored_exact": true
+              },
+              {
+                "attack": "POISON_5_PI16_HEADER_TAMPER",
+                "blocked": true,
+                "logit_rollback_drift": 0.0,
+                "param_rollback_drift": 0.0,
+                "reason": "PI_T0_SHA_MISMATCH",
+                "spinor_rollback_drift": 0.0,
+                "weights_sha_restored_exact": true
+              },
+              {
+                "attack": "POISON_6_STEALTH_RESERVE_SABOTAGE",
+                "blocked": true,
+                "logit_rollback_drift": 0.0,
+                "param_rollback_drift": 0.0,
+                "reason": "resv_delta=-81.25pp_kl=0.004430",
+                "spinor_rollback_drift": 0.0,
+                "weights_sha_restored_exact": true
+              }
+            ],
+            "max_logit_rollback_drift": 0.0,
+            "max_param_rollback_drift": 0.0,
+            "max_spinor_rollback_drift": 0.0
+          },
+          "retraction_evals_total": 1,
+          "retraction_rescues": 1,
+          "rounds": [
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "ROLLBACK",
+              "gamma_used": 0.0,
+              "prose_kl_nats": 0.00076983,
+              "reserve_after_pct": 28.125,
+              "reserve_before_pct": 40.625,
+              "retraction_evals": 0,
+              "round": "R1_phase",
+              "shell_norm_err": 5.722e-06
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "COMMIT",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.00074818,
+              "reserve_after_pct": 100.0,
+              "reserve_before_pct": 46.875,
+              "retraction_evals": 0,
+              "round": "R2_unit_scale",
+              "shell_norm_err": 4.768e-06
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "COMMIT",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.00098846,
+              "reserve_after_pct": 56.25,
+              "reserve_before_pct": 50.0,
+              "retraction_evals": 0,
+              "round": "R3_logic",
+              "shell_norm_err": 3.815e-06
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "COMMIT",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.0013919,
+              "reserve_after_pct": 28.125,
+              "reserve_before_pct": 21.875,
+              "retraction_evals": 0,
+              "round": "R4_compass",
+              "shell_norm_err": 4.768e-06
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "COMMIT",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.00184405,
+              "reserve_after_pct": 59.375,
+              "reserve_before_pct": 31.25,
+              "retraction_evals": 0,
+              "round": "R5_chrono",
+              "shell_norm_err": 5.722e-06
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "COMMIT_RETRACTED",
+              "gamma_used": 0.5,
+              "prose_kl_nats": 0.00341156,
+              "reserve_after_pct": 100.0,
+              "reserve_before_pct": 50.0,
+              "retraction_evals": 1,
+              "round": "R6_triage",
+              "shell_norm_err": 4.768e-06
+            }
+          ],
+          "valid_rollbacks": 1,
+          "wall_s": 60.911
+        }
+      },
+      "base_b0_retention_pct": 100.0,
+      "base_holdout_by_round_pct": {
+        "R1_phase": 35.9375,
+        "R2_unit_scale": 57.8125,
+        "R3_logic": 67.1875,
+        "R4_compass": 20.3125,
+        "R5_chrono": 45.3125,
+        "R6_triage": 37.5
+      },
+      "base_holdout_mean_pct": 44.0104,
+      "base_prose_kl_nats": 0.0,
+      "gen0_control": {
+        "b0_retention_pct": 100.0,
+        "commits": 0,
+        "holdout_gain_vs_base_pp": 0.0,
+        "holdout_mean_pct": 44.0104,
+        "prose_kl_nats": 0.0
+      },
+      "seed": 2
+    },
+    {
+      "arms": {
+        "Arm_A_Naive_Additive_DeltaW": {
+          "commits": 6,
+          "final_b0_retained_count": 100,
+          "final_b0_retention_pct": 100.0,
+          "final_pi16_hex": "25cd7f3fd22ae8bc201ebcbcc775733c",
+          "final_prose_kl_nats": 0.42296385,
+          "final_shell_norm_err": 0.209721088,
+          "holdout_by_round_pct": {
+            "R1_phase": 35.9375,
+            "R2_unit_scale": 90.625,
+            "R3_logic": 50.0,
+            "R4_compass": 26.5625,
+            "R5_chrono": 34.375,
+            "R6_triage": 100.0
+          },
+          "holdout_gain_vs_base_pp": 17.1875,
+          "holdout_mean_pct": 56.25,
+          "max_real_act_rel_shell_err": 0.035493329,
+          "max_shell_norm_err": 0.209721088,
+          "max_valid_rollback_logit_drift": 0.0,
+          "max_valid_rollback_param_drift": 0.0,
+          "max_valid_rollback_spinor_drift": 0.0,
+          "poison_rollback_audit": null,
+          "retraction_evals_total": 0,
+          "retraction_rescues": 0,
+          "rounds": [
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.03514808,
+              "reserve_after_pct": 37.5,
+              "reserve_before_pct": 34.375,
+              "retraction_evals": 0,
+              "round": "R1_phase",
+              "shell_norm_err": 0.059594154
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.30250097,
+              "reserve_after_pct": 56.25,
+              "reserve_before_pct": 46.875,
+              "retraction_evals": 0,
+              "round": "R2_unit_scale",
+              "shell_norm_err": 0.08257246
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.34638663,
+              "reserve_after_pct": 59.375,
+              "reserve_before_pct": 65.625,
+              "retraction_evals": 0,
+              "round": "R3_logic",
+              "shell_norm_err": 0.077528477
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.36982227,
+              "reserve_after_pct": 37.5,
+              "reserve_before_pct": 28.125,
+              "retraction_evals": 0,
+              "round": "R4_compass",
+              "shell_norm_err": 0.100766659
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.38457908,
+              "reserve_after_pct": 50.0,
+              "reserve_before_pct": 46.875,
+              "retraction_evals": 0,
+              "round": "R5_chrono",
+              "shell_norm_err": 0.119920254
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.42296385,
+              "reserve_after_pct": 100.0,
+              "reserve_before_pct": 37.5,
+              "retraction_evals": 0,
+              "round": "R6_triage",
+              "shell_norm_err": 0.209721088
+            }
+          ],
+          "valid_rollbacks": 0,
+          "wall_s": 38.399
+        },
+        "Arm_B_Projected_Additive_FlowNull": {
+          "commits": 6,
+          "final_b0_retained_count": 100,
+          "final_b0_retention_pct": 100.0,
+          "final_pi16_hex": "76d27f3f606ed1bc62b0babc70f5703c",
+          "final_prose_kl_nats": 0.0097692,
+          "final_shell_norm_err": 0.100749493,
+          "holdout_by_round_pct": {
+            "R1_phase": 31.25,
+            "R2_unit_scale": 100.0,
+            "R3_logic": 54.6875,
+            "R4_compass": 28.125,
+            "R5_chrono": 34.375,
+            "R6_triage": 100.0
+          },
+          "holdout_gain_vs_base_pp": 19.0104,
+          "holdout_mean_pct": 58.0729,
+          "max_real_act_rel_shell_err": 0.019177977,
+          "max_shell_norm_err": 0.100749493,
+          "max_valid_rollback_logit_drift": 0.0,
+          "max_valid_rollback_param_drift": 0.0,
+          "max_valid_rollback_spinor_drift": 0.0,
+          "poison_rollback_audit": null,
+          "retraction_evals_total": 0,
+          "retraction_rescues": 0,
+          "rounds": [
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 7.749e-05,
+              "reserve_after_pct": 37.5,
+              "reserve_before_pct": 34.375,
+              "retraction_evals": 0,
+              "round": "R1_phase",
+              "shell_norm_err": 0.006510258
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.00040345,
+              "reserve_after_pct": 93.75,
+              "reserve_before_pct": 46.875,
+              "retraction_evals": 0,
+              "round": "R2_unit_scale",
+              "shell_norm_err": 0.021374702
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.00044451,
+              "reserve_after_pct": 71.875,
+              "reserve_before_pct": 75.0,
+              "retraction_evals": 0,
+              "round": "R3_logic",
+              "shell_norm_err": 0.024580479
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.00068722,
+              "reserve_after_pct": 37.5,
+              "reserve_before_pct": 34.375,
+              "retraction_evals": 0,
+              "round": "R4_compass",
+              "shell_norm_err": 0.032867432
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.0007403,
+              "reserve_after_pct": 46.875,
+              "reserve_before_pct": 46.875,
+              "retraction_evals": 0,
+              "round": "R5_chrono",
+              "shell_norm_err": 0.029949188
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.0097692,
+              "reserve_after_pct": 100.0,
+              "reserve_before_pct": 40.625,
+              "retraction_evals": 0,
+              "round": "R6_triage",
+              "shell_norm_err": 0.100749493
+            }
+          ],
+          "valid_rollbacks": 0,
+          "wall_s": 41.795
+        },
+        "Arm_C_Cayley_Tangent_Unprojected": {
+          "commits": 6,
+          "final_b0_retained_count": 100,
+          "final_b0_retention_pct": 100.0,
+          "final_pi16_hex": "ffc87f3fa71dfabc3499bcbc109a703c",
+          "final_prose_kl_nats": 0.16260237,
+          "final_shell_norm_err": 5.722e-06,
+          "holdout_by_round_pct": {
+            "R1_phase": 35.9375,
+            "R2_unit_scale": 89.0625,
+            "R3_logic": 48.4375,
+            "R4_compass": 26.5625,
+            "R5_chrono": 54.6875,
+            "R6_triage": 100.0
+          },
+          "holdout_gain_vs_base_pp": 20.0521,
+          "holdout_mean_pct": 59.1146,
+          "max_real_act_rel_shell_err": 6.91e-07,
+          "max_shell_norm_err": 6.676e-06,
+          "max_valid_rollback_logit_drift": 0.0,
+          "max_valid_rollback_param_drift": 0.0,
+          "max_valid_rollback_spinor_drift": 0.0,
+          "poison_rollback_audit": null,
+          "retraction_evals_total": 0,
+          "retraction_rescues": 0,
+          "rounds": [
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.03477787,
+              "reserve_after_pct": 37.5,
+              "reserve_before_pct": 34.375,
+              "retraction_evals": 0,
+              "round": "R1_phase",
+              "shell_norm_err": 4.768e-06
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.12324367,
+              "reserve_after_pct": 68.75,
+              "reserve_before_pct": 50.0,
+              "retraction_evals": 0,
+              "round": "R2_unit_scale",
+              "shell_norm_err": 4.292e-06
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.18629693,
+              "reserve_after_pct": 56.25,
+              "reserve_before_pct": 59.375,
+              "retraction_evals": 0,
+              "round": "R3_logic",
+              "shell_norm_err": 5.722e-06
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.16517685,
+              "reserve_after_pct": 18.75,
+              "reserve_before_pct": 37.5,
+              "retraction_evals": 0,
+              "round": "R4_compass",
+              "shell_norm_err": 5.722e-06
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.16953708,
+              "reserve_after_pct": 46.875,
+              "reserve_before_pct": 46.875,
+              "retraction_evals": 0,
+              "round": "R5_chrono",
+              "shell_norm_err": 6.676e-06
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.16260237,
+              "reserve_after_pct": 100.0,
+              "reserve_before_pct": 59.375,
+              "retraction_evals": 0,
+              "round": "R6_triage",
+              "shell_norm_err": 5.722e-06
+            }
+          ],
+          "valid_rollbacks": 0,
+          "wall_s": 33.865
+        },
+        "Arm_D_Cayley_FlowNull_Retract_Spinor16B": {
+          "commits": 5,
+          "final_b0_retained_count": 100,
+          "final_b0_retention_pct": 100.0,
+          "final_pi16_hex": "09c87d3f0048953d34f1d7bdbc92ebbc",
+          "final_prose_kl_nats": 0.00487898,
+          "final_shell_norm_err": 5.722e-06,
+          "holdout_by_round_pct": {
+            "R1_phase": 32.8125,
+            "R2_unit_scale": 89.0625,
+            "R3_logic": 59.375,
+            "R4_compass": 29.6875,
+            "R5_chrono": 34.375,
+            "R6_triage": 100.0
+          },
+          "holdout_gain_vs_base_pp": 18.4896,
+          "holdout_mean_pct": 57.5521,
+          "max_real_act_rel_shell_err": 6.48e-07,
+          "max_shell_norm_err": 6.676e-06,
+          "max_valid_rollback_logit_drift": 0.0,
+          "max_valid_rollback_param_drift": 0.0,
+          "max_valid_rollback_spinor_drift": 0.0,
+          "poison_rollback_audit": {
+            "all_weights_sha_exact": true,
+            "attacks_blocked": 6,
+            "attacks_total": 6,
+            "details": [
+              {
+                "attack": "POISON_1_PROSE_KL_BOMB",
+                "blocked": true,
+                "logit_rollback_drift": 0.0,
+                "param_rollback_drift": 0.0,
+                "reason": "kl_all_gammas=[0.4169, 0.2255, 0.1503]>0.005",
+                "spinor_rollback_drift": 0.0,
+                "weights_sha_restored_exact": true
+              },
+              {
+                "attack": "POISON_2_ANCHOR_FLIP",
+                "blocked": true,
+                "logit_rollback_drift": 0.0,
+                "param_rollback_drift": 0.0,
+                "reason": "b0=98/100_kl=0.4795",
+                "spinor_rollback_drift": 0.0,
+                "weights_sha_restored_exact": true
+              },
+              {
+                "attack": "POISON_3_RADIAL_H3B_BLOWUP",
+                "blocked": true,
+                "logit_rollback_drift": 0.0,
+                "param_rollback_drift": 0.0,
+                "reason": "shell_err=3.8489e+00>=1e-5",
+                "spinor_rollback_drift": 0.0,
+                "weights_sha_restored_exact": true
+              },
+              {
+                "attack": "POISON_4_NONFINITE_NAN",
+                "blocked": true,
+                "logit_rollback_drift": 0.0,
+                "param_rollback_drift": 0.0,
+                "reason": "non_finite_weight_detected",
+                "spinor_rollback_drift": 0.0,
+                "weights_sha_restored_exact": true
+              },
+              {
+                "attack": "POISON_5_PI16_HEADER_TAMPER",
+                "blocked": true,
+                "logit_rollback_drift": 0.0,
+                "param_rollback_drift": 0.0,
+                "reason": "PI_T0_SHA_MISMATCH",
+                "spinor_rollback_drift": 0.0,
+                "weights_sha_restored_exact": true
+              },
+              {
+                "attack": "POISON_6_STEALTH_RESERVE_SABOTAGE",
+                "blocked": true,
+                "logit_rollback_drift": 0.0,
+                "param_rollback_drift": 0.0,
+                "reason": "resv_delta=-75.00pp_kl=0.005757",
+                "spinor_rollback_drift": 0.0,
+                "weights_sha_restored_exact": true
+              }
+            ],
+            "max_logit_rollback_drift": 0.0,
+            "max_param_rollback_drift": 0.0,
+            "max_spinor_rollback_drift": 0.0
+          },
+          "retraction_evals_total": 0,
+          "retraction_rescues": 0,
+          "rounds": [
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "COMMIT",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.00029465,
+              "reserve_after_pct": 43.75,
+              "reserve_before_pct": 34.375,
+              "retraction_evals": 0,
+              "round": "R1_phase",
+              "shell_norm_err": 3.815e-06
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "COMMIT",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.00090869,
+              "reserve_after_pct": 90.625,
+              "reserve_before_pct": 46.875,
+              "retraction_evals": 0,
+              "round": "R2_unit_scale",
+              "shell_norm_err": 6.676e-06
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "COMMIT",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.00137405,
+              "reserve_after_pct": 68.75,
+              "reserve_before_pct": 65.625,
+              "retraction_evals": 0,
+              "round": "R3_logic",
+              "shell_norm_err": 3.815e-06
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "COMMIT",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.00215027,
+              "reserve_after_pct": 37.5,
+              "reserve_before_pct": 31.25,
+              "retraction_evals": 0,
+              "round": "R4_compass",
+              "shell_norm_err": 2.861e-06
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "ROLLBACK",
+              "gamma_used": 0.0,
+              "prose_kl_nats": 0.00293495,
+              "reserve_after_pct": 46.875,
+              "reserve_before_pct": 46.875,
+              "retraction_evals": 0,
+              "round": "R5_chrono",
+              "shell_norm_err": 4.292e-06
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "COMMIT",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.00487898,
+              "reserve_after_pct": 100.0,
+              "reserve_before_pct": 37.5,
+              "retraction_evals": 0,
+              "round": "R6_triage",
+              "shell_norm_err": 5.722e-06
+            }
+          ],
+          "valid_rollbacks": 1,
+          "wall_s": 44.94
+        }
+      },
+      "base_b0_retention_pct": 100.0,
+      "base_holdout_by_round_pct": {
+        "R1_phase": 31.25,
+        "R2_unit_scale": 51.5625,
+        "R3_logic": 64.0625,
+        "R4_compass": 17.1875,
+        "R5_chrono": 34.375,
+        "R6_triage": 35.9375
+      },
+      "base_holdout_mean_pct": 39.0625,
+      "base_prose_kl_nats": 0.0,
+      "gen0_control": {
+        "b0_retention_pct": 100.0,
+        "commits": 1,
+        "holdout_gain_vs_base_pp": 0.0,
+        "holdout_mean_pct": 39.0625,
+        "prose_kl_nats": 7.22e-06
+      },
+      "seed": 3
+    },
+    {
+      "arms": {
+        "Arm_A_Naive_Additive_DeltaW": {
+          "commits": 6,
+          "final_b0_retained_count": 100,
+          "final_b0_retention_pct": 100.0,
+          "final_pi16_hex": "a9ea7f3f119ae2bbd61c05bcf8e5bd3c",
+          "final_prose_kl_nats": 0.22446947,
+          "final_shell_norm_err": 0.122263432,
+          "holdout_by_round_pct": {
+            "R1_phase": 29.6875,
+            "R2_unit_scale": 50.0,
+            "R3_logic": 59.375,
+            "R4_compass": 35.9375,
+            "R5_chrono": 56.25,
+            "R6_triage": 100.0
+          },
+          "holdout_gain_vs_base_pp": 14.5833,
+          "holdout_mean_pct": 55.2083,
+          "max_real_act_rel_shell_err": 0.020691935,
+          "max_shell_norm_err": 0.122263432,
+          "max_valid_rollback_logit_drift": 0.0,
+          "max_valid_rollback_param_drift": 0.0,
+          "max_valid_rollback_spinor_drift": 0.0,
+          "poison_rollback_audit": null,
+          "retraction_evals_total": 0,
+          "retraction_rescues": 0,
+          "rounds": [
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.04072714,
+              "reserve_after_pct": 34.375,
+              "reserve_before_pct": 43.75,
+              "retraction_evals": 0,
+              "round": "R1_phase",
+              "shell_norm_err": 0.068968296
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.04668139,
+              "reserve_after_pct": 59.375,
+              "reserve_before_pct": 59.375,
+              "retraction_evals": 0,
+              "round": "R2_unit_scale",
+              "shell_norm_err": 0.075420856
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.06333808,
+              "reserve_after_pct": 59.375,
+              "reserve_before_pct": 68.75,
+              "retraction_evals": 0,
+              "round": "R3_logic",
+              "shell_norm_err": 0.074604511
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.12849183,
+              "reserve_after_pct": 25.0,
+              "reserve_before_pct": 25.0,
+              "retraction_evals": 0,
+              "round": "R4_compass",
+              "shell_norm_err": 0.083412647
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.13229933,
+              "reserve_after_pct": 50.0,
+              "reserve_before_pct": 40.625,
+              "retraction_evals": 0,
+              "round": "R5_chrono",
+              "shell_norm_err": 0.085793018
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.22446947,
+              "reserve_after_pct": 100.0,
+              "reserve_before_pct": 62.5,
+              "retraction_evals": 0,
+              "round": "R6_triage",
+              "shell_norm_err": 0.122263432
+            }
+          ],
+          "valid_rollbacks": 0,
+          "wall_s": 33.583
+        },
+        "Arm_B_Projected_Additive_FlowNull": {
+          "commits": 6,
+          "final_b0_retained_count": 100,
+          "final_b0_retention_pct": 100.0,
+          "final_pi16_hex": "33eb7f3f8155b6bbb00305bc15fabd3c",
+          "final_prose_kl_nats": 0.004604,
+          "final_shell_norm_err": 0.088650227,
+          "holdout_by_round_pct": {
+            "R1_phase": 29.6875,
+            "R2_unit_scale": 93.75,
+            "R3_logic": 71.875,
+            "R4_compass": 35.9375,
+            "R5_chrono": 57.8125,
+            "R6_triage": 100.0
+          },
+          "holdout_gain_vs_base_pp": 24.2188,
+          "holdout_mean_pct": 64.8438,
+          "max_real_act_rel_shell_err": 0.016052704,
+          "max_shell_norm_err": 0.088650227,
+          "max_valid_rollback_logit_drift": 0.0,
+          "max_valid_rollback_param_drift": 0.0,
+          "max_valid_rollback_spinor_drift": 0.0,
+          "poison_rollback_audit": null,
+          "retraction_evals_total": 0,
+          "retraction_rescues": 0,
+          "rounds": [
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.00046609,
+              "reserve_after_pct": 28.125,
+              "reserve_before_pct": 43.75,
+              "retraction_evals": 0,
+              "round": "R1_phase",
+              "shell_norm_err": 0.022542
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.00073927,
+              "reserve_after_pct": 100.0,
+              "reserve_before_pct": 56.25,
+              "retraction_evals": 0,
+              "round": "R2_unit_scale",
+              "shell_norm_err": 0.028941631
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.00086129,
+              "reserve_after_pct": 71.875,
+              "reserve_before_pct": 62.5,
+              "retraction_evals": 0,
+              "round": "R3_logic",
+              "shell_norm_err": 0.028488636
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.00088906,
+              "reserve_after_pct": 37.5,
+              "reserve_before_pct": 21.875,
+              "retraction_evals": 0,
+              "round": "R4_compass",
+              "shell_norm_err": 0.024363518
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.00106951,
+              "reserve_after_pct": 43.75,
+              "reserve_before_pct": 40.625,
+              "retraction_evals": 0,
+              "round": "R5_chrono",
+              "shell_norm_err": 0.02990818
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.004604,
+              "reserve_after_pct": 100.0,
+              "reserve_before_pct": 31.25,
+              "retraction_evals": 0,
+              "round": "R6_triage",
+              "shell_norm_err": 0.088650227
+            }
+          ],
+          "valid_rollbacks": 0,
+          "wall_s": 31.272
+        },
+        "Arm_C_Cayley_Tangent_Unprojected": {
+          "commits": 6,
+          "final_b0_retained_count": 100,
+          "final_b0_retention_pct": 100.0,
+          "final_pi16_hex": "8de97f3fd73517bc3c5305bca23cbd3c",
+          "final_prose_kl_nats": 0.36332353,
+          "final_shell_norm_err": 5.722e-06,
+          "holdout_by_round_pct": {
+            "R1_phase": 29.6875,
+            "R2_unit_scale": 90.625,
+            "R3_logic": 70.3125,
+            "R4_compass": 34.375,
+            "R5_chrono": 56.25,
+            "R6_triage": 100.0
+          },
+          "holdout_gain_vs_base_pp": 22.9167,
+          "holdout_mean_pct": 63.5417,
+          "max_real_act_rel_shell_err": 7.86e-07,
+          "max_shell_norm_err": 6.676e-06,
+          "max_valid_rollback_logit_drift": 0.0,
+          "max_valid_rollback_param_drift": 0.0,
+          "max_valid_rollback_spinor_drift": 0.0,
+          "poison_rollback_audit": null,
+          "retraction_evals_total": 0,
+          "retraction_rescues": 0,
+          "rounds": [
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.07622242,
+              "reserve_after_pct": 28.125,
+              "reserve_before_pct": 43.75,
+              "retraction_evals": 0,
+              "round": "R1_phase",
+              "shell_norm_err": 5.722e-06
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.25410586,
+              "reserve_after_pct": 43.75,
+              "reserve_before_pct": 56.25,
+              "retraction_evals": 0,
+              "round": "R2_unit_scale",
+              "shell_norm_err": 3.338e-06
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.17265348,
+              "reserve_after_pct": 40.625,
+              "reserve_before_pct": 75.0,
+              "retraction_evals": 0,
+              "round": "R3_logic",
+              "shell_norm_err": 6.676e-06
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.16873616,
+              "reserve_after_pct": 28.125,
+              "reserve_before_pct": 25.0,
+              "retraction_evals": 0,
+              "round": "R4_compass",
+              "shell_norm_err": 5.722e-06
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.20918966,
+              "reserve_after_pct": 59.375,
+              "reserve_before_pct": 40.625,
+              "retraction_evals": 0,
+              "round": "R5_chrono",
+              "shell_norm_err": 3.815e-06
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "UNCONDITIONAL_APPLY",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.36332353,
+              "reserve_after_pct": 100.0,
+              "reserve_before_pct": 37.5,
+              "retraction_evals": 0,
+              "round": "R6_triage",
+              "shell_norm_err": 5.722e-06
+            }
+          ],
+          "valid_rollbacks": 0,
+          "wall_s": 28.773
+        },
+        "Arm_D_Cayley_FlowNull_Retract_Spinor16B": {
+          "commits": 4,
+          "final_b0_retained_count": 100,
+          "final_b0_retention_pct": 100.0,
+          "final_pi16_hex": "d80a7e3f5407cdbd84dc443d16b45c3d",
+          "final_prose_kl_nats": 0.00401127,
+          "final_shell_norm_err": 4.768e-06,
+          "holdout_by_round_pct": {
+            "R1_phase": 29.6875,
+            "R2_unit_scale": 98.4375,
+            "R3_logic": 51.5625,
+            "R4_compass": 35.9375,
+            "R5_chrono": 50.0,
+            "R6_triage": 100.0
+          },
+          "holdout_gain_vs_base_pp": 20.3125,
+          "holdout_mean_pct": 60.9375,
+          "max_real_act_rel_shell_err": 8.58e-07,
+          "max_shell_norm_err": 7.629e-06,
+          "max_valid_rollback_logit_drift": 0.0,
+          "max_valid_rollback_param_drift": 0.0,
+          "max_valid_rollback_spinor_drift": 0.0,
+          "poison_rollback_audit": {
+            "all_weights_sha_exact": true,
+            "attacks_blocked": 6,
+            "attacks_total": 6,
+            "details": [
+              {
+                "attack": "POISON_1_PROSE_KL_BOMB",
+                "blocked": true,
+                "logit_rollback_drift": 0.0,
+                "param_rollback_drift": 0.0,
+                "reason": "kl_all_gammas=[0.4154, 0.2246, 0.1494]>0.005",
+                "spinor_rollback_drift": 0.0,
+                "weights_sha_restored_exact": true
+              },
+              {
+                "attack": "POISON_2_ANCHOR_FLIP",
+                "blocked": true,
+                "logit_rollback_drift": 0.0,
+                "param_rollback_drift": 0.0,
+                "reason": "b0=99/100_kl=0.7338",
+                "spinor_rollback_drift": 0.0,
+                "weights_sha_restored_exact": true
+              },
+              {
+                "attack": "POISON_3_RADIAL_H3B_BLOWUP",
+                "blocked": true,
+                "logit_rollback_drift": 0.0,
+                "param_rollback_drift": 0.0,
+                "reason": "shell_err=3.8489e+00>=1e-5",
+                "spinor_rollback_drift": 0.0,
+                "weights_sha_restored_exact": true
+              },
+              {
+                "attack": "POISON_4_NONFINITE_NAN",
+                "blocked": true,
+                "logit_rollback_drift": 0.0,
+                "param_rollback_drift": 0.0,
+                "reason": "non_finite_weight_detected",
+                "spinor_rollback_drift": 0.0,
+                "weights_sha_restored_exact": true
+              },
+              {
+                "attack": "POISON_5_PI16_HEADER_TAMPER",
+                "blocked": true,
+                "logit_rollback_drift": 0.0,
+                "param_rollback_drift": 0.0,
+                "reason": "PI_T0_SHA_MISMATCH",
+                "spinor_rollback_drift": 0.0,
+                "weights_sha_restored_exact": true
+              },
+              {
+                "attack": "POISON_6_STEALTH_RESERVE_SABOTAGE",
+                "blocked": true,
+                "logit_rollback_drift": 0.0,
+                "param_rollback_drift": 0.0,
+                "reason": "resv_delta=-68.75pp_kl=0.004797",
+                "spinor_rollback_drift": 0.0,
+                "weights_sha_restored_exact": true
+              }
+            ],
+            "max_logit_rollback_drift": 0.0,
+            "max_param_rollback_drift": 0.0,
+            "max_spinor_rollback_drift": 0.0
+          },
+          "retraction_evals_total": 1,
+          "retraction_rescues": 1,
+          "rounds": [
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "ROLLBACK",
+              "gamma_used": 0.0,
+              "prose_kl_nats": 0.00082709,
+              "reserve_after_pct": 25.0,
+              "reserve_before_pct": 43.75,
+              "retraction_evals": 0,
+              "round": "R1_phase",
+              "shell_norm_err": 5.722e-06
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "COMMIT",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.00069608,
+              "reserve_after_pct": 100.0,
+              "reserve_before_pct": 56.25,
+              "retraction_evals": 0,
+              "round": "R2_unit_scale",
+              "shell_norm_err": 3.815e-06
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "ROLLBACK",
+              "gamma_used": 0.0,
+              "prose_kl_nats": 0.001162,
+              "reserve_after_pct": 50.0,
+              "reserve_before_pct": 62.5,
+              "retraction_evals": 0,
+              "round": "R3_logic",
+              "shell_norm_err": 4.768e-06
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "COMMIT",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.00114727,
+              "reserve_after_pct": 40.625,
+              "reserve_before_pct": 21.875,
+              "retraction_evals": 0,
+              "round": "R4_compass",
+              "shell_norm_err": 7.629e-06
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "COMMIT",
+              "gamma_used": 1.0,
+              "prose_kl_nats": 0.00254048,
+              "reserve_after_pct": 50.0,
+              "reserve_before_pct": 40.625,
+              "retraction_evals": 0,
+              "round": "R5_chrono",
+              "shell_norm_err": 4.768e-06
+            },
+            {
+              "b0_retention_pct": 100.0,
+              "decision": "COMMIT_RETRACTED",
+              "gamma_used": 0.5,
+              "prose_kl_nats": 0.00401127,
+              "reserve_after_pct": 100.0,
+              "reserve_before_pct": 31.25,
+              "retraction_evals": 1,
+              "round": "R6_triage",
+              "shell_norm_err": 4.768e-06
+            }
+          ],
+          "valid_rollbacks": 2,
+          "wall_s": 47.962
+        }
+      },
+      "base_b0_retention_pct": 100.0,
+      "base_holdout_by_round_pct": {
+        "R1_phase": 31.25,
+        "R2_unit_scale": 50.0,
+        "R3_logic": 46.875,
+        "R4_compass": 34.375,
+        "R5_chrono": 43.75,
+        "R6_triage": 37.5
+      },
+      "base_holdout_mean_pct": 40.625,
+      "base_prose_kl_nats": 0.0,
+      "gen0_control": {
+        "b0_retention_pct": 100.0,
+        "commits": 0,
+        "holdout_gain_vs_base_pp": 0.0,
+        "holdout_mean_pct": 40.625,
+        "prose_kl_nats": 0.0
+      },
+      "seed": 4
+    }
+  ],
+  "preregistration_file": "preregistration_phase2_geodesic_retraction.md",
+  "preregistration_sha256": "41df4e46669f17a42da33351ea3e6180d44499e99255955006d76e197091ced9",
+  "result_sha256": "e08caa0093833953c6a427a1746411d95854b9416ede4dc5cc095aef614077db",
+  "schema": "so_d_phase2_geodesic_retraction_results_v1",
+  "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "stats_paired_t_df4": {
+    "G1_logKL_A_minus_D": {
+      "df": 4.0,
+      "mean_diff": 4.09809058,
+      "p_holm": 0.00080578,
+      "p_raw": 0.00040289,
+      "se_diff": 0.37613299,
+      "t_stat": 10.895323
+    },
+    "G1_rawKL_A_minus_D": {
+      "df": 4.0,
+      "mean_diff": 0.31991267,
+      "p_holm": 0.13411179,
+      "p_raw": 0.04470393,
+      "se_diff": 0.11081702,
+      "t_stat": 2.886855
+    },
+    "G2_holdout_D_minus_A": {
+      "df": 4.0,
+      "mean_diff": 2.96876,
+      "p_holm": 0.04790415,
+      "p_raw": 0.04790415,
+      "se_diff": 1.05333564,
+      "t_stat": 2.818437
+    },
+    "G2_holdout_D_minus_Base": {
+      "df": 4.0,
+      "mean_diff": 18.80208,
+      "p_holm": 1.739e-05,
+      "p_raw": 5.8e-06,
+      "se_diff": 0.59040733,
+      "t_stat": 31.845946
+    },
+    "G2_holdout_D_minus_Gen0": {
+      "df": 4.0,
+      "mean_diff": 18.80208,
+      "p_holm": 1.74e-05,
+      "p_raw": 5.8e-06,
+      "se_diff": 0.59040733,
+      "t_stat": 31.845946
+    }
+  },
+  "steps_per_round": 20,
+  "summary_arms": {
+    "Arm_A_Naive_Additive_DeltaW": {
+      "max_real_act_rel_shell_err": 0.044627555,
+      "max_shell_norm_err": 0.246870041,
+      "mean_b0_retention_pct": 100.0,
+      "mean_commits": 6.0,
+      "mean_holdout_gain_pp": 15.8333,
+      "mean_holdout_pct": 57.3437,
+      "mean_prose_kl_nats": 0.32408389,
+      "min_commits": 6,
+      "per_seed_commits": [
+        6,
+        6,
+        6,
+        6,
+        6
+      ],
+      "per_seed_holdout_gain_pp": [
+        14.5833,
+        17.9688,
+        14.8438,
+        17.1875,
+        14.5833
+      ],
+      "per_seed_prose_kl_nats": [
+        0.07558453,
+        0.70687215,
+        0.19052943,
+        0.42296385,
+        0.22446947
+      ],
+      "per_seed_retraction_rescues": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "total_retraction_rescues": 0
+    },
+    "Arm_B_Projected_Additive_FlowNull": {
+      "max_real_act_rel_shell_err": 0.07974764,
+      "max_shell_norm_err": 0.477617264,
+      "mean_b0_retention_pct": 100.0,
+      "mean_commits": 6.0,
+      "mean_holdout_gain_pp": 19.0625,
+      "mean_holdout_pct": 60.5729,
+      "mean_prose_kl_nats": 0.00776372,
+      "min_commits": 6,
+      "per_seed_commits": [
+        6,
+        6,
+        6,
+        6,
+        6
+      ],
+      "per_seed_holdout_gain_pp": [
+        16.6667,
+        19.2708,
+        16.1458,
+        19.0104,
+        24.2188
+      ],
+      "per_seed_prose_kl_nats": [
+        0.00665945,
+        0.00776524,
+        0.01002073,
+        0.0097692,
+        0.004604
+      ],
+      "per_seed_retraction_rescues": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "total_retraction_rescues": 0
+    },
+    "Arm_C_Cayley_Tangent_Unprojected": {
+      "max_real_act_rel_shell_err": 7.86e-07,
+      "max_shell_norm_err": 7.629e-06,
+      "mean_b0_retention_pct": 100.0,
+      "mean_commits": 6.0,
+      "mean_holdout_gain_pp": 18.3333,
+      "mean_holdout_pct": 59.8438,
+      "mean_prose_kl_nats": 0.38466238,
+      "min_commits": 6,
+      "per_seed_commits": [
+        6,
+        6,
+        6,
+        6,
+        6
+      ],
+      "per_seed_holdout_gain_pp": [
+        17.9688,
+        16.1458,
+        14.5833,
+        20.0521,
+        22.9167
+      ],
+      "per_seed_prose_kl_nats": [
+        0.41064523,
+        0.6374259,
+        0.34931488,
+        0.16260237,
+        0.36332353
+      ],
+      "per_seed_retraction_rescues": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "total_retraction_rescues": 0
+    },
+    "Arm_D_Cayley_FlowNull_Retract_Spinor16B": {
+      "max_real_act_rel_shell_err": 8.65e-07,
+      "max_shell_norm_err": 7.629e-06,
+      "mean_b0_retention_pct": 100.0,
+      "mean_commits": 4.8,
+      "mean_holdout_gain_pp": 18.8021,
+      "mean_holdout_pct": 60.3125,
+      "mean_prose_kl_nats": 0.00417121,
+      "min_commits": 4,
+      "per_seed_commits": [
+        5,
+        5,
+        5,
+        5,
+        4
+      ],
+      "per_seed_holdout_gain_pp": [
+        19.7917,
+        18.4896,
+        16.9271,
+        18.4896,
+        20.3125
+      ],
+      "per_seed_prose_kl_nats": [
+        0.00443109,
+        0.00412317,
+        0.00341156,
+        0.00487898,
+        0.00401127
+      ],
+      "per_seed_retraction_rescues": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "total_retraction_rescues": 4
+    }
+  },
+  "summary_base_holdout_mean_pct": 41.5104,
+  "summary_gen0_holdout_mean_pct": 41.5104,
+  "total_wall_s": 893.031
+}
