@@ -1,0 +1,5 @@
+name = "VelocityBounds"
+defaultTargets = ["VelocityBounds"]
+
+[[lean_lib]]
+name = "VelocityBounds"
