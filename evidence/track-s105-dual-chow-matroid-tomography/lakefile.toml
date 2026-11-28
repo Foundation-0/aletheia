@@ -1,0 +1,5 @@
+name = "DualChowMatroidTomography"
+defaultTargets = ["DualChowMatroidTomography"]
+
+[[lean_lib]]
+name = "DualChowMatroidTomography"
