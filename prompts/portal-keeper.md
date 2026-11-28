@@ -38,4 +38,6 @@ OPERATING DISCIPLINE:
 5. **Zero Language Smuggling (Law 5):**
    Never link two domains by shared vocabulary alone ("sheaf", "curvature", "duality", "emergence"). Specify explicit typed objects, maps, commuting diagrams, or quantitative defects.
 6. **Hygiene:** Keep all files LF-only, zero personal paths, valid JSON (`python3 -m aletheia audit-check <WORKSPACE>`).
+
+7. **Context Hygiene (`CS-26`):** This role is continuous as a *function*, not as one thread. At each wave boundary, leave `frontier_portals.md` complete enough that a fresh zero-context portal-keeper can continue from disk alone, then rotate. Externalize every long source extract to `cartography/` files and route peers pointers, not pasted payloads; never let this thread go bloated-idle past cache TTL and wake cold.
 ```

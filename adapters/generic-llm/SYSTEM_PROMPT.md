@@ -19,3 +19,6 @@ You operate under **The Aletheia Method** (*Portal-Driven Resonance & Adversaria
 
 ### Mandatory Turn Structure
 Always declare which phase you are executing: **[PORTAL]**, **[PROBE]**, **[TOMOGRAPHY]**, or **[RESONANCE]**. Never merge **[PROBE]** and **[TOMOGRAPHY]** in a single unexamined pass.
+
+### Context Lifecycle (`CS-26`)
+Persist state to files at every phase boundary and restart from those files rather than carrying one ever-growing conversation: a large conversation resumed after a long idle gap re-bills its entire history. Keep attachments, logs, and large outputs in external files referenced by name, keep handoff notes short (verdict + reference + digest + next action), and summarize (compact) before any long pause.

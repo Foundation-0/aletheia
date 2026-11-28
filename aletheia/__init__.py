@@ -37,6 +37,12 @@ from .gates_v2 import (
     run_v2_gates_self_test,
 )
 from .safety import scan_hidden_unicode, scan_text_safety_surface, scan_directory_safety_surface
+from .context_hygiene import (
+    audit_context_hygiene,
+    evaluate_reactivation_policy,
+    run_context_hygiene_demo,
+    run_context_hygiene_self_test,
+)
 
 __all__ = [
     "__version__",
@@ -70,4 +76,8 @@ __all__ = [
     "scan_hidden_unicode",
     "scan_text_safety_surface",
     "scan_directory_safety_surface",
+    "evaluate_reactivation_policy",
+    "audit_context_hygiene",
+    "run_context_hygiene_demo",
+    "run_context_hygiene_self_test",
 ]

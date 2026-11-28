@@ -28,3 +28,7 @@ python3 -m aletheia audit-check .
 python3 -m aletheia diagnose .
 python3 -m aletheia mutate path/to/verifier.py --test-cmd "python3 -I -O -B path/to/test.py"
 ```
+
+## Context Lifecycle (`CS-26`)
+
+Sessions are ephemeral, files are durable: land results on disk, then continue in a fresh zero-context session briefed by paths instead of reusing a bloated thread. Compact before idling a large session past cache TTL (a cold wake pays the full stale history), keep payloads in external files with concise pointer messages, and rotate operational roles per wave (`python3 -m aletheia context-hygiene --demo`).

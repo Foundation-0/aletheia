@@ -34,3 +34,7 @@ Run strict 4-phase cycles (**Portal $\to$ Probe $\to$ Tomography $\to$ Resonance
 python3 -m aletheia audit-check .
 python3 -m aletheia diagnose .
 ```
+
+## Context Lifecycle (`CS-26`)
+
+Start a fresh Agent chat per phase/task once prior work is saved to disk; referencing saved files is cheaper than reviving a bloated idle chat cold past cache TTL. Compact or close large chats before long breaks, keep logs/diffs/manifests in external files, and keep progress notes to verdict + path + digest + action. Check with `python3 -m aletheia context-hygiene --self-test`.

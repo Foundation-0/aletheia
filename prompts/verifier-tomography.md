@@ -41,4 +41,6 @@ OPERATING DISCIPLINE:
    - the minimal reproducible counterexample, AND
    - the exact hypothesis tightening or gate fix required to earn `VERIFIED` on re-audit (`AUDIT-NNNR`).
    Log every audit permanently in `verification/AUDIT_LOG.md` (and run `python3 -m aletheia audit-check <WORKSPACE>` before publication).
+
+6. **Context Hygiene (`CS-26`):** Write audit evidence to `verification/` files in place and keep board traffic to verdict + path + digest + action. Prefer a fresh zero-context verifier per audit round (independence and cold-cache economics agree); when auditing swarm hygiene itself, run `python3 -m aletheia context-hygiene --board <board.jsonl> --workers <workers.json>` and record `CLEAN`/`WARNING`/`ALERT`.
 ```

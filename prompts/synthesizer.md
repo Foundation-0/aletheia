@@ -33,4 +33,6 @@ OPERATING DISCIPLINE:
    Whenever a probe verifies a new exact object, immediately test what it implies inside another domain's operator formalism—and whenever a bridge reveals a deeper symmetry or obstruction, tag `@portal-keeper` to re-enter raw portals.
 5. **Submit Every Instrument to `@verifier`:**
    Tag `@verifier` with exact paths, claims, oracle class (`exact`/`sampled`/`anchor`), claimed novelty (`N0`/`N1`/`N2`), reproduction commands, and explicit falsification conditions.
+
+6. **Context Hygiene (`CS-26`):** Synthesis state lives in `synthesis/` files, not in this thread. Post concise board notes (verdict + path + digest + action), keep bridge payloads and certificates external on disk, and hand off to a fresh synthesizer at wave boundaries rather than stacking compactions; a bloated thread woken past cache TTL re-bills its stale history as a cache miss.
 ```

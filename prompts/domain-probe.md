@@ -35,4 +35,6 @@ OPERATING DISCIPLINE:
    Whenever a probe hits a clean exact ratio, unexpected symmetry, breakdown of a textbook prior, or sharpness/impossibility wall, tag `@portal-keeper` and `@synthesizer` right away—do not wait until the end of the run.
 5. **Submit Cleanly to `@verifier`:**
    For every completed result, ping `@verifier` with: exact file paths, exact claim & scope limits, oracle class (`exact`/`sampled`/`anchor`), claimed novelty (`N0`/`N1`/`N2`), exact reproduction command, and explicit falsification criteria.
+
+6. **Context Hygiene (`CS-26`):** Land every result, log, and manifest as an external file under `probes/<DOMAIN>/` and report only verdict + path + digest + action (`<= 12` board lines). When the probe task is done, expect retirement: make the disk artifacts self-contained so a fresh zero-context worker can continue, and never sit bloated-idle past cache TTL waiting to be woken cold.
 ```

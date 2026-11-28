@@ -68,3 +68,13 @@ Reported audit across `227,540` Lean 4 files (`0` collisions, all Unicode `Sm`; 
 - Domain packs: [domains/README.md](../../../../../../domains/README.md)
 - Platform adapters: [adapters/README.md](../../../../../../adapters/README.md)
 - Worked 3-second demo: [examples/worked_resonance_cycle/README.md](../../../../../../examples/worked_resonance_cycle/README.md)
+
+## 7. Context Hygiene (`CS-26`) in One Screen
+
+| Trap | Rule | Check |
+|---|---|---|
+| Bloated idle worker woken cold | Retire/respawn fresh, or compact before idle past TTL (`300` s) | `context-hygiene --workers` |
+| Payload pasted into board/chat | External file + `<= 12`-line pointer (verdict/path/digest/action) | `context-hygiene --board` |
+| One thread, endless compactions | Rotate the role each wave; state lives on disk | `context-hygiene --self-test` |
+
+Dominance (exact `Q`): respawn `c_miss*L_0` beats cold `c_miss*L` when `L_0 < L`; compaction costs `c_hit*L + c_out*S + c_miss*(L_sys + S)` (the `c_hit*L` cached summarization read included) and beats cold when `c_miss > c_hit` and `L > (c_out*S + c_miss*(L_sys + S))/(c_miss - c_hit)`; when `c_miss <= c_hit` compaction never strictly beats cold.

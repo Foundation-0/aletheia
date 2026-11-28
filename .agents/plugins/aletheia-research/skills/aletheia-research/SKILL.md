@@ -72,3 +72,14 @@ python3 -m aletheia handoff manifests/wave2.json --init-template
 ```
 
 Every verification script must use zero bare `assert`s on validation paths, LF-only line endings, and produce identical verdicts across `python3 -I -B`, `python3 -I -O -B`, and `python3 -I -B -W error`.
+
+## Context Lifecycle & Cold-Cache Hygiene (`CS-26`)
+
+- **Retire & respawn:** a worker whose output is on disk (zero background tasks) is retired, not reused; the next task gets a fresh zero-context worker briefed by exact paths.
+- **Cold-cache guard:** bloated workers (default `>150000` tokens) are never left idle past cache TTL (`300` s) to wake cold; compact pre-idle or respawn (`aletheia context-hygiene` prices both in exact rationals).
+- **External files in place:** payloads stay on disk; board posts are `<= 12` lines (verdict + path + digest + action). Rotate high-churn roles at wave boundaries.
+
+```bash
+python3 -m aletheia context-hygiene --self-test --json   # CS-26 pure-Q policy checks
+python3 -m aletheia context-hygiene --board board.jsonl --workers workers.json --json
+```
