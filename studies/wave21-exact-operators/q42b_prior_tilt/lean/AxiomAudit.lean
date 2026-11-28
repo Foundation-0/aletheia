@@ -1,0 +1,11 @@
+import PriorTilt
+
+#print axioms PriorTilt.netGain_pos_of_gt
+#print axioms PriorTilt.prior_tilt_imbalance_gain
+#print axioms PriorTilt.prior_tilt_witness_77_vs_52
+#print axioms PriorTilt.balanced_numerator_zero_of_equal
+#print axioms PriorTilt.balanced_prior_gate_sufficiency
+#print axioms PriorTilt.fixed_grid_defect_bound
+#print axioms PriorTilt.contraction_factor_1_625
+#print axioms PriorTilt.fixed_grid_remainder_contraction
+#print axioms PriorTilt.fixed_grid_remainder_two_steps

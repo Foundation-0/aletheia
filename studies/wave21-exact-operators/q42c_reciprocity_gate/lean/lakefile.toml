@@ -1,0 +1,6 @@
+name = "ReciprocityGate"
+version = "0.1.0"
+defaultTargets = ["ReciprocityGate"]
+
+[[lean_lib]]
+name = "ReciprocityGate"
