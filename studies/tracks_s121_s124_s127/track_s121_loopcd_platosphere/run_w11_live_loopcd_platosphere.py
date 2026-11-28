@@ -7,14 +7,15 @@
     Base LLMs (`Qwen2.5-0.5B`, `Qwen2.5-1.5B`, `SmolLM2-360M`, strict `HF_HUB_OFFLINE=1`).
 
 Pure-stdlib `--selftest-stdlib --json` runs cleanly under stock `/usr/bin/python3 -I` (verifying
-PREREG SHA-256 pin, factual suite subject-disjointness >= 120 facts, and exact closed-form
-Procrustes/SphereMap algebra without torch).
+PREREG SHA-256 pin, factual suite subject-disjointness >= 120 facts, and Zone-B bundle
+provenance when present, without torch).
 Zero bare asserts; strictly seeded RNG; zero host-path leaks; WEIGHTS = 0 inside expedition/.
 """
 
 from __future__ import annotations
 
 import argparse
+import errno
 import gc
 import hashlib
 import hmac
@@ -24,6 +25,8 @@ import os
 from pathlib import Path
 import random
 import re
+import stat
+import subprocess
 import sys
 import time
 from typing import Any, Dict, List, Optional, Sequence, Tuple
@@ -32,9 +35,102 @@ SCHEMA_W11_LIVE = "aletheia.wave11.live_loopcd_platosphere.v1"
 SCHEMA_W11_SELFTEST = "aletheia.wave11.live_loopcd_platosphere_selftest.v1"
 PREREG_FILENAME = "PREREG_W11_LIVE_LOOPCD_PLATOSPHERE.md"
 PINNED_PREREG_SHA256 = "b09baa4d6adab2b2883064b294b7e66656b135bca09ee672d50f60e14539ef05"
+PINNED_PROFILE_ID = "ux582hs-rtx3080-8gb"
+PINNED_PROFILE_SHA256 = "566c9192d38682a0ec4d652a63a3510aaefb9dc20ef91ae9bdc6d4abbbf5cbe2"
+PINNED_COMMITTED_RESULTS_PAYLOAD_SHA256 = "8d3000e3b45a17b0b8b8a68289d9d1755d2bc5d55cfbc7e6a1e4444ebb07f891"
+PINNED_COMMITTED_RESULTS_FILE_SHA256 = "70493bada84e449ce121b9437b409135c562b3eae434623a3c9a4f6f8d5a7b67"
+PINNED_COMMITTED_RECEIPT_SHA256 = "7f31de378b1b067c1edce9f5cc12400b1649ae3e95e6291568d90ccab0889fb0"
+EXPECTED_GPU_NAME = "NVIDIA GeForce RTX 3080 Laptop GPU"
+EXPECTED_DETERMINISM_PINS: Dict[str, str] = {
+    "CUBLAS_WORKSPACE_CONFIG": ":4096:8",
+    "HF_HUB_OFFLINE": "1",
+    "MKL_NUM_THREADS": "1",
+    "NUMEXPR_NUM_THREADS": "1",
+    "OMP_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "1",
+    "PYTHONHASHSEED": "0",
+    "TORCH_USE_DETERMINISTIC_ALGORITHMS": "1",
+    "TRANSFORMERS_OFFLINE": "1",
+    "VECLIB_MAXIMUM_THREADS": "1",
+}
+REQUIRED_RESULTS_KEYS = frozenset(
+    {
+        "gpu_name",
+        "payload_sha256",
+        "prereg_filename",
+        "prereg_sha256",
+        "probe_a_loopcd_strang_holosphere_v3",
+        "probe_b_platos_key_spheremap_procrustes",
+        "schema",
+        "wall_seconds",
+    }
+)
+OPTIONAL_RESULTS_GIT_KEYS = frozenset({"git_head", "git_head_status"})
+EXPECTED_RECEIPT_KEYS = frozenset(
+    {
+        "anomalies",
+        "bound_prereg_file",
+        "bound_prereg_sha256",
+        "bound_profile_file",
+        "bound_results_file",
+        "bound_results_file_sha256",
+        "bound_results_payload_sha256",
+        "clean_hardware_run",
+        "determinism_pins",
+        "determinism_zone",
+        "end_gpu_telemetry",
+        "energy_power_status",
+        "execution",
+        "git_head",
+        "git_head_status",
+        "gpu_telemetry_available",
+        "host",
+        "profile_id",
+        "profile_sha256",
+        "receipt_sha256",
+        "schema",
+        "start_gpu_telemetry",
+    }
+)
+EXPECTED_PROBE_B_MODELS = frozenset(
+    {
+        "HuggingFaceTB/SmolLM2-360M",
+        "Qwen/Qwen2.5-0.5B",
+        "Qwen/Qwen2.5-1.5B",
+    }
+)
+EXPECTED_PROBE_B_PAIRS = frozenset(
+    {
+        "Qwen2.5-0.5B_to_Qwen2.5-1.5B",
+        "Qwen2.5-1.5B_to_Qwen2.5-0.5B",
+        "Qwen2.5-1.5B_to_SmolLM2-360M",
+        "SmolLM2-360M_to_Qwen2.5-0.5B",
+    }
+)
+_GIT_EXE_CANDIDATES = ("/usr/bin/git", "/bin/git", "/usr/local/bin/git")
 
 VOCAB_SIZE = 260
 BOS_ID = 256
+MAX_ZONE_B_FILE_BYTES = 16 * 1024 * 1024
+MAX_JSON_INT_DIGITS = 1024
+MAX_JSON_DEPTH = 64
+_HEX40_RE = re.compile(r"^[0-9a-f]{40}\Z")
+_HEX64_RE = re.compile(r"^[0-9a-f]{64}\Z")
+_GIT_LOCAL_ENV_VARS = frozenset(
+    {
+        "GIT_DIR",
+        "GIT_WORK_TREE",
+        "GIT_INDEX_FILE",
+        "GIT_OBJECT_DIRECTORY",
+        "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+        "GIT_COMMON_DIR",
+        "GIT_CONFIG",
+        "GIT_CONFIG_GLOBAL",
+        "GIT_CONFIG_SYSTEM",
+        "GIT_CONFIG_PARAMETERS",
+        "GIT_CONFIG_COUNT",
+    }
+)
 
 
 class Wave11ProbeError(RuntimeError):
@@ -61,8 +157,85 @@ def _canonical_json_bytes(obj: Any) -> bytes:
     ).encode("ascii")
 
 
-def _sha256_file(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+def _open_path_nofollow(path: Path, code: str, *, is_dir: bool) -> int:
+    """Walk every path component from / using dir_fd + O_NOFOLLOW (TOCTOU-free)."""
+    dir_flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
+    leaf_flags = dir_flags if is_dir else (os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0))
+    if path.is_absolute():
+        parts = path.parts[1:]
+    else:
+        cwd = Path(os.getcwd())
+        parts = (*cwd.parts[1:], *path.parts)
+    require_ok(len(parts) > 0, code, "Root path refused")
+    cur_fd = -1
+    try:
+        cur_fd = os.open("/", os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+        for comp in parts[:-1]:
+            if comp == ".":
+                continue
+            next_fd = os.open(comp, dir_flags, dir_fd=cur_fd)
+            try:
+                os.close(cur_fd)
+            except OSError:
+                pass
+            cur_fd = next_fd
+        return os.open(parts[-1], leaf_flags, dir_fd=cur_fd)
+    except OSError as exc:
+        raise Wave11ProbeError(code, f"Unable to open path: {path.name}") from exc
+    finally:
+        if cur_fd >= 0:
+            try:
+                os.close(cur_fd)
+            except OSError:
+                pass
+
+
+def _read_regular_file_bytes(
+    path: Path,
+    code: str,
+    *,
+    max_bytes: int = MAX_ZONE_B_FILE_BYTES,
+    check_parents: Sequence[Path] = (),
+) -> bytes:
+    """Read a regular non-symlink file via dir_fd O_NOFOLLOW | O_NONBLOCK with strict byte cap."""
+    for cp in check_parents:
+        cp_fd = _open_path_nofollow(cp, code, is_dir=True)
+        try:
+            os.close(cp_fd)
+        except OSError:
+            pass
+    fd = _open_path_nofollow(path, code, is_dir=False)
+    try:
+        try:
+            st = os.fstat(fd)
+            require_ok(stat.S_ISREG(st.st_mode), code, f"Non-regular file refused: {path.name}")
+            chunks: List[bytes] = []
+            remaining = max_bytes + 1
+            while remaining > 0:
+                chunk = os.read(fd, min(65536, remaining))
+                if not chunk:
+                    break
+                chunks.append(chunk)
+                remaining -= len(chunk)
+        except OSError as exc:
+            raise Wave11ProbeError(code, f"Unable to read regular file: {path.name}") from exc
+        data = b"".join(chunks)
+        require_ok(len(data) <= max_bytes, code, f"File exceeds byte cap: {path.name}")
+        return data
+    finally:
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+
+
+def _sha256_file(
+    path: Path,
+    *,
+    code: str = "ZONEB_FILE_MISSING",
+    check_parents: Sequence[Path] = (),
+) -> str:
+    return hashlib.sha256(_read_regular_file_bytes(path, code, check_parents=check_parents)).hexdigest()
 
 
 def _expedition_root() -> Path:
@@ -254,6 +427,18 @@ RAW_FACTS: Tuple[Tuple[str, str, str], ...] = (
 )
 
 
+def _check_splits_disjoint(
+    train_f: Sequence[Tuple[str, str, str]],
+    val_f: Sequence[Tuple[str, str, str]],
+    test_f: Sequence[Tuple[str, str, str]],
+) -> None:
+    """Fail-closed guard verifying train/val/test subject sets are pairwise disjoint."""
+    tr_s = {s for _, s, _ in train_f}
+    va_s = {s for _, s, _ in val_f}
+    te_s = {s for _, s, _ in test_f}
+    require_ok(len(tr_s & va_s) == 0 and len(tr_s & te_s) == 0 and len(va_s & te_s) == 0, "SPLIT_LEAK", "Subject overlap")
+
+
 def build_subject_disjoint_fact_splits(
     seed: int = 20261125,
     facts: Sequence[Tuple[str, str, str]] = RAW_FACTS,
@@ -281,57 +466,398 @@ def build_subject_disjoint_fact_splits(
         val_f.extend(items[n_tr : n_tr + n_va])
         test_f.extend(items[n_tr + n_va :])
 
-    tr_s = {s for _, s, _ in train_f}
-    va_s = {s for _, s, _ in val_f}
-    te_s = {s for _, s, _ in test_f}
-    require_ok(len(tr_s & va_s) == 0 and len(tr_s & te_s) == 0 and len(va_s & te_s) == 0, "SPLIT_LEAK", "Subject overlap")
+    _check_splits_disjoint(train_f, val_f, test_f)
     return {"train": train_f, "val": val_f, "test": test_f}
 
 
-def _resolve_prereg_sha256(*, require_file: bool) -> Tuple[str, str]:
-    """Verify pinned PREREG SHA-256 on disk when present; allow pinned standalone selftest when isolated."""
+def _resolve_git_exe() -> Optional[str]:
+    """Return an absolute system git binary without trusting mutable PATH entries."""
+    for cand in _GIT_EXE_CANDIDATES:
+        if os.path.isfile(cand) and os.access(cand, os.X_OK):
+            return cand
+    return None
+
+
+def _clean_git_env() -> Dict[str, str]:
+    return {k: v for k, v in os.environ.items() if k not in _GIT_LOCAL_ENV_VARS}
+
+
+def _capture_git_head(repo_dir: Path) -> Tuple[Optional[str], str]:
+    """Capture live 40-char lowercase hex git HEAD + clean/dirty status, or not_captured_at_run_time."""
+    git_exe = _resolve_git_exe()
+    if git_exe is None:
+        return None, "not_captured_at_run_time"
+    env = _clean_git_env()
+    try:
+        head_p = subprocess.run(
+            [git_exe, "-C", str(repo_dir), "rev-parse", "--verify", "HEAD"],
+            capture_output=True,
+            timeout=5,
+            env=env,
+            check=False,
+        )
+        head_out = head_p.stdout.decode("utf-8", errors="strict")
+    except (OSError, subprocess.TimeoutExpired, UnicodeDecodeError):
+        return None, "not_captured_at_run_time"
+    if head_p.returncode != 0:
+        return None, "not_captured_at_run_time"
+    sha = head_out.strip()
+    if _HEX40_RE.fullmatch(sha) is None:
+        return None, "not_captured_at_run_time"
+    try:
+        st_p = subprocess.run(
+            [git_exe, "-C", str(repo_dir), "status", "--porcelain"],
+            capture_output=True,
+            timeout=5,
+            env=env,
+            check=False,
+        )
+        st_out = st_p.stdout.decode("utf-8", errors="strict")
+    except (OSError, subprocess.TimeoutExpired, UnicodeDecodeError):
+        return sha, "captured_dirty"
+    if st_p.returncode != 0:
+        return sha, "captured_dirty"
+    return (sha, "captured") if st_out.strip() == "" else (sha, "captured_dirty")
+
+
+def _verify_git_commit_exists(repo_dir: Path, sha: str) -> bool:
+    """Verify that a claimed 40-hex git_head commit exists in the enclosing git repository."""
+    git_exe = _resolve_git_exe()
+    if git_exe is None:
+        return False
+    try:
+        chk = subprocess.run(
+            [git_exe, "-C", str(repo_dir), "cat-file", "-e", f"{sha}^{{commit}}"],
+            capture_output=True,
+            timeout=5,
+            env=_clean_git_env(),
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return chk.returncode == 0
+
+
+def build_zone_b_git_head_fields(git_head: Optional[str], *, dirty: bool = False) -> Dict[str, Any]:
+    """Emit paired (git_head, git_head_status) receipt fields fail-closed."""
+    if git_head is None:
+        return {"git_head": None, "git_head_status": "not_captured_at_run_time"}
+    require_ok(
+        type(git_head) is str and _HEX40_RE.fullmatch(git_head) is not None,
+        "INVALID_GIT_HEAD",
+        "git_head must be None or a 40-char lowercase hex commit hash",
+    )
+    return {"git_head": git_head, "git_head_status": "captured_dirty" if dirty else "captured"}
+
+
+def _check_json_depth(obj: Any, depth: int, code: str, name: str) -> None:
+    """Reject excessively nested JSON structures fail-closed."""
+    require_ok(depth <= MAX_JSON_DEPTH, code, f"JSON nesting exceeds {MAX_JSON_DEPTH} in {name}")
+    if isinstance(obj, dict):
+        for val in obj.values():
+            _check_json_depth(val, depth + 1, code, name)
+    elif isinstance(obj, list):
+        for item in obj:
+            _check_json_depth(item, depth + 1, code, name)
+
+
+def _parse_json_dict_bytes(raw_bytes: bytes, name: str, code: str) -> Dict[str, Any]:
+    """Strictly parse UTF-8 JSON bytes rejecting NaN/Inf, overflow floats, duplicate keys, oversized ints, and deep nesting."""
+
+    def _reject_constant(token: str) -> Any:
+        raise Wave11ProbeError(code, f"Non-finite JSON constant in {name}: {token!r}")
+
+    def _parse_strict_float(token: str) -> float:
+        val = float(token)
+        require_ok(math.isfinite(val), code, f"Non-finite JSON float in {name}: {token!r}")
+        return val
+
+    def _reject_dup_keys(pairs: List[Tuple[str, Any]]) -> Dict[str, Any]:
+        out: Dict[str, Any] = {}
+        for k, v in pairs:
+            require_ok(k not in out, code, f"Duplicate JSON key in {name}: {k!r}")
+            out[k] = v
+        return out
+
+    def _parse_bounded_int(token: str) -> int:
+        digits = token[1:] if token.startswith("-") else token
+        require_ok(len(digits) <= MAX_JSON_INT_DIGITS, code, f"JSON integer exceeds {MAX_JSON_INT_DIGITS} digits in {name}")
+        return int(token)
+
+    try:
+        raw = raw_bytes.decode("utf-8")
+        obj = json.loads(
+            raw,
+            parse_constant=_reject_constant,
+            parse_float=_parse_strict_float,
+            parse_int=_parse_bounded_int,
+            object_pairs_hook=_reject_dup_keys,
+        )
+        require_ok(isinstance(obj, dict), code, f"Expected JSON object in {name}")
+        _check_json_depth(obj, 0, code, name)
+    except (UnicodeDecodeError, ValueError, RecursionError) as exc:
+        raise Wave11ProbeError(code, f"Invalid JSON in {name}") from exc
+    return obj
+
+
+def _load_json_dict(path: Path, code: str, *, check_parents: Sequence[Path] = ()) -> Dict[str, Any]:
+    """Read and parse a UTF-8 regular JSON object file fail-closed."""
+    raw_bytes = _read_regular_file_bytes(path, code, check_parents=check_parents)
+    return _parse_json_dict_bytes(raw_bytes, path.name, code)
+
+
+def _require_probe_a_files(ckpt_path: Path, eval_bin_path: Path) -> None:
+    """Fail-closed check that Probe A flagship checkpoint and eval.bin exist on disk."""
+    require_ok(ckpt_path.is_file() and eval_bin_path.is_file(), "PROBE_A_MISSING", "flagship ckpt or eval.bin missing")
+
+
+def _require_wk_ref(w_k_ref: Any) -> Any:
+    """Fail-closed check that mid-depth layer reference holonomy tensor was captured."""
+    require_ok(w_k_ref is not None, "WK_REF_MISSING", "layer 2 w_su2 missing")
+    return w_k_ref
+
+
+def _require_cuda_available(cuda_available: bool) -> None:
+    """Fail-closed check that CUDA is available before executing --run-gpu."""
+    require_ok(bool(cuda_available), "CUDA_REQUIRED", "--run-gpu requires CUDA")
+
+
+def _resolve_prereg_sha256() -> Tuple[str, str]:
+    """Verify pinned PREREG SHA-256 directly on disk (fail-closed; no constant-SHA fallback)."""
     bundle_p = Path(__file__).resolve().parent.parent / "preregistrations" / PREREG_FILENAME
     legacy_p = _expedition_root() / "notes" / "portals_wave11_2026_11_25" / PREREG_FILENAME
     for prereg_p in (bundle_p, legacy_p):
-        if prereg_p.is_file():
-            actual = _sha256_file(prereg_p)
+        if prereg_p.is_symlink() or prereg_p.exists():
+            actual = _sha256_file(prereg_p, code="PREREG_MISSING", check_parents=(prereg_p.parent,))
             require_ok(hmac.compare_digest(actual, PINNED_PREREG_SHA256), "PREREG_HASH_MISMATCH", f"Unexpected PREREG hash {actual}")
             return actual, "disk_verified"
-    require_ok(not require_file, "PREREG_MISSING", PREREG_FILENAME)
-    return PINNED_PREREG_SHA256, "pinned_standalone"
+    raise Wave11ProbeError("PREREG_MISSING", PREREG_FILENAME)
 
 
-def verify_w11_zone_b_bundle(track_dir: Optional[Path] = None) -> Dict[str, Any]:
-    """Fail-closed verification of bound S121 Zone-B receipt, live results payload, profile, and preregistration."""
-    tdir = track_dir if track_dir is not None else Path(__file__).resolve().parent
-    prereg_p = tdir.parent / "preregistrations" / PREREG_FILENAME
+def _is_strict_num(val: Any) -> bool:
+    if isinstance(val, bool) or not isinstance(val, (int, float)):
+        return False
+    try:
+        return math.isfinite(float(val))
+    except OverflowError:
+        return False
+
+
+def _verify_probe_a_and_b_contents(results_obj: Dict[str, Any]) -> None:
+    """Recompute Probe A and Probe B summaries/verdicts from recorded raw grids/pairs fail-closed."""
+    ws = results_obj.get("wall_seconds")
+    require_ok(_is_strict_num(ws) and float(ws) > 0.0, "RESULTS_PROBES_INVALID", "invalid wall_seconds")
+
+    pa = results_obj.get("probe_a_loopcd_strang_holosphere_v3")
+    try:
+        recomp_a = _summarize_probe_a_grids(
+            pa["t2048_loopcd_grid"],
+            pa["t8192_loopcd_grid"],
+            pa["t8192_strang_cancellation_real_weights"],
+            pa["t2048_live_su2_guidance_layer5"],
+        )
+    except (KeyError, TypeError, ValueError, OverflowError) as exc:
+        raise Wave11ProbeError("RESULTS_PROBES_INVALID", "malformed probe_a grids") from exc
+    require_ok(isinstance(pa, dict) and pa.get("summary") == recomp_a, "RESULTS_PROBES_INVALID", "probe_a summary does not match raw grids")
+
+    pb = results_obj.get("probe_b_platos_key_spheremap_procrustes")
+    require_ok(isinstance(pb, dict), "RESULTS_PROBES_INVALID", "missing probe_b_platos_key_spheremap_procrustes")
+    mrs = pb.get("model_recall_summary")
+    pairs = pb.get("pairs")
+    pb_sum = pb.get("summary")
+    require_ok(
+        isinstance(mrs, dict)
+        and frozenset(mrs.keys()) == EXPECTED_PROBE_B_MODELS
+        and isinstance(pairs, dict)
+        and frozenset(pairs.keys()) == EXPECTED_PROBE_B_PAIRS
+        and isinstance(pb_sum, dict),
+        "RESULTS_PROBES_INVALID",
+        "malformed probe_b structure",
+    )
+    for m_info in mrs.values():
+        require_ok(
+            isinstance(m_info, dict) and type(m_info.get("total_facts")) is int and m_info.get("total_facts") == len(RAW_FACTS),
+            "RESULTS_PROBES_INVALID",
+            "probe_b model_recall_summary total_facts mismatch",
+        )
+    try:
+        n_pairs = len(pairs)
+        mean_frob = sum(float(p["test_transfer_accuracy"]["Frob_Procrustes"]) for p in pairs.values()) / n_pairs
+        mean_ols = sum(float(p["test_transfer_accuracy"]["OLS_Procrustes"]) for p in pairs.values()) / n_pairs
+        mean_sph = sum(float(p["test_transfer_accuracy"]["SphereMap_Quadrupole_Procrustes"]) for p in pairs.values()) / n_pairs
+        mean_rand = sum(float(p["test_transfer_accuracy"]["Random_Orthogonal_Null"]) for p in pairs.values()) / n_pairs
+        mean_shuf = sum(float(p["test_transfer_accuracy"]["Shuffled_Pair_Null"]) for p in pairs.values()) / n_pairs
+        tot_dm = sum(int(p["dark_memory_recovery"]["n_dark_memories"]) for p in pairs.values())
+        dm_frob = sum(float(p["dark_memory_recovery"]["Frob_Procrustes"]) * int(p["dark_memory_recovery"]["n_dark_memories"]) for p in pairs.values())
+        dm_sph = sum(float(p["dark_memory_recovery"]["SphereMap_Quadrupole_Procrustes"]) * int(p["dark_memory_recovery"]["n_dark_memories"]) for p in pairs.values())
+        dm_rand = sum(float(p["dark_memory_recovery"]["Random_Orthogonal_Null"]) * int(p["dark_memory_recovery"]["n_dark_memories"]) for p in pairs.values())
+        dm_frob_rate = dm_frob / max(1, tot_dm)
+        dm_sph_rate = dm_sph / max(1, tot_dm)
+        dm_rand_rate = dm_rand / max(1, tot_dm)
+        b1_pass, b2_pass = _eval_probe_b_gates(pairs, mean_frob, mean_ols, mean_sph, mean_rand, mean_shuf)
+        b3_verdict = grade_probe_b_verdict(
+            w11_b1_pass=b1_pass,
+            mean_frob=mean_frob,
+            mean_sph=mean_sph,
+            mean_rand=mean_rand,
+            mean_shuf=mean_shuf,
+            tot_dm=tot_dm,
+            dm_frob_rate=dm_frob_rate,
+            dm_sph_rate=dm_sph_rate,
+            dm_rand_rate=dm_rand_rate,
+        )
+    except (KeyError, TypeError, ValueError, OverflowError) as exc:
+        raise Wave11ProbeError("RESULTS_PROBES_INVALID", "malformed probe_b pairs") from exc
+    require_ok(
+        pb_sum.get("gate_W11_B1_plato_replication_pass") is b1_pass
+        and pb_sum.get("gate_W11_B2_ols_shrinkage_pass") is b2_pass
+        and pb_sum.get("gate_W11_B3_spheremap_verdict") == b3_verdict
+        and type(pb_sum.get("pooled_dark_memories_total")) is int
+        and pb_sum.get("pooled_dark_memories_total") == tot_dm
+        and _is_strict_num(pb_sum.get("mean_frob_procrustes"))
+        and abs(float(pb_sum["mean_frob_procrustes"]) - mean_frob) <= 2e-4
+        and _is_strict_num(pb_sum.get("mean_spheremap_quadrupole"))
+        and abs(float(pb_sum["mean_spheremap_quadrupole"]) - mean_sph) <= 2e-4,
+        "RESULTS_PROBES_INVALID",
+        "probe_b summary or gate verdicts do not match recorded pair data",
+    )
+
+
+def verify_w11_zone_b_bundle(
+    track_dir: Optional[Path] = None,
+    *,
+    expected_git_head: Optional[str] = None,
+    verify_committed_pins: Optional[bool] = None,
+) -> Dict[str, Any]:
+    """Fail-closed verification of bound S121 Zone-B receipt, live results payload, probe verdicts, profile, and preregistration."""
+    enforce_pins = (track_dir is None) if verify_committed_pins is None else bool(verify_committed_pins)
+    tdir = track_dir if track_dir is not None else Path(__file__).parent
+    prereg_dir = tdir.parent / "preregistrations"
+    prereg_p = prereg_dir / PREREG_FILENAME
     results_p = tdir / "w11_live_loopcd_platosphere_results.json"
     receipt_p = tdir / "mlos_zone_b_w11_loopcd_platosphere.json"
     profile_p = tdir / "ux582hs-rtx3080-8gb.toml"
 
-    require_ok(prereg_p.is_file(), "ZONEB_PREREG_MISSING", PREREG_FILENAME)
-    prereg_sha = _sha256_file(prereg_p)
+    prereg_sha = _sha256_file(prereg_p, code="ZONEB_PREREG_MISSING", check_parents=(tdir, prereg_dir))
     require_ok(hmac.compare_digest(prereg_sha, PINNED_PREREG_SHA256), "PREREG_HASH_MISMATCH", prereg_sha)
 
-    require_ok(results_p.is_file() and receipt_p.is_file() and profile_p.is_file(), "ZONEB_FILE_MISSING", "missing companion Zone-B file")
-    results_file_sha = _sha256_file(results_p)
-    profile_sha = _sha256_file(profile_p)
+    results_raw = _read_regular_file_bytes(results_p, "ZONEB_FILE_MISSING", check_parents=(tdir,))
+    receipt_raw = _read_regular_file_bytes(receipt_p, "ZONEB_FILE_MISSING", check_parents=(tdir,))
+    profile_raw = _read_regular_file_bytes(profile_p, "ZONEB_FILE_MISSING", check_parents=(tdir,))
+    results_file_sha = hashlib.sha256(results_raw).hexdigest()
+    profile_sha = hashlib.sha256(profile_raw).hexdigest()
 
-    results_obj = json.loads(results_p.read_text(encoding="utf-8"))
+    results_obj = _parse_json_dict_bytes(results_raw, results_p.name, "RESULTS_JSON_INVALID")
+    res_keys = frozenset(results_obj.keys())
+    require_ok(
+        REQUIRED_RESULTS_KEYS <= res_keys
+        and res_keys <= (REQUIRED_RESULTS_KEYS | OPTIONAL_RESULTS_GIT_KEYS)
+        and ("git_head" in res_keys) == ("git_head_status" in res_keys),
+        "RESULTS_SCHEMA_INVALID",
+        "unexpected or missing top-level keys in results JSON",
+    )
     rec_payload_sha = results_obj.get("payload_sha256")
-    require_ok(type(rec_payload_sha) is str and len(rec_payload_sha) == 64, "RESULTS_SHA_MISSING", "missing payload_sha256")
+    require_ok(
+        type(rec_payload_sha) is str and _HEX64_RE.fullmatch(rec_payload_sha) is not None,
+        "RESULTS_SHA_MISSING",
+        "missing or invalid lowercase hex payload_sha256",
+    )
     results_body = {k: v for k, v in results_obj.items() if k != "payload_sha256"}
     exp_results_sha = hashlib.sha256(_canonical_json_bytes(results_body)).hexdigest()
     require_ok(hmac.compare_digest(rec_payload_sha, exp_results_sha), "RESULTS_SHA_MISMATCH", exp_results_sha)
-    require_ok(results_obj.get("prereg_sha256") == PINNED_PREREG_SHA256, "RESULTS_PREREG_MISMATCH", "results prereg_sha256 mismatch")
+    require_ok(
+        results_obj.get("schema") == SCHEMA_W11_LIVE
+        and results_obj.get("prereg_filename") == PREREG_FILENAME
+        and results_obj.get("prereg_sha256") == PINNED_PREREG_SHA256
+        and results_obj.get("gpu_name") == EXPECTED_GPU_NAME,
+        "RESULTS_PREREG_MISMATCH",
+        "results schema, prereg_sha256, or gpu_name mismatch",
+    )
+    _verify_probe_a_and_b_contents(results_obj)
 
-    receipt_obj = json.loads(receipt_p.read_text(encoding="utf-8"))
+    receipt_obj = _parse_json_dict_bytes(receipt_raw, receipt_p.name, "RECEIPT_JSON_INVALID")
+    require_ok(
+        frozenset(receipt_obj.keys()) == EXPECTED_RECEIPT_KEYS,
+        "RECEIPT_SCHEMA_INVALID",
+        "unexpected or missing top-level keys in Zone-B receipt JSON",
+    )
     rec_sha = receipt_obj.get("receipt_sha256")
-    require_ok(type(rec_sha) is str and len(rec_sha) == 64, "RECEIPT_SHA_MISSING", "missing receipt_sha256")
+    require_ok(
+        type(rec_sha) is str and _HEX64_RE.fullmatch(rec_sha) is not None,
+        "RECEIPT_SHA_MISSING",
+        "missing or invalid lowercase hex receipt_sha256",
+    )
     receipt_body = {k: v for k, v in receipt_obj.items() if k != "receipt_sha256"}
-    exp_rec_sha = hashlib.sha256(json.dumps(receipt_body, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("ascii")).hexdigest()
+    exp_rec_sha = hashlib.sha256(_canonical_json_bytes(receipt_body)).hexdigest()
     require_ok(hmac.compare_digest(rec_sha, exp_rec_sha), "RECEIPT_SHA_MISMATCH", exp_rec_sha)
 
+    exe_obj = receipt_obj.get("execution")
+    host_obj = receipt_obj.get("host")
+    start_tel = receipt_obj.get("start_gpu_telemetry")
+    end_tel = receipt_obj.get("end_gpu_telemetry")
+    start_reasons = start_tel.get("clocks_event_reasons") if isinstance(start_tel, dict) else None
+    end_reasons = end_tel.get("clocks_event_reasons") if isinstance(end_tel, dict) else None
+    require_ok(
+        receipt_obj.get("schema") == "mlos-run-receipt/v0.1"
+        and receipt_obj.get("determinism_zone") == "B"
+        and receipt_obj.get("clean_hardware_run") is True
+        and receipt_obj.get("anomalies") == []
+        and receipt_obj.get("determinism_pins") == EXPECTED_DETERMINISM_PINS
+        and receipt_obj.get("gpu_telemetry_available") is True
+        and isinstance(host_obj, dict)
+        and host_obj.get("host_os") == "linux"
+        and host_obj.get("cpu_isa") == "x86_64"
+        and type(host_obj.get("os_release")) is str
+        and len(host_obj["os_release"]) > 0
+        and type(host_obj.get("python_version")) is str
+        and len(host_obj["python_version"]) > 0
+        and receipt_obj.get("profile_id") == PINNED_PROFILE_ID
+        and hmac.compare_digest(profile_sha, PINNED_PROFILE_SHA256)
+        and isinstance(exe_obj, dict)
+        and type(exe_obj.get("exit_code")) is int
+        and exe_obj.get("exit_code") == 0
+        and isinstance(start_tel, dict)
+        and isinstance(end_tel, dict)
+        and start_tel.get("gpu_name") == EXPECTED_GPU_NAME
+        and end_tel.get("gpu_name") == EXPECTED_GPU_NAME
+        and start_tel.get("gpu_processes_queried") is True
+        and end_tel.get("gpu_processes_queried") is True
+        and isinstance(start_reasons, dict)
+        and isinstance(end_reasons, dict)
+        and start_reasons.get("thermal_throttled") is False
+        and end_reasons.get("thermal_throttled") is False
+        and start_reasons.get("slowdown_active") is False
+        and end_reasons.get("slowdown_active") is False,
+        "RECEIPT_HARDWARE_INVALID",
+        "Zone-B receipt schema, determinism_pins, host, hardware, GPU identity, or clean-run invariants failed",
+    )
+
+    git_head = receipt_obj.get("git_head")
+    git_head_status = receipt_obj.get("git_head_status")
+    if git_head is None:
+        git_head_ok = git_head_status == "not_captured_at_run_time"
+    elif (
+        type(git_head) is str
+        and _HEX40_RE.fullmatch(git_head) is not None
+        and git_head_status in ("captured", "captured_dirty")
+    ):
+        if expected_git_head is not None:
+            git_head_ok = (
+                type(expected_git_head) is str
+                and _HEX40_RE.fullmatch(expected_git_head) is not None
+                and hmac.compare_digest(git_head, expected_git_head)
+            )
+        else:
+            git_head_ok = _verify_git_commit_exists(tdir, git_head)
+    else:
+        git_head_ok = False
+    if "git_head" in results_obj:
+        results_git_ok = (
+            results_obj["git_head"] == git_head
+            and results_obj["git_head_status"] == git_head_status
+        )
+    else:
+        results_git_ok = git_head is None
     require_ok(
         receipt_obj.get("bound_results_file") == "w11_live_loopcd_platosphere_results.json"
         and receipt_obj.get("bound_results_payload_sha256") == rec_payload_sha
@@ -339,12 +865,23 @@ def verify_w11_zone_b_bundle(track_dir: Optional[Path] = None) -> Dict[str, Any]
         and receipt_obj.get("bound_prereg_sha256") == PINNED_PREREG_SHA256
         and receipt_obj.get("bound_profile_file") == "ux582hs-rtx3080-8gb.toml"
         and receipt_obj.get("profile_sha256") == profile_sha
+        and git_head_ok
+        and results_git_ok
         and receipt_obj.get("energy_power_status") == "UNCONTROLLED_LAPTOP_TELEMETRY_NOT_AN_ENERGY_CLAIM",
         "RECEIPT_BINDING_MISMATCH",
         "Zone-B receipt binding fields do not match on-disk results/profile/prereg",
     )
+    if enforce_pins:
+        require_ok(
+            hmac.compare_digest(rec_payload_sha, PINNED_COMMITTED_RESULTS_PAYLOAD_SHA256)
+            and hmac.compare_digest(results_file_sha, PINNED_COMMITTED_RESULTS_FILE_SHA256)
+            and hmac.compare_digest(rec_sha, PINNED_COMMITTED_RECEIPT_SHA256),
+            "RECEIPT_PIN_MISMATCH",
+            "Zone-B bundle hashes do not match pinned committed Wave-11 live run artifacts",
+        )
     return {
         "passed": True,
+        "git_head_status": git_head_status,
         "prereg_sha256": prereg_sha,
         "profile_sha256": profile_sha,
         "results_payload_sha256": rec_payload_sha,
@@ -353,30 +890,42 @@ def verify_w11_zone_b_bundle(track_dir: Optional[Path] = None) -> Dict[str, Any]
     }
 
 
-def run_stdlib_selftest() -> Dict[str, Any]:
-    """Pure-stdlib verification of PREREG lock & subject-disjoint 148-fact suite (works in standalone snapshots)."""
-    prereg_sha, prereg_src = _resolve_prereg_sha256(require_file=False)
-    here = Path(__file__).resolve().parent
-    zb_present = (here / "mlos_zone_b_w11_loopcd_platosphere.json").is_file()
+def _eval_selftest_flags(
+    n_facts: int,
+    split_total: int,
+    overlap_count: int,
+    prereg_ok: bool,
+    zb_present: bool,
+    zb_verified: bool,
+) -> Tuple[bool, bool]:
+    subj_disjoint_ok = (n_facts >= 120 and split_total == n_facts and overlap_count == 0)
+    all_ok = subj_disjoint_ok and prereg_ok and (zb_verified if zb_present else True)
+    return subj_disjoint_ok, all_ok
+
+
+def run_stdlib_selftest(*, allow_missing_zone_b: bool = False) -> Dict[str, Any]:
+    """Pure-stdlib verification of PREREG lock, committed Zone-B bundle, & subject-disjoint 148-fact suite."""
+    prereg_sha, prereg_src = _resolve_prereg_sha256()
+    here = Path(__file__).parent
+    zb_p = here / "mlos_zone_b_w11_loopcd_platosphere.json"
+    zb_present = zb_p.is_symlink() or zb_p.exists()
     zb_verified = False
-    if zb_present:
-        zb = verify_w11_zone_b_bundle(here)
+    if zb_present or not allow_missing_zone_b:
+        zb = verify_w11_zone_b_bundle(here, verify_committed_pins=True)
         zb_verified = bool(zb["passed"])
+        zb_present = True
     splits = build_subject_disjoint_fact_splits(20261125)
     tr_s = {s for _, s, _ in splits["train"]}
     va_s = {s for _, s, _ in splits["val"]}
     te_s = {s for _, s, _ in splits["test"]}
-    subj_disjoint_ok = (
-        len(RAW_FACTS) >= 120
-        and sum(len(v) for v in splits.values()) == len(RAW_FACTS)
-        and len(tr_s & va_s) == 0
-        and len(tr_s & te_s) == 0
-        and len(va_s & te_s) == 0
-    )
-    all_ok = (
-        subj_disjoint_ok
-        and hmac.compare_digest(prereg_sha, PINNED_PREREG_SHA256)
-        and (zb_verified if zb_present else True)
+    overlap_count = len(tr_s & va_s) + len(tr_s & te_s) + len(va_s & te_s)
+    subj_disjoint_ok, all_ok = _eval_selftest_flags(
+        len(RAW_FACTS),
+        sum(len(v) for v in splits.values()),
+        overlap_count,
+        hmac.compare_digest(prereg_sha, PINNED_PREREG_SHA256),
+        zb_present,
+        zb_verified,
     )
     payload: Dict[str, Any] = {
         "schema": SCHEMA_W11_SELFTEST,
@@ -399,6 +948,78 @@ def run_stdlib_selftest() -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
+def _summarize_probe_a_grids(
+    grid_2048: Dict[str, Dict[str, Any]],
+    grid_8192: Dict[str, Dict[str, Any]],
+    strang_8192: Dict[str, Dict[str, Any]],
+    su2_live_2048: Dict[str, Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Pure-stdlib Probe A gate & summary reducer (extracted for direct R5/BoolOp coverage)."""
+    base_l6_8192 = grid_8192["L6_k1_om0.0"]["bpb"]
+    best_l6_8192_k, best_l6_8192_v = min(
+        ((k, v) for k, v in grid_8192.items() if v["L_target"] == 6 and v["omega"] > 0.0),
+        key=lambda kv: kv[1]["bpb"],
+    )
+    base_l4_8192 = grid_8192["L4_k1_om0.0"]["bpb"]
+    best_l4_8192_k, best_l4_8192_v = min(
+        ((k, v) for k, v in grid_8192.items() if v["L_target"] == 4 and v["omega"] > 0.0),
+        key=lambda kv: kv[1]["bpb"],
+    )
+    base_l3_8192 = grid_8192["L3_k1_om0.0"]["bpb"]
+    best_l3_8192_k, best_l3_8192_v = min(
+        ((k, v) for k, v in grid_8192.items() if v["L_target"] == 3 and v["omega"] > 0.0),
+        key=lambda kv: kv[1]["bpb"],
+    )
+    min_strang_ratio = min(v["left_over_right_err_ratio"] for v in strang_8192.values())
+
+    base_su2 = su2_live_2048["unguided_om0.0"]["bpb"]
+    best_su2_k, best_su2_v = min(
+        ((k, v) for k, v in su2_live_2048.items() if k != "unguided_om0.0"),
+        key=lambda kv: kv[1]["bpb"],
+    )
+
+    w11_a1_pass = min_strang_ratio >= 5.0
+    l6_gain = best_l6_8192_v["bpb"] - base_l6_8192
+    l4_gain = best_l4_8192_v["bpb"] - base_l4_8192
+    l3_gain = best_l3_8192_v["bpb"] - base_l3_8192
+    su2_gain = best_su2_v["bpb"] - base_su2
+
+    base_l6_2048 = grid_2048["L6_k1_om0.0"]["bpb"]
+    best_l6_2048_v = min((v for v in grid_2048.values() if v["L_target"] == 6 and v["omega"] > 0.0), key=lambda v: v["bpb"])
+    l6_2048_gain = best_l6_2048_v["bpb"] - base_l6_2048
+
+    any_top1_gain = (
+        any(v["top1_acc"] > grid_8192[f"L{v['L_target']}_k1_om0.0"]["top1_acc"] for v in grid_8192.values() if v["omega"] > 0.0)
+        or any(v["top1_acc"] > grid_2048[f"L{v['L_target']}_k1_om0.0"]["top1_acc"] for v in grid_2048.values() if v["omega"] > 0.0)
+        or any(v["top1_acc"] > su2_live_2048["unguided_om0.0"]["top1_acc"] for k, v in su2_live_2048.items() if k != "unguided_om0.0")
+    )
+    any_bpb_gain = (l6_gain < 0.0) or (l6_2048_gain < 0.0) or (l4_gain < 0.0) or (l3_gain < 0.0) or (su2_gain < 0.0)
+
+    w11_a2_verdict = grade_probe_a_verdict(
+        w11_a1_pass=w11_a1_pass,
+        l6_gain=l6_gain,
+        l6_2048_gain=l6_2048_gain,
+        l4_gain=l4_gain,
+        l3_gain=l3_gain,
+        su2_gain=su2_gain,
+        any_bpb_gain=any_bpb_gain,
+        any_top1_gain=any_top1_gain,
+    )
+    return {
+        "base_L6_t8192_bpb": base_l6_8192,
+        "best_guided_L6_t8192": {"config": best_l6_8192_k, **best_l6_8192_v, "delta_bpb": round(l6_gain, 6)},
+        "base_L4_t8192_bpb": base_l4_8192,
+        "best_guided_L4_t8192": {"config": best_l4_8192_k, **best_l4_8192_v, "delta_bpb": round(l4_gain, 6)},
+        "base_L3_t8192_bpb": base_l3_8192,
+        "best_guided_L3_t8192": {"config": best_l3_8192_k, **best_l3_8192_v, "delta_bpb": round(l3_gain, 6)},
+        "base_su2_t2048_bpb": base_su2,
+        "best_su2_t2048": {"config": best_su2_k, **best_su2_v, "delta_bpb": round(su2_gain, 6)},
+        "min_strang_left_over_right_ratio_t8192": min_strang_ratio,
+        "gate_W11_A1_strang_ge_5x": w11_a1_pass,
+        "gate_W11_A2_verdict": w11_a2_verdict,
+    }
+
+
 def _run_probe_a_loopcd_and_strang(torch: Any, device: Any, ckpt_path: Path, eval_bin_path: Path) -> Dict[str, Any]:
     """Probe A (EXP-Q25a / EXP-Q26b) on converged holosphere_v3_15m_flagship.pt (read-only!)."""
     import torch.nn.functional as F  # type: ignore[import-not-found]
@@ -415,7 +1036,7 @@ def _run_probe_a_loopcd_and_strang(torch: Any, device: Any, ckpt_path: Path, eva
     import holosphere_v3_cuda_engine as v3_eng  # type: ignore[import-not-found]
     import run_holosphere_v3_flagship_train as fl_mod  # type: ignore[import-not-found]
 
-    require_ok(ckpt_path.is_file() and eval_bin_path.is_file(), "PROBE_A_MISSING", "flagship ckpt or eval.bin missing")
+    _require_probe_a_files(ckpt_path, eval_bin_path)
     ckpt = torch.load(str(ckpt_path), map_location="cpu", weights_only=True)
     _, s116_a16, s117_op = v3_ab._import_torch_stack()
     orig_sq = s116_a16.SiliquantA16BlockH4STE
@@ -596,7 +1217,7 @@ def _run_probe_a_loopcd_and_strang(torch: Any, device: Any, ckpt_path: Path, eva
                         raw_w5 * blk5.omega_scale.view(1, 1, model.d_model // 4, 1), float(v3_ab.CAYLEY_W_MAX_NORM)
                     ).view(inp.shape[0], seq_l, model.n_heads, 8, 3).float()
 
-                require_ok(w_k_ref is not None, "WK_REF_MISSING", "layer 2 w_su2 missing")
+                w_k_ref = _require_wk_ref(w_k_ref)
                 w_delta = _compose_cayley_vec(-w_k_ref, w5_base)
 
                 def _finish_blk5_and_score(w_use: Any, key_name: str) -> None:
@@ -633,57 +1254,7 @@ def _run_probe_a_loopcd_and_strang(torch: Any, device: Any, ckpt_path: Path, eva
     grid_8192, strang_8192 = _eval_loopcd_grid(ev_8192, tail_tokens=1024, bsz=2)
     su2_live_2048 = _eval_su2_guidance_live(ev_2048, tail_tokens=512, bsz=2)
 
-    # Compute literal gate summaries for Probe A
-    base_l6_8192 = grid_8192["L6_k1_om0.0"]["bpb"]
-    best_l6_8192_k, best_l6_8192_v = min(
-        ((k, v) for k, v in grid_8192.items() if v["L_target"] == 6 and v["omega"] > 0.0),
-        key=lambda kv: kv[1]["bpb"],
-    )
-    base_l4_8192 = grid_8192["L4_k1_om0.0"]["bpb"]
-    best_l4_8192_k, best_l4_8192_v = min(
-        ((k, v) for k, v in grid_8192.items() if v["L_target"] == 4 and v["omega"] > 0.0),
-        key=lambda kv: kv[1]["bpb"],
-    )
-    base_l3_8192 = grid_8192["L3_k1_om0.0"]["bpb"]
-    best_l3_8192_k, best_l3_8192_v = min(
-        ((k, v) for k, v in grid_8192.items() if v["L_target"] == 3 and v["omega"] > 0.0),
-        key=lambda kv: kv[1]["bpb"],
-    )
-    min_strang_ratio = min(v["left_over_right_err_ratio"] for v in strang_8192.values())
-
-    base_su2 = su2_live_2048["unguided_om0.0"]["bpb"]
-    best_su2_k, best_su2_v = min(
-        ((k, v) for k, v in su2_live_2048.items() if k != "unguided_om0.0"),
-        key=lambda kv: kv[1]["bpb"],
-    )
-
-    w11_a1_pass = min_strang_ratio >= 5.0
-    l6_gain = best_l6_8192_v["bpb"] - base_l6_8192
-    l4_gain = best_l4_8192_v["bpb"] - base_l4_8192
-    l3_gain = best_l3_8192_v["bpb"] - base_l3_8192
-    su2_gain = best_su2_v["bpb"] - base_su2
-
-    base_l6_2048 = grid_2048["L6_k1_om0.0"]["bpb"]
-    best_l6_2048_v = min((v for v in grid_2048.values() if v["L_target"] == 6 and v["omega"] > 0.0), key=lambda v: v["bpb"])
-    l6_2048_gain = best_l6_2048_v["bpb"] - base_l6_2048
-
-    any_top1_gain = (
-        any(v["top1_acc"] > grid_8192[f"L{v['L_target']}_k1_om0.0"]["top1_acc"] for v in grid_8192.values() if v["omega"] > 0.0)
-        or any(v["top1_acc"] > grid_2048[f"L{v['L_target']}_k1_om0.0"]["top1_acc"] for v in grid_2048.values() if v["omega"] > 0.0)
-        or any(v["top1_acc"] > su2_live_2048["unguided_om0.0"]["top1_acc"] for k, v in su2_live_2048.items() if k != "unguided_om0.0")
-    )
-    any_bpb_gain = (l6_gain < 0.0) or (l6_2048_gain < 0.0) or (l4_gain < 0.0) or (l3_gain < 0.0) or (su2_gain < 0.0)
-
-    w11_a2_verdict = grade_probe_a_verdict(
-        w11_a1_pass=w11_a1_pass,
-        l6_gain=l6_gain,
-        l6_2048_gain=l6_2048_gain,
-        l4_gain=l4_gain,
-        l3_gain=l3_gain,
-        su2_gain=su2_gain,
-        any_bpb_gain=any_bpb_gain,
-        any_top1_gain=any_top1_gain,
-    )
+    summary_a = _summarize_probe_a_grids(grid_2048, grid_8192, strang_8192, su2_live_2048)
 
     del model, ckpt
     gc.collect()
@@ -695,19 +1266,7 @@ def _run_probe_a_loopcd_and_strang(torch: Any, device: Any, ckpt_path: Path, eva
         "t2048_strang_cancellation_real_weights": strang_2048,
         "t8192_strang_cancellation_real_weights": strang_8192,
         "t2048_live_su2_guidance_layer5": su2_live_2048,
-        "summary": {
-            "base_L6_t8192_bpb": base_l6_8192,
-            "best_guided_L6_t8192": {"config": best_l6_8192_k, **best_l6_8192_v, "delta_bpb": round(l6_gain, 6)},
-            "base_L4_t8192_bpb": base_l4_8192,
-            "best_guided_L4_t8192": {"config": best_l4_8192_k, **best_l4_8192_v, "delta_bpb": round(l4_gain, 6)},
-            "base_L3_t8192_bpb": base_l3_8192,
-            "best_guided_L3_t8192": {"config": best_l3_8192_k, **best_l3_8192_v, "delta_bpb": round(l3_gain, 6)},
-            "base_su2_t2048_bpb": base_su2,
-            "best_su2_t2048": {"config": best_su2_k, **best_su2_v, "delta_bpb": round(su2_gain, 6)},
-            "min_strang_left_over_right_ratio_t8192": min_strang_ratio,
-            "gate_W11_A1_strang_ge_5x": w11_a1_pass,
-            "gate_W11_A2_verdict": w11_a2_verdict,
-        },
+        "summary": summary_a,
     }
 
 
@@ -717,7 +1276,8 @@ def _run_probe_a_loopcd_and_strang(torch: Any, device: Any, ckpt_path: Path, eva
 
 
 def _resolve_offline_hf_snapshot(model_id: str) -> Path:
-    hub = Path(os.environ.get("HF_HOME", str(Path.home() / ".cache" / "huggingface"))) / "hub"
+    hub_env = os.environ.get("HF_HUB_CACHE") or os.environ.get("HUGGINGFACE_HUB_CACHE")
+    hub = Path(hub_env) if hub_env else Path(os.environ.get("HF_HOME", str(Path.home() / ".cache" / "huggingface"))) / "hub"
     key = "models--" + model_id.replace("/", "--")
     snaps = sorted((hub / key / "snapshots").glob("*"))
     require_ok(len(snaps) > 0, "OFFLINE_MODEL_MISSING", f"No cached snapshot for {model_id}")
@@ -1010,7 +1570,7 @@ def _fit_procrustes_maps(
 
     def _apply_linear_r(z_a: Any, r_mat: Any, scale: float, shell_norm: bool = False) -> Any:
         c = z_a - mu_a
-        if pa is not None and pb is not None:
+        if pa is not None:
             proj = (c @ pa) @ r_mat.T
             mapped = proj @ pb.T
         else:
@@ -1085,6 +1645,37 @@ def _eval_swap_accuracy_on_recipient(
     return hits / float(len(eval_pairs))
 
 
+def _filter_shared_and_dm_facts(
+    splits: Dict[str, List[Tuple[str, str, str]]],
+    all_facts: Sequence[Tuple[str, str, str]],
+    ex_a: Dict[str, Any],
+    ex_b: Dict[str, Any],
+) -> Tuple[List[Tuple[str, str, str]], List[Tuple[str, str, str]], List[Tuple[str, str, str]], List[Tuple[str, str, str]]]:
+    """Pure-stdlib Probe B shared-recall split filter and dark-memory selector."""
+    tr_shared = [f for f in splits["train"] if ex_a["direct_ok"][f[1]] and ex_b["direct_ok"][f[1]]]
+    va_shared = [f for f in splits["val"] if ex_a["direct_ok"][f[1]] and ex_b["direct_ok"][f[1]]]
+    te_shared = [f for f in splits["test"] if ex_a["direct_ok"][f[1]] and ex_b["direct_ok"][f[1]]]
+    dm_facts = [
+        f for f in all_facts
+        if ex_a["direct_ok"][f[1]] and (not ex_b["direct_ok"][f[1]]) and ex_b["dark_mem_ok"][f[1]]
+    ]
+    return tr_shared, va_shared, te_shared, dm_facts
+
+
+def _eval_probe_b_gates(
+    pair_results: Dict[str, Dict[str, Any]],
+    mean_frob: float,
+    mean_ols: float,
+    mean_shell: float,
+    mean_rand: float,
+    mean_shuf: float,
+) -> Tuple[bool, bool]:
+    """Pure-stdlib Probe B W11-B1 and W11-B2 gate evaluator."""
+    w11_b1_pass = (mean_frob - max(mean_rand, mean_shuf) >= 0.15) and (max(mean_rand, mean_shuf) <= 0.05)
+    w11_b2_pass = all(v["scales"]["s_ols"] < v["scales"]["s_frob"] for v in pair_results.values()) and (mean_ols <= max(mean_frob, mean_shell) + 1e-6)
+    return w11_b1_pass, w11_b2_pass
+
+
 def _run_probe_b_platos_key_spheremap(torch: Any, device: Any) -> Dict[str, Any]:
     """Probe B (EXP-Q25b / EXP-Q26a) across Qwen2.5-0.5B, Qwen2.5-1.5B, and SmolLM2-360M."""
     from transformers import AutoModelForCausalLM, AutoTokenizer  # type: ignore[import-not-found]
@@ -1133,9 +1724,7 @@ def _run_probe_b_platos_key_spheremap(torch: Any, device: Any) -> Dict[str, Any]
             sys.stderr.flush()
 
             # Filter splits to facts recalled directly by BOTH donor & recipient
-            tr_shared = [f for f in splits["train"] if ex_a["direct_ok"][f[1]] and ex_b["direct_ok"][f[1]]]
-            va_shared = [f for f in splits["val"] if ex_a["direct_ok"][f[1]] and ex_b["direct_ok"][f[1]]]
-            te_shared = [f for f in splits["test"] if ex_a["direct_ok"][f[1]] and ex_b["direct_ok"][f[1]]]
+            tr_shared, va_shared, te_shared, dm_facts = _filter_shared_and_dm_facts(splits, all_facts, ex_a, ex_b)
             va_swaps = make_swap_tuples(va_shared)
             te_swaps = make_swap_tuples(te_shared)
 
@@ -1192,10 +1781,6 @@ def _run_probe_b_platos_key_spheremap(torch: Any, device: Any) -> Dict[str, Any]
             rank_curve["full"] = test_accs["Frob_Procrustes"]
 
             # 4. Dark-Memory Recovery Test (facts donor recalls directly, recipient misses directly, recipient passes 3-shot/paraphrase!)
-            dm_facts = [
-                f for f in all_facts
-                if ex_a["direct_ok"][f[1]] and (not ex_b["direct_ok"][f[1]]) and ex_b["dark_mem_ok"][f[1]]
-            ]
             dm_recovery: Dict[str, Any] = {"n_dark_memories": len(dm_facts)}
             if dm_facts:
                 for mname in ("Frob_Procrustes", "OLS_Procrustes", "ShellNorm_Procrustes", "SphereMap_Quadrupole_Procrustes", "Random_Orthogonal_Null"):
@@ -1262,8 +1847,7 @@ def _run_probe_b_platos_key_spheremap(torch: Any, device: Any) -> Dict[str, Any]
     dm_sph_rate = dm_sph_hits / float(max(1, tot_dm))
     dm_rand_rate = dm_rand_hits / float(max(1, tot_dm))
 
-    w11_b1_pass = (mean_frob - max(mean_rand, mean_shuf) >= 0.15) and (max(mean_rand, mean_shuf) <= 0.05)
-    w11_b2_pass = all(v["scales"]["s_ols"] < v["scales"]["s_frob"] for v in pair_results.values()) and (mean_ols <= max(mean_frob, mean_shell) + 1e-6)
+    w11_b1_pass, w11_b2_pass = _eval_probe_b_gates(pair_results, mean_frob, mean_ols, mean_shell, mean_rand, mean_shuf)
     diff_sph_frob = mean_sph - mean_frob
     w11_b3_verdict = grade_probe_b_verdict(
         w11_b1_pass=w11_b1_pass,
@@ -1314,12 +1898,22 @@ def run_all_wave11_live_probes(
     ckpt_path: Path,
     eval_bin_path: Path,
     out_json: Path,
+    git_head: Optional[str] = None,
+    repo_dir: Optional[Path] = None,
 ) -> Dict[str, Any]:
-    import torch  # type: ignore[import-not-found]
+    try:
+        import torch  # type: ignore[import-not-found]
+    except ImportError as exc:
+        raise Wave11ProbeError("TORCH_MISSING", "--run-gpu requires PyTorch (torch)") from exc
 
-    require_ok(bool(torch.cuda.is_available()), "CUDA_REQUIRED", "--run-gpu requires CUDA")
+    _require_cuda_available(bool(torch.cuda.is_available()))
     torch.use_deterministic_algorithms(True)
-    prereg_sha, _ = _resolve_prereg_sha256(require_file=True)
+    prereg_sha, _ = _resolve_prereg_sha256()
+    if git_head is None:
+        head_sha, head_status = _capture_git_head(repo_dir if repo_dir is not None else _expedition_root())
+        git_fields = build_zone_b_git_head_fields(head_sha, dirty=(head_status == "captured_dirty"))
+    else:
+        git_fields = build_zone_b_git_head_fields(git_head)
 
     device = torch.device("cuda:0")
     t0 = time.perf_counter()
@@ -1330,6 +1924,7 @@ def run_all_wave11_live_probes(
         "schema": SCHEMA_W11_LIVE,
         "prereg_filename": PREREG_FILENAME,
         "prereg_sha256": prereg_sha,
+        **git_fields,
         "gpu_name": str(torch.cuda.get_device_name(0)),
         "probe_a_loopcd_strang_holosphere_v3": probe_a,
         "probe_b_platos_key_spheremap_procrustes": probe_b,
@@ -1342,35 +1937,71 @@ def run_all_wave11_live_probes(
     return payload
 
 
+def _safe_write_stream(stream: Any, text: str) -> bool:
+    try:
+        stream.write(text)
+        stream.flush()
+        return True
+    except OSError:
+        return False
+
+
 def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="Wave-11 Live RTX 3080 Probes: LoopCD/Strang + Plato's Key/SphereMap")
-    parser.add_argument("--selftest-stdlib", action="store_true")
-    parser.add_argument("--check-zone-b", action="store_true")
-    parser.add_argument("--run-gpu", action="store_true")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--selftest-stdlib", action="store_true")
+    mode.add_argument("--check-zone-b", action="store_true")
+    mode.add_argument("--run-gpu", action="store_true")
+    parser.add_argument("--track-dir", type=Path, default=None)
+    parser.add_argument("--require-committed-pins", action="store_true")
+    parser.add_argument("--allow-missing-zone-b", action="store_true")
     parser.add_argument("--ckpt", type=Path, default=None)
     parser.add_argument("--eval-bin", type=Path, default=None)
     parser.add_argument("--out-json", type=Path, default=None)
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
 
-    if args.run_gpu:
-        require_ok(args.ckpt is not None and args.eval_bin is not None and args.out_json is not None, "BAD_ARGS", "Need --ckpt, --eval-bin, --out-json")
-        res = run_all_wave11_live_probes(ckpt_path=args.ckpt, eval_bin_path=args.eval_bin, out_json=args.out_json)
-    elif args.check_zone_b:
-        zb = verify_w11_zone_b_bundle()
-        if args.json:
-            sys.stdout.write(json.dumps(zb, indent=2, sort_keys=True, ensure_ascii=True, allow_nan=False) + "\n")
+    tag = "S121_ZONE_B" if args.check_zone_b else "S121_W11_PROBE"
+    try:
+        if args.run_gpu:
+            require_ok(args.ckpt is not None and args.eval_bin is not None and args.out_json is not None, "BAD_ARGS", "Need --ckpt, --eval-bin, --out-json")
+            res = run_all_wave11_live_probes(ckpt_path=args.ckpt, eval_bin_path=args.eval_bin, out_json=args.out_json)
+        elif args.check_zone_b:
+            pins_opt = True if args.require_committed_pins else None
+            zb = verify_w11_zone_b_bundle(args.track_dir, verify_committed_pins=pins_opt)
+            out_zb = (
+                json.dumps(zb, indent=2, sort_keys=True, ensure_ascii=True, allow_nan=False) + "\n"
+                if args.json
+                else f"PASS S121_ZONE_B receipt_sha256={zb['receipt_sha256']}\n"
+            )
+            return 0 if _safe_write_stream(sys.stdout, out_zb) else 2
         else:
-            sys.stdout.write(f"PASS S121_ZONE_B receipt_sha256={zb['receipt_sha256']}\n")
-        return 0
-    else:
-        res = run_stdlib_selftest()
+            res = run_stdlib_selftest(allow_missing_zone_b=args.allow_missing_zone_b)
+    except (Wave11ProbeError, OSError, OverflowError) as exc:
+        code = exc.code if isinstance(exc, Wave11ProbeError) else "IO_ERROR"
+        message = exc.message if isinstance(exc, Wave11ProbeError) else type(exc).__name__
+        if args.json:
+            _safe_write_stream(
+                sys.stdout,
+                json.dumps(
+                    {"passed": False, "code": code, "message": message},
+                    indent=2,
+                    sort_keys=True,
+                    ensure_ascii=True,
+                    allow_nan=False,
+                )
+                + "\n",
+            )
+        else:
+            _safe_write_stream(sys.stderr, f"FAIL {tag} code={code} message={message}\n")
+        return 2
 
-    if args.json or args.selftest_stdlib:
-        sys.stdout.write(json.dumps(res, indent=2, sort_keys=True, ensure_ascii=True, allow_nan=False) + "\n")
-    else:
-        sys.stdout.write(f"OK {res['schema']} payload_sha256={res['payload_sha256']}\n")
-    return 0
+    out_res = (
+        json.dumps(res, indent=2, sort_keys=True, ensure_ascii=True, allow_nan=False) + "\n"
+        if (args.json or args.selftest_stdlib)
+        else f"OK {res['schema']} payload_sha256={res['payload_sha256']}\n"
+    )
+    return 0 if _safe_write_stream(sys.stdout, out_res) else 2
 
 
 if __name__ == "__main__":

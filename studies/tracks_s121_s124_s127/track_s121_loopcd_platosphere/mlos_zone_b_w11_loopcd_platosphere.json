@@ -56,6 +56,7 @@
     "started_utc": "2026-11-26T08:04:23Z"
   },
   "git_head": null,
+  "git_head_status": "not_captured_at_run_time",
   "gpu_telemetry_available": true,
   "host": {
     "cpu_isa": "x86_64",
@@ -65,7 +66,7 @@
   },
   "profile_id": "ux582hs-rtx3080-8gb",
   "profile_sha256": "566c9192d38682a0ec4d652a63a3510aaefb9dc20ef91ae9bdc6d4abbbf5cbe2",
-  "receipt_sha256": "ee555587192115e54ec832675904f1af750f008b6b81b1e5889be6636959881b",
+  "receipt_sha256": "7f31de378b1b067c1edce9f5cc12400b1649ae3e95e6291568d90ccab0889fb0",
   "schema": "mlos-run-receipt/v0.1",
   "start_gpu_telemetry": {
     "clocks_event_reasons": {
