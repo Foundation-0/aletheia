@@ -1,0 +1,1165 @@
+{
+  "analysis_plan_sha256": "b42768b8ddb0fdb3835e35c7eb739e2474a7e3b7d715fabda23b7140b8bd6f81",
+  "dataset_prefix": "live_",
+  "energy_power_status": "UNCONTROLLED_LAPTOP_NOT_CLAIMED",
+  "hypotheses": {
+    "H20-A1": {
+      "auroc_ir_real_vs_noise": 1.0,
+      "cross_band_vis_ir_spatial_r": 0.21933,
+      "hypothesis": "H20-A1",
+      "ir_dimless_stability_ratio": 1.8751,
+      "ir_mean_drift": {
+        "end": 16.7766,
+        "max": 46.3134,
+        "min": 16.7614,
+        "ratio_max_min": 2.7631,
+        "start": 45.4927
+      },
+      "ir_median_cayley_dist": 0.705757,
+      "ir_median_euc_dist": 1.09468,
+      "ir_raw_stability_ratio": 1.5511,
+      "ir_topq_drift_dimless_ratio": 1.8975,
+      "kappa_sub_ir_median": 213.01,
+      "kappa_sub_vis_median": 16.58,
+      "n_frames_paired": 3898,
+      "null_ir_cayley_median": 0.895193,
+      "null_vis_cayley_median": 0.247907,
+      "obs_ir_cayley_early_late_dist": 0.2015,
+      "obs_vis_cayley_early_late_dist": 0.064285,
+      "p_holm": 0.00239904,
+      "p_raw": 0.00039984,
+      "p_raw_ir_spatial_null": 0.00039984,
+      "p_raw_vis_spatial_null": 0.00039984,
+      "primary_band": "M2_near_ir",
+      "primary_stability_ratio": 1.8751,
+      "synthetic_1p5x_gain_cayley_dist": 0.0,
+      "synthetic_1p5x_gain_euc_dist": 0.4,
+      "verdict": "PARTIAL",
+      "verdict_note": "Spatial specificity (p_Holm=0.00239904) & AUROC=1.0 pass, but natural-drift stability ratio=1.8751x < 2.0x (synthetic 1.5x exposure gain invariance verified separately)",
+      "vis_luma_drift": {
+        "end": 73.4156,
+        "max": 74.7664,
+        "min": 68.6707,
+        "ratio_max_min": 1.0888,
+        "start": 68.6707
+      },
+      "vis_rgb_dimless_stability_ratio": 0.5849,
+      "vis_rgb_median_cayley_dist": 0.054712,
+      "vis_rgb_median_euc_dist": 0.061674,
+      "vis_rgb_raw_stability_ratio": 1.1272,
+      "vis_rgb_topq_drift_raw_ratio": 1.1692
+    },
+    "H20-A2": {
+      "exact_q_haynsworth_inertia_additivity": true,
+      "heldout_schur_r2": 0.999857,
+      "hypothesis": "H20-A2",
+      "inertia_full_12x12": [
+        12,
+        0,
+        0
+      ],
+      "inertia_interior_4x4": [
+        4,
+        0,
+        0
+      ],
+      "inertia_schur_boundary_8x8": [
+        8,
+        0,
+        0
+      ],
+      "interior_mean_lag1_acorr": 0.65366,
+      "interior_shot_noise_est": 8.379434,
+      "interior_temporal_snr_ratio": 1.6992,
+      "interior_temporal_std": 14.238537,
+      "ir_flicker_peak_hz": 7.5,
+      "n_frames": 3898,
+      "null_circular_median_r2": -0.975537,
+      "null_spatial_shuffle_median_r2": 0.999965,
+      "p_holm": 0.00239904,
+      "p_raw": 0.00039984,
+      "p_raw_circular_null": 0.00039984,
+      "p_raw_spatial_null": 0.98920432,
+      "verdict": "PARTIAL",
+      "verdict_note": "Boundary Schur prediction beats temporal circular-shift null (global room illumination/sensor drift couples interior & boundary), but does not beat spatially-shuffled partition null (spatially uniform drift rather than boundary-localized)",
+      "vis_flicker_peak_hz": 1.25,
+      "vis_rolling_shutter_row_col_ratio": 3.2715
+    },
+    "H20-B1": {
+      "beat_varies": true,
+      "corr_rpm_dominant_peak_hz": 0.72195,
+      "corr_rpm_fan_band_psd": -0.02585,
+      "corr_rpm_high_band_psd": 0.92591,
+      "corr_rpm_mic_rms": 0.87309,
+      "fan1_rpm_min_max": [
+        1500,
+        3400
+      ],
+      "fan2_rpm_min_max": [
+        1200,
+        3400
+      ],
+      "hypothesis": "H20-B1",
+      "n_acoustic_30s": 129,
+      "n_frames": 3897,
+      "null_4pole_lock_median": 0.03462,
+      "null_harmonic_lock_median": 0.21786,
+      "obs_4pole_bldc_lock_frac": 0.10817,
+      "obs_dynamic_coupling_max_abs_r": 0.92591,
+      "obs_harmonic_blade_lock_frac": 0.32566,
+      "p_holm": 0.00239904,
+      "p_raw": 0.00039984,
+      "p_raw_4pole_lock_null": 0.00039984,
+      "p_raw_dynamic_circular_null": 0.00039984,
+      "p_raw_harmonic_lock_null": 0.00039984,
+      "p_raw_peak_freq_tracking_null": 0.00039984,
+      "qin_maya_crt_beat_witnesses": [
+        {
+          "beat_hz_q": "5/1",
+          "crt_phase_sync_s_q": "1/5",
+          "f1_hz_q": "25/1",
+          "f2_hz_q": "20/1",
+          "rpm1": 1500,
+          "rpm2": 1200
+        },
+        {
+          "beat_hz_q": "10/3",
+          "crt_phase_sync_s_q": "3/5",
+          "f1_hz_q": "25/1",
+          "f2_hz_q": "65/3",
+          "rpm1": 1500,
+          "rpm2": 1300
+        },
+        {
+          "beat_hz_q": "5/3",
+          "crt_phase_sync_s_q": "3/5",
+          "f1_hz_q": "25/1",
+          "f2_hz_q": "70/3",
+          "rpm1": 1500,
+          "rpm2": 1400
+        },
+        {
+          "beat_hz_q": "5/3",
+          "crt_phase_sync_s_q": "3/5",
+          "f1_hz_q": "25/1",
+          "f2_hz_q": "80/3",
+          "rpm1": 1500,
+          "rpm2": 1600
+        },
+        {
+          "beat_hz_q": "20/3",
+          "crt_phase_sync_s_q": "3/20",
+          "f1_hz_q": "80/3",
+          "f2_hz_q": "20/1",
+          "rpm1": 1600,
+          "rpm2": 1200
+        },
+        {
+          "beat_hz_q": "5/1",
+          "crt_phase_sync_s_q": "3/5",
+          "f1_hz_q": "80/3",
+          "f2_hz_q": "65/3",
+          "rpm1": 1600,
+          "rpm2": 1300
+        },
+        {
+          "beat_hz_q": "10/3",
+          "crt_phase_sync_s_q": "3/10",
+          "f1_hz_q": "80/3",
+          "f2_hz_q": "70/3",
+          "rpm1": 1600,
+          "rpm2": 1400
+        },
+        {
+          "beat_hz_q": "5/3",
+          "crt_phase_sync_s_q": "3/5",
+          "f1_hz_q": "80/3",
+          "f2_hz_q": "25/1",
+          "rpm1": 1600,
+          "rpm2": 1500
+        }
+      ],
+      "rpm_varies": true,
+      "spearman_rpm_mic_rms": 0.85893,
+      "unique_rpm_pairs_count": 89,
+      "verdict": "CONFIRMED",
+      "verdict_note": "Acoustic stream significantly locked to live fan tachometer"
+    },
+    "H20-B2": {
+      "hypothesis": "H20-B2",
+      "n_snapshots_30s": 129,
+      "p_holm": 0.75929628,
+      "p_raw": 0.75929628,
+      "p_raw_nomains_53tet_maxnull": 0.75929628,
+      "p_raw_nomains_zu_maxnull": 0.99920032,
+      "persistence_min_snapshots": 33,
+      "stratum_all_peaks": {
+        "mean_12tet_cents_cmpPower": 25.7425,
+        "mean_53tet_cents_cmpPower": 5.8136,
+        "mean_zu_cf_err_q8": 0.019513,
+        "n_pairs": 120,
+        "n_peaks": 16,
+        "null_jitter_53tet_median": 5.7423,
+        "null_jitter_zu_median": 0.018559,
+        "null_logunif_53tet_median": 5.7422,
+        "null_logunif_zu_median": 0.016439,
+        "p_53tet_vs_jitter": 0.62654938,
+        "p_53tet_vs_logunif": 0.62614954,
+        "p_zu_vs_jitter": 0.71251499,
+        "p_zu_vs_logunif": 0.98520592,
+        "peaks_hz": [
+          22.25,
+          30.0,
+          37.25,
+          45.0,
+          46.0,
+          84.0,
+          120.0,
+          381.0,
+          385.0,
+          386.0,
+          387.0,
+          389.0,
+          390.0,
+          393.0,
+          395.0,
+          402.0
+        ],
+        "raw_12_over_53_ratio": 4.428,
+        "sample_pairs_exact_cmpPower": [
+          {
+            "err12_cents": 17.35,
+            "err53_cents": 3.405,
+            "f_hi": 30.0,
+            "f_lo": 22.25,
+            "k12": 5,
+            "k53": 23,
+            "ratio_q": "120/89",
+            "zu_err": 0.01498,
+            "zu_pq": "4/3"
+          },
+          {
+            "err12_cents": 7.85,
+            "err53_cents": 9.131,
+            "f_hi": 37.25,
+            "f_lo": 22.25,
+            "k12": 9,
+            "k53": 39,
+            "ratio_q": "149/89",
+            "zu_err": 0.00749,
+            "zu_pq": "5/3"
+          },
+          {
+            "err12_cents": 19.35,
+            "err53_cents": 3.292,
+            "f_hi": 45.0,
+            "f_lo": 22.25,
+            "k12": 0,
+            "k53": 1,
+            "ratio_q": "180/89",
+            "zu_err": 0.01124,
+            "zu_pq": "1/1"
+          },
+          {
+            "err12_cents": 42.65,
+            "err53_cents": 10.575,
+            "f_hi": 46.0,
+            "f_lo": 22.25,
+            "k12": 1,
+            "k53": 3,
+            "ratio_q": "184/89",
+            "zu_err": 0.03371,
+            "zu_pq": "1/1"
+          },
+          {
+            "err12_cents": 0.05,
+            "err53_cents": 9.484,
+            "f_hi": 84.0,
+            "f_lo": 22.25,
+            "k12": 11,
+            "k53": 49,
+            "ratio_q": "336/89",
+            "zu_err": 0.01264,
+            "zu_pq": "15/8"
+          },
+          {
+            "err12_cents": 17.35,
+            "err53_cents": 3.405,
+            "f_hi": 120.0,
+            "f_lo": 22.25,
+            "k12": 5,
+            "k53": 23,
+            "ratio_q": "480/89",
+            "zu_err": 0.01498,
+            "zu_pq": "4/3"
+          },
+          {
+            "err12_cents": 17.45,
+            "err53_cents": 4.242,
+            "f_hi": 381.0,
+            "f_lo": 22.25,
+            "k12": 1,
+            "k53": 5,
+            "ratio_q": "1524/89",
+            "zu_err": 0.05478,
+            "zu_pq": "9/8"
+          },
+          {
+            "err12_cents": 35.55,
+            "err53_cents": 0.299,
+            "f_hi": 385.0,
+            "f_lo": 22.25,
+            "k12": 1,
+            "k53": 6,
+            "ratio_q": "1540/89",
+            "zu_err": 0.04354,
+            "zu_pq": "9/8"
+          },
+          {
+            "err12_cents": 40.05,
+            "err53_cents": 4.201,
+            "f_hi": 386.0,
+            "f_lo": 22.25,
+            "k12": 1,
+            "k53": 6,
+            "ratio_q": "1544/89",
+            "zu_err": 0.04073,
+            "zu_pq": "9/8"
+          },
+          {
+            "err12_cents": 44.55,
+            "err53_cents": 8.701,
+            "f_hi": 387.0,
+            "f_lo": 22.25,
+            "k12": 1,
+            "k53": 6,
+            "ratio_q": "1548/89",
+            "zu_err": 0.03792,
+            "zu_pq": "9/8"
+          },
+          {
+            "err12_cents": 46.55,
+            "err53_cents": 5.041,
+            "f_hi": 389.0,
+            "f_lo": 22.25,
+            "k12": 2,
+            "k53": 7,
+            "ratio_q": "1556/89",
+            "zu_err": 0.0323,
+            "zu_pq": "9/8"
+          },
+          {
+            "err12_cents": 42.05,
+            "err53_cents": 0.541,
+            "f_hi": 390.0,
+            "f_lo": 22.25,
+            "k12": 2,
+            "k53": 7,
+            "ratio_q": "1560/89",
+            "zu_err": 0.02949,
+            "zu_pq": "9/8"
+          }
+        ]
+      },
+      "stratum_mains_excluded": {
+        "mean_12tet_cents_cmpPower": 26.2052,
+        "mean_53tet_cents_cmpPower": 5.8913,
+        "mean_zu_cf_err_q8": 0.021084,
+        "n_pairs": 105,
+        "n_peaks": 15,
+        "null_jitter_53tet_median": 5.7589,
+        "null_jitter_zu_median": 0.019228,
+        "null_logunif_53tet_median": 5.7545,
+        "null_logunif_zu_median": 0.016355,
+        "p_53tet_vs_jitter": 0.7584966,
+        "p_53tet_vs_logunif": 0.75929628,
+        "p_zu_vs_jitter": 0.85765694,
+        "p_zu_vs_logunif": 0.99920032,
+        "peaks_hz": [
+          22.25,
+          30.0,
+          37.25,
+          45.0,
+          46.0,
+          84.0,
+          381.0,
+          385.0,
+          386.0,
+          387.0,
+          389.0,
+          390.0,
+          393.0,
+          395.0,
+          402.0
+        ],
+        "raw_12_over_53_ratio": 4.4481,
+        "sample_pairs_exact_cmpPower": [
+          {
+            "err12_cents": 17.35,
+            "err53_cents": 3.405,
+            "f_hi": 30.0,
+            "f_lo": 22.25,
+            "k12": 5,
+            "k53": 23,
+            "ratio_q": "120/89",
+            "zu_err": 0.01498,
+            "zu_pq": "4/3"
+          },
+          {
+            "err12_cents": 7.85,
+            "err53_cents": 9.131,
+            "f_hi": 37.25,
+            "f_lo": 22.25,
+            "k12": 9,
+            "k53": 39,
+            "ratio_q": "149/89",
+            "zu_err": 0.00749,
+            "zu_pq": "5/3"
+          },
+          {
+            "err12_cents": 19.35,
+            "err53_cents": 3.292,
+            "f_hi": 45.0,
+            "f_lo": 22.25,
+            "k12": 0,
+            "k53": 1,
+            "ratio_q": "180/89",
+            "zu_err": 0.01124,
+            "zu_pq": "1/1"
+          },
+          {
+            "err12_cents": 42.65,
+            "err53_cents": 10.575,
+            "f_hi": 46.0,
+            "f_lo": 22.25,
+            "k12": 1,
+            "k53": 3,
+            "ratio_q": "184/89",
+            "zu_err": 0.03371,
+            "zu_pq": "1/1"
+          },
+          {
+            "err12_cents": 0.05,
+            "err53_cents": 9.484,
+            "f_hi": 84.0,
+            "f_lo": 22.25,
+            "k12": 11,
+            "k53": 49,
+            "ratio_q": "336/89",
+            "zu_err": 0.01264,
+            "zu_pq": "15/8"
+          },
+          {
+            "err12_cents": 17.45,
+            "err53_cents": 4.242,
+            "f_hi": 381.0,
+            "f_lo": 22.25,
+            "k12": 1,
+            "k53": 5,
+            "ratio_q": "1524/89",
+            "zu_err": 0.05478,
+            "zu_pq": "9/8"
+          },
+          {
+            "err12_cents": 35.55,
+            "err53_cents": 0.299,
+            "f_hi": 385.0,
+            "f_lo": 22.25,
+            "k12": 1,
+            "k53": 6,
+            "ratio_q": "1540/89",
+            "zu_err": 0.04354,
+            "zu_pq": "9/8"
+          },
+          {
+            "err12_cents": 40.05,
+            "err53_cents": 4.201,
+            "f_hi": 386.0,
+            "f_lo": 22.25,
+            "k12": 1,
+            "k53": 6,
+            "ratio_q": "1544/89",
+            "zu_err": 0.04073,
+            "zu_pq": "9/8"
+          },
+          {
+            "err12_cents": 44.55,
+            "err53_cents": 8.701,
+            "f_hi": 387.0,
+            "f_lo": 22.25,
+            "k12": 1,
+            "k53": 6,
+            "ratio_q": "1548/89",
+            "zu_err": 0.03792,
+            "zu_pq": "9/8"
+          },
+          {
+            "err12_cents": 46.55,
+            "err53_cents": 5.041,
+            "f_hi": 389.0,
+            "f_lo": 22.25,
+            "k12": 2,
+            "k53": 7,
+            "ratio_q": "1556/89",
+            "zu_err": 0.0323,
+            "zu_pq": "9/8"
+          },
+          {
+            "err12_cents": 42.05,
+            "err53_cents": 0.541,
+            "f_hi": 390.0,
+            "f_lo": 22.25,
+            "k12": 2,
+            "k53": 7,
+            "ratio_q": "1560/89",
+            "zu_err": 0.02949,
+            "zu_pq": "9/8"
+          },
+          {
+            "err12_cents": 28.85,
+            "err53_cents": 9.982,
+            "f_hi": 393.0,
+            "f_lo": 22.25,
+            "k12": 2,
+            "k53": 8,
+            "ratio_q": "1572/89",
+            "zu_err": 0.02107,
+            "zu_pq": "9/8"
+          }
+        ]
+      },
+      "verdict": "FALSIFIED",
+      "verdict_note": "Mains-excluded persistent peaks do not significantly exceed random/jittered harmonicity nulls (53-TET raw lower residual than 12-TET is grid-density only)"
+    },
+    "H20-B3": {
+      "band_spectral_rank_summary": {
+        "fan_40_160": {
+          "max_hermitian_asymmetry": 0.0,
+          "median_r_eff": 1.15085,
+          "median_rho1_dominant": 0.93023,
+          "n_snaps": 129
+        },
+        "harm_118_122": {
+          "max_hermitian_asymmetry": 0.0,
+          "median_r_eff": 1.09227,
+          "median_rho1_dominant": 0.95623,
+          "n_snaps": 129
+        },
+        "high_2000_8000": {
+          "max_hermitian_asymmetry": 0.0,
+          "median_r_eff": 2.4588,
+          "median_rho1_dominant": 0.53432,
+          "n_snaps": 129
+        },
+        "lowmid_160_500": {
+          "max_hermitian_asymmetry": 0.0,
+          "median_r_eff": 1.20935,
+          "median_rho1_dominant": 0.90606,
+          "n_snaps": 129
+        },
+        "mains_58_62": {
+          "max_hermitian_asymmetry": 0.0,
+          "median_r_eff": 1.10879,
+          "median_rho1_dominant": 0.94893,
+          "n_snaps": 129
+        },
+        "mid_500_2000": {
+          "max_hermitian_asymmetry": 0.0,
+          "median_r_eff": 1.63269,
+          "median_rho1_dominant": 0.76118,
+          "n_snaps": 129
+        },
+        "sub_20_55": {
+          "max_hermitian_asymmetry": 0.0,
+          "median_r_eff": 1.39241,
+          "median_rho1_dominant": 0.83281,
+          "n_snaps": 129
+        }
+      },
+      "directional_vs_diffuse_reff_gap": 1.28015,
+      "exact_q_session_mean_fan_hermitian_inertia": [
+        3,
+        0,
+        0
+      ],
+      "hardware_active_mic_channels": [
+        0,
+        2,
+        3
+      ],
+      "hardware_dead_mic_channel_disclosure": "ch1_front_right_digital_zero_structural_rank_cap_3",
+      "hypothesis": "H20-B3",
+      "n_transients_fitted": 4,
+      "p_holm": 0.00239904,
+      "p_raw": 0.00039984,
+      "p_raw_rank_separation": 0.00039984,
+      "p_raw_transient_damping_diff": 1.0,
+      "psd_violations": 0,
+      "stationary_acorr_damping_fit": {
+        "best_tau_viscous_ms": 37.66,
+        "best_tstop_dougong_ms": 81.21,
+        "heldout_rmse_dougong_coulomb": 0.068624,
+        "heldout_rmse_power_law": 0.075902,
+        "heldout_rmse_viscous_exp": 0.072637,
+        "valid": true,
+        "winner": "dougong_coulomb"
+      },
+      "total_hermitian_matrices_checked": 903,
+      "transient_mean_rmse_dougong": 0.09161,
+      "transient_mean_rmse_viscous": 0.097656,
+      "transient_winner_counts": {
+        "dougong_coulomb": 2,
+        "power_law": 1,
+        "viscous_exp": 1
+      },
+      "verdict": "PARTIAL",
+      "verdict_note": "PARTIAL: Hermitian CSD projected-inertia rank separation passes (0 PSD violations, p_Holm<0.01), while transient damping difference is underpowered (n=4, p=1.0)"
+    },
+    "H20-C1": {
+      "active_channels": [
+        "M1_vis_luma",
+        "M2_ir_mean",
+        "M3_mic_rms",
+        "M4_core_temp_c",
+        "M4_fan_rpm",
+        "M5_rf_dbm",
+        "M5_clock_skew_ms"
+      ],
+      "cech_h1_lag_holonomy_caveat": "uncalibrated_descriptive_lag_non_transitivity_statistic_not_null_tested",
+      "cech_h1_mean_abs_lag_holonomy_s": 18.9143,
+      "cech_h1_nonzero_holonomy_count": 35,
+      "cech_h1_sample_triples": [
+        {
+          "lag_holonomy_s": 18,
+          "transitivity_obstruction": 0.03388,
+          "triple": [
+            "M1_vis_luma",
+            "M2_ir_mean",
+            "M3_mic_rms"
+          ]
+        },
+        {
+          "lag_holonomy_s": 6,
+          "transitivity_obstruction": 0.0715,
+          "triple": [
+            "M1_vis_luma",
+            "M2_ir_mean",
+            "M4_core_temp_c"
+          ]
+        },
+        {
+          "lag_holonomy_s": 9,
+          "transitivity_obstruction": 0.15161,
+          "triple": [
+            "M1_vis_luma",
+            "M2_ir_mean",
+            "M4_fan_rpm"
+          ]
+        },
+        {
+          "lag_holonomy_s": -38,
+          "transitivity_obstruction": 0.03035,
+          "triple": [
+            "M1_vis_luma",
+            "M2_ir_mean",
+            "M5_rf_dbm"
+          ]
+        },
+        {
+          "lag_holonomy_s": -33,
+          "transitivity_obstruction": 0.06432,
+          "triple": [
+            "M1_vis_luma",
+            "M2_ir_mean",
+            "M5_clock_skew_ms"
+          ]
+        },
+        {
+          "lag_holonomy_s": -46,
+          "transitivity_obstruction": 0.08571,
+          "triple": [
+            "M1_vis_luma",
+            "M3_mic_rms",
+            "M4_core_temp_c"
+          ]
+        },
+        {
+          "lag_holonomy_s": -1,
+          "transitivity_obstruction": 0.12179,
+          "triple": [
+            "M1_vis_luma",
+            "M3_mic_rms",
+            "M4_fan_rpm"
+          ]
+        },
+        {
+          "lag_holonomy_s": -58,
+          "transitivity_obstruction": 0.03988,
+          "triple": [
+            "M1_vis_luma",
+            "M3_mic_rms",
+            "M5_rf_dbm"
+          ]
+        },
+        {
+          "lag_holonomy_s": -49,
+          "transitivity_obstruction": 0.05813,
+          "triple": [
+            "M1_vis_luma",
+            "M3_mic_rms",
+            "M5_clock_skew_ms"
+          ]
+        },
+        {
+          "lag_holonomy_s": 48,
+          "transitivity_obstruction": 0.18366,
+          "triple": [
+            "M1_vis_luma",
+            "M4_core_temp_c",
+            "M4_fan_rpm"
+          ]
+        }
+      ],
+      "cech_h1_triples_count": 35,
+      "exact_q_partial_correlations": {
+        "M1_vis_luma__x__M2_ir_mean": -0.03093,
+        "M1_vis_luma__x__M3_mic_rms": -0.18488,
+        "M1_vis_luma__x__M4_core_temp_c": -0.12741,
+        "M1_vis_luma__x__M4_fan_rpm": 0.24784,
+        "M1_vis_luma__x__M5_clock_skew_ms": -0.02252,
+        "M1_vis_luma__x__M5_rf_dbm": 0.04779,
+        "M2_ir_mean__x__M3_mic_rms": -0.02306,
+        "M2_ir_mean__x__M4_core_temp_c": -0.00435,
+        "M2_ir_mean__x__M4_fan_rpm": 0.01457,
+        "M2_ir_mean__x__M5_clock_skew_ms": -0.0174,
+        "M2_ir_mean__x__M5_rf_dbm": -0.01157,
+        "M3_mic_rms__x__M4_core_temp_c": -0.03947,
+        "M3_mic_rms__x__M4_fan_rpm": 0.84053,
+        "M3_mic_rms__x__M5_clock_skew_ms": -0.01271,
+        "M3_mic_rms__x__M5_rf_dbm": -0.04138,
+        "M4_core_temp_c__x__M4_fan_rpm": 0.22821,
+        "M4_core_temp_c__x__M5_clock_skew_ms": -0.02585,
+        "M4_core_temp_c__x__M5_rf_dbm": -0.04402,
+        "M4_fan_rpm__x__M5_clock_skew_ms": -0.08435,
+        "M4_fan_rpm__x__M5_rf_dbm": -0.08048,
+        "M5_rf_dbm__x__M5_clock_skew_ms": -0.0038
+      },
+      "hinge_unique_states": 1,
+      "hypothesis": "H20-C1",
+      "n_frames": 3897,
+      "n_pairs_surviving_both_nulls_holm_001": 5,
+      "n_pairs_tested": 21,
+      "p_holm": 0.00239904,
+      "p_raw": 0.00039984,
+      "pair_couplings": [
+        {
+          "opt_lag_s": -1,
+          "p_circ_holm": 1.0,
+          "p_circ_raw": 0.18912435,
+          "p_iaaft_holm": 1.0,
+          "p_iaaft_raw": 0.45181927,
+          "pair": "M1_vis_luma__x__M2_ir_mean",
+          "r_lag_opt_detrended": -0.02854,
+          "r_zero_lag_detrended": -0.02833,
+          "r_zero_lag_raw": -0.02858,
+          "survives_both_nulls_001": false
+        },
+        {
+          "opt_lag_s": -20,
+          "p_circ_holm": 1.0,
+          "p_circ_raw": 0.88084766,
+          "p_iaaft_holm": 1.0,
+          "p_iaaft_raw": 0.88644542,
+          "pair": "M1_vis_luma__x__M3_mic_rms",
+          "r_lag_opt_detrended": 0.03443,
+          "r_zero_lag_detrended": 0.02517,
+          "r_zero_lag_raw": 0.04137,
+          "survives_both_nulls_001": false
+        },
+        {
+          "opt_lag_s": 8,
+          "p_circ_holm": 1.0,
+          "p_circ_raw": 0.42063175,
+          "p_iaaft_holm": 1.0,
+          "p_iaaft_raw": 0.5009996,
+          "pair": "M1_vis_luma__x__M4_core_temp_c",
+          "r_lag_opt_detrended": -0.0724,
+          "r_zero_lag_detrended": -0.06338,
+          "r_zero_lag_raw": -0.05956,
+          "survives_both_nulls_001": false
+        },
+        {
+          "opt_lag_s": -20,
+          "p_circ_holm": 1.0,
+          "p_circ_raw": 0.24230308,
+          "p_iaaft_holm": 1.0,
+          "p_iaaft_raw": 0.29588165,
+          "pair": "M1_vis_luma__x__M4_fan_rpm",
+          "r_lag_opt_detrended": 0.15199,
+          "r_zero_lag_detrended": 0.13566,
+          "r_zero_lag_raw": 0.14862,
+          "survives_both_nulls_001": false
+        },
+        {
+          "opt_lag_s": 19,
+          "p_circ_holm": 1.0,
+          "p_circ_raw": 0.95121951,
+          "p_iaaft_holm": 1.0,
+          "p_iaaft_raw": 0.90643743,
+          "pair": "M1_vis_luma__x__M5_rf_dbm",
+          "r_lag_opt_detrended": 0.03099,
+          "r_zero_lag_detrended": 0.02715,
+          "r_zero_lag_raw": 0.06508,
+          "survives_both_nulls_001": false
+        },
+        {
+          "opt_lag_s": 18,
+          "p_circ_holm": 1.0,
+          "p_circ_raw": 0.10555778,
+          "p_iaaft_holm": 1.0,
+          "p_iaaft_raw": 0.08836465,
+          "pair": "M1_vis_luma__x__M5_clock_skew_ms",
+          "r_lag_opt_detrended": -0.06541,
+          "r_zero_lag_detrended": -0.0449,
+          "r_zero_lag_raw": -0.05151,
+          "survives_both_nulls_001": false
+        },
+        {
+          "opt_lag_s": -1,
+          "p_circ_holm": 1.0,
+          "p_circ_raw": 0.95801679,
+          "p_iaaft_holm": 1.0,
+          "p_iaaft_raw": 0.93362655,
+          "pair": "M2_ir_mean__x__M3_mic_rms",
+          "r_lag_opt_detrended": -0.01924,
+          "r_zero_lag_detrended": -0.0163,
+          "r_zero_lag_raw": -0.01704,
+          "survives_both_nulls_001": false
+        },
+        {
+          "opt_lag_s": 15,
+          "p_circ_holm": 0.33266693,
+          "p_circ_raw": 0.02079168,
+          "p_iaaft_holm": 1.0,
+          "p_iaaft_raw": 0.09556178,
+          "pair": "M2_ir_mean__x__M4_core_temp_c",
+          "r_lag_opt_detrended": 0.03155,
+          "r_zero_lag_detrended": -0.00258,
+          "r_zero_lag_raw": -0.00287,
+          "survives_both_nulls_001": false
+        },
+        {
+          "opt_lag_s": -10,
+          "p_circ_holm": 1.0,
+          "p_circ_raw": 0.94402239,
+          "p_iaaft_holm": 1.0,
+          "p_iaaft_raw": 0.97560976,
+          "pair": "M2_ir_mean__x__M4_fan_rpm",
+          "r_lag_opt_detrended": -0.01333,
+          "r_zero_lag_detrended": -0.00899,
+          "r_zero_lag_raw": -0.01021,
+          "survives_both_nulls_001": false
+        },
+        {
+          "opt_lag_s": -18,
+          "p_circ_holm": 1.0,
+          "p_circ_raw": 0.44302279,
+          "p_iaaft_holm": 1.0,
+          "p_iaaft_raw": 0.51019592,
+          "pair": "M2_ir_mean__x__M5_rf_dbm",
+          "r_lag_opt_detrended": -0.02243,
+          "r_zero_lag_detrended": -0.0096,
+          "r_zero_lag_raw": -0.0098,
+          "survives_both_nulls_001": false
+        },
+        {
+          "opt_lag_s": -14,
+          "p_circ_holm": 1.0,
+          "p_circ_raw": 0.36985206,
+          "p_iaaft_holm": 1.0,
+          "p_iaaft_raw": 0.43262695,
+          "pair": "M2_ir_mean__x__M5_clock_skew_ms",
+          "r_lag_opt_detrended": 0.03829,
+          "r_zero_lag_detrended": -0.01432,
+          "r_zero_lag_raw": -0.01366,
+          "survives_both_nulls_001": false
+        },
+        {
+          "opt_lag_s": -18,
+          "p_circ_holm": 0.00839664,
+          "p_circ_raw": 0.00039984,
+          "p_iaaft_holm": 0.00839664,
+          "p_iaaft_raw": 0.00039984,
+          "pair": "M3_mic_rms__x__M4_core_temp_c",
+          "r_lag_opt_detrended": 0.38643,
+          "r_zero_lag_detrended": 0.31865,
+          "r_zero_lag_raw": 0.32173,
+          "survives_both_nulls_001": true
+        },
+        {
+          "opt_lag_s": -1,
+          "p_circ_holm": 0.00839664,
+          "p_circ_raw": 0.00039984,
+          "p_iaaft_holm": 0.00839664,
+          "p_iaaft_raw": 0.00039984,
+          "pair": "M3_mic_rms__x__M4_fan_rpm",
+          "r_lag_opt_detrended": 0.87715,
+          "r_zero_lag_detrended": 0.86369,
+          "r_zero_lag_raw": 0.87309,
+          "survives_both_nulls_001": true
+        },
+        {
+          "opt_lag_s": -19,
+          "p_circ_holm": 1.0,
+          "p_circ_raw": 0.13794482,
+          "p_iaaft_holm": 1.0,
+          "p_iaaft_raw": 0.09956018,
+          "pair": "M3_mic_rms__x__M5_rf_dbm",
+          "r_lag_opt_detrended": -0.25823,
+          "r_zero_lag_detrended": -0.23471,
+          "r_zero_lag_raw": 0.08301,
+          "survives_both_nulls_001": false
+        },
+        {
+          "opt_lag_s": -11,
+          "p_circ_holm": 0.00839664,
+          "p_circ_raw": 0.00039984,
+          "p_iaaft_holm": 0.00839664,
+          "p_iaaft_raw": 0.00039984,
+          "pair": "M3_mic_rms__x__M5_clock_skew_ms",
+          "r_lag_opt_detrended": -0.21162,
+          "r_zero_lag_detrended": -0.18307,
+          "r_zero_lag_raw": -0.20655,
+          "survives_both_nulls_001": true
+        },
+        {
+          "opt_lag_s": 20,
+          "p_circ_holm": 0.00839664,
+          "p_circ_raw": 0.00039984,
+          "p_iaaft_holm": 0.00839664,
+          "p_iaaft_raw": 0.00039984,
+          "pair": "M4_core_temp_c__x__M4_fan_rpm",
+          "r_lag_opt_detrended": 0.43745,
+          "r_zero_lag_detrended": 0.37669,
+          "r_zero_lag_raw": 0.36943,
+          "survives_both_nulls_001": true
+        },
+        {
+          "opt_lag_s": -7,
+          "p_circ_holm": 1.0,
+          "p_circ_raw": 0.1167533,
+          "p_iaaft_holm": 1.0,
+          "p_iaaft_raw": 0.19832067,
+          "pair": "M4_core_temp_c__x__M5_rf_dbm",
+          "r_lag_opt_detrended": -0.14871,
+          "r_zero_lag_detrended": -0.13637,
+          "r_zero_lag_raw": -0.03762,
+          "survives_both_nulls_001": false
+        },
+        {
+          "opt_lag_s": 1,
+          "p_circ_holm": 0.33266693,
+          "p_circ_raw": 0.02119152,
+          "p_iaaft_holm": 0.28148741,
+          "p_iaaft_raw": 0.01759296,
+          "pair": "M4_core_temp_c__x__M5_clock_skew_ms",
+          "r_lag_opt_detrended": -0.10329,
+          "r_zero_lag_detrended": -0.09888,
+          "r_zero_lag_raw": -0.10474,
+          "survives_both_nulls_001": false
+        },
+        {
+          "opt_lag_s": -20,
+          "p_circ_holm": 1.0,
+          "p_circ_raw": 0.12914834,
+          "p_iaaft_holm": 1.0,
+          "p_iaaft_raw": 0.09156337,
+          "pair": "M4_fan_rpm__x__M5_rf_dbm",
+          "r_lag_opt_detrended": -0.2731,
+          "r_zero_lag_detrended": -0.2435,
+          "r_zero_lag_raw": 0.16668,
+          "survives_both_nulls_001": false
+        },
+        {
+          "opt_lag_s": -11,
+          "p_circ_holm": 0.00839664,
+          "p_circ_raw": 0.00039984,
+          "p_iaaft_holm": 0.00839664,
+          "p_iaaft_raw": 0.00039984,
+          "pair": "M4_fan_rpm__x__M5_clock_skew_ms",
+          "r_lag_opt_detrended": -0.23183,
+          "r_zero_lag_detrended": -0.20766,
+          "r_zero_lag_raw": -0.23429,
+          "survives_both_nulls_001": true
+        },
+        {
+          "opt_lag_s": 10,
+          "p_circ_holm": 1.0,
+          "p_circ_raw": 0.22510996,
+          "p_iaaft_holm": 1.0,
+          "p_iaaft_raw": 0.267493,
+          "pair": "M5_rf_dbm__x__M5_clock_skew_ms",
+          "r_lag_opt_detrended": 0.06492,
+          "r_zero_lag_detrended": 0.04757,
+          "r_zero_lag_raw": -0.06066,
+          "survives_both_nulls_001": false
+        }
+      ],
+      "verdict": "CONFIRMED",
+      "verdict_note": "Observational cross-modal coupling survives circular+IAAFT nulls with conditional Markov screening and nonzero descriptive lag holonomy",
+      "zero_variance_channels": []
+    },
+    "H20-C2": {
+      "energy_power_status": "UNCONTROLLED_LAPTOP_NOT_CLAIMED",
+      "hypothesis": "H20-C2",
+      "khipu_tree_checksum": {
+        "n_leaves": 3898,
+        "n_minute_cords": 65,
+        "root_merkle_sha256": "65836de8cb37488b38b19c4e07e80b166aeff90223c919011de7ee4e68c26541",
+        "root_value": 836981581,
+        "tamper_detected": 200,
+        "tamper_escapes": 0,
+        "tamper_trials": 200
+      },
+      "n_frames": 3898,
+      "p_holm": null,
+      "p_raw": null,
+      "p_value_scope": "deterministic_replay_gate_outside_stochastic_holm_family",
+      "panini_c1p_live_replay": {
+        "cross_modal_regimes_on_thermal_spine": {
+          "c1p_admissible": false,
+          "c1p_descriptor_bits": 24,
+          "compression_ratio_float": null,
+          "compression_ratio_q": null,
+          "intervals": {},
+          "naive_bitset_bits": 128,
+          "obstructed_count": 2,
+          "obstructed_tags": {
+            "acoustic_above_med": 28,
+            "optical_above_med": 26
+          },
+          "spine_len": 64,
+          "tag_count": 2
+        },
+        "monotone_thermal_regimes": {
+          "c1p_admissible": true,
+          "c1p_descriptor_bits": 48,
+          "compression_ratio_float": 5.3333,
+          "compression_ratio_q": "16/3",
+          "intervals": {
+            "temp_active_core": [
+              1,
+              62
+            ],
+            "temp_cool_half": [
+              0,
+              31
+            ],
+            "temp_hot_top_q": [
+              48,
+              63
+            ],
+            "temp_warm_mid": [
+              16,
+              47
+            ]
+          },
+          "naive_bitset_bits": 256,
+          "obstructed_count": 0,
+          "obstructed_tags": {},
+          "spine_len": 64,
+          "tag_count": 4
+        }
+      },
+      "thermal_governor_live_replay": {
+        "default_70_78_85_ladder": {
+          "bangbang_switches": 261,
+          "filtered_peak_c": 97.4912,
+          "hysteresis_max_gear": 3,
+          "hysteresis_min_gear": 0,
+          "hysteresis_switches": 58,
+          "n_ticks": 3898,
+          "reduction_ratio": 4.5
+        },
+        "live_temp_c_max": 100.0,
+        "live_temp_c_median": 93.0,
+        "live_temp_c_min": 55.0,
+        "operating_band_2c_deadband": {
+          "bangbang_switches": 1458,
+          "filtered_peak_c": 97.4912,
+          "hysteresis_max_gear": 3,
+          "hysteresis_min_gear": 0,
+          "hysteresis_switches": 259,
+          "n_ticks": 3898,
+          "reduction_ratio": 5.6293
+        },
+        "operating_band_5c_deadband": {
+          "bangbang_switches": 1458,
+          "filtered_peak_c": 97.4912,
+          "hysteresis_max_gear": 3,
+          "hysteresis_min_gear": 0,
+          "hysteresis_switches": 116,
+          "n_ticks": 3898,
+          "reduction_ratio": 12.569
+        },
+        "operating_band_knees_c": [
+          91,
+          93,
+          95
+        ]
+      },
+      "verdict": "PARTIAL",
+      "verdict_note": "PARTIAL: Khipu 0 escapes and Panini C1P lossless 16/3x pass, while default 70/78/85 C ladder achieves 4.50x < 5.0x gate (exploratory 91/93/95 C operating-band sensitivity profiles reach 5.63x and 12.57x)"
+    }
+  },
+  "n_nulls": 2500,
+  "payload_sha256": "fb9378d4e97247087b5cdfcb3a4ba22081d76116f4bafd38804d222cd49da521",
+  "privacy_and_shutoff_receipt": {
+    "duration_s": 3903.614,
+    "hard_stop_epoch_s": 1795693500,
+    "n_acoustic_30s": 129,
+    "n_flicker_60s": 65,
+    "n_frames_1hz": 3898,
+    "n_transients": 4,
+    "passive_zero_output_enforced": true,
+    "raw_media_files_count": 0,
+    "start_epoch_s": 1795689601.495,
+    "stop_epoch_s": 1795693505.109,
+    "stop_reason": "hard_stop_epoch",
+    "stopped_before_hard_stop": false,
+    "video_handles_after_close": 0,
+    "zero_power_energy_reads": true,
+    "zero_ssid_mac_reads": true
+  },
+  "results_sha256": "2e56087c3fdf061ea05b61bdacd9cd242aebdddf28e20f616f07b79b0360fdf3",
+  "schema": "aletheia.multimodal_historical_interposition.v1",
+  "seed": 20261126,
+  "summary": {
+    "holm_bonferroni_pvals": {
+      "H20-A1": 0.00239904,
+      "H20-A2": 0.00239904,
+      "H20-B1": 0.00239904,
+      "H20-B2": 0.75929628,
+      "H20-B3": 0.00239904,
+      "H20-C1": 0.00239904
+    },
+    "verdict_notes": {
+      "H20-A1": "Spatial specificity (p_Holm=0.00239904) & AUROC=1.0 pass, but natural-drift stability ratio=1.8751x < 2.0x (synthetic 1.5x exposure gain invariance verified separately)",
+      "H20-A2": "Boundary Schur prediction beats temporal circular-shift null (global room illumination/sensor drift couples interior & boundary), but does not beat spatially-shuffled partition null (spatially uniform drift rather than boundary-localized)",
+      "H20-B1": "Acoustic stream significantly locked to live fan tachometer",
+      "H20-B2": "Mains-excluded persistent peaks do not significantly exceed random/jittered harmonicity nulls (53-TET raw lower residual than 12-TET is grid-density only)",
+      "H20-B3": "PARTIAL: Hermitian CSD projected-inertia rank separation passes (0 PSD violations, p_Holm<0.01), while transient damping difference is underpowered (n=4, p=1.0)",
+      "H20-C1": "Observational cross-modal coupling survives circular+IAAFT nulls with conditional Markov screening and nonzero descriptive lag holonomy",
+      "H20-C2": "PARTIAL: Khipu 0 escapes and Panini C1P lossless 16/3x pass, while default 70/78/85 C ladder achieves 4.50x < 5.0x gate (exploratory 91/93/95 C operating-band sensitivity profiles reach 5.63x and 12.57x)"
+    },
+    "verdicts": {
+      "H20-A1": "PARTIAL",
+      "H20-A2": "PARTIAL",
+      "H20-B1": "CONFIRMED",
+      "H20-B2": "FALSIFIED",
+      "H20-B3": "PARTIAL",
+      "H20-C1": "CONFIRMED",
+      "H20-C2": "PARTIAL"
+    }
+  }
+}
