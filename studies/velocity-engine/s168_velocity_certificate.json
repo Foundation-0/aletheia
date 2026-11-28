@@ -1,0 +1,127 @@
+{
+  "empirical_velocity_ab": {
+    "ab_target_script": "aletheia/portfolio_dag.py",
+    "ab_trials": 3,
+    "baseline_w1_ms": 27694,
+    "baseline_w8_ms": 8380,
+    "bench_script_sha256": "e5c01ebae2d831fd4643d917928780fcd81144afd5422616f430cf6a67b73622",
+    "fast_w1_ms": 11894,
+    "fast_w8_ms": 4823,
+    "mixed_parity_exact_100pct": true,
+    "mixed_pass2_new_sites": 4,
+    "mutant_eval_reduction_q": "2",
+    "parity_exact_100pct": true,
+    "pass1_killed": "61/61",
+    "pass2_dedup_skipped": "61/61",
+    "preflight_s161_ms": 279,
+    "preflight_s166_ms": 295,
+    "preflight_s166_real_findings": 2,
+    "preflight_synthetic_caught": "5/5",
+    "results_postdates_bench": true,
+    "results_sha256": "cd2ba5691f53d350854464335fe3b1ac396f230f4bfcf789a865052b63be64db",
+    "speedup_w1_vs_w1_milli": 2328,
+    "speedup_w1_vs_w1_q": "13847/5947",
+    "speedup_w8_vs_base_w1_milli": 5742,
+    "speedup_w8_vs_base_w1_q": "27694/4823",
+    "speedup_w8_vs_w8_milli": 1737,
+    "speedup_w8_vs_w8_q": "8380/4823",
+    "total_eval_reduction_q": "126/65"
+  },
+  "lean_bundle": {
+    "axioms_verified_count": 0,
+    "file_sha256": {
+      "VelocityBounds.lean": "7f59807150db917473dce3272caff1d25b029e75db5b663a7efa2fcda3c5d2e1",
+      "lake-manifest.json": "9eddcd49ac0dad2e15ab3f20e1b6f81189471c5e6999e8ef6075298abd14c6e9",
+      "lakefile.toml": "109cae510505ae5660b0bc6885c3f4ed6e128b662b2ad7bade201ba2a4e301d4",
+      "lean-toolchain": "582a63f8f9c5128067b688778c1051cf1464c3ca9d57b9325025c051c29b774a"
+    },
+    "lean_live_mode": "STATIC_ONLY",
+    "lean_module": "VelocityBounds",
+    "lean_static_status": "STATIC_PASS",
+    "lean_toolchain": "leanprover/lean4:v4.36.0",
+    "live_lean_checked": false,
+    "propext_only_theorems": null,
+    "propext_quot_theorems": null,
+    "public_theorems": 14,
+    "zero_axiom_theorems": null
+  },
+  "math_velocity_bounds": {
+    "dedup_cases_verified": 3,
+    "failfast_exhaustive_vectors": 255,
+    "failfast_strict_savings_vectors": 240,
+    "illustrative_model_params": {
+      "audit_round_a_sec": 900,
+      "b_drop_loc": 20,
+      "b_dup_loc": 420,
+      "c_core_loc": 540,
+      "preflight_p_sec": 2
+    },
+    "measured_trust_core_breakeven_n": 4,
+    "measured_trust_core_n6_loc_saved": 964,
+    "measured_trust_core_nonempty_loc": 1436,
+    "preflight_audit_sec_saved": 1798,
+    "trust_core_breakeven_n": 2,
+    "trust_core_n6_loc_saved": 1860,
+    "two_stage_grid": [
+      {
+        "case_id": "wave22_killgate_win",
+        "p_surv_q": "1/3",
+        "speedup_q": "18/7",
+        "strict_win": true,
+        "t_2stage_q": "70",
+        "t_mono_q": "180",
+        "threshold_q": "17/18"
+      },
+      {
+        "case_id": "exact_boundary_tie",
+        "p_surv_q": "5/6",
+        "speedup_q": "1",
+        "strict_win": false,
+        "t_2stage_q": "180",
+        "t_mono_q": "180",
+        "threshold_q": "5/6"
+      },
+      {
+        "case_id": "above_threshold_loss",
+        "p_surv_q": "7/8",
+        "speedup_q": "24/25",
+        "strict_win": false,
+        "t_2stage_q": "375/2",
+        "t_mono_q": "180",
+        "threshold_q": "5/6"
+      },
+      {
+        "case_id": "unit_survival_overhead",
+        "p_surv_q": "1",
+        "speedup_q": "18/19",
+        "strict_win": false,
+        "t_2stage_q": "190",
+        "t_mono_q": "180",
+        "threshold_q": "17/18"
+      },
+      {
+        "case_id": "dual_accel_stage2",
+        "p_surv_q": "1/2",
+        "speedup_q": "9/2",
+        "strict_win": true,
+        "t_2stage_q": "40",
+        "t_mono_q": "180",
+        "threshold_q": "17/6"
+      }
+    ]
+  },
+  "novelty_classification": "N1",
+  "oracle_class": "exact",
+  "payload_sha256": "658b496b66d5927810c098215f63ab833f2cd664f7175df2f9512a8bf2d287ba",
+  "queue_id": "EXP-Q56a",
+  "schema": "s168.q56a.aletheia_velocity_certificate.v2",
+  "source_sha256": {
+    "fast_mutate.py": "7041e51a428ef9c817511b18f19164d235fcd4044fca1fda598a625ab1761dae",
+    "preflight.py": "51993142ff8c294ca96b7231e9b427ef1c0076dfa58fa0fa31ae11be6013db5a",
+    "s168_velocity_bench.py": "e5c01ebae2d831fd4643d917928780fcd81144afd5422616f430cf6a67b73622",
+    "test_s168_velocity_r5.py": "bdfd2a36932a3c5ccc8f5462f095cb8c7f9c9edd854f28ea2750c7a5d13864d3",
+    "trust_core.py": "0aa076c0129a60ab36c193f099982853bddc6e641f97e0b7f6dcb1b0c9057045",
+    "verify_s168_velocity.py": "55f6e5a725a7276574be8d92aa0c0976632a5e004ea7886e7c084a40317d4449"
+  },
+  "track": "S168"
+}

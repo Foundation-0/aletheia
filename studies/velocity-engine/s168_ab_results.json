@@ -1,0 +1,213 @@
+{
+  "bench_script_sha256": "e5c01ebae2d831fd4643d917928780fcd81144afd5422616f430cf6a67b73622",
+  "cpu_only": true,
+  "engine_source_sha256": {
+    "fast_mutate.py": "7041e51a428ef9c817511b18f19164d235fcd4044fca1fda598a625ab1761dae",
+    "preflight.py": "51993142ff8c294ca96b7231e9b427ef1c0076dfa58fa0fa31ae11be6013db5a",
+    "trust_core.py": "0aa076c0129a60ab36c193f099982853bddc6e641f97e0b7f6dcb1b0c9057045"
+  },
+  "host_cpu_count": 16,
+  "mixed_parity_check": {
+    "fast_arm_entrypoint": "python_api_allow_survivors",
+    "parity_exact_100pct": true,
+    "pass1_killed": 3,
+    "pass1_mutant_set_sha256": "834d4c1158a055dc76da333b22e970582b84e643e29152e51c67b2c15404f4d7",
+    "pass1_survived": 2,
+    "pass1_total": 5,
+    "pass2_dedup_skipped": 3,
+    "pass2_killed": 4,
+    "pass2_mutant_set_sha256": "ccd2b0dbcfbad8a4cfb95108507267e730dae13492c257cf8de7e29b78a131fd",
+    "pass2_new_sites": 4,
+    "pass2_survived": 5,
+    "pass2_total": 9
+  },
+  "mutate_ab_benchmark": {
+    "baseline_aletheia_w1": {
+      "control_subprocess_evals": 4,
+      "elapsed_ms": 27694,
+      "mutant_subprocess_evals": 122,
+      "pass1_killed": 61,
+      "pass1_total": 61,
+      "pass2_killed": 61,
+      "pass2_total": 61,
+      "total_subprocess_evals": 126,
+      "trial_elapsed_ms": [
+        24730,
+        27885,
+        27694
+      ],
+      "workers": 1
+    },
+    "baseline_aletheia_w8": {
+      "control_subprocess_evals": 4,
+      "elapsed_ms": 8380,
+      "mutant_subprocess_evals": 122,
+      "pass1_killed": 61,
+      "pass1_total": 61,
+      "pass2_killed": 61,
+      "pass2_total": 61,
+      "total_subprocess_evals": 126,
+      "trial_elapsed_ms": [
+        7258,
+        8380,
+        9241
+      ],
+      "workers": 8
+    },
+    "cli_entrypoint_both_arms": true,
+    "fast_mutate_w1": {
+      "bit_identical_mutant_set": true,
+      "control_subprocess_evals": 4,
+      "elapsed_ms": 11894,
+      "failfast_injected": true,
+      "mutant_subprocess_evals": 61,
+      "pass1_killed": 61,
+      "pass1_total": 61,
+      "pass2_dedup_skipped": 61,
+      "pass2_killed": 61,
+      "pass2_total": 61,
+      "speedup_milli": 2328,
+      "speedup_q": "13847/5947",
+      "total_subprocess_evals": 65,
+      "trial_elapsed_ms": [
+        11894,
+        11236,
+        14238
+      ],
+      "workers": 1
+    },
+    "fast_mutate_w8": {
+      "bit_identical_mutant_set": true,
+      "control_subprocess_evals": 4,
+      "elapsed_ms": 4823,
+      "failfast_injected": true,
+      "mutant_subprocess_evals": 61,
+      "pass1_killed": 61,
+      "pass1_total": 61,
+      "pass2_dedup_skipped": 61,
+      "pass2_killed": 61,
+      "pass2_total": 61,
+      "speedup_milli": 5742,
+      "speedup_q": "27694/4823",
+      "speedup_vs_base_w8_milli": 1737,
+      "speedup_vs_base_w8_q": "8380/4823",
+      "total_subprocess_evals": 65,
+      "trial_elapsed_ms": [
+        4205,
+        4823,
+        6131
+      ],
+      "workers": 8
+    },
+    "mutant_eval_reduction_q": "2",
+    "mutated_in_isolated_writable_slots": true,
+    "parity_exact_100pct": true,
+    "pass1_mutant_set_sha256": "57931e90156731738508f16ba9154d59bccbc608de95f78169c7928243cac8b9",
+    "pass2_guard": "_require",
+    "pass2_mutant_set_sha256": "57931e90156731738508f16ba9154d59bccbc608de95f78169c7928243cac8b9",
+    "rng_seed": 168,
+    "source_track_untouched": true,
+    "staged_from_chmod_aw_ro_copy": true,
+    "target_script": "aletheia/portfolio_dag.py",
+    "target_script_sha256": "f34cbea939a372c9b214e4bd49eac4641b9ce733471650b636d64e729724b288",
+    "target_track": "track-s166-aletheia-cs27-cs29-hardening",
+    "test_cmd": "python3 -m unittest tests/test_cs27_cs29_hardening_r5.py",
+    "total_eval_reduction_q": "126/65",
+    "trial_arm_orders": [
+      [
+        "fast_w8",
+        "fast_w1",
+        "baseline_w8",
+        "baseline_w1"
+      ],
+      [
+        "fast_w1",
+        "baseline_w8",
+        "baseline_w1",
+        "fast_w8"
+      ],
+      [
+        "baseline_w8",
+        "fast_w8",
+        "baseline_w1",
+        "fast_w1"
+      ]
+    ],
+    "trials": 3
+  },
+  "preflight_live": {
+    "all_under_2000ms": true,
+    "s161_snapshot": {
+      "elapsed_ms": 279,
+      "files_scanned": 10,
+      "finding_count": 0,
+      "lean_theorems_indexed": 124,
+      "lean_unique_theorems": 62,
+      "passed": true,
+      "under_2000ms": true
+    },
+    "s166_snapshot": {
+      "elapsed_ms": 295,
+      "files_scanned": 18,
+      "finding_codes": [
+        "MISSING_ALLOW_ABBREV_FALSE"
+      ],
+      "finding_count": 2,
+      "lean_theorems_indexed": 24,
+      "lean_unique_theorems": 12,
+      "under_2000ms": true
+    },
+    "synthetic_caught_count": 5,
+    "synthetic_fixtures": [
+      {
+        "caught": true,
+        "codes_detected": [
+          "SCI_NOTATION_MISMATCH"
+        ],
+        "elapsed_ms": 0,
+        "expected_code": "SCI_NOTATION_MISMATCH",
+        "fixture": "S161_HIGH1_SCI_EXP"
+      },
+      {
+        "caught": true,
+        "codes_detected": [
+          "GHOST_LEAN_THEOREM"
+        ],
+        "elapsed_ms": 0,
+        "expected_code": "GHOST_LEAN_THEOREM",
+        "fixture": "S161_MED3_GHOST_THEOREM"
+      },
+      {
+        "caught": true,
+        "codes_detected": [
+          "CERT_VERDICT_CONTRADICTION",
+          "DROPPED_GATE_VARIABLE"
+        ],
+        "elapsed_ms": 0,
+        "expected_code": "CERT_VERDICT_CONTRADICTION",
+        "fixture": "S165_HIGH1_VERDICT_DRIFT"
+      },
+      {
+        "caught": true,
+        "codes_detected": [
+          "MISSING_VERIFIER_FOR_RESULTS",
+          "STALE_RESULTS_JSON"
+        ],
+        "elapsed_ms": 0,
+        "expected_code": "STALE_RESULTS_JSON",
+        "fixture": "S167_MED1_STALE_RESULTS"
+      },
+      {
+        "caught": true,
+        "codes_detected": [
+          "UNHASHED_RESULTS_JSON"
+        ],
+        "elapsed_ms": 0,
+        "expected_code": "UNHASHED_RESULTS_JSON",
+        "fixture": "S167_MED2_UNHASHED_RESULTS"
+      }
+    ],
+    "synthetic_total_count": 5
+  },
+  "schema": "s168.q56a.velocity_ab_results.v2"
+}
