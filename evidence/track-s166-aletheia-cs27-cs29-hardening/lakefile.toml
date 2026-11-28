@@ -1,0 +1,6 @@
+name = "thin_coord_interpose"
+version = "0.1.0"
+defaultTargets = ["ThinCoordInterpose"]
+
+[[lean_lib]]
+name = "ThinCoordInterpose"
